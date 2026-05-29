@@ -1,0 +1,64 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+*.egg
+
+# ---- Virtual environments ----
+venv/
+.venv/
+env/
+ENV/
+.python-version
+
+# ---- Environment / secrets ----
+.env
+.env.*
+!.env.example
+
+# ---- Jupyter ----
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/
+profile_default/
+ipython_config.py
+
+# ---- Data files (large / generated) ----
+data/raw/*
+data/needles/*
+!data/raw/.gitkeep
+!data/needles/.gitkeep
+*.csv
+*.tsv
+*.parquet
+*.feather
+*.json
+*.jsonl
+*.txt
+*.pdf
+# keep example/config text files if needed (uncomment & adjust)
+# !configs/*.json
+
+# ---- Results / artifacts ----
+results/
+outputs/
+*.log
+*.png
+*.jpg
+*.svg
+!docs/**/*.png
+
+# ---- Streamlit ----
+.streamlit/secrets.toml
+
+# ---- OS / editor ----
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
