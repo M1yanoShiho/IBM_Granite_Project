@@ -1,0 +1,21 @@
+# Core LLM / orchestration
+langchain
+langchain-ibm
+langchain-huggingface
+
+# UI / demo
+streamlit
+
+# Data handling & visualization
+pandas
+matplotlib
+seaborn
+
+# Config / environment
+python-dotenv
+
+# Notebooks
+jupyter
+
+# Evaluation
+ragas

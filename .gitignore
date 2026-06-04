@@ -40,6 +40,7 @@ data/needles/*
 *.json
 *.jsonl
 *.txt
+!requirements.txt
 *.pdf
 # keep example/config text files if needed (uncomment & adjust)
 # !configs/*.json
