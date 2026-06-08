@@ -1,21 +1,34 @@
-# Core LLM / orchestration
-langchain
-langchain-ibm
-langchain-huggingface
+# Versions are pinned for reproducibility (a core goal of this project).
+# Pins reflect the versions validated in the development environment.
 
-# UI / demo
-streamlit
+# ---- Core LLM / orchestration ----
+langchain==1.3.2
+langchain-ibm==1.0.11
+langchain-huggingface==1.2.2
 
-# Data handling & visualization
-pandas
-matplotlib
-seaborn
+# ---- RAG baseline: vector store + embeddings ----
+faiss-cpu==1.14.2
+sentence-transformers==5.5.1
 
-# Config / environment
-python-dotenv
+# ---- Tokenization (for trimming/padding haystacks to a target token count) ----
+tiktoken==0.13.0
 
-# Notebooks
-jupyter
+# ---- UI / demo ----
+streamlit==1.54.0
 
-# Evaluation
-ragas
+# ---- Data handling & visualization ----
+pandas==2.3.3
+matplotlib==3.10.9
+seaborn==0.13.2
+
+# ---- Config / environment ----
+python-dotenv==1.2.2
+
+# ---- Notebooks ----
+jupyter==1.1.1
+
+# ---- Evaluation ----
+ragas==0.4.3
+
+# ---- Testing ----
+pytest==9.0.3

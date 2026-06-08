@@ -44,7 +44,7 @@ from langchain_huggingface import ChatHuggingFace, HuggingFaceEndpoint
 # provider (featherless-ai or watsonx.ai) is available.
 MODEL_ID = "katanemo/Arch-Router-1.5B"
 HF_PROVIDER = "hf-inference"
-PROMPT = "What is the capital of France?"
+PROMPT = "What is the capital of UK?"
 
 
 def main() -> int:
