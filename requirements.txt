@@ -29,10 +29,13 @@ jupyter==1.1.1
 
 # ---- Primary evaluation: standard IR benchmarks + metrics ----
 datasets==4.8.5          # load Natural Questions / MS MARCO via HuggingFace
-# The following are not yet installed; pin exact versions after first install:
-rank-bm25                # classical BM25 baseline (pure Python)
-ranx                     # IR metrics: precision@k, recall@k, nDCG, MRR
-# beir                   # BEIR benchmark suite (optional; extra setup may be needed on Windows)
+rank-bm25==0.2.2         # classical BM25 baseline (pure Python)
+ranx==0.3.21             # IR metrics: precision@k, recall@k, nDCG, MRR
+ir-datasets==0.5.11      # lightweight BEIR/IR dataset loader (used by eval.benchmarks)
+# pytrec_eval            # OPTIONAL gold-standard TREC metrics; ranx already covers these,
+#                        # and its wheel needs an MSVC C compiler to build on Windows (skipped).
+# beir                   # OPTIONAL BEIR suite; heavy (drags in torch/sentence-transformers).
+#                        # Prefer ir-datasets / HuggingFace `datasets` for loading BEIR data.
 
 # ---- Secondary evaluation: RAG answer quality / long-context stress test ----
 ragas==0.4.3

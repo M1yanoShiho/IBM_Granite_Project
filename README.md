@@ -87,9 +87,28 @@ venv\Scripts\activate
 
 ### 3. Install dependencies
 
+We keep dependencies in two files:
+
+- **`requirements.txt`** — the human-maintained *direct* dependencies (what we
+  chose, with comments on why). Use this for day-to-day development.
+- **`requirements.lock`** — a full `pip freeze` snapshot of *every* package,
+  including transitive deps (torch, transformers, …) at exact versions. Use this
+  to reproduce the validated environment bit-for-bit.
+
 ```bash
+# Reproduce the exact, validated environment (recommended):
+pip install -r requirements.lock
+
+# Or install just the direct dependencies (for development):
 pip install -r requirements.txt
 ```
+
+After adding or upgrading a dependency, update both: edit `requirements.txt`,
+then refresh the snapshot with `pip freeze > requirements.lock`.
+
+> **Note:** the lockfile pins the **CPU** build of PyTorch (`torch==…+cpu`).
+> On a GPU machine (e.g. the HPC cluster) install a matching CUDA build of
+> `torch` separately instead.
 
 ### 4. Configure credentials
 
