@@ -11,7 +11,8 @@ from __future__ import annotations
 
 import pytest
 
-from src.data_processing import Needle, inject_needle, split_into_chunks
+from src.data_processing import Needle, inject_needle
+from src.ingestion.chunker import chunk_document
 
 
 @pytest.mark.xfail(reason="inject_needle not implemented yet", strict=True)
@@ -21,8 +22,8 @@ def test_inject_needle_places_text_in_haystack() -> None:
     assert "NEEDLE" in result
 
 
-@pytest.mark.xfail(reason="split_into_chunks not implemented yet", strict=True)
-def test_split_into_chunks_returns_non_empty_list() -> None:
-    chunks = split_into_chunks("word " * 1000, chunk_size=512, chunk_overlap=50)
+@pytest.mark.xfail(reason="chunk_document not implemented yet", strict=True)
+def test_chunk_document_returns_non_empty_list() -> None:
+    chunks = chunk_document("doc1", "word " * 1000, chunk_size=512, chunk_overlap=50)
     assert isinstance(chunks, list)
     assert len(chunks) > 1

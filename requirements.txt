@@ -27,7 +27,14 @@ python-dotenv==1.2.2
 # ---- Notebooks ----
 jupyter==1.1.1
 
-# ---- Evaluation ----
+# ---- Primary evaluation: standard IR benchmarks + metrics ----
+datasets==4.8.5          # load Natural Questions / MS MARCO via HuggingFace
+# The following are not yet installed; pin exact versions after first install:
+rank-bm25                # classical BM25 baseline (pure Python)
+ranx                     # IR metrics: precision@k, recall@k, nDCG, MRR
+# beir                   # BEIR benchmark suite (optional; extra setup may be needed on Windows)
+
+# ---- Secondary evaluation: RAG answer quality / long-context stress test ----
 ragas==0.4.3
 
 # ---- Testing ----

@@ -1,0 +1,150 @@
+% ── Related Work ──────────────────────────────────────────────────────────────
+\section{Related Work}
+
+\subsection{Dense Retrieval and RAG}
+
+Classical retrieval relies on lexical overlap, epitomised by Okapi BM25
+\parencite{robertson2009bm25}, which remains a strong and ubiquitous baseline.
+Dense retrieval instead embeds queries and passages into a shared vector space
+so that semantically related text is close even without shared terms;
+\textcite{karpukhin2020dpr} demonstrated that such dense passage retrieval can
+substantially outperform BM25 on open-domain question answering. Sentence-level
+embedding models \parencite{reimers2019sbert} made this approach practical at
+scale. \textcite{lewis2020rag} introduced retrieval-augmented generation, coupling
+a dense retriever with a generative model so that answers are grounded in
+retrieved evidence rather than parametric memory alone. This project builds a
+Granite-based instantiation of this retrieve-then-generate paradigm.
+
+\subsection{Evaluation Benchmarks and Metrics}
+
+Rigorous retrieval evaluation requires datasets with human relevance judgments.
+MS~MARCO \parencite{nguyen2016msmarco} provides large-scale passage-ranking data
+from real search queries; Natural Questions \parencite{kwiatkowski2019nq} offers
+open-domain questions answered from Wikipedia; and BEIR
+\parencite{thakur2021beir} aggregates heterogeneous retrieval tasks into a single
+zero-shot benchmark suite, making it the de-facto standard for comparing
+retrieval systems. Performance is reported with standard
+information-retrieval metrics---precision@k, recall@k, nDCG, and MRR---which this
+project adopts for the system-versus-baseline comparison.
+
+\subsection{Long-Context Retrieval (Secondary)}
+
+As a complementary diagnostic, \textcite{liu2024lost} show that language models
+exhibit a U-shaped retrieval curve over long inputs---accuracy is highest when
+relevant text sits at the start or end and collapses in the middle (the
+\emph{Lost-in-the-Middle} effect). This motivates the project's secondary
+long-context stress test.
+
+% ── System Design ─────────────────────────────────────────────────────────────
+\section{System Design}
+
+\subsection{Architecture Overview}
+
+The system has four stages: an \emph{ingestion} pipeline that loads a corpus,
+chunks it, and builds a persistent vector index of Granite embeddings; a
+\emph{retrieval} layer offering both the Granite-embedding dense retriever (the
+delivered system) and a BM25 baseline; a
+\emph{RAG} layer that generates answers grounded in the retrieved passages; and
+an \emph{explainability} layer that attributes each answer to its supporting
+sources.
+
+\subsection{Technology Stack}
+
+\begin{itemize}
+  \item \textbf{IBM watsonx.ai (Granite)} --- the \texttt{granite-embedding}
+        models provide the query and passage embeddings that \emph{define} the
+        dense retriever (the component whose retrieval quality this project
+        measures), and a Granite generative model produces the grounded answers
+        in the RAG layer. Using Granite embeddings for retrieval itself---rather
+        than only for generation---is what makes the system a genuinely
+        \emph{Granite-powered retrieval} system and gives the
+        Granite-vs-baseline hypothesis its meaning.
+  \item \textbf{LangChain / \texttt{langchain-ibm}} --- orchestration and
+        watsonx.ai integration.
+  \item \textbf{FAISS} --- persistent dense vector index.
+  \item \textbf{sentence-transformers} --- open-source embedding baseline.
+  \item \textbf{rank\_bm25} --- classical BM25 baseline.
+  \item \textbf{BEIR / Hugging Face \texttt{datasets}} --- standard benchmark data.
+  \item \textbf{ranx / pytrec\_eval} --- precision/recall, nDCG, MRR.
+  \item \textbf{Streamlit} --- interactive demo with cited answers.
+\end{itemize}
+
+\subsection{Explainability and Trust}
+
+To address the brief's requirement for trust in retrieved outputs, every
+generated answer is attributed to the specific chunks that support it
+(\texttt{src/explainability}), so users can trace each claim back to its source
+passage and page.
+
+% ── Evaluation Plan ───────────────────────────────────────────────────────────
+\section{Evaluation Plan}
+
+\subsection{Primary: Benchmark Comparison}
+
+The headline experiment indexes a benchmark corpus once and runs three
+retrievers over the same queries: the Granite dense retriever (the delivered
+system), the BM25 baseline \parencite{robertson2009bm25}, and an open-source
+dense retriever \parencite{karpukhin2020dpr}. Each run is scored against the
+benchmark's relevance judgments using:
+
+\begin{description}
+  \item[Precision@k] of the top-$k$ retrieved passages, the fraction relevant.
+  \item[Recall@k] of all relevant passages, the fraction appearing in the top-$k$.
+  \item[nDCG@k] rank-aware quality, rewarding relevant hits near the top.
+  \item[MRR] mean reciprocal rank of the first relevant hit.
+\end{description}
+
+Results are reported as a system-versus-baseline comparison table across
+$k \in \{1,3,5,10\}$, testing the hypothesis that the Granite system improves
+precision and recall over both baselines.
+
+\subsection{Secondary: RAG Answer Quality and Long-Context Stress Test}
+
+The RAG layer's answers are additionally assessed with RAGAS
+\parencite{es2023ragas} for context precision and faithfulness. Separately, a
+long-context ``needle'' stress test injects a known fact at controlled depths in
+long documents and measures retrieval accuracy across document length and
+injection depth, quantifying the \emph{Lost-in-the-Middle} effect
+\parencite{liu2024lost} for the system.
+
+% ── Time Plan ─────────────────────────────────────────────────────────────────
+\section{Time Plan}
+
+\begin{center}
+\renewcommand{\arraystretch}{1.35}
+\begin{tabular}{@{} >{\bfseries}p{3.2cm} p{5.8cm} p{5cm} @{}}
+\toprule
+\textbf{Period} & \textbf{Milestone} & \textbf{Deliverable} \\
+\midrule
+Wk 1--2 \newline (Jun 9--20) &
+  Environment setup; watsonx.ai + baseline client; load a standard benchmark
+  (corpus/queries/qrels). &
+  API smoke test passes; one benchmark loads end-to-end. \\
+
+Wk 3--4 \newline (Jun 23 -- Jul 4) &
+  Ingestion pipeline (chunk, embed, persistent FAISS index); BM25 baseline. &
+  Indexed corpus; working BM25 retriever. \\
+
+Wk 5--6 \newline (Jul 7--18) &
+  Granite dense retriever; implement precision/recall, nDCG, MRR. &
+  First system-vs-BM25 metrics on one benchmark. \\
+
+Wk 7--8 \newline (Jul 21 -- Aug 1) &
+  RAG generation layer; explainability / citations. &
+  End-to-end cited answers; RAGAS scores. \\
+
+Wk 9--10 \newline (Aug 4--15) &
+  Full benchmark sweep across datasets; add open-source dense baseline. &
+  System-vs-baselines comparison tables and figures. \\
+
+Wk 11--12 \newline (Aug 18--29) &
+  Streamlit demo (upload, search, cited answers); optional long-context
+  needle stress test. &
+  Live demo; secondary stress-test results. \\
+
+Wk 13 \newline (Sep 1--4) &
+  Write individual report; final code review and repository clean-up. &
+  \textbf{Final submission by 4 September 2026.} \\
+\bottomrule
+\end{tabular}
+\end{center}

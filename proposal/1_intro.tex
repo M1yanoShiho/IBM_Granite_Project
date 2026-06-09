@@ -1,0 +1,50 @@
+\section{Introduction}
+
+\subsection{Context}
+
+Modern organisations are drowning in data---structured, unstructured, and
+multimodal. The competitive challenge, however, is no longer storing data but
+extracting the precise insight needed at the right moment. In sectors such as
+legal discovery, fraud detection, intelligence analysis, healthcare diagnostics,
+and regulatory compliance, the ability to locate a single rare but critical fact
+within terabytes of irrelevant or misleading material---the proverbial
+\emph{needle in a haystack}---has become an operational imperative. Foundation
+models such as IBM Granite, designed for enterprise-grade performance, offer a
+promising route to retrieval systems that understand context, intent, and
+domain-specific nuance rather than merely matching keywords.
+
+\subsection{The Problem}
+
+Traditional keyword search and basic retrieval tools often fail to surface rare,
+relevant information, because relevance is semantic rather than lexical: the
+right passage may share few words with the query. Dense (semantic) retrieval and
+the retrieval-augmented generation (RAG) introduced by \textcite{lewis2020rag}
+promise to close this gap, but a practitioner choosing a system needs evidence: does a
+Granite-based retrieval system actually find relevant information more accurately
+than the established alternatives, and can its answers be trusted?
+
+\subsection{Gap}
+
+Two gaps motivate this project. First, while RAG and dense retrieval are widely
+discussed, there is little rigorous, like-for-like evidence comparing an
+\emph{enterprise-grade Granite} retrieval system against standard baselines on
+the established information-retrieval benchmarks that come with human relevance
+judgments. Second, the brief explicitly calls for \emph{explainability and trust
+in retrieved outputs}---yet most retrieval demonstrations return answers without
+attributing them to their sources, leaving users unable to verify a result.
+
+\subsection{Proposed Solution}
+
+This project designs and evaluates a Granite-powered retrieval system for precise
+information discovery. The system combines a dense semantic retriever with a RAG
+generation layer and an explainability component that attributes each answer to
+the passages supporting it. Its retrieval quality is measured on standard IR
+benchmarks (BEIR \parencite{thakur2021beir}, MS~MARCO \parencite{nguyen2016msmarco},
+Natural Questions \parencite{kwiatkowski2019nq}) using precision@k, recall@k,
+nDCG, and MRR, and compared head-to-head against a classical BM25 baseline
+\parencite{robertson2009bm25} and an open-source dense retriever
+\parencite{karpukhin2020dpr}. As a secondary diagnostic, a long-context
+``needle'' stress test examines how retrieval degrades when the relevant passage
+is buried deep within a long document---the \emph{Lost-in-the-Middle} effect
+\parencite{liu2024lost}. The result is concrete, decision-relevant evidence about
+when and where a Granite-based system improves enterprise information discovery.

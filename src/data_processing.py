@@ -10,6 +10,10 @@ This module is responsible for turning raw "haystack" documents and synthetic
 4. Ask the model a question whose answer is the needle, and check whether it
    was retrieved.
 
+Scope: this module belongs to the **secondary** long-context stress test only.
+General document chunking for the primary RAG/retrieval pipeline lives in
+``src.ingestion.chunker`` — do not duplicate it here.
+
 Functions here are intentionally left as documented skeletons — fill in the
 implementation as the project develops.
 """
@@ -100,35 +104,6 @@ def load_needles(path: str | Path) -> List[Needle]:
         The parsed needles.
     """
     raise NotImplementedError("TODO: parse and return needle definitions.")
-
-
-# --------------------------------------------------------------------------- #
-# Chunking
-# --------------------------------------------------------------------------- #
-def split_into_chunks(
-    text: str,
-    chunk_size: int = 512,
-    chunk_overlap: int = 50,
-) -> List[str]:
-    """Split a document into overlapping chunks.
-
-    Useful for the RAG baseline and for measuring context precision.
-
-    Parameters
-    ----------
-    text:
-        The document to split.
-    chunk_size:
-        Approximate chunk size (tokens or characters, depending on splitter).
-    chunk_overlap:
-        Overlap between consecutive chunks.
-
-    Returns
-    -------
-    list of str
-        The ordered text chunks.
-    """
-    raise NotImplementedError("TODO: implement chunking (e.g. via LangChain).")
 
 
 # --------------------------------------------------------------------------- #

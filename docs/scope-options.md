@@ -5,10 +5,16 @@ A reference for the first meeting with IBM. The project brief asks for **both**
 imply very different repository structures and deliverables, so we need to
 agree on a primary direction before committing engineering effort.
 
-> **Current state:** the repo is, in effect, an **evaluation harness**
-> (`eval/niah_runner.py` + `eval/metrics.py` + `notebooks/` heatmaps +
-> trimmed haystacks). `app/` and `src/rag_pipeline.py` are currently
-> supporting components. This is a safe foundation for *either* direction.
+> **Current state (updated):** a direction has been **preliminarily selected,
+> pending IBM confirmation at Meeting 1** — a Granite-powered retrieval *system*
+> with a first-class *benchmark evaluation* (system-primary; see
+> `meeting-1-questions.md`, Q1–Q2). The repo has been scaffolded accordingly:
+> the primary pipeline (`src/ingestion`, `src/retrieval`, `src/explainability`,
+> `eval/benchmarks` + `eval/run_benchmark` + `eval/ir_metrics`) sits alongside
+> the original evaluation harness (`eval/niah_runner.py`, `eval/metrics.py`,
+> `notebooks/`), now demoted to the **secondary** long-context stress test. The
+> Route A/B/C framing below is retained as the rationale for that choice and as
+> a fallback if IBM steers us elsewhere.
 
 ---
 
@@ -99,15 +105,17 @@ A single project can only have one centre of gravity.
 
 ## Recommendation for the Meeting
 
-1. **Do not restructure the repo before the meeting.** The current
-   evaluation-centric layout is safe for both routes:
-   - If evaluation wins → harden it (Route A).
-   - If system wins → the evaluation parts become the system's quality-assurance
-     module (no wasted work).
+1. **Direction preliminarily selected, pending IBM confirmation.** We have
+   scaffolded the **system-primary + benchmark-evaluation** layout (Route B with
+   evaluation as a first-class component, i.e. a disciplined Route C). The
+   evaluation harness was not discarded — it became the **secondary**
+   long-context stress test, so no work is wasted if IBM steers us back toward
+   an evaluation-primary emphasis (Route A).
 2. **Ask IBM to commit to a primary direction** (see
-   `meeting-1-questions.md`, Q1).
-3. **Clarify the priority of "explainability & trust"** — it is light in the
-   current proposal but named explicitly in the brief, and it is a major driver
-   of Route B effort.
+   `meeting-1-questions.md`, Q1 — what "needle" means — and Q2 — system vs.
+   evaluation primary).
+3. **Clarify the priority of "explainability & trust"** (see
+   `meeting-1-questions.md`, Q7) — it is light in the current proposal but named
+   explicitly in the brief, and it is a major driver of Route B effort.
 
 Deciding direction first is worth more than designing additional experiments.
