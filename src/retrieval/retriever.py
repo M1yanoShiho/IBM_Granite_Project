@@ -8,29 +8,12 @@ compared against the BM25 baseline.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import List
 
+# RetrievedChunk's canonical home is src.retrieval.base (the shared contract);
+# re-exported here so existing imports keep working. See docs/interfaces.md.
+from src.retrieval.base import RetrievedChunk
 from src.retrieval.embedder import Embedder
-
-
-@dataclass
-class RetrievedChunk:
-    """A single retrieval result.
-
-    Attributes
-    ----------
-    doc_id:
-        Identifier of the source chunk/passage (used to score against qrels).
-    text:
-        The chunk text.
-    score:
-        Similarity score (higher = more relevant).
-    """
-
-    doc_id: str
-    text: str
-    score: float
 
 
 class DenseRetriever:
