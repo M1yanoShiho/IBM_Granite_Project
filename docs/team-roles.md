@@ -48,6 +48,14 @@ Put your name in the "Owner" column at the kick-off. ⭐ = staff with a strong d
 - **P1 + P2 are the foundation** — start them first; P6 can only integrate, and
   others can only test on real data, once these exist. Staff with reliable devs.
 - **P3 (BM25) is the most independent** — anyone can start immediately.
+- **P4 + P5 are a tightly-coupled pair** (the dense-retrieval path) — run them in
+  **parallel with the P1/P2/P3 path**, and start early as this is the most
+  complex stream. Internal order within the pair:
+  1. `embedder` (P4) **first** — both P5's `indexer` and P4's `retriever` need it.
+  2. then P5's `chunker` (independent) + `indexer` (needs the embedder).
+  3. then P4's `retriever` (needs the embedder + P5's built index).
+  Day-1 unblocked starts: P4 → `embedder` standalone (embed text → check vector
+  shape); P5 → `chunker` standalone (pure text splitting).
 - **P6 integrates last** — but must define the interfaces at the Week-1 kick-off.
 
 ## Deferred to Phase 2 (needs GPU / HPC)
