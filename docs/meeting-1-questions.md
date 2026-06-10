@@ -45,21 +45,21 @@ i.e. system-primary with evaluation as a first-class, not bolted-on, component.
 **What we need:** IBM to confirm system-primary, or tell us they want the
 evaluation study to be the headline (which would demote the demo/UI work).
 
-### Q3. watsonx.ai access — accounts, project, and student credit/quota?
+### Q3. watsonx.ai access — accounts, project, and student credit/quota? — ✅ RESOLVED
 
-Everything downstream needs working Granite access.
-
-- Will IBM provision a **watsonx.ai project** for the team, or do we self-serve
-  on a trial/lite plan?
-- What is the **token/compute quota** per student?
-- Any preferred **region endpoint** (`WATSONX_URL`)?
-
-**Compute note:** we expect to have access to the **university HPC cluster**.
-Because the `granite-embedding` models are open and small, we can **self-host
-the embedding/indexing on the HPC**, so watsonx quota would mainly bound the
-**RAG generation** calls (one per query) rather than corpus indexing (one per
-passage). This substantially de-risks the quota question — but see Q4 on whether
-IBM wants embeddings served via the watsonx API regardless.
+> **Answered by IBM (Bharat, email):** there is **no watsonx.ai API access** for
+> university projects. The project runs the **open-source Granite models
+> (Apache 2.0), self-hosted from Hugging Face**, locally and on the university
+> HPC. No API keys, quotas, or region endpoints apply.
+>
+> Consequences already actioned: `src/llm_client.py` pivoted to local
+> `transformers` inference; `WATSONX_*` env vars removed from `.env.example`;
+> `langchain-ibm` dropped from `requirements.txt`. The serving sub-question in Q4
+> (watsonx API vs. self-host) is therefore moot — **self-host is the only path.**
+>
+> Remaining compute ask: **GPU nodes on the HPC** for the generation layer
+> (Granite 4.1 8B/30B) and long-context experiments; the embedding/retrieval +
+> BM25 + metrics pipeline is CPU-friendly and can start without HPC.
 
 ---
 
@@ -77,13 +77,11 @@ not really being tested.
   `granite-embedding-278m-multilingual`, `granite-embedding-30m-english`)?
 - Its **max input length** / embedding dimension — this sets our chunk size and
   bounds the secondary long-context test.
-- Which **Granite generative model** to use for the RAG layer.
-- **Serving question (HPC):** since these models are open, do you want the
-  embeddings served via the **watsonx API** (to showcase the platform), or are
-  you happy for us to **self-host `granite-embedding` on the university HPC** for
-  the heavy indexing and reserve watsonx for the generation layer? Either way
-  it's the *same Granite weights* — the result is comparable — but it changes the
-  quota story in Q3.
+- Which **Granite generative model** for the RAG layer — Bharat suggested
+  Granite 4.1 (3B for dev, 8B/30B on the HPC; 8B base offers a ~512K context).
+  Confirm the recommended size given our HPC GPU budget.
+- ~~Serving question (watsonx API vs. self-host)~~ — **moot:** Q3 confirmed
+  there is no watsonx API, so everything is self-hosted from Hugging Face.
 
 ### Q5. Benchmark dataset scope — which datasets, how large?
 

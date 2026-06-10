@@ -5,8 +5,9 @@ decision support. This ``needle in a haystack'' problem is poorly served by
 keyword search and remains a strong test of modern foundation models.
 
 This project \emph{designs and evaluates} a retrieval system built on
-\textbf{IBM Granite} (via the watsonx.ai API) for precise information discovery
-over large document collections. The system uses Granite embeddings to power its
+\textbf{IBM Granite} (open-source models, self-hosted from Hugging Face under
+the Apache~2.0 licence) for precise information discovery over large document
+collections. The system uses Granite embeddings to power its
 dense semantic retriever---so that Granite drives retrieval itself, not only
 answer generation---together with a retrieval-augmented generation (RAG) layer
 \parencite{lewis2020rag}, and attributes every answer to its supporting sources

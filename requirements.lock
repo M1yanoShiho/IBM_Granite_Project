@@ -9,6 +9,7 @@
 # Regenerate after any install/upgrade:  pip freeze > requirements.lock
 # Note: torch here is the CPU build (+cpu); install a CUDA build on the HPC.
 # ============================================================================
+accelerate==1.13.0
 aiohappyeyeballs==2.6.2
 aiohttp==3.14.0
 aiosignal==1.4.0

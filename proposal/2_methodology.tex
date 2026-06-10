@@ -51,16 +51,18 @@ sources.
 \subsection{Technology Stack}
 
 \begin{itemize}
-  \item \textbf{IBM watsonx.ai (Granite)} --- the \texttt{granite-embedding}
-        models provide the query and passage embeddings that \emph{define} the
+  \item \textbf{IBM Granite (open-source, via Hugging Face)} --- the
+        \texttt{granite-embedding} models provide the query and passage
+        embeddings that \emph{define} the
         dense retriever (the component whose retrieval quality this project
         measures), and a Granite generative model produces the grounded answers
         in the RAG layer. Using Granite embeddings for retrieval itself---rather
         than only for generation---is what makes the system a genuinely
         \emph{Granite-powered retrieval} system and gives the
         Granite-vs-baseline hypothesis its meaning.
-  \item \textbf{LangChain / \texttt{langchain-ibm}} --- orchestration and
-        watsonx.ai integration.
+  \item \textbf{Hugging Face \texttt{transformers} / \texttt{accelerate}} ---
+        load and run the open-source Granite models locally / on the university
+        HPC (no hosted API; the project is fully self-hosted and reproducible).
   \item \textbf{FAISS} --- persistent dense vector index.
   \item \textbf{sentence-transformers} --- open-source embedding baseline.
   \item \textbf{rank\_bm25} --- classical BM25 baseline.
@@ -117,9 +119,9 @@ injection depth, quantifying the \emph{Lost-in-the-Middle} effect
 \textbf{Period} & \textbf{Milestone} & \textbf{Deliverable} \\
 \midrule
 Wk 1--2 \newline (Jun 9--20) &
-  Environment setup; watsonx.ai + baseline client; load a standard benchmark
-  (corpus/queries/qrels). &
-  API smoke test passes; one benchmark loads end-to-end. \\
+  Environment setup; self-hosted Granite (Hugging Face) + baseline client; load
+  a standard benchmark (corpus/queries/qrels). &
+  Granite loads and generates locally; one benchmark loads end-to-end. \\
 
 Wk 3--4 \newline (Jun 23 -- Jul 4) &
   Ingestion pipeline (chunk, embed, persistent FAISS index); BM25 baseline. &

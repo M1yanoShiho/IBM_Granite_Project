@@ -2,9 +2,9 @@
 
 The purpose of this script is narrow: prove that our LLM plumbing works
 end-to-end -- credentials load, the Hugging Face client authenticates, a request
-is routed to a live inference provider, and a response comes back. It is meant to
-run *before* we obtain IBM watsonx.ai (Granite) access, so the team can validate
-connectivity early.
+is routed to a live inference provider, and a response comes back. It is a quick
+connectivity check via the Hugging Face Inference API; the project's real Granite
+inference is self-hosted locally (see ``src/llm_client.py``).
 
 Model choice note:
     IBM Granite generation models are **not** available on Hugging Face's free
@@ -12,8 +12,10 @@ Model choice note:
     paid third-party providers such as ``featherless-ai``, and the embedding
     Granite models don't do text generation). Since this is purely an
     infrastructure check, we use a small model that is live on the free
-    ``hf-inference`` provider. The *real* Granite inference for the project will
-    run through watsonx.ai (``langchain_ibm.WatsonxLLM``) in ``src/llm_client.py``.
+    ``hf-inference`` provider. The *real* Granite inference for the project runs
+    on **self-hosted open-source Granite weights** (downloaded from Hugging Face,
+    Apache 2.0) via local ``transformers`` in ``src/llm_client.py`` — there is no
+    watsonx.ai API access for this project.
 
 What it does:
     1. Loads the ``HUGGINGFACE_API_KEY`` from the local ``.env`` file.

@@ -1,18 +1,32 @@
-"""LLM client wrapper for IBM Granite and baseline models.
+"""Self-hosted Granite LLM client for the RAG generation layer.
 
-Provides a single, uniform interface (:class:`LLMClient`) for sending prompts
-to different model providers so the evaluation harness does not need to know
-provider-specific details.
+IBM confirmed there is **no watsonx.ai API access** for this project. Instead we
+use the **open-source IBM Granite models (Apache 2.0) downloaded from Hugging
+Face** and run them locally / on the university HPC. This module wraps a local
+``transformers`` causal-LM behind a single uniform interface
+(:class:`LLMClient`) so the rest of the system stays independent of inference
+details.
 
-Primary target: **IBM Granite** via watsonx.ai (using ``langchain-ibm``).
-Baselines: open-source models (e.g. via Hugging Face) for comparison.
+Roles (see ``.env.example``):
 
-Credentials are read from environment variables (see ``.env.example``):
+- **Generation / RAG answers** — a Granite *generative* model, e.g.
+  ``ibm-granite/granite-4.1-3b`` (lightweight, fine on CPU for development) up to
+  ``ibm-granite/granite-4.1-8b-base`` (needs a GPU; ~512K-token context, useful
+  for the long-context "needle" experiments).
+- **Dense-retrieval embeddings** are handled separately in
+  ``src/retrieval/embedder.py`` — *not* here.
 
-- ``WATSONX_API_KEY``
-- ``WATSONX_PROJECT_ID``
-- ``WATSONX_URL``
-- ``HUGGINGFACE_API_KEY`` (optional, for baselines)
+Configuration is read from environment variables (see ``.env.example``):
+
+- ``GRANITE_MODEL_ID``     Hugging Face repo id of the generative model.
+- ``HUGGINGFACE_API_KEY``  optional; only for gated/private models or rate limits.
+- ``MODEL_CACHE_DIR``      optional; where to cache downloaded weights
+                           (point at shared scratch on the HPC to avoid re-downloads).
+- ``LLM_DEVICE``           ``"auto"`` (let ``accelerate`` place it), ``"cuda"``, or ``"cpu"``.
+
+Note: the implementation below targets the ``transformers`` API but has not yet
+been executed against a real Granite download — the first live run (model
+download + generation) is the verification step.
 """
 
 from __future__ import annotations
@@ -26,19 +40,23 @@ from dotenv import load_dotenv
 # Load variables from a local .env file if present.
 load_dotenv()
 
+# Lightweight default — small enough to develop against on a CPU.
+DEFAULT_MODEL_ID = "ibm-granite/granite-4.1-3b"
+
 
 @dataclass
 class GenerationConfig:
-    """Decoding parameters shared across providers.
+    """Decoding parameters.
 
     Attributes
     ----------
     max_new_tokens:
         Maximum number of tokens to generate.
     temperature:
-        Sampling temperature; 0.0 for deterministic retrieval evaluation.
+        Sampling temperature; ``0.0`` selects greedy/deterministic decoding,
+        which is what we want for reproducible evaluation.
     top_p:
-        Nucleus sampling probability mass.
+        Nucleus sampling probability mass (only used when ``temperature > 0``).
     """
 
     max_new_tokens: int = 256
@@ -47,68 +65,109 @@ class GenerationConfig:
 
 
 class LLMClient:
-    """Uniform wrapper around a chat/generation model.
+    """Uniform wrapper around a locally hosted Granite generative model.
 
     Parameters
     ----------
-    provider:
-        One of ``"watsonx"`` (IBM Granite) or ``"huggingface"`` (baselines).
     model_id:
-        Provider-specific model identifier. Defaults to the value of the
-        ``GRANITE_MODEL_ID`` env var when ``provider == "watsonx"``.
+        Hugging Face repo id. Defaults to the ``GRANITE_MODEL_ID`` env var, then
+        to :data:`DEFAULT_MODEL_ID`.
     config:
         Decoding parameters. Defaults to :class:`GenerationConfig`.
+    device:
+        ``"auto"`` | ``"cuda"`` | ``"cpu"``. Defaults to the ``LLM_DEVICE`` env
+        var, then ``"auto"``.
     """
 
     def __init__(
         self,
-        provider: str = "watsonx",
         model_id: Optional[str] = None,
         config: Optional[GenerationConfig] = None,
+        device: Optional[str] = None,
     ) -> None:
-        self.provider = provider
-        self.model_id = model_id or os.getenv("GRANITE_MODEL_ID")
+        self.model_id = model_id or os.getenv("GRANITE_MODEL_ID") or DEFAULT_MODEL_ID
         self.config = config or GenerationConfig()
+        self.device = device or os.getenv("LLM_DEVICE", "auto")
+        self._tokenizer = None
         self._client = self._init_client()
 
     # ------------------------------------------------------------------ #
     # Initialization
     # ------------------------------------------------------------------ #
     def _init_client(self):
-        """Instantiate the underlying provider client.
+        """Download (if needed) and load the tokenizer + model from Hugging Face.
 
-        For ``watsonx`` this should construct a ``WatsonxLLM`` (from
-        ``langchain_ibm``) using the API key, project ID, and URL from the
-        environment. For ``huggingface`` it should construct the appropriate
-        baseline client.
-
-        Returns
-        -------
-        object
-            The initialized provider-specific client.
+        Returns the loaded model; the tokenizer is stored on ``self._tokenizer``.
         """
-        raise NotImplementedError(
-            "TODO: initialize the watsonx / huggingface client from env vars."
+        from transformers import AutoModelForCausalLM, AutoTokenizer
+
+        token = os.getenv("HUGGINGFACE_API_KEY") or None
+        cache_dir = os.getenv("MODEL_CACHE_DIR") or None
+
+        self._tokenizer = AutoTokenizer.from_pretrained(
+            self.model_id, token=token, cache_dir=cache_dir
         )
+        model = AutoModelForCausalLM.from_pretrained(
+            self.model_id,
+            token=token,
+            cache_dir=cache_dir,
+            dtype="auto",
+            # "auto" lets accelerate place layers across available devices;
+            # an explicit device is moved with .to() below instead.
+            device_map="auto" if self.device == "auto" else None,
+        )
+        if self.device != "auto":
+            model = model.to(self.device)
+        model.eval()
+        return model
 
     # ------------------------------------------------------------------ #
     # Generation
     # ------------------------------------------------------------------ #
     def generate(self, prompt: str) -> str:
-        """Send a single prompt to the model and return its text response.
+        """Send a single prompt to the model and return only the new text.
 
         Parameters
         ----------
         prompt:
-            The full prompt (typically the haystack context plus the probe
-            question).
+            The full prompt (e.g. retrieved context plus the question).
 
         Returns
         -------
         str
-            The model's generated answer.
+            The model's generated answer (input echo stripped).
         """
-        raise NotImplementedError("TODO: call the underlying client.")
+        import torch
+
+        tok = self._tokenizer
+        # Instruct models carry a chat template; base models do not — fall back
+        # to feeding the raw prompt text in that case.
+        if getattr(tok, "chat_template", None):
+            input_ids = tok.apply_chat_template(
+                [{"role": "user", "content": prompt}],
+                add_generation_prompt=True,
+                return_tensors="pt",
+            )
+        else:
+            input_ids = tok(prompt, return_tensors="pt").input_ids
+        input_ids = input_ids.to(self._client.device)
+
+        gen_kwargs = {"max_new_tokens": self.config.max_new_tokens}
+        if self.config.temperature > 0:
+            gen_kwargs.update(
+                do_sample=True,
+                temperature=self.config.temperature,
+                top_p=self.config.top_p,
+            )
+        else:
+            gen_kwargs["do_sample"] = False
+
+        with torch.no_grad():
+            output_ids = self._client.generate(input_ids=input_ids, **gen_kwargs)
+
+        # Decode only the newly generated tokens, not the echoed prompt.
+        new_tokens = output_ids[0][input_ids.shape[-1]:]
+        return tok.decode(new_tokens, skip_special_tokens=True).strip()
 
     def __repr__(self) -> str:  # pragma: no cover - cosmetic
-        return f"LLMClient(provider={self.provider!r}, model_id={self.model_id!r})"
+        return f"LLMClient(model_id={self.model_id!r}, device={self.device!r})"

@@ -72,8 +72,11 @@ source-attributed answers.
 ### 1. Prerequisites
 
 - Python 3.10+
-- An IBM watsonx.ai account and project (for Granite API access)
-- (Optional) A Hugging Face account for baseline models
+- The open-source IBM Granite models (Apache 2.0) are downloaded from Hugging
+  Face and run locally / on the HPC — **no watsonx.ai account or API key needed**.
+- (Optional) A Hugging Face token, only for gated/private models or to lift
+  anonymous download rate limits
+- (For the generation layer at 8B/30B) a GPU — e.g. the university HPC cluster
 
 ### 2. Create a virtual environment
 
@@ -112,19 +115,21 @@ then refresh the snapshot with `pip freeze > requirements.lock`.
 
 ### 4. Configure credentials
 
-Copy the example environment file and fill in your keys:
+Copy the example environment file and adjust as needed:
 
 ```bash
 cp .env.example .env
-# then edit .env with your real credentials
+# then edit .env (model ids, cache dir, device) — no API keys required
 ```
 
-Required variables (see `.env.example`):
+Variables (see `.env.example`):
 
-- `WATSONX_API_KEY` — IBM watsonx.ai API key
-- `WATSONX_PROJECT_ID` — watsonx.ai project ID
-- `WATSONX_URL` — watsonx.ai region endpoint
-- `HUGGINGFACE_API_KEY` — (optional) for baseline models
+- `GRANITE_EMBEDDING_MODEL_ID` — Granite embedding model = the dense retriever
+- `GRANITE_MODEL_ID` — Granite generative model = the RAG answer generator
+- `BASELINE_EMBEDDING_MODEL_ID` — open-source dense-retriever baseline
+- `MODEL_CACHE_DIR` — where downloaded weights are cached (use HPC scratch)
+- `LLM_DEVICE` — `auto` / `cuda` / `cpu`
+- `HUGGINGFACE_API_KEY` — (optional) only for gated models / rate limits
 
 ## Usage
 

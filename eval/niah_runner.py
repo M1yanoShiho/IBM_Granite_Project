@@ -107,7 +107,7 @@ def run_sweep(config: NIAHConfig, client: LLMClient) -> pd.DataFrame:
 def main() -> None:
     """Entry point: load data, run the sweep, and persist results."""
     config = NIAHConfig()
-    client = LLMClient(provider="watsonx")
+    client = LLMClient()  # self-hosted Granite (model id from GRANITE_MODEL_ID)
 
     results = run_sweep(config, client)
 
