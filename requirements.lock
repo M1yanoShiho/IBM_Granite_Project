@@ -8,6 +8,12 @@
 # requirements.lock = machine snapshot for bit-exact reproducibility.
 # Regenerate after any install/upgrade:  pip freeze > requirements.lock
 # Note: torch here is the CPU build (+cpu); install a CUDA build on the HPC.
+#
+# Cross-platform note: this snapshot was taken on Windows. The Windows-only
+# packages below carry `; sys_platform == "win32"` markers so they are SKIPPED
+# on macOS/Linux. Mac/Unix-only transitive deps NOT present here (e.g.
+# ptyprocess, appnope) are resolved automatically by pip on those platforms.
+# For exact macOS pins, have a Mac teammate run `pip freeze` and merge.
 # ============================================================================
 accelerate==1.13.0
 aiohappyeyeballs==2.6.2
@@ -180,14 +186,14 @@ pyee==13.0.1
 Pygments==2.20.0
 pyparsing==3.3.2
 PyPDF2==3.0.1
-pypiwin32==223
+pypiwin32==223; sys_platform == "win32"
 pytest==9.0.3
 python-dateutil==2.9.0.post0
 python-dotenv==1.2.2
 python-json-logger==4.1.0
 pytz==2025.2
-pywin32==311
-pywinpty==3.0.3
+pywin32==311; sys_platform == "win32"
+pywinpty==3.0.3; sys_platform == "win32"
 PyYAML==6.0.3
 pyzmq==27.1.0
 ragas==0.4.3
@@ -253,7 +259,7 @@ webencodings==0.5.1
 websocket-client==1.9.0
 websockets==16.0
 widgetsnbextension==4.0.15
-WMI==1.5.1
+WMI==1.5.1; sys_platform == "win32"
 xxhash==3.7.0
 yarl==1.24.2
 zlib-state==0.1.12
