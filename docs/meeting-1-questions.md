@@ -13,24 +13,31 @@ deliverable but has a safe default · **P2** = logistics, can be resolved offlin
 
 ## P0 — Decisions that gate everything
 
-### Q1. What does "needle in a haystack" mean here — general retrieval, or deep-buried rare facts?
+### Q1. What's the headline — semantic retrieval, RAG, or long-context "needle"?
 
-The project name and the brief pull in two different directions, and they imply
-different datasets and experiments:
+The brief is **broader than our proposal currently scopes it.** The Approach
+lists, *co-equally*, "semantic search **and** retrieval-augmented generation
+(RAG) pipelines," evaluated with "precision/recall on benchmark datasets," over
+"enterprise-scale data." Our proposal narrowed this to *retrieval-primary,
+RAG/NIAH secondary* for tractability — that is **our choice, not a direct readout
+of the brief.**
 
-- **Interpretation A — precise *semantic retrieval*.** Find the relevant
-  passage even when it shares few keywords with the query. Measured on standard
-  IR benchmarks (BEIR / MS MARCO / NQ) with precision/recall. This matches the
-  brief's line *"precision/recall metrics on benchmark datasets."*
-- **Interpretation B — *rare fact buried deep* in a long document.** A single
-  injected "needle" at a controlled depth in a long context (the NIAH /
-  *Lost-in-the-Middle* setup). This matches the literal project name but does
-  **not** produce standard precision/recall (only injection-accuracy).
+Three candidate headlines:
 
-**Our current plan:** A is primary (standard benchmarks + baselines), B is a
-secondary diagnostic. We think this is the safest reading of the brief.
-**What we need:** confirmation that IBM agrees A is the headline, or a steer
-toward B if they specifically mean long-context retrieval.
+- **A — semantic *retrieval* quality.** Granite dense retriever vs BM25 vs an
+  open-source dense baseline; precision/recall/nDCG/MRR on benchmark datasets.
+  Clean, CPU-friendly. (What the proposal currently makes primary.)
+- **B — retrieval + *RAG*.** Add the generation layer (retrieve-then-generate),
+  scored on answer quality + faithfulness. The brief names RAG **co-equally**
+  with semantic search, so this has direct textual support. Needs a GPU.
+- **C — long-context "needle" (NIAH).** Inject a fact at a controlled depth in a
+  long document and test whether the model finds it (Lost-in-the-Middle). This is
+  the *team's added diagnostic*; the brief's "needle" actually means general
+  information discovery, not the synthetic-injection benchmark.
+
+**What we need:** which of A / B / C (or A+B) IBM wants as the headline. Note
+**RAG (B) is named in the brief but currently demoted in our plan** — flag this
+explicitly.
 
 ### Q2. Is the deliverable a *system*, an *evaluation study*, or both — and which is primary?
 
@@ -44,6 +51,9 @@ risks two half-finished things.
 i.e. system-primary with evaluation as a first-class, not bolted-on, component.
 **What we need:** IBM to confirm system-primary, or tell us they want the
 evaluation study to be the headline (which would demote the demo/UI work).
+
+*Note:* the **scope of the "system" depends on Q1** — retrieval-only (A) is a
+smaller system than retrieval + RAG generation (B). Settle Q1 first.
 
 ### Q3. watsonx.ai access — accounts, project, and student credit/quota? — ✅ RESOLVED
 
@@ -83,17 +93,27 @@ not really being tested.
 - ~~Serving question (watsonx API vs. self-host)~~ — **moot:** Q3 confirmed
   there is no watsonx API, so everything is self-hosted from Hugging Face.
 
-### Q5. Benchmark dataset scope — which datasets, how large?
+### Q5. Which data — academic benchmarks, enterprise documents, or both?
 
-With **university HPC** for self-hosted indexing (see Q3), the old
-compute-budget ceiling is largely lifted: full **MS MARCO / NQ** become
-feasible, not just toy subsets.
+The brief pulls two ways: it says **"enterprise-scale data"** (legal discovery,
+fraud, healthcare, compliance) *and* **"precision/recall on benchmark datasets."**
+These pull apart — clean, ready-made precision/recall comes from academic IR
+benchmarks; enterprise data is more faithful to the brief but ships with no
+relevance labels.
 
-**Our current plan:** start on **small BEIR subsets** (scifact / nfcorpus / fiqa)
-to get the pipeline end-to-end quickly, then **scale to MS MARCO / NQ on the HPC**
-for the headline results. **What we need:** which dataset(s) IBM most wants the
-comparison reported on — a standard academic benchmark, or an enterprise-style
-corpus closer to their real use case?
+- **A — standard academic IR** (BEIR/SciFact → MS MARCO/NQ). Ships with qrels;
+  precision/recall computable out of the box; CPU-friendly. Clean but not
+  "enterprise." (What the proposal currently assumes.)
+- **B — enterprise datasets** (e.g. **CUAD** legal-contract clauses, **DocFinQA**
+  long SEC financial QA). Much closer to the brief's enterprise framing, but they
+  are QA/extraction sets — we would have to **construct corpus/queries/relevance
+  ourselves** to get precision/recall, and the long docs need a GPU.
+- **C — A for rigorous metrics + B as an enterprise case study.**
+
+**What we need:** which the comparison should be **reported on.** The brief's
+"enterprise-scale data" leans **B**; its "precision/recall on benchmark datasets"
+line leans **A** — only IBM can resolve which they actually want. Start on SciFact
+regardless (fast pipeline bring-up); the headline-dataset decision is the ask.
 
 ### Q6. Baseline dense retriever — which open-source model?
 
