@@ -18,6 +18,10 @@
 
 set -euo pipefail
 
+# Compute nodes have no python by default — load the same module the venv was
+# built with before activating it.
+module load languages/python/3.12.3
+
 export HF_HOME=/user/work/$USER/hf_cache
 export HF_HUB_OFFLINE=1
 export TRANSFORMERS_OFFLINE=1

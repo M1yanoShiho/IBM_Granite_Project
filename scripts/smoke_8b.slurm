@@ -14,6 +14,10 @@
 
 set -euo pipefail
 
+# Compute nodes have no python by default — load the same module the venv was
+# built with before activating it.
+module load languages/python/3.12.3
+
 # Caches on /user/work (home quota is small). Offline: the compute node has no
 # internet, so weights must be pre-downloaded on the LOGIN node first
 # (see docs/hpc-deployment.md, step 4).

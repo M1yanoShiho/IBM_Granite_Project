@@ -62,19 +62,24 @@ mkdir -p logs                                # Slurm needs this dir for job outp
 
 ### 3. Python env + **CUDA** PyTorch (the #1 gotcha)
 
-`requirements.lock` pins `torch+cpu`. On the HPC you must install a **CUDA** build
-— do NOT install the lock file's CPU torch. The node driver is CUDA 12.4, so:
+There is no `python` on the login node by default — load a module first. Use
+**3.12** (the default 3.14 is too new for prebuilt torch/transformers wheels).
+`requirements.txt` does not pin torch, so install the **CUDA** build first; the
+rest then see torch as already satisfied.
 
 ```bash
+module load languages/python/3.12.3      # NOT the 3.14 default
 python -m venv /user/work/$USER/venv
 source /user/work/$USER/venv/bin/activate
+pip install --upgrade pip
 
-pip install torch --index-url https://download.pytorch.org/whl/cu121
-
-# Project deps (without overriding torch):
-pip install transformers accelerate bitsandbytes faiss-cpu sentence-transformers \
-            rank-bm25 ranx ir-datasets datasets ragas python-dotenv
+pip install torch --index-url https://download.pytorch.org/whl/cu121   # CUDA torch FIRST
+pip install -r requirements.txt                                         # rest; torch already satisfied
+# For 4-bit 8B on an 11GB card later:  pip install bitsandbytes
 ```
+
+The Slurm scripts (`scripts/*.slurm`) also `module load languages/python/3.12.3`
+before activating the venv — compute nodes need it too.
 
 ### 4. Pre-download the model weights (on the login node)
 
