@@ -88,16 +88,16 @@ Compute nodes have **no internet** — download on the login node into the cache
 
 ```bash
 export HF_HOME=/user/work/$USER/hf_cache
-# Start with the small model; confirm the exact 8B *instruct* repo on
-# https://huggingface.co/ibm-granite before downloading it.
-huggingface-cli download ibm-granite/granite-4.1-3b
-# huggingface-cli download ibm-granite/<8B-INSTRUCT>
+hf download ibm-granite/granite-4.1-3b      # smoke test (huggingface-cli is deprecated; use `hf`)
+hf download ibm-granite/granite-4.1-8b      # RAG generation (9B params)
 ```
 
-> **Model choice:** RAG answer generation needs an **instruct** model. The 8B
-> **base** model is for the long-context "needle" experiments (~512K context).
-> Granite is Apache-2.0 / open — usually no token needed; if a repo is gated, run
-> `huggingface-cli login` first.
+> **Model choice (confirmed on huggingface.co/ibm-granite):** the plain names
+> (`granite-4.1-3b`, `granite-4.1-8b`, `granite-4.1-30b`) are the **instruct**
+> variants — use these for RAG generation. The `-base` variants
+> (`granite-4.1-30b-base`) are pretrained bases, for the long-context "needle"
+> experiments. Granite is Apache-2.0 / open — usually no token needed; if a repo
+> is gated, run `hf auth login` first.
 
 ---
 

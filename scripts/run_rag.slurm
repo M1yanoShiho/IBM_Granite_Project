@@ -25,7 +25,7 @@ module load languages/python/3.12.3
 export HF_HOME=/user/work/$USER/hf_cache
 export HF_HUB_OFFLINE=1
 export TRANSFORMERS_OFFLINE=1
-export GRANITE_MODEL_ID=ibm-granite/<8B-INSTRUCT>   # TODO: confirm exact repo on HF
+export GRANITE_MODEL_ID=ibm-granite/granite-4.1-8b   # instruct variant (no -base) for RAG
 
 source /user/work/$USER/venv/bin/activate
 cd /user/work/$USER/IBM_Granite_Project
