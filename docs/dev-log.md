@@ -18,7 +18,7 @@
 - **范围已定(Meeting 1 确认):** **A+B = 检索 + RAG** 为 headline;NIAH 降为次要诊断;
   数据**只用公开数据集**(不碰企业数据/不换商业协议);交付物是**可用的 MVP**,不止 research report。
 - **框架地基:✅ 已就位** —— repo、架构、4 个契约、所有 `@dataclass`、RAG glue 都立住。
-- **基建地基:◐ 进行中** —— Blue Pebble(HPC)2026-06-10 批下;待**一周内全队对齐 HF / GPU / Ollama|vLLM** 环境。
+- **基建地基:✅ 生成层已验证** —— BluePebble(HPC)已接通,环境跑通,**granite-4.1-3b 在 GPU 节点成功生成**(`Smoke test OK`)。可用组合:**python 3.12 + torch 2.5.1+cu121 + transformers 4.57**(HPC 用 4.x,见 [hpc-deployment.md](hpc-deployment.md))。脚本:`scripts/smoke_8b.slurm` / `run_rag.slurm`。待全队需 GPU 者复用 + 共享模型缓存。
 - **核心逻辑:☐ 大部分待建** —— 检索核心(P4)、各指标、loader 实现仍是 skeleton。
 - **测试基线:** `pytest -q` = 6 passed / 2 xfailed。
 - **下一步:** 给 Bharat 发**架构图**(CPU/GPU 分工 + 数据如何喂进 RAG);跑通 CPU 最小闭环(loader→ir_metrics→bm25→run_benchmark)出第一张表。
@@ -62,13 +62,15 @@
 - **下一步:** `indexer` 建 + 存 FAISS(需 P4 的 embedder);和 P4 对齐 `Chunk`/索引交接格式。
 
 ### P6 — 集成 + explainability + 接口负责人 · 毛威凯
+> 详细个人开发记录见 **[dev-log-p6.md](dev-log-p6.md)**。
 - **负责:** `eval/run_benchmark.py`, `src/explainability/citations.py`,接口 owner
 - **已完成:**
   - ✅ 4 个跨模块契约(`src/retrieval/base.py` + `interfaces.md`):Retriever / Run / max-pool / **RAG I/O(新增)**
   - ✅ **A+B RAG 改造**(2026-06-12):`rag_pipeline` 改为复用 `Retriever`、新增 `run_rag.py` + `rag_metrics.py`、`BenchmarkData` 加 `answers`、app 改 RAG 口径(详见 Changelog)
+  - ✅ **HPC 部署**(2026-06-12):BluePebble 生成层跑通(granite-4.1-3b 验证);产出 `scripts/smoke_8b.*` / `run_rag.slurm` + `docs/hpc-deployment.md`;repo 设为 public(已扫无密钥)
   - ✅ Meeting 1 准备 + 文档对齐(`meeting-1-questions.md` Q1/Q2/Q5)
 - **进行中:** ☐ `run_benchmark` 编排(对 mock retriever + synthetic mini-benchmark 出 CSV)
-- **下一步:** `build_run` + chunk→doc 聚合;给 Bharat 的架构图;`citations.py`。
+- **下一步:** `build_run` + chunk→doc 聚合;给 Bharat 的架构图;8B 冒烟;`citations.py`。
 
 ### P7 — 可视化 + demo + 结果 · _(待填)_
 - **负责:** `notebooks/`, `app/main.py`
@@ -82,7 +84,8 @@
 
 | 日期 | 区域 | 改动 | 文件 | 谁 |
 | --- | --- | --- | --- | --- |
-| 2026-06-12 | 文档 | 新建本开发日志 | `docs/dev-log.md` | P6 |
+| 2026-06-12 | HPC | **BluePebble 生成层跑通**(granite-4.1-3b 验证);Slurm 脚本 + 部署文档;HPC 版本修复(transformers 4.x);repo 设 public | `scripts/smoke_8b.*`, `scripts/run_rag.slurm`, `docs/hpc-deployment.md`, `.gitattributes` | P6 |
+| 2026-06-12 | 文档 | 新建本开发日志 + 个人开发文档 | `docs/dev-log.md`, `docs/dev-log-p6.md` | P6 |
 | 2026-06-12 | 范围/RAG | **RAG 提为 A+B co-headline 的仓库改造**:RAGPipeline 复用 Retriever(不再自建检索栈)、新增 RAG 主线评测入口、RAG 指标独立成模块、BenchmarkData 加可选 `answers`、新增契约 4、demo 改 RAG 口径 | `src/rag_pipeline.py`, `eval/run_rag.py`(新), `eval/rag_metrics.py`(新), `eval/metrics.py`, `eval/benchmarks/loader.py`, `docs/interfaces.md`, `app/main.py`, `tests/test_data_structures.py` | P6 |
 | 2026-06-12 | 文档 | Meeting 1 问题对齐 A+B 立场(Q1 推荐 A+B、Q2 system 含 RAG、Q5 数据需 gold answer、NIAH finding/取舍) | `docs/meeting-1-questions.md` | P6 |
 | 2026-06-11 | 契约 | 锁定共享检索契约(Retriever Protocol + RetrievedChunk) | `src/retrieval/base.py`, `docs/interfaces.md` | P6 |
