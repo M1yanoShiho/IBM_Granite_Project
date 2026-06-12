@@ -5,6 +5,9 @@ Division of labour for the 7-person team for the work that needs **no GPU**
 [work-plan-no-gpu.md](work-plan-no-gpu.md) for the task detail and
 [meeting-1-questions.md](meeting-1-questions.md) for open decisions.
 
+> **这份是"谁负责什么"(计划)。"谁实际做了什么"(进度/贡献)记录在
+> [dev-log.md](dev-log.md) —— 每个人持续更新自己的小节。**
+
 **Why we can parallelise now:** the data-structure contracts (the `@dataclass`
 definitions — `BenchmarkData`, `Chunk`, `RetrievedChunk`, …) already exist, so
 everyone can code against a stable interface against stubs. **Lock these

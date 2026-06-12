@@ -19,7 +19,7 @@ way, against the same ground truth.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict
+from typing import Dict, Optional
 
 
 @dataclass
@@ -33,12 +33,19 @@ class BenchmarkData:
     queries:
         ``{query_id: text}`` — the evaluation queries.
     qrels:
-        ``{query_id: {doc_id: relevance}}`` — human relevance judgments.
+        ``{query_id: {doc_id: relevance}}`` — human relevance judgments
+        (drives the retrieval metrics).
+    answers:
+        ``{query_id: gold_answer}`` — optional free-text answers, present only
+        for answer-bearing QA benchmarks (e.g. NQ, MS MARCO QA). Required for the
+        RAG evaluation (``eval/run_rag.py``); retrieval-only sets like SciFact
+        leave this ``None``. See meeting question Q5.
     """
 
     corpus: Dict[str, str]
     queries: Dict[str, str]
     qrels: Dict[str, Dict[str, int]]
+    answers: Optional[Dict[str, str]] = None
 
 
 def load_benchmark(name: str, split: str = "test") -> BenchmarkData:

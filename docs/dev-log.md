@@ -1,0 +1,97 @@
+# 开发日志 / Dev Log
+
+> **这份文档记录"谁实际做了什么"** —— 和 [team-roles.md](team-roles.md)(谁*负责*什么,
+> 计划)互补。用途:个人报告找素材、团队对齐进度、向 IBM 汇报贡献时有据可查。
+>
+> **怎么维护(每个人自己更新):**
+> 1. 干完一块活,在下面**你的小节**里加一行(做了什么 / 改了哪些文件 / 状态)。
+> 2. 顺手在底部 **Changelog** 加一行(日期 / 区域 / 简述 / 文件 / 谁)。
+> 3. 状态用:`☐ 未开始` · `◐ 进行中` · `✅ 完成(测试绿)`。
+> 4. 改了跨模块接口?先看 [interfaces.md](interfaces.md) 的变更规则,别私自改契约。
+
+配套:[team-roles.md](team-roles.md) · [interfaces.md](interfaces.md) · [work-plan-no-gpu.md](work-plan-no-gpu.md) · [meeting-1-questions.md](meeting-1-questions.md)
+
+---
+
+## 项目状态快照(2026-06-12)
+
+- **范围已定(Meeting 1 确认):** **A+B = 检索 + RAG** 为 headline;NIAH 降为次要诊断;
+  数据**只用公开数据集**(不碰企业数据/不换商业协议);交付物是**可用的 MVP**,不止 research report。
+- **框架地基:✅ 已就位** —— repo、架构、4 个契约、所有 `@dataclass`、RAG glue 都立住。
+- **基建地基:◐ 进行中** —— Blue Pebble(HPC)2026-06-10 批下;待**一周内全队对齐 HF / GPU / Ollama|vLLM** 环境。
+- **核心逻辑:☐ 大部分待建** —— 检索核心(P4)、各指标、loader 实现仍是 skeleton。
+- **测试基线:** `pytest -q` = 6 passed / 2 xfailed。
+- **下一步:** 给 Bharat 发**架构图**(CPU/GPU 分工 + 数据如何喂进 RAG);跑通 CPU 最小闭环(loader→ir_metrics→bm25→run_benchmark)出第一张表。
+
+---
+
+## 个人工作记录
+
+> 每人维护自己的小节。"已完成"只写真正做出来的;计划中的写进"下一步"。
+
+### P1 — Benchmark 数据加载 · 许展瑜
+- **负责:** `eval/benchmarks/loader.py` → `BenchmarkData`
+- **已完成:** _(待本人填)_
+- **进行中:** ☐ `load_benchmark` —— 拉 SciFact,返回 corpus/queries/qrels
+- **下一步:** A+B 下需支持**带 gold answer** 的 QA 集(已为此加了可选字段 `BenchmarkData.answers`,见 Changelog 2026-06-12)
+- **备注:** 这是所有评测的基石,优先做。
+
+### P2 — IR 指标 · Frida
+- **负责:** `eval/ir_metrics.py` → `Run`/`Qrels`
+- **已完成:** ◐ `ir_metrics` 草稿(precision/recall/nDCG/MRR via ranx,commit 93640f8)—— _本人确认是否已测绿_
+- **进行中:** _(待本人填)_
+- **下一步:** RAG 答案质量指标搬到了新文件 **`eval/rag_metrics.py`**(不是 `metrics.py`),若由你实现 context_precision / faithfulness,请写在那里(见 Changelog)。
+- **备注:** spike 阶段还跑过 BM25/SciFact(ndcg@10≈0.56)+ NIAH + Ollama 后端,均为参考,以仓库 canonical 文件为准。
+
+### P3 — BM25 基线 · 尤佳希 + 魏铭
+- **负责:** `src/retrieval/bm25_baseline.py`
+- **已完成:** _(待本人填)_
+- **进行中:** ☐ 用 `rank_bm25` 建索引 + retrieve top-k
+- **下一步:** 对齐契约 1(返回 `List[RetrievedChunk]`);注意 SciFact 上 BM25 tokenization 影响分数。
+
+### P4 — Embedding + 稠密检索器(核心) · 尤佳希 + 魏铭
+- **负责:** `src/retrieval/embedder.py`, `src/retrieval/retriever.py`
+- **已完成:** _(待本人填)_
+- **进行中:** ☐ `embedder`(granite + sentence-transformers 双后端)→ ☐ `DenseRetriever`
+- **下一步:** **项目最关键模块**;先做 embedder(P5 的 indexer 也要它),再做 retriever。和 P5 对齐归一化方式(见 interfaces.md 附加约定)。
+
+### P5 — Ingestion 流水线 · 吴泽楠
+- **负责:** `src/ingestion/{loaders,chunker,indexer}.py`
+- **已完成:** _(待本人填)_
+- **进行中:** ☐ `chunker`(token 切块,可独立先做)
+- **下一步:** `indexer` 建 + 存 FAISS(需 P4 的 embedder);和 P4 对齐 `Chunk`/索引交接格式。
+
+### P6 — 集成 + explainability + 接口负责人 · 毛威凯
+- **负责:** `eval/run_benchmark.py`, `src/explainability/citations.py`,接口 owner
+- **已完成:**
+  - ✅ 4 个跨模块契约(`src/retrieval/base.py` + `interfaces.md`):Retriever / Run / max-pool / **RAG I/O(新增)**
+  - ✅ **A+B RAG 改造**(2026-06-12):`rag_pipeline` 改为复用 `Retriever`、新增 `run_rag.py` + `rag_metrics.py`、`BenchmarkData` 加 `answers`、app 改 RAG 口径(详见 Changelog)
+  - ✅ Meeting 1 准备 + 文档对齐(`meeting-1-questions.md` Q1/Q2/Q5)
+- **进行中:** ☐ `run_benchmark` 编排(对 mock retriever + synthetic mini-benchmark 出 CSV)
+- **下一步:** `build_run` + chunk→doc 聚合;给 Bharat 的架构图;`citations.py`。
+
+### P7 — 可视化 + demo + 结果 · _(待填)_
+- **负责:** `notebooks/`, `app/main.py`
+- **已完成:** _(待本人填)_
+- **进行中:** ☐ Streamlit demo(已改成 RAG 口径:检索→生成→展示引用)+ 对比图(对 mock `results.csv`)
+- **下一步:** A+B 下 demo 要展示完整 retrieve-then-generate-with-citations 流程。
+
+---
+
+## Changelog(倒序,最新在上)
+
+| 日期 | 区域 | 改动 | 文件 | 谁 |
+| --- | --- | --- | --- | --- |
+| 2026-06-12 | 文档 | 新建本开发日志 | `docs/dev-log.md` | P6 |
+| 2026-06-12 | 范围/RAG | **RAG 提为 A+B co-headline 的仓库改造**:RAGPipeline 复用 Retriever(不再自建检索栈)、新增 RAG 主线评测入口、RAG 指标独立成模块、BenchmarkData 加可选 `answers`、新增契约 4、demo 改 RAG 口径 | `src/rag_pipeline.py`, `eval/run_rag.py`(新), `eval/rag_metrics.py`(新), `eval/metrics.py`, `eval/benchmarks/loader.py`, `docs/interfaces.md`, `app/main.py`, `tests/test_data_structures.py` | P6 |
+| 2026-06-12 | 文档 | Meeting 1 问题对齐 A+B 立场(Q1 推荐 A+B、Q2 system 含 RAG、Q5 数据需 gold answer、NIAH finding/取舍) | `docs/meeting-1-questions.md` | P6 |
+| 2026-06-11 | 契约 | 锁定共享检索契约(Retriever Protocol + RetrievedChunk) | `src/retrieval/base.py`, `docs/interfaces.md` | P6 |
+| _(往前的提交见 `git log`)_ | | | | |
+
+---
+
+## Meeting 决议存档
+
+- **Meeting 1(2026-06-11/12,IBM = Bharat):** A+B 确认 ✅;交付物 = 超越 report 的 MVP ✅;
+  数据 = 公开数据集、不碰企业数据/法律 ✅;NIAH = 次要(RAG 是 foundation)✅;
+  **行动项:** 给 Bharat 发架构图(infra + architecture 两视角)、发会议 transcript、一周内全队对齐算力环境。

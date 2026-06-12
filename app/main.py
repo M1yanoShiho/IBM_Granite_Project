@@ -1,11 +1,12 @@
-"""Streamlit demo for the Needle in a Haystack project.
+"""Streamlit demo for the IBM Granite retrieval + RAG system.
 
-A lightweight UI to demonstrate fact retrieval from long-context documents
-with IBM Granite. The user can:
+A lightweight UI to demonstrate the retrieve-then-generate pipeline (the A+B
+deliverable) with IBM Granite. The user can:
 
-- Upload (or paste) a haystack document.
+- Upload (or paste) a document corpus.
 - Type a question (search box).
-- Run the query and view the model's answer.
+- Run the query and view the model's answer **plus the source chunks it cited**
+  (the ``RAGPipeline`` → ``RAGResult`` flow, with citations for trust).
 
 Run from the project root:
 
@@ -31,7 +32,7 @@ def main() -> None:
 
     st.title("🪡 Needle in a Haystack — IBM Granite")
     st.caption(
-        "Retrieve specific facts buried deep within long-context documents."
+        "Retrieve relevant passages and generate a grounded, cited answer (RAG)."
     )
 
     # --- Sidebar: configuration --------------------------------------- #
@@ -80,9 +81,9 @@ def main() -> None:
             st.warning("Please upload or paste a document first.")
             return
 
-        with st.spinner("Querying the model..."):
-            # TODO: read document, build prompt, call LLMClient.generate(),
-            #       and display the answer.
+        with st.spinner("Retrieving and generating..."):
+            # TODO: index the document, run RAGPipeline(retriever, llm).query(),
+            #       then display RAGResult.answer and its cited source chunks.
             st.info("Model integration not implemented yet (boilerplate).")
 
 

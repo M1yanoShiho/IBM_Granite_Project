@@ -12,6 +12,7 @@ from __future__ import annotations
 from src.data_processing import HaystackSample, Needle
 from src.llm_client import GenerationConfig
 from src.rag_pipeline import RAGResult
+from src.retrieval.base import RetrievedChunk
 from eval.niah_runner import NIAHConfig
 
 
@@ -69,9 +70,13 @@ def test_generation_config_defaults_are_deterministic() -> None:
 # RAGResult
 # --------------------------------------------------------------------------- #
 def test_rag_result_stores_answer_and_chunks() -> None:
-    result = RAGResult(answer="Bristol", retrieved_chunks=["c1", "c2"])
+    chunks = [
+        RetrievedChunk(doc_id="c1", text="Bristol is a city.", score=0.9),
+        RetrievedChunk(doc_id="c2", text="It is in the UK.", score=0.7),
+    ]
+    result = RAGResult(answer="Bristol", retrieved_chunks=chunks)
     assert result.answer == "Bristol"
-    assert result.retrieved_chunks == ["c1", "c2"]
+    assert [c.doc_id for c in result.retrieved_chunks] == ["c1", "c2"]
 
 
 # --------------------------------------------------------------------------- #

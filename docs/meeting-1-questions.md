@@ -13,31 +13,50 @@ deliverable but has a safe default · **P2** = logistics, can be resolved offlin
 
 ## P0 — Decisions that gate everything
 
-### Q1. What's the headline — semantic retrieval, RAG, or long-context "needle"?
+### Q1. What's the headline — and we want to elevate RAG to sit alongside retrieval (A+B).
 
-The brief is **broader than our proposal currently scopes it.** The Approach
+The brief is **broader than our original proposal scoped it.** The Approach
 lists, *co-equally*, "semantic search **and** retrieval-augmented generation
 (RAG) pipelines," evaluated with "precision/recall on benchmark datasets," over
-"enterprise-scale data." Our proposal narrowed this to *retrieval-primary,
-RAG/NIAH secondary* for tractability — that is **our choice, not a direct readout
-of the brief.**
+"enterprise-scale data." Our first proposal narrowed this to *retrieval-primary,
+RAG/NIAH secondary* for tractability — that was **our choice, not a direct
+readout of the brief.**
+
+**Our updated position:** to stay faithful to the brief, we want to **promote RAG
+from a secondary item to a co-headline — i.e. A+B (retrieval *and* RAG)** —
+rather than keeping it demoted. We'd like IBM to confirm this is the right reading
+before we commit the engineering effort (the RAG generation layer needs GPU).
 
 Three candidate headlines:
 
 - **A — semantic *retrieval* quality.** Granite dense retriever vs BM25 vs an
   open-source dense baseline; precision/recall/nDCG/MRR on benchmark datasets.
-  Clean, CPU-friendly. (What the proposal currently makes primary.)
+  Clean, CPU-friendly. (The foundation either way.)
 - **B — retrieval + *RAG*.** Add the generation layer (retrieve-then-generate),
   scored on answer quality + faithfulness. The brief names RAG **co-equally**
   with semantic search, so this has direct textual support. Needs a GPU.
 - **C — long-context "needle" (NIAH).** Inject a fact at a controlled depth in a
   long document and test whether the model finds it (Lost-in-the-Middle). This is
   the *team's added diagnostic*; the brief's "needle" actually means general
-  information discovery, not the synthetic-injection benchmark.
+  information discovery, not the synthetic-injection benchmark. We keep this as a
+  secondary diagnostic, not a headline. **Finding:** Granite 4.1 8B showed **no
+  degradation at 32k context** in our test (an earlier "failure" was a config
+  artifact on our side), so RAG's justification rests on **cost and documents
+  longer than the context window**, not on the model breaking down.
 
-**What we need:** which of A / B / C (or A+B) IBM wants as the headline. Note
-**RAG (B) is named in the brief but currently demoted in our plan** — flag this
-explicitly.
+**What we need:**
+- IBM to **confirm A+B (retrieval + RAG) as the headline**, in line with the
+  brief naming the two co-equally. If IBM would rather we keep RAG secondary and
+  stay retrieval-only (A), we need to hear that explicitly.
+- **Does IBM want the long-context needle test (C) as a graded deliverable, or is
+  keeping it a secondary diagnostic fine?** Our recommendation is **secondary** —
+  Granite 4.1 8B showed no degradation at 32k (see option C above), so the needle
+  test isn't surfacing a real failure. **But if you want C elevated,** we'd need
+  to test much longer contexts (64k/128k+) to find a genuine break point, which
+  costs more GPU and time — we'd want that traded against the RAG work, not added
+  on top.
+
+Our headline recommendation, read straight off the brief, is **A+B**.
 
 ### Q2. Is the deliverable a *system*, an *evaluation study*, or both — and which is primary?
 
@@ -46,14 +65,18 @@ Route A (evaluation-emphasis), Route B (system-emphasis), and Route C (both).
 A single project can only have one centre of gravity; trying to do both equally
 risks two half-finished things.
 
-**Our current plan:** a **Granite-powered retrieval system** (the deliverable)
-**plus** a rigorous benchmark evaluation against baselines (the evidence) —
-i.e. system-primary with evaluation as a first-class, not bolted-on, component.
+**Our current plan:** a **Granite-powered retrieval-plus-RAG system** (the
+deliverable) **plus** a rigorous evaluation — benchmark IR metrics for the
+retrieval layer and answer-quality/faithfulness for the RAG layer (the evidence)
+— i.e. system-primary with evaluation as a first-class, not bolted-on, component.
+Per Q1, the "system" now **includes the RAG generation layer** (the A+B reading),
+not retrieval alone.
 **What we need:** IBM to confirm system-primary, or tell us they want the
 evaluation study to be the headline (which would demote the demo/UI work).
 
 *Note:* the **scope of the "system" depends on Q1** — retrieval-only (A) is a
-smaller system than retrieval + RAG generation (B). Settle Q1 first.
+smaller system than retrieval + RAG generation (A+B, our recommendation). Settle
+Q1 first.
 
 ### Q3. watsonx.ai access — accounts, project, and student credit/quota? — ✅ RESOLVED
 
@@ -85,8 +108,8 @@ not really being tested.
 **What we need:**
 - Which `granite-embedding` model to use (e.g.
   `granite-embedding-278m-multilingual`, `granite-embedding-30m-english`)?
-- Its **max input length** / embedding dimension — this sets our chunk size and
-  bounds the secondary long-context test.
+- Its **max input length** / embedding dimension — this sets our chunk size, so
+  we are **blocked on this detail** before finalising ingestion.
 - Which **Granite generative model** for the RAG layer — Bharat suggested
   Granite 4.1 (3B for dev, 8B/30B on the HPC; 8B base offers a ~512K context).
   Confirm the recommended size given our HPC GPU budget.
@@ -101,19 +124,32 @@ These pull apart — clean, ready-made precision/recall comes from academic IR
 benchmarks; enterprise data is more faithful to the brief but ships with no
 relevance labels.
 
-- **A — standard academic IR** (BEIR/SciFact → MS MARCO/NQ). Ships with qrels;
-  precision/recall computable out of the box; CPU-friendly. Clean but not
-  "enterprise." (What the proposal currently assumes.)
+**A+B raises the bar on data.** With RAG now a co-headline (Q1), the dataset has
+to serve **two** scoring needs at once:
+- **Retrieval** scoring needs **relevance labels (qrels)**.
+- **RAG answer-quality** scoring needs **gold free-text answers** — which qrels
+  do not provide. (We've added an optional `answers` field to `BenchmarkData`
+  for this.)
+
+This matters because **SciFact has qrels but no gold answers** — fine for
+retrieval, not enough to score RAG. So A+B pushes us toward answer-bearing sets.
+
+- **A — standard academic IR** (BEIR/SciFact → MS MARCO/NQ). SciFact has qrels
+  only; **Natural Questions / MS MARCO QA also carry gold answers**, so they can
+  score both retrieval *and* RAG. CPU-friendly for retrieval. Clean but not
+  "enterprise."
 - **B — enterprise datasets** (e.g. **CUAD** legal-contract clauses, **DocFinQA**
-  long SEC financial QA). Much closer to the brief's enterprise framing, but they
-  are QA/extraction sets — we would have to **construct corpus/queries/relevance
-  ourselves** to get precision/recall, and the long docs need a GPU.
+  long SEC financial QA). Much closer to the brief's enterprise framing; DocFinQA
+  carries answers (good for RAG), but they are QA/extraction sets — we'd have to
+  **construct corpus/queries/relevance ourselves** for retrieval metrics, and the
+  long docs need a GPU.
 - **C — A for rigorous metrics + B as an enterprise case study.**
 
-**What we need:** which the comparison should be **reported on.** The brief's
-"enterprise-scale data" leans **B**; its "precision/recall on benchmark datasets"
-line leans **A** — only IBM can resolve which they actually want. Start on SciFact
-regardless (fast pipeline bring-up); the headline-dataset decision is the ask.
+**What we need:** which the comparison should be **reported on**, knowing A+B
+needs **gold answers**, not just qrels. The brief's "enterprise-scale data" leans
+**B**; its "precision/recall on benchmark datasets" line leans **A** — only IBM
+can resolve which they actually want. We start on SciFact regardless (fast
+pipeline bring-up for retrieval); the headline-dataset decision is the ask.
 
 ### Q6. Baseline dense retriever — which open-source model?
 
@@ -155,8 +191,11 @@ something deeper (confidence calibration, faithfulness scoring, etc.)?
 
 ## One-line ask for the meeting
 
-> "We plan a **Granite-embedding–powered retrieval system**, evaluated on
-> **small BEIR benchmarks** against **BM25 + an open-source dense retriever**
-> using precision/recall/nDCG/MRR, with **citations** for trust and a
-> **long-context needle test** as a secondary diagnostic. Does that match what
-> you want as the *primary* deliverable, and can you confirm Q3/Q4 access?"
+> "We plan a **Granite-embedding–powered retrieval system with a RAG layer on
+> top** — read straight off the brief, which names semantic search and RAG
+> co-equally. Retrieval is evaluated on **small BEIR benchmarks** against **BM25
+> + an open-source dense retriever** (precision/recall/nDCG/MRR); RAG is scored
+> on answer quality + faithfulness, with **citations** for trust; the
+> **long-context needle test** stays a secondary diagnostic. Does **A+B
+> (retrieval + RAG)** match what you want as the *primary* deliverable, and can
+> you confirm the Granite model choices in Q4?"
