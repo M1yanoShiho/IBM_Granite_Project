@@ -24,8 +24,9 @@ module load languages/python/3.12.3
 export HF_HOME=/user/work/$USER/hf_cache
 export HF_HUB_OFFLINE=1
 export TRANSFORMERS_OFFLINE=1
-# Start small; switch to the 8B instruct repo once 3B works:
-export GRANITE_MODEL_ID=ibm-granite/granite-4.1-3b
+# Defaults to 3B; override for an 8B smoke, e.g.:
+#   sbatch --gres=gpu:rtx_3090:1 --export=ALL,GRANITE_MODEL_ID=ibm-granite/granite-4.1-8b scripts/smoke_8b.slurm
+export GRANITE_MODEL_ID=${GRANITE_MODEL_ID:-ibm-granite/granite-4.1-3b}
 
 source /user/work/$USER/venv/bin/activate
 cd /user/work/$USER/IBM_Granite_Project

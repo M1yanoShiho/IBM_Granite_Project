@@ -75,8 +75,18 @@ pip install --upgrade pip
 
 pip install torch --index-url https://download.pytorch.org/whl/cu121   # CUDA torch FIRST
 pip install -r requirements.txt                                         # rest; torch already satisfied
+
+# HPC version fix (IMPORTANT): requirements pins transformers 5.x, which imports
+# torch.float8_e8m0fnu (only in torch >= 2.7 → cu126/cu128 builds, beyond the
+# CUDA 12.4 driver here). The cu121 torch caps at 2.5.1, so use transformers 4.x
+# on BluePebble. Verified working combo: torch 2.5.1+cu121 + transformers 4.57.
+pip install "transformers>=4.48,<5"
 # For 4-bit 8B on an 11GB card later:  pip install bitsandbytes
 ```
+
+> Laptops (CPU retrieval work) keep `requirements.txt` as-is — they have
+> `torch 2.12+cpu`, which *does* have `float8_e8m0fnu`, so transformers 5.x is
+> fine there. This downgrade is **HPC-only**; do not change `requirements.txt`.
 
 The Slurm scripts (`scripts/*.slurm`) also `module load languages/python/3.12.3`
 before activating the venv — compute nodes need it too.
