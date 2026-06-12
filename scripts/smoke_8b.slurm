@@ -30,4 +30,6 @@ export GRANITE_MODEL_ID=ibm-granite/granite-4.1-3b
 source /user/work/$USER/venv/bin/activate
 cd /user/work/$USER/IBM_Granite_Project
 
-python scripts/smoke_8b.py
+# Run from the project root so `import src...` resolves (PYTHONPATH=. adds the
+# repo root; plain `python scripts/x.py` would only see the scripts/ dir).
+PYTHONPATH=. python scripts/smoke_8b.py
