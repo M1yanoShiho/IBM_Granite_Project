@@ -21,6 +21,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, Optional
 
+import ir_datasets
+
 
 @dataclass
 class BenchmarkData:
@@ -59,7 +61,44 @@ def load_benchmark(name: str, split: str = "test") -> BenchmarkData:
     split:
         Dataset split to load (e.g. ``"test"``).
     """
-    raise NotImplementedError(
-        "TODO: download/load the benchmark (e.g. via the `beir` or `datasets` "
-        "library) and return corpus, queries, and qrels."
+
+    dataset_id = f"beir/{name}/{split}"
+    dataset = ir_datasets.load(dataset_id)
+
+    corpus: Dict[str, str] = {}
+    for doc in dataset.docs_iter():
+        corpus[doc.doc_id] = doc.text
+
+    queries: Dict[str, str] = {}
+    for query in dataset.queries_iter():
+        queries[query.query_id] = query.text
+
+    qrels: Dict[str, Dict[str, int]] = {}
+    for qrel in dataset.qrels_iter():
+        # set default queryId to avoid null inner dict
+        qrels.setdefault(qrel.query_id, {})[qrel.doc_id] = int(qrel.relevance)
+
+    answers: Optional[Dict[str, str]] = None
+
+    # print statistics info
+    docs_count = len(corpus)
+    queries_count = len(queries)
+    qrels_count = sum(len(docs) for docs in qrels.values())
+    avg_doc_len = sum(len(t) for t in corpus.values()) / docs_count if docs_count else 0
+    # average related qrels per query
+    avg_rel_per_q = qrels_count / queries_count if queries_count else 0
+
+    print(f"Dataset: {name}({split})")
+    print(f"Corpus: {docs_count} documents(avg {avg_doc_len:.0f} chars)")
+    print(f"Queries: {queries_count} queries")
+    print(f"Qrels: {qrels_count} relevance judgments "
+          f"(avg {avg_rel_per_q:.2f} relevant docs per query)")
+    print(f"Answers: None?")
+
+    return BenchmarkData(
+        corpus=corpus,
+        queries=queries,
+        qrels=qrels,
+        answers=answers,
     )
+

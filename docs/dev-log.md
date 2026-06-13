@@ -31,8 +31,8 @@
 
 ### P1 — Benchmark 数据加载 · 许展瑜
 - **负责:** `eval/benchmarks/loader.py` → `BenchmarkData`
-- **已完成:** _(待本人填)_
-- **进行中:** ☐ `load_benchmark` —— 拉 SciFact,返回 corpus/queries/qrels
+- **已完成:** loader拉取scifact/test并返回corpus/queries/qrels
+- **进行中:** 
 - **下一步:** A+B 下需支持**带 gold answer** 的 QA 集(已为此加了可选字段 `BenchmarkData.answers`,见 Changelog 2026-06-12)
 - **备注:** 这是所有评测的基石,优先做。
 
@@ -82,14 +82,15 @@
 
 ## Changelog(倒序,最新在上)
 
-| 日期 | 区域 | 改动 | 文件 | 谁 |
-| --- | --- | --- | --- | --- |
-| 2026-06-12 | HPC | **BluePebble 生成层跑通**(granite-4.1-3b 验证);Slurm 脚本 + 部署文档;HPC 版本修复(transformers 4.x);repo 设 public | `scripts/smoke_8b.*`, `scripts/run_rag.slurm`, `docs/hpc-deployment.md`, `.gitattributes` | P6 |
-| 2026-06-12 | 文档 | 新建本开发日志 + 个人开发文档 | `docs/dev-log.md`, `docs/dev-log-p6.md` | P6 |
-| 2026-06-12 | 范围/RAG | **RAG 提为 A+B co-headline 的仓库改造**:RAGPipeline 复用 Retriever(不再自建检索栈)、新增 RAG 主线评测入口、RAG 指标独立成模块、BenchmarkData 加可选 `answers`、新增契约 4、demo 改 RAG 口径 | `src/rag_pipeline.py`, `eval/run_rag.py`(新), `eval/rag_metrics.py`(新), `eval/metrics.py`, `eval/benchmarks/loader.py`, `docs/interfaces.md`, `app/main.py`, `tests/test_data_structures.py` | P6 |
-| 2026-06-12 | 文档 | Meeting 1 问题对齐 A+B 立场(Q1 推荐 A+B、Q2 system 含 RAG、Q5 数据需 gold answer、NIAH finding/取舍) | `docs/meeting-1-questions.md` | P6 |
-| 2026-06-11 | 契约 | 锁定共享检索契约(Retriever Protocol + RetrievedChunk) | `src/retrieval/base.py`, `docs/interfaces.md` | P6 |
-| _(往前的提交见 `git log`)_ | | | | |
+| 日期                   | 区域               | 改动                                                                                                                                            | 文件 | 谁  |
+|----------------------|------------------|-----------------------------------------------------------------------------------------------------------------------------------------------| --- |----|
+| 2026-06-13           | 数据加载 | 完成benchmark数据加载                                                                                                                                   | `loader.py` | P1 |
+| 2026-06-12           | HPC              | **BluePebble 生成层跑通**(granite-4.1-3b 验证);Slurm 脚本 + 部署文档;HPC 版本修复(transformers 4.x);repo 设 public                                              | `scripts/smoke_8b.*`, `scripts/run_rag.slurm`, `docs/hpc-deployment.md`, `.gitattributes` | P6 |
+| 2026-06-12           | 文档               | 新建本开发日志 + 个人开发文档                                                                                                                              | `docs/dev-log.md`, `docs/dev-log-p6.md` | P6 |
+| 2026-06-12           | 范围/RAG           | **RAG 提为 A+B co-headline 的仓库改造**:RAGPipeline 复用 Retriever(不再自建检索栈)、新增 RAG 主线评测入口、RAG 指标独立成模块、BenchmarkData 加可选 `answers`、新增契约 4、demo 改 RAG 口径 | `src/rag_pipeline.py`, `eval/run_rag.py`(新), `eval/rag_metrics.py`(新), `eval/metrics.py`, `eval/benchmarks/loader.py`, `docs/interfaces.md`, `app/main.py`, `tests/test_data_structures.py` | P6 |
+| 2026-06-12           | 文档               | Meeting 1 问题对齐 A+B 立场(Q1 推荐 A+B、Q2 system 含 RAG、Q5 数据需 gold answer、NIAH finding/取舍)                                                           | `docs/meeting-1-questions.md` | P6 |
+| 2026-06-11           | 契约               | 锁定共享检索契约(Retriever Protocol + RetrievedChunk)                                                                                                 | `src/retrieval/base.py`, `docs/interfaces.md` | P6 |
+| _(往前的提交见 `git log`)_ |                  |                                                                                                                                               | |    |
 
 ---
 
