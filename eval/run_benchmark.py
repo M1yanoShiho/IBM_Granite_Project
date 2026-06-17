@@ -10,18 +10,25 @@ Orchestrates the headline experiment of the project:
 4. Score every run with ``eval.ir_metrics`` (precision/recall/nDCG/MRR).
 5. Save a comparison table for the report.
 
-Run from the project root:
+Run from the project root once the retrievers are wired:
 
-    python -m eval.run_benchmark --dataset scifact
+    python -m eval.run_benchmark
 
-The implementation is left as a documented skeleton.
+The orchestration, scoring, and CSV output are implemented and unit-tested (via
+injected retrievers). Building the real retrievers over a freshly built index is
+the one remaining step — see :func:`_build_retrievers`.
 """
 
 from __future__ import annotations
 
+import csv
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List
+from typing import Dict, List
+
+from eval.benchmarks.loader import BenchmarkData, load_benchmark
+from eval.ir_metrics import Run, evaluate_run
+from src.retrieval.base import Retriever
 
 
 @dataclass
@@ -48,14 +55,103 @@ class BenchmarkConfig:
     results_path: Path = Path("results/benchmark_results.csv")
 
 
-def run(config: BenchmarkConfig) -> None:
-    """Load data, index, run all retrievers, score, and persist the comparison."""
-    # Ensure the results directory exists before any retriever writes to it.
-    config.results_path.parent.mkdir(parents=True, exist_ok=True)
+def build_run(retriever: Retriever, queries: Dict[str, str]) -> Run:
+    """Aggregate a retriever's chunk-level results into a doc-level ``Run``.
+
+    For each query, call ``retriever.retrieve`` and collapse the returned chunks
+    to one score per ``doc_id`` by **max-pool** (contract 3): a document's score
+    is the highest score among its retrieved chunks. On unchunked corpora
+    (e.g. SciFact) this is a pass-through; it only bites once documents are split
+    into chunks (e.g. NQ). The result is keyed by query id, ready to hand to
+    ``eval.ir_metrics.evaluate_run`` (contract 2).
+    """
+    run: Run = {}
+    for query_id, query_text in queries.items():
+        doc_scores: Dict[str, float] = {}
+        for chunk in retriever.retrieve(query_text):
+            if chunk.score > doc_scores.get(chunk.doc_id, float("-inf")):
+                doc_scores[chunk.doc_id] = chunk.score
+        run[query_id] = doc_scores
+    return run
+
+
+def evaluate_one(
+    retriever: Retriever,
+    data: BenchmarkData,
+    k_values: List[int] | None = None,
+) -> Dict[str, float]:
+    """Score one retriever on a benchmark.
+
+    Builds the retriever's doc-level ``Run`` (:func:`build_run`, contract 3),
+    then scores it against the benchmark's qrels with
+    ``eval.ir_metrics.evaluate_run`` (contract 2). Returns the metric suite
+    (precision/recall/nDCG at each k, plus MRR).
+    """
+    run = build_run(retriever, data.queries)
+    return evaluate_run(run, data.qrels, k_values)
+
+
+def write_results_csv(results: Dict[str, Dict[str, float]], path: Path) -> None:
+    """Write the system-vs-baseline comparison table to ``path`` as CSV.
+
+    ``results`` maps each retriever name to its metric suite (the output of
+    :func:`evaluate_one`). Emits one row per retriever: a leading ``retriever``
+    column followed by the metric columns — the table the report and the P7
+    plots consume. All retrievers are scored on the same ``k_values``, so they
+    share metric keys and line up into a rectangular table.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fieldnames = ["retriever"] + list(next(iter(results.values())).keys())
+    with open(path, "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        for name, metrics in results.items():
+            writer.writerow({"retriever": name, **metrics})
+
+
+def _build_retrievers(
+    config: BenchmarkConfig,
+    data: BenchmarkData,
+) -> Dict[str, Retriever]:
+    """Construct the real retrievers named in ``config`` over the indexed corpus.
+
+    This is the one seam still blocked on other modules: it needs P5's indexer to
+    build the index from ``data.corpus`` and P3/P4's retrievers to query it. Until
+    those land it raises; the rest of :func:`run` is already exercised by the
+    tests via injected retrievers.
+    """
     raise NotImplementedError(
-        "TODO: load benchmark, index corpus, run retrievers, score with "
-        "eval.ir_metrics, and write the system-vs-baseline table."
+        "TODO: build the index (src.ingestion.indexer) from data.corpus, then "
+        "construct each retriever in config.retrievers (bm25 -> BM25Retriever; "
+        "granite_dense / st_dense -> DenseRetriever) over it."
     )
+
+
+def run(
+    config: BenchmarkConfig,
+    retrievers: Dict[str, Retriever] | None = None,
+    data: BenchmarkData | None = None,
+) -> None:
+    """Run the system-vs-baseline benchmark and write the comparison CSV.
+
+    Loads the benchmark, scores every retriever with :func:`evaluate_one`, and
+    writes the table with :func:`write_results_csv`.
+
+    ``data`` and ``retrievers`` are injectable so the orchestration is testable
+    without the real loader or real retrievers; in normal use both are left
+    ``None`` and built from ``config`` (the retriever construction is still
+    pending — see :func:`_build_retrievers`).
+    """
+    if data is None:
+        data = load_benchmark(config.dataset)
+    if retrievers is None:
+        retrievers = _build_retrievers(config, data)
+
+    results = {
+        name: evaluate_one(retriever, data, config.k_values)
+        for name, retriever in retrievers.items()
+    }
+    write_results_csv(results, config.results_path)
 
 
 def main() -> None:
