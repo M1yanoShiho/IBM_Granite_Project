@@ -14,9 +14,10 @@ Run from the project root once the retrievers are wired:
 
     python -m eval.run_benchmark
 
-The orchestration, scoring, and CSV output are implemented and unit-tested (via
-injected retrievers). Building the real retrievers over a freshly built index is
-the one remaining step — see :func:`_build_retrievers`.
+The orchestration, scoring, CSV output, and the BM25 baseline path are
+implemented and unit-tested. The dense retrievers (``granite_dense`` /
+``st_dense``) are pending P5's vector index — see :func:`_build_retrievers`
+and contract 5 in ``docs/interfaces.md``.
 """
 
 from __future__ import annotations
@@ -29,6 +30,7 @@ from typing import Dict, List
 from eval.benchmarks.loader import BenchmarkData, load_benchmark
 from eval.ir_metrics import Run, evaluate_run
 from src.retrieval.base import Retriever
+from src.retrieval.bm25_baseline import BM25Retriever
 
 
 @dataclass
@@ -113,18 +115,27 @@ def _build_retrievers(
     config: BenchmarkConfig,
     data: BenchmarkData,
 ) -> Dict[str, Retriever]:
-    """Construct the real retrievers named in ``config`` over the indexed corpus.
+    """Construct the retrievers named in ``config`` over ``data.corpus``.
 
-    This is the one seam still blocked on other modules: it needs P5's indexer to
-    build the index from ``data.corpus`` and P3/P4's retrievers to query it. Until
-    those land it raises; the rest of :func:`run` is already exercised by the
-    tests via injected retrievers.
+    The BM25 baseline builds its own term index from the corpus, so it is wired
+    here directly. The dense retrievers (``granite_dense`` / ``st_dense``) need
+    P5's vector index and are not available yet — see contract 5 in
+    ``docs/interfaces.md``.
     """
-    raise NotImplementedError(
-        "TODO: build the index (src.ingestion.indexer) from data.corpus, then "
-        "construct each retriever in config.retrievers (bm25 -> BM25Retriever; "
-        "granite_dense / st_dense -> DenseRetriever) over it."
-    )
+    doc_ids = list(data.corpus.keys())
+    corpus = list(data.corpus.values())
+    top_k = max(config.k_values)
+
+    retrievers: Dict[str, Retriever] = {}
+    for name in config.retrievers:
+        if name == "bm25":
+            retrievers[name] = BM25Retriever(corpus, doc_ids, top_k=top_k)
+        else:
+            raise NotImplementedError(
+                f"Retriever '{name}' needs P5's vector index (contract 5 in "
+                "docs/interfaces.md). Run with retrievers=['bm25'] until it lands."
+            )
+    return retrievers
 
 
 def run(
@@ -139,8 +150,8 @@ def run(
 
     ``data`` and ``retrievers`` are injectable so the orchestration is testable
     without the real loader or real retrievers; in normal use both are left
-    ``None`` and built from ``config`` (the retriever construction is still
-    pending — see :func:`_build_retrievers`).
+    ``None`` and built from ``config``. BM25 builds directly today; the dense
+    retrievers are pending P5 (see :func:`_build_retrievers`).
     """
     if data is None:
         data = load_benchmark(config.dataset)

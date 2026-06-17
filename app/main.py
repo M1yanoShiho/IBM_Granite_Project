@@ -207,7 +207,7 @@ def render_benchmark_chart(df: pd.DataFrame) -> None:
         return
 
     df_long = df.melt(
-        id_vars=["model"],
+        id_vars=["retriever"],
         value_vars=available,
         var_name="metric",
         value_name="score",
@@ -217,12 +217,12 @@ def render_benchmark_chart(df: pd.DataFrame) -> None:
     fig, ax = plt.subplots(figsize=(8, 5))
     palette = {"bm25": "#b0b0b0", "st_dense": "#7eb0d5", "granite_dense": "#8a5cc4"}
     # Only use colours for models actually present.
-    present_models = [m for m in palette if m in df["model"].values]
+    present_models = [m for m in palette if m in df["retriever"].values]
     sns.barplot(
         data=df_long,
         x="metric",
         y="score",
-        hue="model",
+        hue="retriever",
         palette={m: palette[m] for m in present_models},
         ax=ax,
     )

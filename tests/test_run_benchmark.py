@@ -129,3 +129,48 @@ def test_run_writes_one_row_per_injected_retriever(tmp_path) -> None:
     assert set(rows) == {"perfect", "wrong"}
     assert float(rows["perfect"]["mrr"]) == 1.0
     assert float(rows["wrong"]["mrr"]) == 0.0
+
+
+def test_run_builds_real_bm25_and_writes_scored_row(tmp_path) -> None:
+    # No injected retrievers -> run() builds the real BM25Retriever itself
+    # (via _build_retrievers). The query terms appear only in d1, the relevant
+    # doc, so BM25 ranks it first and the scored row is a perfect result.
+    data = BenchmarkData(
+        corpus={
+            "d1": "granite dense retrieval embeddings",
+            "d2": "banana cake recipe with sugar",
+            "d3": "weather forecast tomorrow rain",
+        },
+        queries={"q1": "granite retrieval"},
+        qrels={"q1": {"d1": 1}},
+    )
+    config = BenchmarkConfig(
+        retrievers=["bm25"],
+        k_values=[1],
+        results_path=tmp_path / "out.csv",
+    )
+
+    run(config, data=data)
+
+    with open(config.results_path, newline="") as f:
+        rows = {row["retriever"]: row for row in csv.DictReader(f)}
+    assert set(rows) == {"bm25"}
+    assert float(rows["bm25"]["mrr"]) == 1.0
+
+
+def test_run_dense_retriever_pending_until_p5(tmp_path) -> None:
+    # Dense retrievers need P5's vector index (contract 5). Until it lands,
+    # building one must fail loudly, not silently produce an empty result.
+    data = BenchmarkData(
+        corpus={"d1": "granite retrieval"},
+        queries={"q1": "granite retrieval"},
+        qrels={"q1": {"d1": 1}},
+    )
+    config = BenchmarkConfig(
+        retrievers=["granite_dense"],
+        k_values=[1],
+        results_path=tmp_path / "out.csv",
+    )
+
+    with pytest.raises(NotImplementedError):
+        run(config, data=data)

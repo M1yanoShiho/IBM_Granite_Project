@@ -106,6 +106,48 @@ citations 归因)。
 
 ---
 
+## 契约 5 — 向量索引搜索接口（P4 dense ↔ P5 indexer）
+
+**实现位置**：P5 的 [src/ingestion/indexer.py](../src/ingestion/indexer.py)
+（`VectorIndexer.build()` 返回、或 `load()` 加载的那个索引对象）。
+**关系到**：P4（`DenseRetriever` 消费）、P5（提供）。
+
+`DenseRetriever` 不自己存向量,而是把搜索委托给索引对象,所以那个对象必须暴露:
+
+```python
+def search(self, query_vector: List[float], top_k: int) -> List[RetrievedChunk]:
+    ...
+```
+
+约定:
+
+- 返回 `top_k` 个 `RetrievedChunk`,按相似度从高到低排好。
+- `RetrievedChunk.doc_id` 必须是**父文档 id**（qrels 的 key），**不是 chunk_id**——
+  `run_benchmark` 按 `doc_id` 对 qrels 打分,并按 `doc_id` 做 max-pool（契约 3）。
+  `text` 是该 chunk 的文本,`score` 越大越相关。
+- 相似度用**内积**:`Embedder` 输出已做 L2 归一化（见下方"附加约定"),所以内积 = 余弦,
+  FAISS 用 `IndexFlatIP`。**不要用 L2 距离**（那是越小越近,语义相反）。
+
+---
+
+## 契约 6 — 结果表 CSV schema（P6 → P7）
+
+**产出方**：P6 的 [eval/run_benchmark.py](../eval/run_benchmark.py)（`write_results_csv`）。
+**关系到**：P6（写）、P7（`app/main.py`、`notebooks/` 读）。
+
+`results/benchmark_results.csv` —— 每个 retriever 一行:
+
+| 列 | 含义 |
+| --- | --- |
+| `retriever` | 检索器名:`granite_dense` / `bm25` / `st_dense`（**第一列,固定叫 `retriever`,不是 `model`**） |
+| `precision@k` `recall@k` `ndcg@k` | 各 k 的指标,k 由 `BenchmarkConfig.k_values` 决定（默认 1/3/5/10） |
+| `mrr` | 平均倒数排名 |
+
+- 列名权威以 `write_results_csv` 为准:分组键是 `retriever`。
+- P7 画图按 `retriever` 分组,headline 取 `precision@10` / `recall@10` / `ndcg@10` / `mrr`。
+
+---
+
 ## 变更规则
 
 1. 这些契约定了之后,**不要私自改** —— 改一条会同时影响多个人。
