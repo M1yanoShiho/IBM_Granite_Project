@@ -22,7 +22,6 @@ def test_inject_needle_places_text_in_haystack() -> None:
     assert "NEEDLE" in result
 
 
-@pytest.mark.xfail(reason="chunk_document not implemented yet", strict=True)
 def test_chunk_document_returns_non_empty_list() -> None:
     chunks = chunk_document("doc1", "word " * 1000, chunk_size=512, chunk_overlap=50)
     assert isinstance(chunks, list)

@@ -17,7 +17,7 @@ from typing import Dict, Iterable, Tuple
 
 def load_text_file(path: str | Path) -> str:
     """Load a single plain-text document."""
-    raise NotImplementedError("TODO: read and return the document text.")
+    return Path(path).read_text(encoding="utf-8")
 
 
 def load_documents(directory: str | Path) -> Iterable[Tuple[str, str]]:
@@ -25,4 +25,6 @@ def load_documents(directory: str | Path) -> Iterable[Tuple[str, str]]:
 
     Supported formats: ``.txt``, ``.md``, and (later) ``.pdf`` / ``.docx``.
     """
-    raise NotImplementedError("TODO: walk directory, parse files, yield (id, text).")
+    for p in sorted(Path(directory).iterdir()):
+        if p.suffix in {".txt", ".md"}:
+            yield p.stem, p.read_text(encoding="utf-8")

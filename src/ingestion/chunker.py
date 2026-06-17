@@ -38,4 +38,19 @@ def chunk_document(
     chunk_overlap: int = 50,
 ) -> List[Chunk]:
     """Split a document into overlapping :class:`Chunk` objects."""
-    raise NotImplementedError("TODO: token-aware splitting with overlap.")
+    tokens = text.split()
+    if not tokens:
+        return []
+
+    chunks: List[Chunk] = []
+    n = 0
+    start = 0
+    step = chunk_size - chunk_overlap
+
+    while start < len(tokens):
+        chunk_text = " ".join(tokens[start : start + chunk_size])
+        chunks.append(Chunk(chunk_id=f"{doc_id}::{n}", doc_id=doc_id, text=chunk_text))
+        n += 1
+        start += step
+
+    return chunks
