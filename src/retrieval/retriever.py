@@ -17,25 +17,35 @@ from src.retrieval.embedder import Embedder
 
 
 class DenseRetriever:
-    """Semantic retriever over a persisted vector index.
+    """Semantic retriever over a vector index wrapper.
 
     Parameters
     ----------
     embedder:
         The :class:`~src.retrieval.embedder.Embedder` used for queries.
     index:
-        A vector index (e.g. a FAISS index produced by ``src.ingestion.indexer``).
+        Object exposing ``search(query_vector, top_k) -> List[RetrievedChunk]``.
+        P5's FAISS indexer should return or load such a wrapper.
     top_k:
         Number of chunks to return per query.
     """
 
     def __init__(self, embedder: Embedder, index=None, top_k: int = 10) -> None:
+        if top_k < 1:
+            raise ValueError("top_k must be at least 1.")
         self.embedder = embedder
         self.index = index
         self.top_k = top_k
 
     def retrieve(self, query: str) -> List[RetrievedChunk]:
         """Return the top-k chunks most relevant to ``query``."""
-        raise NotImplementedError(
-            "TODO: embed query, search the vector index, return ranked chunks."
-        )
+        if self.index is None:
+            raise ValueError("DenseRetriever requires an index before retrieval.")
+        if not hasattr(self.index, "search"):
+            raise TypeError(
+                "DenseRetriever index must expose search(query_vector, top_k)."
+            )
+
+        query_vector = self.embedder.embed_query(query)
+        results = self.index.search(query_vector, self.top_k)
+        return list(results)[: self.top_k]

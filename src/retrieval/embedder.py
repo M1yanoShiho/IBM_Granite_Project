@@ -11,7 +11,11 @@ for the system-vs-baseline comparison.
 
 from __future__ import annotations
 
+import os
 from typing import List, Sequence
+
+DEFAULT_GRANITE_EMBEDDING_MODEL_ID = "ibm-granite/granite-embedding-english-r2"
+DEFAULT_BASELINE_EMBEDDING_MODEL_ID = "sentence-transformers/all-MiniLM-L6-v2"
 
 
 class Embedder:
@@ -27,20 +31,55 @@ class Embedder:
     """
 
     def __init__(self, backend: str = "granite", model_id: str | None = None) -> None:
+        self._validate_backend(backend)
         self.backend = backend
-        self.model_id = model_id
+        self.model_id = model_id or self._default_model_id(backend)
         self._model = self._init_model()
 
+    @staticmethod
+    def _validate_backend(backend: str) -> None:
+        if backend not in {"granite", "sentence-transformers"}:
+            raise ValueError(
+                "Unsupported embedding backend. Expected 'granite' or "
+                "'sentence-transformers'."
+            )
+
+    @staticmethod
+    def _default_model_id(backend: str) -> str:
+        if backend == "granite":
+            return (
+                os.getenv("GRANITE_EMBEDDING_MODEL_ID")
+                or DEFAULT_GRANITE_EMBEDDING_MODEL_ID
+            )
+        if backend == "sentence-transformers":
+            return (
+                os.getenv("BASELINE_EMBEDDING_MODEL_ID")
+                or DEFAULT_BASELINE_EMBEDDING_MODEL_ID
+            )
+        raise AssertionError(f"Unexpected backend after validation: {backend}")
+
     def _init_model(self):
-        """Instantiate the underlying embedding model from config / env."""
-        raise NotImplementedError(
-            "TODO: initialise Granite (Hugging Face) or sentence-transformers embeddings."
+        """Instantiate the underlying sentence-transformers-compatible model."""
+        from sentence_transformers import SentenceTransformer
+
+        cache_folder = os.getenv("MODEL_CACHE_DIR") or None
+        return SentenceTransformer(self.model_id, cache_folder=cache_folder)
+
+    def _encode(self, texts: Sequence[str]) -> List[List[float]]:
+        vectors = self._model.encode(
+            list(texts),
+            convert_to_numpy=False,
+            normalize_embeddings=True,
+            show_progress_bar=False,
         )
+        return [list(map(float, vector)) for vector in vectors]
 
     def embed_documents(self, texts: Sequence[str]) -> List[List[float]]:
         """Embed a batch of documents/chunks into dense vectors."""
-        raise NotImplementedError("TODO: batch-embed documents.")
+        if not texts:
+            return []
+        return self._encode(texts)
 
     def embed_query(self, text: str) -> List[float]:
         """Embed a single query into a dense vector."""
-        raise NotImplementedError("TODO: embed a query.")
+        return self._encode([text])[0]

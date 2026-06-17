@@ -45,15 +45,15 @@
 
 ### P3 — BM25 基线 · 尤佳希 + 魏铭
 - **负责:** `src/retrieval/bm25_baseline.py`
-- **已完成:** _(待本人填)_
-- **进行中:** ☐ 用 `rank_bm25` 建索引 + retrieve top-k
-- **下一步:** 对齐契约 1(返回 `List[RetrievedChunk]`);注意 SciFact 上 BM25 tokenization 影响分数。
+- **已完成:** ✅ `BM25Retriever` 已实现:使用 `rank_bm25.BM25Okapi` 建关键词检索索引,`retrieve(query)` 返回符合契约 1 的 `List[RetrievedChunk]`;已覆盖 top-k、排序、空 query、空 corpus、corpus/doc_ids 长度校验。✅ 已通过 SciFact smoke:`load_benchmark("scifact")` + BM25 top-5 检索可运行。
+- **进行中:** ☐ 等 P6 `run_benchmark.py` 串联后,在 SciFact 上跑完整 BM25 baseline 指标。
+- **下一步:** 配合 P6 将 BM25 输出整理成 `Run = {query_id: {doc_id: score}}`,用于 precision/recall/nDCG/MRR。
 
 ### P4 — Embedding + 稠密检索器(核心) · 尤佳希 + 魏铭
 - **负责:** `src/retrieval/embedder.py`, `src/retrieval/retriever.py`
-- **已完成:** _(待本人填)_
-- **进行中:** ☐ `embedder`(granite + sentence-transformers 双后端)→ ☐ `DenseRetriever`
-- **下一步:** **项目最关键模块**;先做 embedder(P5 的 indexer 也要它),再做 retriever。和 P5 对齐归一化方式(见 interfaces.md 附加约定)。
+- **已完成:** ✅ `Embedder` 已实现:支持 `granite` 与 `sentence-transformers` 两个 backend,模型 id 从参数或环境变量读取,输出 `List[List[float]]` / `List[float]`;单元测试使用 fake model,避免下载真实模型。✅ `DenseRetriever` adapter 已实现:复用契约 1,query 经 embedder 编码后调用 `index.search(query_vector, top_k)`,返回 `List[RetrievedChunk]`。
+- **进行中:** ☐ 等 P5 `VectorIndexer` 提供 FAISS index wrapper 后,做真实 dense retrieval 集成测试。
+- **下一步:** 和 P5/P6 正式确认 dense index 接口 `index.search(query_vector, top_k) -> List[RetrievedChunk]` 以及相似度策略(normalized embeddings + inner product 或 raw embeddings + L2 distance)。
 
 ### P5 — Ingestion 流水线 · 吴泽楠
 - **负责:** `src/ingestion/{loaders,chunker,indexer}.py`
@@ -84,6 +84,8 @@
 
 | 日期                   | 区域               | 改动                                                                                                                                            | 文件 | 谁  |
 |----------------------|------------------|-----------------------------------------------------------------------------------------------------------------------------------------------| --- |----|
+| 2026-06-16           | P4 检索核心 | 实现 embedding wrapper 与 DenseRetriever adapter,统一输出 `RetrievedChunk`;P5/P6 仍需确认 `index.search(query_vector, top_k)` 的正式交接接口与相似度策略 | `src/retrieval/embedder.py`, `src/retrieval/retriever.py`, `tests/test_retrieval_embedder.py`, `tests/test_retrieval_dense.py` | P3/P4 尤佳希 + 魏铭 |
+| 2026-06-16           | P3 BM25 | 实现 BM25 baseline,支持 top-k 检索、稳定排序、空输入处理和契约测试;新增 SciFact smoke 脚本并验证 P1 loader + P3 BM25 可联通 | `src/retrieval/bm25_baseline.py`, `tests/test_retrieval_bm25.py`, `scripts/smoke_bm25_scifact.py` | P3/P4 尤佳希 + 魏铭 |
 | 2026-06-13           | 数据加载 | 完成benchmark数据加载                                                                                                                                   | `loader.py` | P1 |
 | 2026-06-12           | HPC              | **BluePebble 生成层跑通**(granite-4.1-3b 验证);Slurm 脚本 + 部署文档;HPC 版本修复(transformers 4.x);repo 设 public                                              | `scripts/smoke_8b.*`, `scripts/run_rag.slurm`, `docs/hpc-deployment.md`, `.gitattributes` | P6 |
 | 2026-06-12           | 文档               | 新建本开发日志 + 个人开发文档                                                                                                                              | `docs/dev-log.md`, `docs/dev-log-p6.md` | P6 |
