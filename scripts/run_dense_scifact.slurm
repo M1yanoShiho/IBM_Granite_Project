@@ -1,0 +1,52 @@
+#!/bin/bash
+# Retrieval benchmark on a GPU node. The dense retrievers (granite_dense +
+# st_dense) need a GPU to embed the corpus; BM25 is included too so the output
+# CSV holds the complete system-vs-baselines table in one file.
+#
+# Submit from the project root on /user/work:
+#   mkdir -p logs && sbatch scripts/run_dense_scifact.slurm
+#
+# FIRST, on the LOGIN node (it has internet; compute nodes do NOT) pre-fetch the
+# embedding models AND the SciFact corpus into the /user/work caches:
+#   module load languages/python/3.12.3 && source /user/work/$USER/venv/bin/activate
+#   export HF_HOME=/user/work/$USER/hf_cache
+#   export IR_DATASETS_HOME=/user/work/$USER/ir_datasets
+#   hf download ibm-granite/granite-embedding-english-r2
+#   hf download sentence-transformers/all-MiniLM-L6-v2
+#   cd /user/work/$USER/IBM_Granite_Project
+#   python -c "from eval.benchmarks.loader import load_benchmark; load_benchmark('scifact')"
+# (the last line caches SciFact so the offline job can read it).
+#SBATCH --job-name=granite-dense-bench
+#SBATCH --account=coms039904
+#SBATCH --partition=gpu_short           # 6h cap, fast queue — embedding is minutes
+#SBATCH --qos=normal
+#SBATCH --gres=gpu:1                     # any GPU; the embedding models are small (<1GB)
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=32G
+#SBATCH --time=00:30:00
+#SBATCH --output=logs/%x-%j.out
+
+set -euo pipefail
+
+# Compute nodes have no python by default — load the same module the venv was
+# built with before activating it.
+module load languages/python/3.12.3
+
+# Caches on /user/work (home quota is small). Offline: the compute node has no
+# internet, so the embedding models AND the SciFact corpus must be pre-fetched
+# on the LOGIN node first (see the header above).
+export HF_HOME=/user/work/$USER/hf_cache
+export HF_HUB_OFFLINE=1
+export TRANSFORMERS_OFFLINE=1
+export IR_DATASETS_HOME=/user/work/$USER/ir_datasets
+
+source /user/work/$USER/venv/bin/activate
+cd /user/work/$USER/IBM_Granite_Project
+
+# sentence-transformers auto-detects the GPU (torch.cuda) — no code change needed;
+# the same command that crawled on a laptop CPU runs in minutes here.
+# Runs all three retrievers so results/benchmark_results.csv is the full table.
+python -m eval.run_benchmark \
+    --dataset scifact \
+    --retrievers granite_dense bm25 st_dense \
+    --out results/benchmark_results.csv

@@ -10,14 +10,17 @@ the real retrievers — it satisfies the ``Retriever`` Protocol structurally.
 from __future__ import annotations
 
 import csv
+from pathlib import Path
 from typing import Dict, List
 
 import pytest
 
-from src.retrieval.base import RetrievedChunk
+from src.retrieval.base import RetrievedChunk, Retriever
 from eval.benchmarks.loader import BenchmarkData
 from eval.run_benchmark import (
     BenchmarkConfig,
+    _build_retrievers,
+    _parse_args,
     build_run,
     evaluate_one,
     run,
@@ -158,19 +161,67 @@ def test_run_builds_real_bm25_and_writes_scored_row(tmp_path) -> None:
     assert float(rows["bm25"]["mrr"]) == 1.0
 
 
-def test_run_dense_retriever_pending_until_p5(tmp_path) -> None:
-    # Dense retrievers need P5's vector index (contract 5). Until it lands,
-    # building one must fail loudly, not silently produce an empty result.
+class FakeSentenceTransformer:
+    """Deterministic stand-in for SentenceTransformer (no model download).
+
+    Embeds text as a bag-of-words count over a tiny fixed vocabulary, so a query
+    lands closest to the doc that shares its words.
+    """
+
+    _VOCAB = ("granite", "retrieval", "banana", "cake")
+
+    def __init__(self, model_id, cache_folder=None) -> None:
+        pass
+
+    def encode(
+        self,
+        texts,
+        convert_to_numpy: bool = False,
+        normalize_embeddings: bool = False,
+        show_progress_bar: bool = False,
+    ):
+        if isinstance(texts, str):
+            texts = [texts]
+        return [[float(t.lower().split().count(w)) for w in self._VOCAB] for t in texts]
+
+
+def test_build_retrievers_wires_dense_over_corpus(monkeypatch) -> None:
+    # Dense branch: _build_retrievers builds an Embedder, chunks the corpus,
+    # builds a FAISS index, and wraps it in a DenseRetriever. The embedding model
+    # is monkeypatched so nothing is downloaded.
+    monkeypatch.setattr(
+        "sentence_transformers.SentenceTransformer", FakeSentenceTransformer
+    )
     data = BenchmarkData(
-        corpus={"d1": "granite retrieval"},
+        corpus={"d1": "granite retrieval", "d2": "banana cake"},
         queries={"q1": "granite retrieval"},
         qrels={"q1": {"d1": 1}},
     )
-    config = BenchmarkConfig(
-        retrievers=["granite_dense"],
-        k_values=[1],
-        results_path=tmp_path / "out.csv",
-    )
+    config = BenchmarkConfig(retrievers=["st_dense"], k_values=[1])
 
-    with pytest.raises(NotImplementedError):
-        run(config, data=data)
+    retrievers = _build_retrievers(config, data)
+
+    assert set(retrievers) == {"st_dense"}
+    dense = retrievers["st_dense"]
+    assert isinstance(dense, Retriever)
+    results = dense.retrieve("granite retrieval")
+    assert all(isinstance(r, RetrievedChunk) for r in results)
+    assert [r.doc_id for r in results] == ["d1"]
+
+
+def test_parse_args_uses_config_defaults() -> None:
+    config = _parse_args([])
+    assert config.dataset == "scifact"
+    assert config.retrievers == ["granite_dense", "bm25", "st_dense"]
+    assert config.k_values == [1, 3, 5, 10]
+    assert config.results_path == Path("results/benchmark_results.csv")
+
+
+def test_parse_args_overrides_from_argv() -> None:
+    config = _parse_args(
+        ["--dataset", "nq", "--retrievers", "bm25", "--k", "1", "10", "--out", "x/y.csv"]
+    )
+    assert config.dataset == "nq"
+    assert config.retrievers == ["bm25"]
+    assert config.k_values == [1, 10]
+    assert config.results_path == Path("x/y.csv")

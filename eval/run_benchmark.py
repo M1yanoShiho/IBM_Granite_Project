@@ -14,14 +14,15 @@ Run from the project root once the retrievers are wired:
 
     python -m eval.run_benchmark
 
-The orchestration, scoring, CSV output, and the BM25 baseline path are
-implemented and unit-tested. The dense retrievers (``granite_dense`` /
-``st_dense``) are pending P5's vector index — see :func:`_build_retrievers`
-and contract 5 in ``docs/interfaces.md``.
+The full pipeline is implemented and unit-tested: BM25 and the dense retrievers
+(``granite_dense`` / ``st_dense``, over P5's FAISS index) all run end-to-end.
+Constructing a dense retriever downloads its embedding model on first use — see
+:func:`_build_retrievers`.
 """
 
 from __future__ import annotations
 
+import argparse
 import csv
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -29,8 +30,12 @@ from typing import Dict, List
 
 from eval.benchmarks.loader import BenchmarkData, load_benchmark
 from eval.ir_metrics import Run, evaluate_run
+from src.ingestion.chunker import chunk_document
+from src.ingestion.indexer import VectorIndexer
 from src.retrieval.base import Retriever
 from src.retrieval.bm25_baseline import BM25Retriever
+from src.retrieval.embedder import Embedder
+from src.retrieval.retriever import DenseRetriever
 
 
 @dataclass
@@ -117,10 +122,14 @@ def _build_retrievers(
 ) -> Dict[str, Retriever]:
     """Construct the retrievers named in ``config`` over ``data.corpus``.
 
-    The BM25 baseline builds its own term index from the corpus, so it is wired
-    here directly. The dense retrievers (``granite_dense`` / ``st_dense``) need
-    P5's vector index and are not available yet — see contract 5 in
-    ``docs/interfaces.md``.
+    - ``bm25`` builds its own term index from the corpus.
+    - ``granite_dense`` / ``st_dense`` chunk the corpus, embed it with the
+      matching :class:`~src.retrieval.embedder.Embedder` backend, build a FAISS
+      index (:class:`~src.ingestion.indexer.VectorIndexer`, contract 5), and wrap
+      it in a :class:`~src.retrieval.retriever.DenseRetriever`.
+
+    Building a dense retriever loads its embedding model (downloaded from Hugging
+    Face on first use), so that is the one path needing network/models.
     """
     doc_ids = list(data.corpus.keys())
     corpus = list(data.corpus.values())
@@ -130,10 +139,19 @@ def _build_retrievers(
     for name in config.retrievers:
         if name == "bm25":
             retrievers[name] = BM25Retriever(corpus, doc_ids, top_k=top_k)
+        elif name in ("granite_dense", "st_dense"):
+            backend = "granite" if name == "granite_dense" else "sentence-transformers"
+            embedder = Embedder(backend=backend)
+            chunks = [
+                chunk
+                for did, text in data.corpus.items()
+                for chunk in chunk_document(did, text)
+            ]
+            index = VectorIndexer(embedder).build(chunks)
+            retrievers[name] = DenseRetriever(embedder, index, top_k=top_k)
         else:
-            raise NotImplementedError(
-                f"Retriever '{name}' needs P5's vector index (contract 5 in "
-                "docs/interfaces.md). Run with retrievers=['bm25'] until it lands."
+            raise ValueError(
+                f"Unknown retriever {name!r}; expected granite_dense, bm25, or st_dense."
             )
     return retrievers
 
@@ -150,8 +168,8 @@ def run(
 
     ``data`` and ``retrievers`` are injectable so the orchestration is testable
     without the real loader or real retrievers; in normal use both are left
-    ``None`` and built from ``config``. BM25 builds directly today; the dense
-    retrievers are pending P5 (see :func:`_build_retrievers`).
+    ``None`` and built from ``config`` via :func:`_build_retrievers` (BM25 and
+    the dense retrievers are all wired; dense construction downloads its model).
     """
     if data is None:
         data = load_benchmark(config.dataset)
@@ -165,8 +183,55 @@ def run(
     write_results_csv(results, config.results_path)
 
 
-def main() -> None:
-    run(BenchmarkConfig())
+def _parse_args(argv: List[str] | None = None) -> BenchmarkConfig:
+    """Parse command-line arguments into a :class:`BenchmarkConfig`.
+
+    Example::
+
+        python -m eval.run_benchmark --dataset scifact --retrievers bm25 st_dense
+    """
+    defaults = BenchmarkConfig()
+    parser = argparse.ArgumentParser(
+        prog="python -m eval.run_benchmark",
+        description="Run the system-vs-baselines retrieval benchmark and write a CSV.",
+    )
+    parser.add_argument(
+        "--dataset",
+        default=defaults.dataset,
+        help="Benchmark name to evaluate on (default: %(default)s).",
+    )
+    parser.add_argument(
+        "--retrievers",
+        nargs="+",
+        default=defaults.retrievers,
+        help="Retrievers to compare (default: %(default)s).",
+    )
+    parser.add_argument(
+        "--k",
+        type=int,
+        nargs="+",
+        default=defaults.k_values,
+        dest="k_values",
+        help="Cut-offs for precision/recall/nDCG (default: %(default)s).",
+    )
+    parser.add_argument(
+        "--out",
+        type=Path,
+        default=defaults.results_path,
+        dest="results_path",
+        help="Where to write the comparison CSV (default: %(default)s).",
+    )
+    args = parser.parse_args(argv)
+    return BenchmarkConfig(
+        dataset=args.dataset,
+        retrievers=args.retrievers,
+        k_values=args.k_values,
+        results_path=args.results_path,
+    )
+
+
+def main(argv: List[str] | None = None) -> None:
+    run(_parse_args(argv))
 
 
 if __name__ == "__main__":
