@@ -23,7 +23,7 @@
 #SBATCH --gres=gpu:1                     # any GPU; the embedding models are small (<1GB)
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32G
-#SBATCH --time=00:30:00
+#SBATCH --time=02:00:00
 #SBATCH --output=logs/%x-%j.out
 
 set -euo pipefail
@@ -39,9 +39,14 @@ export HF_HOME=/user/work/$USER/hf_cache
 export HF_HUB_OFFLINE=1
 export TRANSFORMERS_OFFLINE=1
 export IR_DATASETS_HOME=/user/work/$USER/ir_datasets
+export PYTHONUNBUFFERED=1                # stream stdout to the log live (a timeout still shows progress)
 
 source /user/work/$USER/venv/bin/activate
 cd /user/work/$USER/IBM_Granite_Project
+
+# Sanity: embedding silently falls back to CPU (and will likely time out) if the
+# venv is a +cpu torch build — print whether the GPU is actually visible here.
+python -c "import torch; print('CUDA available:', torch.cuda.is_available(), '| torch', torch.__version__)"
 
 # sentence-transformers auto-detects the GPU (torch.cuda) — no code change needed;
 # the same command that crawled on a laptop CPU runs in minutes here.
