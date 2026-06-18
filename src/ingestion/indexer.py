@@ -64,9 +64,14 @@ class VectorIndexer:
 
     def save(self, faiss_index_obj: FaissIndex, path: str | Path) -> None:
         """Persist the index and chunk metadata to disk."""
+        import shutil
+        import tempfile
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
-        faiss.write_index(faiss_index_obj._index, str(path) + ".faiss")
+        with tempfile.NamedTemporaryFile(suffix=".faiss", delete=False) as tmp:
+            tmp_path = tmp.name
+        faiss.write_index(faiss_index_obj._index, tmp_path)
+        shutil.move(tmp_path, str(path) + ".faiss")
         with open(str(path) + ".meta", "wb") as f:
             pickle.dump(faiss_index_obj._chunks, f)
 
