@@ -30,8 +30,8 @@ from typing import Dict, List
 
 from eval.benchmarks.loader import BenchmarkData, load_benchmark
 from eval.ir_metrics import Run, evaluate_run
-from src.ingestion.chunker import chunk_document
-from src.ingestion.indexer import VectorIndexer
+from src.ingestion.chunker import Chunk, chunk_document
+from src.ingestion.indexer import FaissIndex, VectorIndexer
 from src.retrieval.base import Retriever
 from src.retrieval.bm25_baseline import BM25Retriever
 from src.retrieval.embedder import Embedder
@@ -52,6 +52,9 @@ class BenchmarkConfig:
         Which retrievers to compare (system + baselines).
     results_path:
         Where to write the comparison table (CSV).
+    index_cache_dir:
+        If set, dense retrievers cache their FAISS index here (keyed by dataset
+        and retriever name) so reruns skip re-embedding. ``None`` = no caching.
     """
 
     dataset: str = "scifact"
@@ -60,6 +63,7 @@ class BenchmarkConfig:
         default_factory=lambda: ["granite_dense", "bm25", "st_dense"]
     )
     results_path: Path = Path("results/benchmark_results.csv")
+    index_cache_dir: Path | None = None
 
 
 def build_run(retriever: Retriever, queries: Dict[str, str]) -> Run:
@@ -116,6 +120,23 @@ def write_results_csv(results: Dict[str, Dict[str, float]], path: Path) -> None:
             writer.writerow({"retriever": name, **metrics})
 
 
+def _load_or_build_index(
+    indexer: VectorIndexer,
+    chunks: List[Chunk],
+    cache_path: Path,
+) -> FaissIndex:
+    """Load a persisted FAISS index from ``cache_path`` if present, otherwise
+    build it from ``chunks`` and save it there — so repeat runs skip the
+    expensive re-embedding step. The ``.faiss`` suffix is what
+    ``VectorIndexer.save`` writes.
+    """
+    if Path(f"{cache_path}.faiss").exists():
+        return indexer.load(cache_path)
+    index = indexer.build(chunks)
+    indexer.save(index, cache_path)
+    return index
+
+
 def _build_retrievers(
     config: BenchmarkConfig,
     data: BenchmarkData,
@@ -147,7 +168,12 @@ def _build_retrievers(
                 for did, text in data.corpus.items()
                 for chunk in chunk_document(did, text)
             ]
-            index = VectorIndexer(embedder).build(chunks)
+            indexer = VectorIndexer(embedder)
+            if config.index_cache_dir is not None:
+                cache_path = config.index_cache_dir / f"{config.dataset}__{name}"
+                index = _load_or_build_index(indexer, chunks, cache_path)
+            else:
+                index = indexer.build(chunks)
             retrievers[name] = DenseRetriever(embedder, index, top_k=top_k)
         else:
             raise ValueError(
@@ -221,12 +247,20 @@ def _parse_args(argv: List[str] | None = None) -> BenchmarkConfig:
         dest="results_path",
         help="Where to write the comparison CSV (default: %(default)s).",
     )
+    parser.add_argument(
+        "--cache-dir",
+        type=Path,
+        default=defaults.index_cache_dir,
+        dest="index_cache_dir",
+        help="Cache dense indexes here to skip re-embedding on reruns (default: off).",
+    )
     args = parser.parse_args(argv)
     return BenchmarkConfig(
         dataset=args.dataset,
         retrievers=args.retrievers,
         k_values=args.k_values,
         results_path=args.results_path,
+        index_cache_dir=args.index_cache_dir,
     )
 
 

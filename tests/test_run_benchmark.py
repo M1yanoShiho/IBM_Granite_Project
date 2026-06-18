@@ -20,6 +20,7 @@ from eval.benchmarks.loader import BenchmarkData
 from eval.run_benchmark import (
     BenchmarkConfig,
     _build_retrievers,
+    _load_or_build_index,
     _parse_args,
     build_run,
     evaluate_one,
@@ -225,3 +226,82 @@ def test_parse_args_overrides_from_argv() -> None:
     assert config.retrievers == ["bm25"]
     assert config.k_values == [1, 10]
     assert config.results_path == Path("x/y.csv")
+
+
+class RecordingIndexer:
+    """Fake VectorIndexer that records build/load calls (no real FAISS/model)."""
+
+    def __init__(self) -> None:
+        self.built = 0
+        self.loaded = 0
+        self._index = object()
+
+    def build(self, chunks):
+        self.built += 1
+        return self._index
+
+    def save(self, index, path) -> None:
+        Path(f"{path}.faiss").write_text("stub")
+
+    def load(self, path):
+        self.loaded += 1
+        return self._index
+
+
+def test_load_or_build_index_builds_and_saves_when_cold(tmp_path) -> None:
+    indexer = RecordingIndexer()
+    cache_path = tmp_path / "scifact__st_dense"
+
+    idx = _load_or_build_index(indexer, ["chunk"], cache_path)
+
+    assert indexer.built == 1
+    assert indexer.loaded == 0
+    assert Path(f"{cache_path}.faiss").exists()
+    assert idx is indexer._index
+
+
+def test_load_or_build_index_loads_when_warm(tmp_path) -> None:
+    indexer = RecordingIndexer()
+    cache_path = tmp_path / "scifact__st_dense"
+
+    _load_or_build_index(indexer, ["chunk"], cache_path)        # cold: build + save
+    idx = _load_or_build_index(indexer, ["chunk"], cache_path)  # warm: load only
+
+    assert indexer.built == 1          # did NOT rebuild
+    assert indexer.loaded == 1
+    assert idx is indexer._index
+
+
+def test_build_retrievers_dense_uses_cache_path(monkeypatch, tmp_path) -> None:
+    # With a cache dir set, the dense branch routes index construction through
+    # _load_or_build_index, keyed by "<dataset>__<name>". Stub that helper so the
+    # test checks the wiring/keying without depending on faiss writing to disk
+    # (the save logic itself is covered by the _load_or_build_index tests above).
+    monkeypatch.setattr(
+        "sentence_transformers.SentenceTransformer", FakeSentenceTransformer
+    )
+    captured = {}
+
+    def fake_load_or_build(indexer, chunks, cache_path):
+        captured["cache_path"] = cache_path
+        return indexer.build(chunks)
+
+    monkeypatch.setattr("eval.run_benchmark._load_or_build_index", fake_load_or_build)
+
+    data = BenchmarkData(
+        corpus={"d1": "granite retrieval"},
+        queries={"q1": "granite retrieval"},
+        qrels={"q1": {"d1": 1}},
+    )
+    config = BenchmarkConfig(
+        retrievers=["st_dense"], k_values=[1], index_cache_dir=tmp_path
+    )
+
+    _build_retrievers(config, data)
+
+    assert captured["cache_path"] == tmp_path / "scifact__st_dense"
+
+
+def test_parse_args_cache_dir() -> None:
+    assert _parse_args([]).index_cache_dir is None
+    assert _parse_args(["--cache-dir", "tmp/idx"]).index_cache_dir == Path("tmp/idx")

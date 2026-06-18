@@ -54,4 +54,5 @@ python -c "import torch; print('CUDA available:', torch.cuda.is_available(), '| 
 python -m eval.run_benchmark \
     --dataset scifact \
     --retrievers granite_dense bm25 st_dense \
-    --out results/benchmark_results.csv
+    --out results/benchmark_results.csv \
+    --cache-dir /user/work/$USER/index_cache    # embed once; reruns load in seconds
