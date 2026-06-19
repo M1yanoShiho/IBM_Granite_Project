@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Research Proposal: Risk-Aware Hybrid Retrieval for Granite RAG</title>
+
+<meta name="generator" content="ARIS render-html (academic, v1)">
+<meta name="aris:source-path" content="docs/research_proposal_risk_aware_hybrid_rag.md">
+<meta name="aris:source-sha256" content="b7fd2342dadf170e9016587934345624d74fd1a6d0376619b64025b72c7b4f38">
+<meta name="aris:generated-at" content="2026-06-19 18:16 UTC">
+
+<!-- offline mode: MathJax + highlight.js skipped; math and code blocks render as plain text -->
+
+<style>
+:root {
+  --bg: #fdfcf7;
+  --bg-soft: #f4f1ea;
+  --bg-code: #f8f5ec;
+  --ink: #1a1a1a;
+  --ink-soft: #4a4a4a;
+  --ink-muted: #6b6b6b;
+  --primary: #1a4a8c;
+  --primary-soft: #2d6cb8;
+  --accent: #b8390e;
+  --warn: #b45309;
+  --warn-bg: #fef3c7;
+  --info-bg: #dbeafe;
+  --good-bg: #d1fae5;
+  --good: #065f46;
+  --bad-bg: #fee2e2;
+  --bad: #991b1b;
+  --border: #d6d0c0;
+  --border-soft: #e8e3d5;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: "Source Serif Pro", "Source Serif 4", "Crimson Pro", "Georgia", "Songti SC", "STSong", serif;
+  line-height: 1.65;
+  color: var(--ink);
+  background: var(--bg);
+  margin: 0;
+  padding: 0;
+  font-size: 16px;
+}
+
+.layout {
+  max-width: 1280px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 48px;
+  padding: 40px 32px;
+}
+
+nav.toc {
+  position: sticky;
+  top: 24px;
+  align-self: start;
+  font-size: 13px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  border-right: 1px solid var(--border-soft);
+  padding-right: 16px;
+}
+nav.toc h3 {
+  margin: 0 0 12px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-muted);
+  font-weight: 600;
+}
+nav.toc ol { list-style: none; padding: 0; margin: 0; counter-reset: toc; }
+nav.toc ol li { margin: 5px 0; counter-increment: toc; }
+nav.toc ol li::before { content: counter(toc) ". "; color: var(--ink-muted); margin-right: 4px; }
+nav.toc a {
+  color: var(--ink-soft);
+  text-decoration: none;
+  border-bottom: 1px dotted transparent;
+}
+nav.toc a:hover { color: var(--primary); border-bottom-color: var(--primary); }
+nav.toc ul { list-style: none; padding-left: 14px; margin: 3px 0; font-size: 12px; }
+nav.toc ul li::before { content: "→ "; color: var(--border); }
+
+main { min-width: 0; }
+
+header.hero {
+  border-bottom: 3px double var(--primary);
+  padding-bottom: 24px;
+  margin-bottom: 32px;
+}
+header.hero .eyebrow {
+  color: var(--accent);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+header.hero h1 {
+  font-size: 32px;
+  line-height: 1.2;
+  margin: 0 0 12px;
+  color: var(--ink);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+header.hero .subtitle {
+  font-size: 16px;
+  color: var(--ink-soft);
+  margin: 0 0 8px;
+  font-style: italic;
+}
+header.hero .byline {
+  font-size: 14px;
+  color: var(--ink-soft);
+  margin: 0 0 20px;
+}
+header.hero .byline strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+header.hero .meta {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--ink-muted);
+  border-top: 1px solid var(--border-soft);
+  padding-top: 14px;
+}
+header.hero .meta span strong { color: var(--ink-soft); }
+header.hero .meta code {
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
+  font-size: 11px;
+  background: var(--bg-soft);
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--border-soft);
+}
+
+h2 {
+  font-size: 24px;
+  margin: 44px 0 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  color: var(--ink);
+  font-weight: 700;
+}
+h2 .num { color: var(--primary); font-weight: 600; margin-right: 8px; }
+h3 { font-size: 19px; margin: 28px 0 10px; color: var(--primary); font-weight: 600; }
+h4 { font-size: 16px; margin: 20px 0 8px; color: var(--ink); font-weight: 600; }
+
+p { margin: 10px 0; }
+ul, ol { padding-left: 22px; margin: 10px 0; }
+ul li, ol li { margin: 4px 0; }
+ul li::marker { color: var(--primary); }
+
+strong { color: var(--accent); font-weight: 600; }
+em { color: var(--ink-soft); }
+
+a { color: var(--primary); }
+a:hover { color: var(--accent); }
+
+code:not(.hljs) {
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
+  font-size: 0.86em;
+  background: var(--bg-code);
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--border-soft);
+  color: var(--accent);
+}
+
+pre {
+  background: #fafaf6;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
+  padding: 0;
+  overflow-x: auto;
+  border-radius: 4px;
+  margin: 14px 0;
+}
+pre code, pre code.hljs {
+  background: transparent !important;
+  display: block;
+  padding: 14px 18px !important;
+  font-size: 13px;
+  line-height: 1.55;
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", monospace;
+  color: var(--ink);
+}
+pre.diagram {
+  background: #f9f6ed;
+  border-left: 4px solid var(--accent);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.callout {
+  margin: 16px 0;
+  padding: 12px 16px;
+  border-radius: 4px;
+  border-left: 4px solid;
+  font-size: 15px;
+}
+.callout-title {
+  font-weight: 600;
+  margin-bottom: 6px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.callout-info { background: var(--info-bg); border-left-color: var(--primary); }
+.callout-info .callout-title { color: var(--primary); }
+.callout-warn { background: var(--warn-bg); border-left-color: var(--warn); }
+.callout-warn .callout-title { color: var(--warn); }
+.callout-good { background: var(--good-bg); border-left-color: var(--good); }
+.callout-good .callout-title { color: var(--good); }
+.callout-bad { background: var(--bad-bg); border-left-color: var(--bad); }
+.callout-bad .callout-title { color: var(--bad); }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  font-size: 14px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+thead { background: var(--primary); color: white; }
+th, td {
+  text-align: left;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border-soft);
+  vertical-align: top;
+}
+th { font-weight: 600; font-size: 13px; letter-spacing: 0.02em; }
+tr:last-child td { border-bottom: none; }
+tbody tr:nth-child(even) { background: var(--bg-soft); }
+
+details.qa, details {
+  background: white;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  margin: 10px 0;
+  padding: 0;
+}
+details summary {
+  cursor: pointer;
+  padding: 10px 14px;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--primary);
+  list-style: none;
+  user-select: none;
+}
+details summary::-webkit-details-marker { display: none; }
+details summary::before {
+  content: "▸ ";
+  margin-right: 4px;
+  display: inline-block;
+  transition: transform 0.15s;
+}
+details[open] summary::before { transform: rotate(90deg); }
+details[open] summary { border-bottom: 1px solid var(--border-soft); }
+details > :not(summary) { padding: 10px 14px; }
+details p:first-of-type { margin-top: 8px; }
+
+mjx-container[display="true"] { margin: 12px 0 !important; }
+
+footer.aris-footer {
+  margin-top: 60px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+footer.aris-footer a { color: var(--ink-muted); border-bottom: 1px dotted var(--border); }
+
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; gap: 20px; padding: 20px 16px; }
+  nav.toc {
+    position: static;
+    max-height: none;
+    border-right: none;
+    border-bottom: 1px solid var(--border-soft);
+    padding-right: 0;
+    padding-bottom: 14px;
+  }
+  header.hero h1 { font-size: 24px; }
+  h2 { font-size: 20px; }
+}
+@media print {
+  nav.toc { display: none; }
+  .layout { grid-template-columns: 1fr; padding: 0; }
+  body { background: white; }
+  header.hero { border-bottom-color: var(--ink); }
+}
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav class="toc">
+  <h3>Contents</h3>
+  <ol>
+<li><a href="#risk-aware-hybrid-retrieval-for-granite-rag">Risk-Aware Hybrid Retrieval for Granite RAG</a>
+</li>
+<li><a href="#1-research-motivation">1. Research Motivation</a>
+</li>
+<li><a href="#2-paper-storyline">2. Paper Storyline</a>
+</li>
+<li><a href="#3-research-gap-and-related-work">3. Research Gap and Related Work</a>
+</li>
+<li><a href="#4-research-questions">4. Research Questions</a>
+<ul>
+<li><a href="#rq1-hybrid-retrieval-improvement">RQ1: Hybrid retrieval improvement</a></li>
+<li><a href="#rq2-risk-signal-prediction">RQ2: Risk signal prediction</a></li>
+<li><a href="#rq3-risk-aware-mitigation">RQ3: Risk-aware mitigation</a></li>
+</ul>
+</li>
+<li><a href="#5-proposed-method">5. Proposed Method</a>
+<ul>
+<li><a href="#51-granite-dense-retrieval-baseline">5.1 Granite Dense Retrieval Baseline</a></li>
+<li><a href="#52-hybrid-retrieval">5.2 Hybrid Retrieval</a></li>
+<li><a href="#53-retrieval-reliability-signals">5.3 Retrieval Reliability Signals</a></li>
+<li><a href="#54-risk-aware-actions">5.4 Risk-Aware Actions</a></li>
+</ul>
+</li>
+<li><a href="#6-experimental-design">6. Experimental Design</a>
+<ul>
+<li><a href="#e1-hybrid-retrieval-comparison">E1: Hybrid Retrieval Comparison</a></li>
+<li><a href="#e2-risk-signal-prediction">E2: Risk Signal Prediction</a></li>
+<li><a href="#e3-risk-aware-mitigation">E3: Risk-Aware Mitigation</a></li>
+</ul>
+</li>
+<li><a href="#7-data-and-benchmark-design">7. Data and Benchmark Design</a>
+<ul>
+<li><a href="#public-retrieval-benchmark">Public Retrieval Benchmark</a></li>
+<li><a href="#controlled-synthetic-needle-dataset">Controlled Synthetic Needle Dataset</a></li>
+</ul>
+</li>
+<li><a href="#8-evaluation-metrics">8. Evaluation Metrics</a>
+</li>
+<li><a href="#9-expected-contributions">9. Expected Contributions</a>
+</li>
+<li><a href="#10-feasibility-considerations">10. Feasibility Considerations</a>
+</li>
+<li><a href="#11-abstract-draft">11. Abstract Draft</a>
+</li>
+<li><a href="#12-final-framing">12. Final Framing</a>
+</li>
+</ol>
+</nav>
+
+<main>
+<header class="hero">
+  <div class="eyebrow">Research Proposal</div>
+  <h1>Research Proposal: Risk-Aware Hybrid Retrieval for Granite RAG</h1>
+  
+  
+  <div class="meta">
+    <span><strong>Source:</strong> <code>docs/research_proposal_risk_aware_hybrid_rag.md</code></span>
+    <span><strong>SHA256:</strong> <code>b7fd2342dadf</code></span>
+    <span><strong>Rendered:</strong> 2026-06-19 18:16 UTC</span>
+    
+  </div>
+</header>
+
+<h1 id="research-proposal">Research Proposal</h1>
+<h2 id="risk-aware-hybrid-retrieval-for-granite-rag">Risk-Aware Hybrid Retrieval for Granite RAG</h2>
+<p><strong>Project context:</strong> IBM Granite Needle-in-a-Haystack / Enterprise Retrieval <strong>Core theme:</strong> improving Granite RAG retrieval accuracy and reliability through hybrid retrieval and retrieval-side risk signals. <strong>Proposed title:</strong> <em>Risk-Aware Hybrid Retrieval for Granite RAG</em></p>
+<h2 id="1-research-motivation">1. Research Motivation</h2>
+<p>Enterprise RAG systems search large document collections for rare, high-value evidence. In legal, compliance, healthcare, finance, and policy settings, an incorrect retrieved passage can lead to an incorrect answer even when the language model is strong.</p>
+<p>Granite dense retrieval provides the semantic retrieval baseline for this project. It can retrieve paraphrased or conceptually similar evidence, while BM25 captures exact lexical details such as names, dates, numbers, clause-like expressions, and rare keywords. Combining these two retrieval modes gives a practical route to improving retrieval accuracy.</p>
+<p>The remaining research problem is retrieval reliability. A hybrid retriever can still return evidence that looks plausible while being misleading: near-matching decoys, conflicting chunks, or low-confidence evidence. This proposal studies whether lightweight retrieval-side signals can predict these failure cases and guide corrective retrieval actions before Granite generates the final answer.</p>
+<h2 id="2-paper-storyline">2. Paper Storyline</h2>
+<p>The paper follows a three-step progression:</p>
+<table><thead><tr><th>Step</th><th>System version</th><th>Research role</th></tr></thead><tbody><tr><td>V1</td><td>Granite dense retrieval</td><td>Semantic retrieval baseline.</td></tr><tr><td>V2</td><td>Hybrid retrieval: Granite dense + BM25</td><td>First accuracy improvement step.</td></tr><tr><td>V3</td><td>Risk-aware hybrid retrieval</td><td>Reliability improvement step for high-risk cases.</td></tr></tbody></table>
+<p>The story is:</p>
+<blockquote><p>Granite dense retrieval provides the project’s semantic search foundation. Adding BM25 creates a hybrid retriever that preserves exact details and improves retrieval robustness. The hardest remaining cases involve retrieved evidence that appears relevant while carrying decoys, conflicts, or weak confidence. A retrieval reliability layer estimates these risks from the retrieved top-k chunks and triggers targeted actions such as stricter reranking, filtering, re-retrieval, warning, or abstention. The study evaluates this progression through focused baseline comparisons, risk prediction analysis, and risk-aware mitigation experiments.</p></blockquote>
+<h2 id="3-research-gap-and-related-work">3. Research Gap and Related Work</h2>
+<p>Existing retrieval and RAG work provides the background for each part of the proposal:</p>
+<ul><li><strong>BEIR:</strong> retrieval baseline comparison for lexical, dense, and hybrid retrieval.</li><li><strong>RAGAS:</strong> answer faithfulness and grounding evaluation.</li><li><strong>Self-RAG, CRAG, Adaptive-RAG:</strong> adaptive and corrective RAG behaviour.</li><li><strong>Conflicting-evidence RAG:</strong> disagreement between retrieved evidence.</li><li><strong>Granite embedding models:</strong> IBM semantic retrieval foundation.</li></ul>
+<p>The project focuses on lightweight retrieval-side reliability signals for Granite-based enterprise needle retrieval. The signals are computed from retrieved evidence and require no newly trained controller.</p>
+<h2 id="4-research-questions">4. Research Questions</h2>
+<h3 id="rq1-hybrid-retrieval-improvement">RQ1: Hybrid retrieval improvement</h3>
+<p>How much does BM25 + Granite dense hybrid retrieval improve over Granite dense retrieval?</p>
+<p><strong>Purpose:</strong> test whether adding lexical retrieval improves the Granite semantic retrieval baseline.</p>
+<p><strong>Evidence:</strong> precision@1, recall@k, MRR, nDCG@10, and answer accuracy.</p>
+<h3 id="rq2-risk-signal-prediction">RQ2: Risk signal prediction</h3>
+<p>Can decoy-density, evidence conflict, and retrieval uncertainty predict retrieval or answer failures?</p>
+<p><strong>Purpose:</strong> test whether retrieval-side risk signals have diagnostic value.</p>
+<p><strong>Evidence:</strong> AUROC, calibration, and error rate across low/medium/high risk buckets.</p>
+<h3 id="rq3-risk-aware-mitigation">RQ3: Risk-aware mitigation</h3>
+<p>Do risk-triggered actions reduce errors compared with fixed hybrid retrieval?</p>
+<p><strong>Purpose:</strong> test whether acting on risk signals improves high-risk cases.</p>
+<p><strong>Evidence:</strong> high-risk wrong-answer rate, answer accuracy, citation faithfulness, accuracy-coverage, and latency/cost.</p>
+<h2 id="5-proposed-method">5. Proposed Method</h2>
+<p>The proposed system is <strong>Risk-Aware Hybrid Retrieval for Granite RAG</strong>.</p>
+<pre><code class="language-text">User query
+  -&gt; Granite dense retrieval
+  -&gt; BM25 lexical retrieval
+  -&gt; Hybrid merge / rank fusion
+  -&gt; Retrieval reliability signals
+  -&gt; Risk-aware evidence action
+  -&gt; Granite answer generation with citations</code></pre>
+<h3 id="51-granite-dense-retrieval-baseline">5.1 Granite Dense Retrieval Baseline</h3>
+<p>Granite dense retrieval embeds the user query and document chunks into a semantic vector space, then retrieves chunks with high semantic similarity. This is the baseline system for the retrieval study.</p>
+<h3 id="52-hybrid-retrieval">5.2 Hybrid Retrieval</h3>
+<p>BM25 retrieves exact lexical matches. Granite dense retrieval retrieves semantically similar chunks. The hybrid retriever merges both ranked lists using score fusion or rank fusion. This stage tests whether lexical matching improves Granite semantic retrieval, especially for exact entities, numbers, dates, and rare keywords.</p>
+<h3 id="53-retrieval-reliability-signals">5.3 Retrieval Reliability Signals</h3>
+<table><thead><tr><th>Signal</th><th>Computed from</th><th>Predicts</th><th>Action</th></tr></thead><tbody><tr><td>Decoy-density</td><td>Top-k chunks with high similarity and key entity/date/number/condition/negation mismatch</td><td>Wrong top-1 evidence or wrong answer</td><td>Stricter rerank/filter</td></tr><tr><td>Evidence conflict</td><td>Chunks implying incompatible answer candidates, versions, or conditions</td><td>Mixed or contradictory answer</td><td>Group by version, condition, source, or answer candidate</td></tr><tr><td>Retrieval uncertainty</td><td>Score margin, BM25-dense disagreement, top-k entropy/diversity</td><td>Low evidence confidence</td><td>Re-retrieve, warn, or abstain</td></tr></tbody></table>
+<h3 id="54-risk-aware-actions">5.4 Risk-Aware Actions</h3>
+<table><thead><tr><th>Risk profile</th><th>Action</th></tr></thead><tbody><tr><td>Low risk</td><td>Use the hybrid top-ranked evidence.</td></tr><tr><td>High decoy-density</td><td>Apply stricter reranking or filtering around entities, dates, numbers, and negation.</td></tr><tr><td>High conflict</td><td>Separate evidence groups and select evidence matching the query condition.</td></tr><tr><td>High uncertainty</td><td>Re-retrieve, rewrite the query, warn, or abstain.</td></tr></tbody></table>
+<h2 id="6-experimental-design">6. Experimental Design</h2>
+<p>The experiment plan contains one baseline comparison and two research validation blocks.</p>
+<h3 id="e1-hybrid-retrieval-comparison">E1: Hybrid Retrieval Comparison</h3>
+<p>Compare:</p>
+<table><thead><tr><th>Method</th><th>Role</th></tr></thead><tbody><tr><td>Granite dense retrieval</td><td>Main semantic baseline.</td></tr><tr><td>BM25 only</td><td>Lexical reference baseline.</td></tr><tr><td>Hybrid retrieval</td><td>First proposed improvement.</td></tr></tbody></table>
+<p><strong>Goal:</strong> measure whether adding BM25 improves Granite dense retrieval.</p>
+<p><strong>Datasets:</strong> public retrieval benchmark, plus synthetic needle examples.</p>
+<p><strong>Metrics:</strong> precision@1, recall@k, MRR, nDCG@10, answer accuracy.</p>
+<h3 id="e2-risk-signal-prediction">E2: Risk Signal Prediction</h3>
+<p>Compute decoy-density, evidence conflict, and retrieval uncertainty on top-k chunks returned by hybrid retrieval.</p>
+<p><strong>Goal:</strong> measure whether risk scores predict retrieval and answer failures.</p>
+<p><strong>Datasets:</strong> controlled synthetic needle dataset, with optional analysis on public benchmark failures.</p>
+<p><strong>Metrics:</strong> AUROC, calibration curves, low/medium/high risk bucket accuracy, failure rate by risk level.</p>
+<h3 id="e3-risk-aware-mitigation">E3: Risk-Aware Mitigation</h3>
+<p>Compare:</p>
+<table><thead><tr><th>Method</th><th>Role</th></tr></thead><tbody><tr><td>Hybrid retrieval</td><td>Fixed retrieval baseline.</td></tr><tr><td>Risk-aware hybrid retrieval</td><td>Final proposed method.</td></tr></tbody></table>
+<p><strong>Goal:</strong> measure whether risk-triggered reranking, filtering, re-retrieval, warning, or abstention reduces high-risk errors.</p>
+<p><strong>Datasets:</strong> controlled synthetic needle dataset and high-risk subsets.</p>
+<p><strong>Metrics:</strong> wrong-answer rate, answer accuracy, citation faithfulness, accuracy-coverage, latency/cost.</p>
+<h2 id="7-data-and-benchmark-design">7. Data and Benchmark Design</h2>
+<p>The evaluation uses two complementary data sources.</p>
+<h3 id="public-retrieval-benchmark">Public Retrieval Benchmark</h3>
+<p>Use SciFact or a small BEIR-style subset to evaluate general retrieval quality. This benchmark supports the comparison between Granite dense retrieval, BM25, and hybrid retrieval using standard retrieval metrics.</p>
+<h3 id="controlled-synthetic-needle-dataset">Controlled Synthetic Needle Dataset</h3>
+<p>The controlled synthetic dataset evaluates the core research contribution. It creates hard retrieval cases where the true evidence is surrounded by near-matching or conflicting evidence.</p>
+<p>Difficulty factors:</p>
+<ul><li><strong>Decoy count:</strong> number of misleading near-matches.</li><li><strong>Decoy similarity:</strong> lexical and semantic closeness to the true evidence.</li><li><strong>Mismatch type:</strong> entity, number, date, condition, or negation.</li><li><strong>Conflict type:</strong> old vs new policy, general rule vs exception, source A vs source B.</li></ul>
+<p>This dataset supports the risk prediction and risk-aware mitigation experiments.</p>
+<h2 id="8-evaluation-metrics">8. Evaluation Metrics</h2>
+<p>Retrieval quality:</p>
+<ul><li>precision@1;</li><li>recall@k;</li><li>MRR;</li><li>nDCG@10.</li></ul>
+<p>Answer quality:</p>
+<ul><li>answer accuracy;</li><li>wrong-answer rate;</li><li>citation faithfulness.</li></ul>
+<p>Risk reliability:</p>
+<ul><li>AUROC for failure prediction;</li><li>calibration by risk bucket;</li><li>high-risk subset accuracy;</li><li>accuracy-coverage curve for warning or abstention.</li></ul>
+<p>Efficiency:</p>
+<ul><li>retrieval latency;</li><li>reranking cost;</li><li>number of extra retrieval attempts.</li></ul>
+<h2 id="9-expected-contributions">9. Expected Contributions</h2>
+<p>The proposal has four contributions:</p>
+<ol><li><strong>Granite RAG delivery system:</strong> a working system that retrieves evidence, generates answers, and shows source citations.</li><li><strong>Hybrid retrieval evaluation:</strong> a focused comparison testing whether BM25 improves Granite dense retrieval.</li><li><strong>Retrieval reliability layer:</strong> decoy-density, evidence conflict, and uncertainty signals computed from top-k retrieved chunks.</li><li><strong>Controlled failure evaluation:</strong> a synthetic needle dataset and high-risk subset analysis for testing failure prediction and mitigation.</li></ol>
+<p>The central research contribution is the retrieval reliability layer and its evaluation. Hybrid retrieval is the first accuracy improvement step that supports the full system.</p>
+<h2 id="10-feasibility-considerations">10. Feasibility Considerations</h2>
+<table><thead><tr><th>Potential issue</th><th>Planned response</th></tr></thead><tbody><tr><td>Hybrid retrieval may not improve every query type.</td><td>Report both overall retrieval results and query-type results for entities, dates, numbers, and rare terms.</td></tr><tr><td>Risk-aware actions may mainly help difficult high-risk cases.</td><td>Evaluate the full test set and the high-risk subset separately, using accuracy, wrong-answer rate, and latency.</td></tr><tr><td>Synthetic decoy examples may be less realistic than enterprise data.</td><td>Build examples from public documents and apply controlled changes to entities, numbers, dates, negation, or conditions.</td></tr><tr><td>Conflict detection may become too broad for the project scope.</td><td>Prioritize decoy-density and uncertainty, and keep conflict grouping as an optional extension.</td></tr></tbody></table>
+<h2 id="11-abstract-draft">11. Abstract Draft</h2>
+<p>This project investigates risk-aware hybrid retrieval for IBM Granite RAG in enterprise needle-in-a-haystack settings. The system starts from Granite dense retrieval, adds BM25 lexical retrieval to form a hybrid retriever, then applies a lightweight retrieval reliability layer that estimates decoy-density, evidence conflict, and retrieval uncertainty from retrieved top-k chunks. The evaluation first tests whether hybrid retrieval improves over Granite dense retrieval, then tests whether retrieval-side risk signals predict retrieval and answer failures, and finally tests whether risk-triggered actions reduce high-risk errors. Public retrieval benchmarks establish general retrieval performance, while a controlled synthetic needle dataset evaluates near-matching decoys and conflicting evidence. The expected contribution is a working Granite RAG system and a focused study of retrieval-side reliability signals for improving high-risk RAG behaviour.</p>
+<h2 id="12-final-framing">12. Final Framing</h2>
+<blockquote><p>The project delivers a working Granite RAG system and studies retrieval reliability. The first accuracy step adds BM25 lexical retrieval to Granite dense retrieval to form a hybrid retriever. The research contribution is a retrieval reliability layer that detects decoys, conflicting evidence, and uncertainty, then uses those signals to guide evidence selection and reduce high-risk errors.</p></blockquote>
+
+<footer class="aris-footer">
+  Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
+  source path <code>docs/research_proposal_risk_aware_hybrid_rag.md</code> ·
+  SHA256 <code>b7fd2342dadf</code> ·
+  generated at 2026-06-19 18:16 UTC.
+  This is a generated view — edit the source Markdown, then re-render.
+</footer>
+</main>
+
+</div>
+</body>
+</html>
