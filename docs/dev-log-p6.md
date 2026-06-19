@@ -71,10 +71,35 @@ RAG/生成层需要 GPU。我负责把 Granite 生成模型在学校超算 **Blu
 
 ---
 
-## 5. 当前状态与下一步
+## 5. 检索 ablation 的配置打通(A0,2026-06-19)
 
-- **已完成:** 4 契约;A+B 架构改造;HPC 生成层打通(3B 验证);Meeting 1 准备;HPC 脚本 + 部署文档。
-- **进行中:** `run_benchmark` 编排(对 mock retriever + synthetic mini-benchmark 出 CSV)。
-- **下一步:** `build_run` + chunk→doc 聚合;给 Bharat 的架构图(CPU/GPU 分工 + 数据如何喂进 RAG);8B 冒烟验证;`citations.py`。
+检索主线的编排(`run_benchmark`:`build_run` max-pool 聚合、`evaluate_one`、`write_results_csv`、`_build_retrievers`、索引缓存、CLI)此前已实现并出了第一张 SciFact 表(granite_dense nDCG@10 0.767 > BM25 0.636 ≈ ST 0.641)。但那只是"一个模型、一套配置、一个数据集、一次 run"。要把单点结果做成稳健结论,得在**系统层**做 ablation——把切分 / 聚合 / 模型这些旋钮接到 CLI,让队友不改代码就能扫,且结果能汇总分析。这就是 A0,也是后续 A 线(尤佳希 A1 扫 Granite 变体、吴泽楠 A2 扫 chunk/pooling)的前置缝。
 
-> 后续个人报告可深挖的分析点:chunk→doc 聚合策略(max-pool vs mean)对指标的影响;集成层如何用 mock(FakeRetriever + synthetic benchmark)解耦并行开发。
+### 做了什么(`eval/run_benchmark.py`,test-first,9 个新测试,全套 49 passed / 1 xfailed)
+- `BenchmarkConfig` 新增 `chunk_size` / `chunk_overlap` / `pooling` / `embedding_model_id` / `append`,默认值全部还原既有行为。
+- `build_run(..., pooling)`:`max`(契约 3)或 `mean`(对一个 doc 被检索到的 chunk 取均值),透传 `evaluate_one` → `run`。
+- `_build_retrievers`:把 chunk 参数传进 `chunk_document`,把模型覆盖传进 `Embedder`。
+- 新增 `_cache_key(config, name)`:把 chunk size/overlap + 模型折进索引缓存键。
+- `write_results_csv(..., config_columns, append)`:给行打配置标签 + 追加写;`run` 在 `--append`(sweep)模式下给每行带上本次配置,累积进一张主 CSV。
+- CLI 新增 `--chunk-size --overlap --pooling --embedding-model-id --append`;`docs/interfaces.md` 补 Contract 6b(ablation 列,给 P7)。
+
+### 为什么这么做
+- **加法式、向后兼容**:每个旋钮默认还原现状,不带 `--append` 的普通 run 写出的 CSV 和原来逐字节一致——headline 表和 P7 不受影响,新功能 opt-in。
+- **一张主 CSV + 配置列 + append**:sweep 就是循环换 config 反复调 `run()`,每行自带配置,P7 一张表按 `chunk_size` / `pooling` / `model` 分组就能分析,而不是几十个零散文件。
+
+### 踩坑 / 关键决策(report 素材)
+1. **索引缓存键的"串味"bug(设计期发现并修)**:原缓存键只按 `dataset__retriever`。一旦带 `--cache-dir` 做 chunk-size sweep,第二个配置会命中第一个配置缓存下来的索引——静默用错向量,整轮 ablation 作废。修法:把 chunk size/overlap + 模型 slug 折进缓存键(抽成纯函数 `_cache_key`),并单测其"不同配置→不同键、相同配置→同键"。是评测严谨性的一个典型点。
+2. **mean-pool 的语义**:只对一个 doc *被检索到的* chunk 取均值(没被检索的 chunk 看不到分数,无法纳入)。这个 ablation 的作用大概率是反过来证明 max-pool 更好,从而给当初选 max(契约 3)提供实证。
+3. **用行为而非 mock 验证接线**:构造一个 doc,使它的 max-pool 与 mean-pool 分数会与竞争 doc 排名翻转,于是 `run()` 写出的 mrr 在两种 pooling 下不同(1.0 vs 0.5)——用**指标本身**证明旋钮被正确透传 run→evaluate_one→build_run,而不是断言某个 mock 被调用过。
+
+### 状态
+代码 + 测试 + 文档完成,在 `week3` 分支未提交(按团队流程应走 `week3-p6-ablation-config` → PR → 集成分支)。
+
+---
+
+## 6. 当前状态与下一步
+
+- **已完成:** 4 契约;A+B 架构改造;HPC 生成层打通(3B 验证);Meeting 1 准备;`run_benchmark` 检索编排 + 第一张 SciFact 表;A0 检索 ablation 配置打通。
+- **进行中 / 下一步:** B3(8B 冒烟 + `run_rag.slurm`,HPC 异步);`citations.py` 的 `attribute_answer`(Phase 2);给 Bharat 的架构图(CPU/GPU 分工 + 数据如何喂进 RAG)。
+
+> 后续个人报告可深挖的分析点:chunk→doc 聚合策略(max-pool vs mean)对指标的影响;索引缓存键的串味 bug 与修复(评测严谨性);集成层如何用 mock(FakeRetriever + synthetic benchmark)解耦并行开发;契约优先 + 依赖注入如何支撑 7 人并行。

@@ -10,16 +10,19 @@ the real retrievers — it satisfies the ``Retriever`` Protocol structurally.
 from __future__ import annotations
 
 import csv
+from dataclasses import replace
 from pathlib import Path
 from typing import Dict, List
 
 import pytest
 
 from src.retrieval.base import RetrievedChunk, Retriever
+from src.ingestion.chunker import Chunk
 from eval.benchmarks.loader import BenchmarkData
 from eval.run_benchmark import (
     BenchmarkConfig,
     _build_retrievers,
+    _cache_key,
     _load_or_build_index,
     _parse_args,
     build_run,
@@ -59,6 +62,25 @@ def test_build_run_max_pools_chunks_of_same_doc() -> None:
     run = build_run(retriever, {"q1": "some query"})
 
     assert run == {"q1": {"d1": 0.9, "d2": 0.5}}
+
+
+def test_build_run_mean_pools_chunks_of_same_doc() -> None:
+    # With pooling="mean", a doc's score is the MEAN of its retrieved chunk
+    # scores (over the chunks actually returned), not the max. d1: mean(0.4, 0.9)
+    # = 0.65; d2 has a single chunk, so its score is unchanged.
+    retriever = FakeRetriever(
+        {
+            "some query": [
+                RetrievedChunk(doc_id="d1", text="chunk a", score=0.4),
+                RetrievedChunk(doc_id="d1", text="chunk b", score=0.9),
+                RetrievedChunk(doc_id="d2", text="other", score=0.5),
+            ],
+        }
+    )
+
+    run = build_run(retriever, {"q1": "some query"}, pooling="mean")
+
+    assert run == {"q1": {"d1": pytest.approx(0.65), "d2": pytest.approx(0.5)}}
 
 
 def test_evaluate_one_scores_a_perfect_retriever_as_one() -> None:
@@ -111,6 +133,53 @@ def test_write_results_csv_round_trips(tmp_path) -> None:
     assert float(by_name["bm25"]["precision@1"]) == 0.5
 
 
+def test_write_results_csv_prepends_config_columns(tmp_path) -> None:
+    # When sweeping, each row is tagged with the run's config (dataset, chunk
+    # size, pooling, ...) so many runs accumulate in one analyzable table. The
+    # config columns lead, then "retriever", then the metric columns.
+    results = {"bm25": {"ndcg@10": 0.6, "mrr": 0.7}}
+    path = tmp_path / "ablation.csv"
+
+    write_results_csv(
+        results,
+        path,
+        config_columns={"dataset": "scifact", "chunk_size": 256, "pooling": "mean"},
+    )
+
+    with open(path, newline="") as f:
+        reader = csv.DictReader(f)
+        header = reader.fieldnames
+        rows = list(reader)
+
+    assert header[:4] == ["dataset", "chunk_size", "pooling", "retriever"]
+    row = rows[0]
+    assert row["dataset"] == "scifact"
+    assert row["chunk_size"] == "256"
+    assert row["pooling"] == "mean"
+    assert row["retriever"] == "bm25"
+    assert float(row["ndcg@10"]) == 0.6
+
+
+def test_write_results_csv_appends_without_duplicating_header(tmp_path) -> None:
+    # A sweep calls write_results_csv repeatedly with append=True so rows from
+    # many configs accumulate in one file under a single header.
+    path = tmp_path / "ablation.csv"
+
+    write_results_csv({"bm25": {"ndcg@10": 0.6}}, path, config_columns={"chunk_size": 256})
+    write_results_csv(
+        {"bm25": {"ndcg@10": 0.5}}, path, config_columns={"chunk_size": 128}, append=True
+    )
+
+    with open(path, newline="") as f:
+        non_empty = [ln for ln in f.read().splitlines() if ln]
+    assert len(non_empty) == 3  # one header + two data rows
+
+    with open(path, newline="") as f:
+        rows = list(csv.DictReader(f))
+    assert [r["chunk_size"] for r in rows] == ["256", "128"]
+    assert [r["ndcg@10"] for r in rows] == ["0.6", "0.5"]
+
+
 def test_run_writes_one_row_per_injected_retriever(tmp_path) -> None:
     # End-to-end orchestration with injected fakes (no real loader / retriever):
     # run() scores each retriever and writes the comparison CSV. "perfect" ranks
@@ -133,6 +202,67 @@ def test_run_writes_one_row_per_injected_retriever(tmp_path) -> None:
     assert set(rows) == {"perfect", "wrong"}
     assert float(rows["perfect"]["mrr"]) == 1.0
     assert float(rows["wrong"]["mrr"]) == 0.0
+
+
+def test_run_respects_pooling_config(tmp_path) -> None:
+    # d1 (relevant) surfaces via two chunks (0.9, 0.1); d2 (irrelevant) via one
+    # (0.6). Max-pool: d1=0.9 > d2=0.6 -> d1 first -> mrr 1.0. Mean-pool:
+    # d1=0.5 < d2=0.6 -> d1 second -> mrr 0.5. The flipped result proves pooling
+    # is threaded run -> evaluate_one -> build_run.
+    data = BenchmarkData(
+        corpus={"d1": "doc one", "d2": "doc two"},
+        queries={"q1": "qtext1"},
+        qrels={"q1": {"d1": 1}},
+    )
+    retrievers = {
+        "r": FakeRetriever(
+            {
+                "qtext1": [
+                    RetrievedChunk("d1", "a", 0.9),
+                    RetrievedChunk("d1", "b", 0.1),
+                    RetrievedChunk("d2", "c", 0.6),
+                ]
+            }
+        )
+    }
+
+    def mrr_for(pooling: str) -> float:
+        config = BenchmarkConfig(
+            k_values=[10], pooling=pooling, results_path=tmp_path / f"{pooling}.csv"
+        )
+        run(config, retrievers=retrievers, data=data)
+        with open(config.results_path, newline="") as f:
+            return float(next(csv.DictReader(f))["mrr"])
+
+    assert mrr_for("max") == pytest.approx(1.0)
+    assert mrr_for("mean") == pytest.approx(0.5)
+
+
+def test_run_tags_and_appends_when_append_set(tmp_path) -> None:
+    # Sweep mode: run() tags each row with its config and appends, so two runs
+    # with different configs accumulate in one master CSV.
+    data = BenchmarkData(
+        corpus={"d1": "doc one"}, queries={"q1": "qtext1"}, qrels={"q1": {"d1": 1}}
+    )
+    retrievers = {"r": FakeRetriever({"qtext1": [RetrievedChunk("d1", "x", 0.9)]})}
+    out = tmp_path / "sweep.csv"
+
+    run(
+        BenchmarkConfig(k_values=[1], chunk_size=512, pooling="max", results_path=out, append=True),
+        retrievers=retrievers,
+        data=data,
+    )
+    run(
+        BenchmarkConfig(k_values=[1], chunk_size=256, pooling="mean", results_path=out, append=True),
+        retrievers=retrievers,
+        data=data,
+    )
+
+    with open(out, newline="") as f:
+        rows = list(csv.DictReader(f))
+    assert [r["chunk_size"] for r in rows] == ["512", "256"]
+    assert [r["pooling"] for r in rows] == ["max", "mean"]
+    assert rows[0]["retriever"] == "r"
 
 
 def test_run_builds_real_bm25_and_writes_scored_row(tmp_path) -> None:
@@ -210,6 +340,62 @@ def test_build_retrievers_wires_dense_over_corpus(monkeypatch) -> None:
     assert [r.doc_id for r in results] == ["d1"]
 
 
+def test_build_retrievers_threads_chunk_params(monkeypatch) -> None:
+    # Ablation: chunk size/overlap from the config must reach chunk_document,
+    # else a chunk-size sweep silently re-chunks at the default 512/50.
+    monkeypatch.setattr(
+        "sentence_transformers.SentenceTransformer", FakeSentenceTransformer
+    )
+    calls = []
+
+    def spy_chunk_document(doc_id, text, chunk_size=512, chunk_overlap=50):
+        calls.append((chunk_size, chunk_overlap))
+        return [Chunk(chunk_id=f"{doc_id}::0", doc_id=doc_id, text=text)]
+
+    monkeypatch.setattr("eval.run_benchmark.chunk_document", spy_chunk_document)
+
+    data = BenchmarkData(
+        corpus={"d1": "granite retrieval"},
+        queries={"q1": "granite retrieval"},
+        qrels={"q1": {"d1": 1}},
+    )
+    config = BenchmarkConfig(
+        retrievers=["st_dense"], k_values=[1], chunk_size=256, chunk_overlap=32
+    )
+
+    _build_retrievers(config, data)
+
+    assert calls == [(256, 32)]
+
+
+def test_build_retrievers_threads_embedding_model_id(monkeypatch) -> None:
+    # The model override must reach the embedding model, so a Granite-variant
+    # sweep actually swaps models (not only the cache key).
+    captured = {}
+
+    class CapturingST(FakeSentenceTransformer):
+        def __init__(self, model_id, cache_folder=None) -> None:
+            captured["model_id"] = model_id
+            super().__init__(model_id, cache_folder)
+
+    monkeypatch.setattr("sentence_transformers.SentenceTransformer", CapturingST)
+
+    data = BenchmarkData(
+        corpus={"d1": "granite retrieval"},
+        queries={"q1": "granite retrieval"},
+        qrels={"q1": {"d1": 1}},
+    )
+    config = BenchmarkConfig(
+        retrievers=["granite_dense"],
+        k_values=[1],
+        embedding_model_id="ibm-granite/granite-embedding-small-english-r2",
+    )
+
+    _build_retrievers(config, data)
+
+    assert captured["model_id"] == "ibm-granite/granite-embedding-small-english-r2"
+
+
 def test_parse_args_uses_config_defaults() -> None:
     config = _parse_args([])
     assert config.dataset == "scifact"
@@ -226,6 +412,31 @@ def test_parse_args_overrides_from_argv() -> None:
     assert config.retrievers == ["bm25"]
     assert config.k_values == [1, 10]
     assert config.results_path == Path("x/y.csv")
+
+
+def test_parse_args_parses_ablation_flags() -> None:
+    # Defaults reproduce today's behavior.
+    d = _parse_args([])
+    assert d.chunk_size == 512
+    assert d.chunk_overlap == 50
+    assert d.pooling == "max"
+    assert d.embedding_model_id is None
+    assert d.append is False
+
+    config = _parse_args(
+        [
+            "--chunk-size", "256",
+            "--overlap", "0",
+            "--pooling", "mean",
+            "--embedding-model-id", "ibm-granite/x",
+            "--append",
+        ]
+    )
+    assert config.chunk_size == 256
+    assert config.chunk_overlap == 0
+    assert config.pooling == "mean"
+    assert config.embedding_model_id == "ibm-granite/x"
+    assert config.append is True
 
 
 class RecordingIndexer:
@@ -272,6 +483,22 @@ def test_load_or_build_index_loads_when_warm(tmp_path) -> None:
     assert idx is indexer._index
 
 
+def test_cache_key_distinguishes_chunk_and_model_configs() -> None:
+    # Different ablation configs must map to different cache keys, else a cached
+    # index built for one config is silently reused for another (corrupt sweep).
+    base = BenchmarkConfig(dataset="scifact")
+    key = _cache_key(base, "granite_dense")
+
+    assert _cache_key(base, "granite_dense") == key  # stable -> warm reruns hit cache
+    assert _cache_key(replace(base, chunk_size=256), "granite_dense") != key
+    assert _cache_key(replace(base, chunk_overlap=0), "granite_dense") != key
+    assert (
+        _cache_key(replace(base, embedding_model_id="ibm-granite/other"), "granite_dense")
+        != key
+    )
+    assert _cache_key(base, "st_dense") != key  # different retriever
+
+
 def test_build_retrievers_dense_uses_cache_path(monkeypatch, tmp_path) -> None:
     # With a cache dir set, the dense branch routes index construction through
     # _load_or_build_index, keyed by "<dataset>__<name>". Stub that helper so the
@@ -299,7 +526,7 @@ def test_build_retrievers_dense_uses_cache_path(monkeypatch, tmp_path) -> None:
 
     _build_retrievers(config, data)
 
-    assert captured["cache_path"] == tmp_path / "scifact__st_dense"
+    assert captured["cache_path"] == tmp_path / "scifact__st_dense__cs512_ov50__default"
 
 
 def test_parse_args_cache_dir() -> None:

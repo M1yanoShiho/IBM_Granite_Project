@@ -69,8 +69,10 @@
   - ✅ **A+B RAG 改造**(2026-06-12):`rag_pipeline` 改为复用 `Retriever`、新增 `run_rag.py` + `rag_metrics.py`、`BenchmarkData` 加 `answers`、app 改 RAG 口径(详见 Changelog)
   - ✅ **HPC 部署**(2026-06-12):BluePebble 生成层跑通(granite-4.1-3b 验证);产出 `scripts/smoke_8b.*` / `run_rag.slurm` + `docs/hpc-deployment.md`;repo 设为 public(已扫无密钥)
   - ✅ Meeting 1 准备 + 文档对齐(`meeting-1-questions.md` Q1/Q2/Q5)
-- **进行中:** ☐ `run_benchmark` 编排(对 mock retriever + synthetic mini-benchmark 出 CSV)
-- **下一步:** `build_run` + chunk→doc 聚合;给 Bharat 的架构图;8B 冒烟;`citations.py`。
+  - ✅ **`run_benchmark` 检索编排**(2026-06-18):`build_run`/`evaluate_one`/`write_results_csv`/`_build_retrievers`/索引缓存/CLI,TDD;第一张 SciFact 表(granite_dense nDCG@10 0.767 > BM25 0.636 ≈ ST 0.641)
+  - ✅ **A0 检索 ablation 配置打通**(2026-06-19,`week3` 未提交):chunk/pooling/model 旋钮接 CLI、配置列 CSV + append、修索引缓存"串味"bug;9 新测试,套件 49 passed/1 xfailed(详见 [dev-log-p6.md](dev-log-p6.md) §5)
+- **进行中:** ☐ B3:8B 冒烟 + `run_rag.slurm`(HPC 异步)
+- **下一步:** `citations.py` 的 `attribute_answer`(Phase 2);给 Bharat 的架构图。
 
 ### P7 — 可视化 + demo + 结果 · _(待填)_
 - **负责:** `notebooks/`, `app/main.py`
@@ -84,6 +86,8 @@
 
 | 日期                   | 区域               | 改动                                                                                                                                            | 文件 | 谁  |
 |----------------------|------------------|-----------------------------------------------------------------------------------------------------------------------------------------------| --- |----|
+| 2026-06-19           | P6 ablation | **A0:检索 ablation 配置打通** —— `build_run` 加 `pooling`(max/mean)、chunk/model 旋钮接 CLI、`write_results_csv` 配置列 + append、新增 `_cache_key` 修索引缓存"串味"bug;test-first 9 新测试,套件 49 passed/1 xfailed(`week3` 未提交) | `eval/run_benchmark.py`, `tests/test_run_benchmark.py`, `docs/interfaces.md` | P6 |
+| 2026-06-18           | P6 检索编排 | **`run_benchmark` 检索线完成** —— `build_run`(chunk→doc max-pool)/`evaluate_one`/`write_results_csv`/`_build_retrievers`/索引缓存/CLI,TDD;第一张 SciFact 表(granite_dense nDCG@10 0.767 > BM25 0.636 ≈ ST 0.641) | `eval/run_benchmark.py`, `tests/test_run_benchmark.py` | P6 |
 | 2026-06-16           | P4 检索核心 | 实现 embedding wrapper 与 DenseRetriever adapter,统一输出 `RetrievedChunk`;P5/P6 仍需确认 `index.search(query_vector, top_k)` 的正式交接接口与相似度策略 | `src/retrieval/embedder.py`, `src/retrieval/retriever.py`, `tests/test_retrieval_embedder.py`, `tests/test_retrieval_dense.py` | P3/P4 尤佳希 + 魏铭 |
 | 2026-06-16           | P3 BM25 | 实现 BM25 baseline,支持 top-k 检索、稳定排序、空输入处理和契约测试;新增 SciFact smoke 脚本并验证 P1 loader + P3 BM25 可联通 | `src/retrieval/bm25_baseline.py`, `tests/test_retrieval_bm25.py`, `scripts/smoke_bm25_scifact.py` | P3/P4 尤佳希 + 魏铭 |
 | 2026-06-13           | 数据加载 | 完成benchmark数据加载                                                                                                                                   | `loader.py` | P1 |

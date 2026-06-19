@@ -146,6 +146,21 @@ def search(self, query_vector: List[float], top_k: int) -> List[RetrievedChunk]:
 - 列名权威以 `write_results_csv` 为准:分组键是 `retriever`。
 - P7 画图按 `retriever` 分组,headline 取 `precision@10` / `recall@10` / `ndcg@10` / `mrr`。
 
+### 6b — ablation/sweep 模式的扩展列
+
+默认单次 run 的 schema 不变（上表）。当用 `--append`（sweep 模式）跑时,`run` 会在每行前面加上本次配置列,然后才是 `retriever` 和指标列,多次 run 追加进同一个 CSV:
+
+| 列 | 含义 |
+| --- | --- |
+| `dataset` | 数据集名 |
+| `chunk_size` `chunk_overlap` | 本次切分参数 |
+| `pooling` | `max` / `mean` |
+| `embedding_model_id` | dense 模型覆盖值,未覆盖时为 `default` |
+| `retriever` + 指标列 | 同上表 |
+
+- sweep 用法:循环换 config 反复调 `run(...)`（或 CLI 反复跑 `--append`),全部追加进一张主 CSV。**跑新 sweep 前先删掉旧的主 CSV**,否则会接在旧数据后面。
+- P7 读 ablation CSV 时,按这些配置列分组/筛选(例如固定 `retriever=granite_dense`,看 `chunk_size` 对 `ndcg@10` 的影响)。
+
 ---
 
 ## 变更规则
