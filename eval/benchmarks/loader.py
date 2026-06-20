@@ -61,9 +61,12 @@ def load_benchmark(name: str, split: str = "test") -> BenchmarkData:
     split:
         Dataset split to load (e.g. ``"test"``).
     """
-
+    # support multi dataset under beir
     dataset_id = f"beir/{name}/{split}"
-    dataset = ir_datasets.load(dataset_id)
+    try:
+        dataset = ir_datasets.load(dataset_id)
+    except KeyError:
+        dataset = ir_datasets.load(f"beir/{name}")
 
     corpus: Dict[str, str] = {}
     for doc in dataset.docs_iter():
@@ -84,16 +87,22 @@ def load_benchmark(name: str, split: str = "test") -> BenchmarkData:
     docs_count = len(corpus)
     queries_count = len(queries)
     qrels_count = sum(len(docs) for docs in qrels.values())
+    # average word length
     avg_doc_len = sum(len(t) for t in corpus.values()) / docs_count if docs_count else 0
-    # average related qrels per query
+    avg_query_len = sum(len(t) for t in queries.values()) / queries_count if queries_count else 0
+    # average relevant documents per query
     avg_rel_per_q = qrels_count / queries_count if queries_count else 0
 
+    print()
     print(f"Dataset: {name}({split})")
-    print(f"Corpus: {docs_count} documents(avg {avg_doc_len:.0f} chars)")
-    print(f"Queries: {queries_count} queries")
-    print(f"Qrels: {qrels_count} relevance judgments "
-          f"(avg {avg_rel_per_q:.2f} relevant docs per query)")
-    print(f"Answers: None?")
+    print(f"    Corpus: {docs_count} documents(avg {avg_doc_len:.0f} chars)")
+    print(f"    Queries: {queries_count} queries")
+    print(f"    Qrels: {qrels_count} relevance judgments ")
+    print(f"    Average document word length: {avg_doc_len:.0f} chars")
+    print(f"    Average query word length: {avg_query_len:.0f} chars")
+    print(f"    Average relevant documents per query: {avg_rel_per_q:.2f}")
+    print(f"    Answers: None?")
+    print()
 
     return BenchmarkData(
         corpus=corpus,
