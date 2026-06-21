@@ -50,6 +50,53 @@ class BenchmarkData:
     answers: Optional[Dict[str, str]] = None
 
 
+_NQ_ANSWER_SOURCE = "natural-questions/dev"
+
+# extract a free-text answer
+def _answer_from_nq_qrel(qrel) -> Optional[str]:
+    short_answers = getattr(qrel, "short_answers", None)
+    if short_answers:
+        for answer in short_answers:
+            if answer:
+                return answer
+
+    yes_no_answer = getattr(qrel, "yes_no_answer", None)
+    if yes_no_answer and yes_no_answer.upper() != "NONE":
+        return yes_no_answer.lower()
+
+    return None
+
+
+def _load_nq_answers(queries: Dict[str, str]) -> Optional[Dict[str, str]]:
+    try:
+        nq = ir_datasets.load(_NQ_ANSWER_SOURCE)
+
+        raw_answers: Dict[str, str] = {}
+        for qrel in nq.qrels_iter():
+            if qrel.query_id not in raw_answers:
+                answer = _answer_from_nq_qrel(qrel)
+                if answer is not None:
+                    raw_answers[qrel.query_id] = answer
+
+        answers_by_query_id = dict(raw_answers)
+        for index, query in enumerate(nq.queries_iter()):
+            if query.query_id in raw_answers:
+                answers_by_query_id[f"test{index}"] = raw_answers[query.query_id]
+    except Exception:
+        print(f"Answers: failed to load {_NQ_ANSWER_SOURCE}, so answers will be None")
+        return None
+
+    answers: Dict[str, str] = {}
+    match_count = 0
+    for query_id in queries:
+        if query_id in answers_by_query_id:
+            answers[query_id] = answers_by_query_id[query_id]
+            match_count += 1
+
+    print(f"Answers: succeeded to load {_NQ_ANSWER_SOURCE}, so {match_count}/{len(queries)} queries matched")
+    return answers or None
+
+
 def load_benchmark(name: str, split: str = "test") -> BenchmarkData:
     """Load a named benchmark into a :class:`BenchmarkData`.
 
@@ -81,7 +128,10 @@ def load_benchmark(name: str, split: str = "test") -> BenchmarkData:
         # set default queryId to avoid null inner dict
         qrels.setdefault(qrel.query_id, {})[qrel.doc_id] = int(qrel.relevance)
 
-    answers: Optional[Dict[str, str]] = None
+    if name == "nq":
+        answers = _load_nq_answers(queries)
+    else:
+        answers = None
 
     # print statistics info
     docs_count = len(corpus)
@@ -101,7 +151,10 @@ def load_benchmark(name: str, split: str = "test") -> BenchmarkData:
     print(f"    Average document word length: {avg_doc_len:.0f} chars")
     print(f"    Average query word length: {avg_query_len:.0f} chars")
     print(f"    Average relevant documents per query: {avg_rel_per_q:.2f}")
-    print(f"    Answers: None?")
+    if answers is not None:
+        print(f"    Answers: {len(answers)} answers. source: {_NQ_ANSWER_SOURCE})")
+    else:
+        print(f"    Answers: None(retrieval-only dataset)")
     print()
 
     return BenchmarkData(
@@ -110,4 +163,3 @@ def load_benchmark(name: str, split: str = "test") -> BenchmarkData:
         qrels=qrels,
         answers=answers,
     )
-
