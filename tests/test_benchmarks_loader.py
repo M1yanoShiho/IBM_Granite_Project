@@ -11,11 +11,7 @@ from eval.benchmarks.loader import load_benchmark
 MockDoc = namedtuple("MockDoc", ["doc_id", "text"])
 MockQuery = namedtuple("MockQuery", ["query_id", "text"])
 MockQrel = namedtuple("MockQrel", ["query_id", "doc_id", "relevance"])
-MockNqQrel = namedtuple(
-    "MockNqQrel",
-    ["query_id", "doc_id", "relevance", "short_answers", "yes_no_answer"],
-)
-
+MockAnswer = namedtuple("MockAnswer", ["query_id", "text", "answers"])
 
 def _make_mock_dataset(docs=None, queries=None, qrels=None):
     mock = MagicMock()
@@ -29,113 +25,60 @@ def _make_mock_dataset(docs=None, queries=None, qrels=None):
 class TestNQWithAnswers:
 
     @patch("eval.benchmarks.loader.ir_datasets")
-    def test_nq_returns_answers_joined_by_raw_query_id(self, mock_ir):
-        beir_nq = _make_mock_dataset(
+    def test_nq_loads_from_dpr_single_source(self, mock_ir):
+        dpr_nq = _make_mock_dataset(
             docs=[MockDoc("d1", "Paris is the capital of France.")],
-            queries=[MockQuery("nq_orig_42", "what is the capital of france")],
-            qrels=[MockQrel("nq_orig_42", "d1", 1)],
-        )
-        raw_nq = _make_mock_dataset(
-            queries=[
-                MockQuery("nq_orig_42", "what is the capital of france"),
-            ],
-            qrels=[
-                MockNqQrel("nq_orig_42", "raw_doc_1", 1, ["Paris"], "NONE"),
-            ],
+            queries=[MockAnswer("q1", "capital of france", ("Paris",))],
+            qrels=[MockQrel("q1", "d1", 1)],
         )
 
         def side_effect(dataset_id):
-            if dataset_id == "beir/nq":
-                return beir_nq
-            if dataset_id == "natural-questions/dev":
-                return raw_nq
+            if dataset_id == "dpr-w100/natural-questions/dev":
+                return dpr_nq
             raise KeyError(dataset_id)
 
         mock_ir.load.side_effect = side_effect
 
         result = load_benchmark("nq")
 
-        assert result.answers is not None
-        assert result.answers == {"nq_orig_42": "Paris"}
+        assert result.answers == {"q1": "Paris"}
+        assert result.corpus == {"d1": "Paris is the capital of France."}
+        assert result.qrels == {"q1": {"d1": 1}}
+        mock_ir.load.assert_called_once_with("dpr-w100/natural-questions/dev")
 
     @patch("eval.benchmarks.loader.ir_datasets")
-    def test_nq_answers_is_none_when_dpr_fails(self, mock_ir):
-        beir_nq = _make_mock_dataset(
+    def test_nq_takes_first_of_multiple_gold_answers(self, mock_ir):
+        dpr_nq = _make_mock_dataset(
+            docs=[MockDoc("d1", "...")],
+            queries=[MockAnswer("q1", "q?", ("NYC", "New York City"))],
+            qrels=[MockQrel("q1", "d1", 1)],
+        )
+
+        def side_effect(dataset_id):
+            if dataset_id == "dpr-w100/natural-questions/dev":
+                return dpr_nq
+            raise KeyError(dataset_id)
+
+        mock_ir.load.side_effect = side_effect
+
+        result = load_benchmark("nq")
+        assert result.answers == {"q1": "NYC"}
+
+    @patch("eval.benchmarks.loader.ir_datasets")
+    def test_non_nq_dataset_has_no_answers(self, mock_ir):
+        beir = _make_mock_dataset(
             docs=[MockDoc("d1", "Doc.")],
             queries=[MockQuery("q0", "question?")],
-            qrels=[],
+            qrels=[MockQrel("q0", "d1", 1)],
         )
 
         def side_effect(dataset_id):
-            if dataset_id == "beir/nq/test":
-                raise KeyError(dataset_id)
-            if dataset_id == "beir/nq":
-                return beir_nq
-            raise RuntimeError("NQ download failed")
+            if dataset_id == "beir/scifact/test":
+                return beir
+            raise KeyError(dataset_id)
 
         mock_ir.load.side_effect = side_effect
 
-        result = load_benchmark("nq")
+        result = load_benchmark("scifact")
 
         assert result.answers is None
-
-    @patch("eval.benchmarks.loader.ir_datasets")
-    def test_nq_returns_answers_for_beir_test_ids_from_raw_dev_order(self, mock_ir):
-        beir_nq = _make_mock_dataset(
-            docs=[MockDoc("d1", "Doc.")],
-            queries=[MockQuery("test0", "what is the capital of france")],
-            qrels=[],
-        )
-        raw_nq = _make_mock_dataset(
-            queries=[
-                MockQuery("nq_x", "what is the capital of france"),
-            ],
-            qrels=[
-                MockNqQrel("nq_x", "raw_doc_1", 1, ["Paris"], "NONE"),
-            ],
-        )
-
-        def side_effect(dataset_id):
-            if "beir" in dataset_id:
-                return beir_nq
-            if dataset_id == "natural-questions/dev":
-                return raw_nq
-            raise KeyError(dataset_id)
-
-        mock_ir.load.side_effect = side_effect
-
-        result = load_benchmark("nq")
-        assert result.answers == {"test0": "Paris"}
-
-    @patch("eval.benchmarks.loader.ir_datasets")
-    def test_nq_unmatched_queries_excluded_from_answers(self, mock_ir):
-        beir_nq = _make_mock_dataset(
-            docs=[MockDoc("d1", "Doc one."), MockDoc("d2", "Doc two.")],
-            queries=[
-                MockQuery("q_matched", "what is the capital"),
-                MockQuery("q_unmatched", "some completely different question"),
-            ],
-            qrels=[],
-        )
-        raw_nq = _make_mock_dataset(
-            queries=[
-                MockQuery("q_matched", "what is the capital"),
-            ],
-            qrels=[
-                MockNqQrel("q_matched", "raw_doc_1", 1, ["Paris"], "NONE"),
-            ],
-        )
-
-        def side_effect(dataset_id):
-            if "beir" in dataset_id:
-                return beir_nq
-            if dataset_id == "natural-questions/dev":
-                return raw_nq
-            raise KeyError(dataset_id)
-
-        mock_ir.load.side_effect = side_effect
-
-        result = load_benchmark("nq")
-
-        assert result.answers == {"q_matched": "Paris"}
-        assert "q_unmatched" not in result.answers

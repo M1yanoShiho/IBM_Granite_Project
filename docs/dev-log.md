@@ -86,6 +86,7 @@
 
 | 日期                   | 区域               | 改动                                                                                                                                            | 文件 | 谁  |
 |----------------------|------------------|-----------------------------------------------------------------------------------------------------------------------------------------------| --- |----|
+| 2026-06-22           | P1 loader | A3 beir下多数据集、B4 NQ带答案完成 | `eval/benchmarks/loader.py`, `tests/test_benchmarks_loader.py.py` | P1许展瑜 |
 | 2026-06-19           | P6 ablation | **A0:检索 ablation 配置打通** —— `build_run` 加 `pooling`(max/mean)、chunk/model 旋钮接 CLI、`write_results_csv` 配置列 + append、新增 `_cache_key` 修索引缓存"串味"bug;test-first 9 新测试,套件 49 passed/1 xfailed(`week3` 未提交) | `eval/run_benchmark.py`, `tests/test_run_benchmark.py`, `docs/interfaces.md` | P6 |
 | 2026-06-18           | P6 检索编排 | **`run_benchmark` 检索线完成** —— `build_run`(chunk→doc max-pool)/`evaluate_one`/`write_results_csv`/`_build_retrievers`/索引缓存/CLI,TDD;第一张 SciFact 表(granite_dense nDCG@10 0.767 > BM25 0.636 ≈ ST 0.641) | `eval/run_benchmark.py`, `tests/test_run_benchmark.py` | P6 |
 | 2026-06-16           | P4 检索核心 | 实现 embedding wrapper 与 DenseRetriever adapter,统一输出 `RetrievedChunk`;P5/P6 仍需确认 `index.search(query_vector, top_k)` 的正式交接接口与相似度策略 | `src/retrieval/embedder.py`, `src/retrieval/retriever.py`, `tests/test_retrieval_embedder.py`, `tests/test_retrieval_dense.py` | P3/P4 尤佳希 + 魏铭 |
