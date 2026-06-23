@@ -1,0 +1,44 @@
+Enterprises are drowning in data, yet the operational challenge is rarely
+storage---it is surfacing the precise, rare piece of information needed at the
+right moment, whether in legal discovery, regulatory compliance, or clinical
+decision support. This ``needle in a haystack'' problem is poorly served by
+keyword search and remains a strong test of modern foundation models.
+
+This project \emph{designs and evaluates} a retrieval system built on
+\textbf{IBM Granite} (open-source models, self-hosted from Hugging Face under
+the Apache~2.0 licence) for precise information discovery over large document
+collections. The system uses Granite embeddings to power its
+dense semantic retriever---so that Granite drives retrieval itself, not only
+answer generation---together with a retrieval-augmented generation (RAG) layer
+\parencite{lewis2020rag}, and attributes every answer to its supporting sources
+to address explainability and trust. Its retrieval quality is measured on \textbf{standard information-retrieval
+benchmarks} (BEIR \parencite{thakur2021beir}, MS~MARCO \parencite{nguyen2016msmarco},
+and Natural Questions \parencite{kwiatkowski2019nq}), which ship with human
+relevance judgments, using \textbf{precision@k, recall@k, nDCG, and MRR}. The
+Granite-based system is compared head-to-head against a classical BM25 baseline
+\parencite{robertson2009bm25} and an open-source dense retriever
+\parencite{karpukhin2020dpr}.
+
+% TODO 终稿:实验完成后,本段末尾补上结论(假设是否成立、Granite 是否真的优于
+% BM25/DPR),并把将来时 "will achieve" 改为过去时 "achieved/showed"。
+My research hypothesis is that a Granite-powered semantic retrieval and RAG
+system will achieve higher precision and recall on these benchmarks than both
+the classical BM25 baseline and a standard open-source dense retriever, while
+additionally providing explainable, source-attributed answers.
+
+% TODO 终稿:把下面的「计划交付物」改写为「已完成成果」——补实际投入工时、代码
+% 行数、关键算法/结果所在页码(参见模板范例 "I wrote 5000 lines…", "see page 17")。
+The main contributions of this project are:
+
+\begin{itemize}
+  \item A Granite-powered semantic search + RAG retrieval system with a
+        persistent vector index.
+  \item A reproducible benchmark harness evaluating it on standard IR datasets
+        with precision/recall, nDCG, and MRR.
+  \item A like-for-like comparison against BM25 and an open-source dense
+        retriever, identifying where Granite delivers measurable gains.
+  \item An explainability layer that attributes answers to their source passages.
+  \item As a secondary diagnostic, a long-context ``needle'' stress test probing
+        the \emph{Lost-in-the-Middle} effect \parencite{liu2024lost} in deep
+        documents.
+\end{itemize}

@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Research Proposal: Granite-Powered Retrieval and RAG</title>
+
+<meta name="generator" content="ARIS render-html (academic, v1)">
+<meta name="aris:source-path" content="docs/research_proposal.md">
+<meta name="aris:generated-at" content="2026-06-21 (hand-edited revision)">
+
+<!-- offline mode: MathJax + highlight.js skipped; math and code blocks render as plain text -->
+
+<style>
+:root {
+  --bg: #fdfcf7;
+  --bg-soft: #f4f1ea;
+  --bg-code: #f8f5ec;
+  --ink: #1a1a1a;
+  --ink-soft: #4a4a4a;
+  --ink-muted: #6b6b6b;
+  --primary: #1a4a8c;
+  --primary-soft: #2d6cb8;
+  --accent: #b8390e;
+  --warn: #b45309;
+  --warn-bg: #fef3c7;
+  --info-bg: #dbeafe;
+  --good-bg: #d1fae5;
+  --good: #065f46;
+  --bad-bg: #fee2e2;
+  --bad: #991b1b;
+  --border: #d6d0c0;
+  --border-soft: #e8e3d5;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: "Source Serif Pro", "Source Serif 4", "Crimson Pro", "Georgia", "Songti SC", "STSong", serif;
+  line-height: 1.65;
+  color: var(--ink);
+  background: var(--bg);
+  margin: 0;
+  padding: 0;
+  font-size: 16px;
+}
+
+.layout {
+  max-width: 1280px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 48px;
+  padding: 40px 32px;
+}
+
+nav.toc {
+  position: sticky;
+  top: 24px;
+  align-self: start;
+  font-size: 13px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  border-right: 1px solid var(--border-soft);
+  padding-right: 16px;
+}
+nav.toc h3 {
+  margin: 0 0 12px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-muted);
+  font-weight: 600;
+}
+nav.toc ol { list-style: none; padding: 0; margin: 0; counter-reset: toc; }
+nav.toc ol li { margin: 5px 0; counter-increment: toc; }
+nav.toc ol li::before { content: counter(toc) ". "; color: var(--ink-muted); margin-right: 4px; }
+nav.toc a {
+  color: var(--ink-soft);
+  text-decoration: none;
+  border-bottom: 1px dotted transparent;
+}
+nav.toc a:hover { color: var(--primary); border-bottom-color: var(--primary); }
+nav.toc ul { list-style: none; padding-left: 14px; margin: 3px 0; font-size: 12px; }
+nav.toc ul li::before { content: "→ "; color: var(--border); }
+
+main { min-width: 0; }
+
+header.hero {
+  border-bottom: 3px double var(--primary);
+  padding-bottom: 24px;
+  margin-bottom: 32px;
+}
+header.hero .eyebrow {
+  color: var(--accent);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+header.hero h1 {
+  font-size: 32px;
+  line-height: 1.2;
+  margin: 0 0 12px;
+  color: var(--ink);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+header.hero .subtitle {
+  font-size: 16px;
+  color: var(--ink-soft);
+  margin: 0 0 8px;
+  font-style: italic;
+}
+header.hero .byline {
+  font-size: 14px;
+  color: var(--ink-soft);
+  margin: 0 0 20px;
+}
+header.hero .byline strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+header.hero .meta {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--ink-muted);
+  border-top: 1px solid var(--border-soft);
+  padding-top: 14px;
+}
+header.hero .meta span strong { color: var(--ink-soft); }
+header.hero .meta code {
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
+  font-size: 11px;
+  background: var(--bg-soft);
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--border-soft);
+}
+
+h2 {
+  font-size: 24px;
+  margin: 44px 0 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  color: var(--ink);
+  font-weight: 700;
+}
+h2 .num { color: var(--primary); font-weight: 600; margin-right: 8px; }
+h3 { font-size: 19px; margin: 28px 0 10px; color: var(--primary); font-weight: 600; }
+h4 { font-size: 16px; margin: 20px 0 8px; color: var(--ink); font-weight: 600; }
+
+p { margin: 10px 0; }
+ul, ol { padding-left: 22px; margin: 10px 0; }
+ul li, ol li { margin: 4px 0; }
+ul li::marker { color: var(--primary); }
+
+strong { color: var(--accent); font-weight: 600; }
+em { color: var(--ink-soft); }
+
+a { color: var(--primary); }
+a:hover { color: var(--accent); }
+
+code:not(.hljs) {
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
+  font-size: 0.86em;
+  background: var(--bg-code);
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--border-soft);
+  color: var(--accent);
+}
+
+pre {
+  background: #fafaf6;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
+  padding: 0;
+  overflow-x: auto;
+  border-radius: 4px;
+  margin: 14px 0;
+}
+pre code, pre code.hljs {
+  background: transparent !important;
+  display: block;
+  padding: 14px 18px !important;
+  font-size: 13px;
+  line-height: 1.55;
+  font-family: "JetBrains Mono", "SF Mono", "Menlo", monospace;
+  color: var(--ink);
+}
+pre.diagram {
+  background: #f9f6ed;
+  border-left: 4px solid var(--accent);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.callout {
+  margin: 16px 0;
+  padding: 12px 16px;
+  border-radius: 4px;
+  border-left: 4px solid;
+  font-size: 15px;
+}
+.callout-title {
+  font-weight: 600;
+  margin-bottom: 6px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.callout-info { background: var(--info-bg); border-left-color: var(--primary); }
+.callout-info .callout-title { color: var(--primary); }
+.callout-warn { background: var(--warn-bg); border-left-color: var(--warn); }
+.callout-warn .callout-title { color: var(--warn); }
+.callout-good { background: var(--good-bg); border-left-color: var(--good); }
+.callout-good .callout-title { color: var(--good); }
+.callout-bad { background: var(--bad-bg); border-left-color: var(--bad); }
+.callout-bad .callout-title { color: var(--bad); }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  font-size: 14px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+thead { background: var(--primary); color: white; }
+th, td {
+  text-align: left;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border-soft);
+  vertical-align: top;
+}
+th { font-weight: 600; font-size: 13px; letter-spacing: 0.02em; }
+tr:last-child td { border-bottom: none; }
+tbody tr:nth-child(even) { background: var(--bg-soft); }
+
+details.qa, details {
+  background: white;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  margin: 10px 0;
+  padding: 0;
+}
+details summary {
+  cursor: pointer;
+  padding: 10px 14px;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--primary);
+  list-style: none;
+  user-select: none;
+}
+details summary::-webkit-details-marker { display: none; }
+details summary::before {
+  content: "▸ ";
+  margin-right: 4px;
+  display: inline-block;
+  transition: transform 0.15s;
+}
+details[open] summary::before { transform: rotate(90deg); }
+details[open] summary { border-bottom: 1px solid var(--border-soft); }
+details > :not(summary) { padding: 10px 14px; }
+details p:first-of-type { margin-top: 8px; }
+
+mjx-container[display="true"] { margin: 12px 0 !important; }
+
+footer.aris-footer {
+  margin-top: 60px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+footer.aris-footer a { color: var(--ink-muted); border-bottom: 1px dotted var(--border); }
+
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; gap: 20px; padding: 20px 16px; }
+  nav.toc {
+    position: static;
+    max-height: none;
+    border-right: none;
+    border-bottom: 1px solid var(--border-soft);
+    padding-right: 0;
+    padding-bottom: 14px;
+  }
+  header.hero h1 { font-size: 24px; }
+  h2 { font-size: 20px; }
+}
+@media print {
+  nav.toc { display: none; }
+  .layout { grid-template-columns: 1fr; padding: 0; }
+  body { background: white; }
+  header.hero { border-bottom-color: var(--ink); }
+}
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav class="toc">
+  <h3>Contents</h3>
+  <ol>
+<li><a href="#1-summary">Summary</a></li>
+<li><a href="#2-motivation">Motivation</a></li>
+<li><a href="#3-the-system">The System (project main line)</a></li>
+<li><a href="#4-research-contributions">Research Contributions</a>
+<ul>
+<li><a href="#c1">C1 — Rigorous downstream-grounded comparison</a></li>
+<li><a href="#c2">C2 — Granite failure-mode analysis</a></li>
+<li><a href="#c3">C3 — Cheap embedding-based attribution (upside)</a></li>
+</ul>
+</li>
+<li><a href="#5-research-questions">Research Questions</a></li>
+<li><a href="#6-methodology">Methodology and Evaluation</a></li>
+<li><a href="#7-positioning">Positioning vs Related Work</a></li>
+<li><a href="#8-timeline">Timeline and Feasibility</a></li>
+<li><a href="#9-expected-outcome">Expected Outcome</a></li>
+</ol>
+</nav>
+
+<main>
+<header class="hero">
+  <div class="eyebrow">Research Proposal</div>
+  <h1>Granite-Powered Retrieval and RAG: A Faithful System with Rigorous, Downstream-Grounded Evaluation</h1>
+  <p class="subtitle">A Granite RAG system is the project's main line; rigorous evaluation, failure analysis, and cheap attribution are the research contributions layered on top.</p>
+  <div class="meta">
+    <span><strong>Project:</strong> IBM Granite "Needle in a Haystack" / Enterprise Retrieval</span>
+    <span><strong>Partners:</strong> University of Bristol × IBM (Bharat Arora)</span>
+    <span><strong>Submission:</strong> 2026-09-04</span>
+  </div>
+</header>
+
+<h2 id="1-summary">1. Summary</h2>
+<p>We build a <strong>Granite-powered retrieval and RAG system</strong> that finds rare, relevant evidence in large corpora and generates answers that are grounded in — and cited to — that evidence. The system is the project's <strong>main line</strong>. On top of it, our <strong>research work</strong> consists of: (i) a rigorous, transparent comparison of Granite against standard baselines using a <strong>downstream-grounded</strong> evaluation; (ii) an analysis of <strong>where and why Granite fails</strong>; and (iii) a deeper, optional study of <strong>cheap, embedding-based answer attribution</strong>. The rigour and analysis are research contributions layered on the system, not a replacement for it.</p>
+
+<h2 id="2-motivation">2. Motivation</h2>
+<p>Organisations must locate rare but critical evidence ("needles") inside large, noisy document collections — legal discovery, compliance, healthcare, finance. Even a strong language model produces a wrong answer when the retrieved passage is wrong, so both <strong>retrieval accuracy</strong> and <strong>answer faithfulness</strong> matter. IBM's open-source Granite embedding models provide a strong semantic retriever; this project measures how well they serve this need and delivers a usable RAG system built around them.</p>
+
+<h2 id="3-the-system">3. The System (project main line)</h2>
+<p>A modular retrieve-then-generate pipeline built on one shared retrieval core:</p>
+<pre class="diagram"><code>User query
+  -&gt; Retrieval (BM25 / sentence-transformers / Granite dense / hybrid)
+  -&gt; Top-k evidence passages
+  -&gt; Granite answer generation
+  -&gt; Answer + source citations</code></pre>
+<ul>
+<li><strong>V1 — Granite dense retrieval (baseline system).</strong> Chunk the corpus, embed with Granite, index in FAISS, retrieve top-k by semantic similarity. <em>(Built; first results in.)</em></li>
+<li><strong>V2 — Hybrid retrieval (engineering improvement).</strong> Fuse Granite dense with BM25 lexical retrieval (rank fusion) to recover exact matches — names, dates, numbers, rare terms — that dense retrieval misses. A standard, low-cost step given our architecture (BM25 and dense already share one interface); an engineering improvement, not a research bet.</li>
+<li><strong>RAG MVP + citation.</strong> Feed retrieved passages to the Granite generative model to produce answers, and attribute each answer to its supporting source so users can verify it.</li>
+</ul>
+<p><strong>Deliverable:</strong> a working, demonstrable Granite RAG system with source citations.</p>
+
+<h2 id="4-research-contributions">4. Research Contributions (layered on the system)</h2>
+<p>These are the research work we submit; they sit on top of the system.</p>
+<h3 id="c1">C1 — Rigorous, transparent, downstream-grounded comparison</h3>
+<p><em>(Addresses the supervisor's "no vague claims".)</em> We compare Granite dense against BM25 and a peer neural baseline (sentence-transformers) on standard IR metrics (precision/recall/nDCG/MRR) <strong>and</strong> on a downstream-grounded retrieval evaluation: following <strong>eRAG</strong> (Salemi &amp; Zamani, SIGIR'24), the downstream LLM itself judges each retrieved document's usefulness, because plain query–document relevance labels correlate poorly with end-to-end RAG performance. We report across multiple datasets with explicit, verifiable links to published baseline numbers, and we clearly state dataset/version differences.</p>
+<h3 id="c2">C2 — Granite failure-mode analysis</h3>
+<p><em>(Addresses the supervisor's "find the edge cases".)</em> We characterise where Granite underperforms: per query, we find cases where BM25 beats Granite and categorise them (entity-heavy, numeric, date, rare-term, very short queries). Surfacing weaknesses demonstrates rigour and openness, and motivates the hybrid step in V2.</p>
+<h3 id="c3">C3 — Cheap embedding-based attribution (research upside, not a dependency)</h3>
+<p>As a deeper, optional study: can we measure how strongly an answer is grounded in its retrieved sources using the <strong>retriever's own embeddings</strong> — a training-free attribution signal — and is it competitive with heavier alternatives? We further ask whether <strong>retrieval quality determines attributability</strong>. This extends eRAG's idea (whose downstream signal is accuracy) to <strong>faithfulness / attributability</strong>, and is distinct from corrective-RAG work (CRAG, Self-RAG) that trains a controller to resolve conflicts. We pursue C3 only if time allows; the project's success does not depend on it.</p>
+
+<h2 id="5-research-questions">5. Research Questions</h2>
+<ul>
+<li><strong>RQ1.</strong> How much do Granite dense and hybrid retrieval improve retrieval and end-to-end RAG quality over BM25 and sentence-transformers, measured with downstream-grounded metrics across datasets?</li>
+<li><strong>RQ2.</strong> On which query types does Granite fail, and why?</li>
+<li><strong>RQ3 (upside).</strong> Can cheap, embedding-based attribution faithfully measure answer grounding, and does retrieval quality predict attributability?</li>
+</ul>
+
+<h2 id="6-methodology">6. Methodology and Evaluation</h2>
+<ul>
+<li><strong>Pipeline:</strong> chunk → embed (Granite / sentence-transformers) → FAISS index → retrieve (BM25 / ST / Granite / hybrid) → Granite generation → answer + citations.</li>
+<li><strong>Retrieval evaluation:</strong> standard IR metrics + eRAG-style downstream-grounded relevance.</li>
+<li><strong>RAG evaluation:</strong> answer correctness (vs gold) + faithfulness (RAGAS).</li>
+<li><strong>Datasets:</strong> SciFact (retrieval, done), additional BEIR sets (NFCorpus / FiQA / TREC-COVID) for robustness, and Natural Questions (qrels <strong>and</strong> gold answers, so retrieval and RAG are evaluated on the same data).</li>
+<li><strong>Failure analysis:</strong> per-query nDCG; categorise Granite-vs-BM25 losses.</li>
+<li><strong>Compute:</strong> retrieval and evaluation on CPU/laptops; Granite generation on the university HPC (already verified).</li>
+</ul>
+
+<h2 id="7-positioning">7. Positioning (how this differs from recent work)</h2>
+<p>The "reliable / abstaining / faithful RAG" space is active; we position our contribution against it deliberately.</p>
+<table><thead><tr><th>Recent line</th><th>What it does</th><th>How we differ</th></tr></thead><tbody>
+<tr><td>CRAG / Self-RAG / Adaptive-RAG</td><td>Train a corrective controller to assess retrieval and fix it (re-retrieve, filter, abstain).</td><td>We do not train a controller or resolve conflicts; we deliver a Granite RAG system plus a rigorous evaluation and failure analysis.</td></tr>
+<tr><td>eRAG (Salemi &amp; Zamani, SIGIR'24)</td><td>Evaluate retrieval quality by its downstream impact (accuracy).</td><td>We use eRAG as a tool and extend its downstream signal from accuracy to faithfulness/attributability, applied to the Granite-vs-baseline question.</td></tr>
+<tr><td>SABER / abstention work</td><td>Decide when to answer vs abstain.</td><td>We do not do abstention; cheap embedding attribution is our research angle.</td></tr>
+</tbody></table>
+
+<h2 id="8-timeline">8. Timeline and Feasibility</h2>
+<ul>
+<li><strong>Now → early August:</strong> complete the multi-dataset rigorous comparison (C1), the failure analysis (C2), and the RAG MVP; pursue C3 as time allows.</li>
+<li><strong>Last ~3 weeks:</strong> report and presentation.</li>
+</ul>
+<p>The scope is achievable because it reuses the existing, tested retrieval core and uses eRAG as an off-the-shelf evaluation tool. The only open-ended item (C3) is upside and can be dropped without affecting the core deliverable — keeping us on schedule before the team disperses in August.</p>
+
+<h2 id="9-expected-outcome">9. Expected Outcome</h2>
+<p>A working, cited Granite RAG system; a rigorous, transparent, multi-dataset comparison showing where Granite helps and where it fails; and — time permitting — a cheap attribution study. A complete, defensible deliverable whose strength rests on engineering quality, evaluation rigour, and critical analysis, with the attribution study as additional research depth.</p>
+
+</main>
+
+</div>
+</body>
+</html>
