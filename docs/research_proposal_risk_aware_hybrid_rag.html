@@ -3,12 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Research Proposal: Risk-Aware Hybrid Retrieval for Granite RAG</title>
+<title>Research Proposal: Granite-Powered Retrieval and RAG</title>
 
 <meta name="generator" content="ARIS render-html (academic, v1)">
-<meta name="aris:source-path" content="docs/research_proposal_risk_aware_hybrid_rag.md">
-<meta name="aris:source-sha256" content="b7fd2342dadf170e9016587934345624d74fd1a6d0376619b64025b72c7b4f38">
-<meta name="aris:generated-at" content="2026-06-19 18:16 UTC">
+<meta name="aris:source-path" content="docs/research_proposal.md">
+<meta name="aris:generated-at" content="2026-06-21 (hand-edited revision)">
 
 <!-- offline mode: MathJax + highlight.js skipped; math and code blocks render as plain text -->
 
@@ -310,170 +309,100 @@ footer.aris-footer a { color: var(--ink-muted); border-bottom: 1px dotted var(--
 <nav class="toc">
   <h3>Contents</h3>
   <ol>
-<li><a href="#risk-aware-hybrid-retrieval-for-granite-rag">Risk-Aware Hybrid Retrieval for Granite RAG</a>
-</li>
-<li><a href="#1-research-motivation">1. Research Motivation</a>
-</li>
-<li><a href="#2-paper-storyline">2. Paper Storyline</a>
-</li>
-<li><a href="#3-research-gap-and-related-work">3. Research Gap and Related Work</a>
-</li>
-<li><a href="#4-research-questions">4. Research Questions</a>
+<li><a href="#1-summary">Summary</a></li>
+<li><a href="#2-motivation">Motivation</a></li>
+<li><a href="#3-the-system">The System (project main line)</a></li>
+<li><a href="#4-research-contributions">Research Contributions</a>
 <ul>
-<li><a href="#rq1-hybrid-retrieval-improvement">RQ1: Hybrid retrieval improvement</a></li>
-<li><a href="#rq2-risk-signal-prediction">RQ2: Risk signal prediction</a></li>
-<li><a href="#rq3-risk-aware-mitigation">RQ3: Risk-aware mitigation</a></li>
+<li><a href="#c1">C1 — Rigorous downstream-grounded comparison</a></li>
+<li><a href="#c2">C2 — Granite failure-mode analysis</a></li>
+<li><a href="#c3">C3 — Cheap embedding-based attribution (upside)</a></li>
 </ul>
 </li>
-<li><a href="#5-proposed-method">5. Proposed Method</a>
-<ul>
-<li><a href="#51-granite-dense-retrieval-baseline">5.1 Granite Dense Retrieval Baseline</a></li>
-<li><a href="#52-hybrid-retrieval">5.2 Hybrid Retrieval</a></li>
-<li><a href="#53-retrieval-reliability-signals">5.3 Retrieval Reliability Signals</a></li>
-<li><a href="#54-risk-aware-actions">5.4 Risk-Aware Actions</a></li>
-</ul>
-</li>
-<li><a href="#6-experimental-design">6. Experimental Design</a>
-<ul>
-<li><a href="#e1-hybrid-retrieval-comparison">E1: Hybrid Retrieval Comparison</a></li>
-<li><a href="#e2-risk-signal-prediction">E2: Risk Signal Prediction</a></li>
-<li><a href="#e3-risk-aware-mitigation">E3: Risk-Aware Mitigation</a></li>
-</ul>
-</li>
-<li><a href="#7-data-and-benchmark-design">7. Data and Benchmark Design</a>
-<ul>
-<li><a href="#public-retrieval-benchmark">Public Retrieval Benchmark</a></li>
-<li><a href="#controlled-synthetic-needle-dataset">Controlled Synthetic Needle Dataset</a></li>
-</ul>
-</li>
-<li><a href="#8-evaluation-metrics">8. Evaluation Metrics</a>
-</li>
-<li><a href="#9-expected-contributions">9. Expected Contributions</a>
-</li>
-<li><a href="#10-feasibility-considerations">10. Feasibility Considerations</a>
-</li>
-<li><a href="#11-abstract-draft">11. Abstract Draft</a>
-</li>
-<li><a href="#12-final-framing">12. Final Framing</a>
-</li>
+<li><a href="#5-research-questions">Research Questions</a></li>
+<li><a href="#6-methodology">Methodology and Evaluation</a></li>
+<li><a href="#7-positioning">Positioning vs Related Work</a></li>
+<li><a href="#8-timeline">Timeline and Feasibility</a></li>
+<li><a href="#9-expected-outcome">Expected Outcome</a></li>
 </ol>
 </nav>
 
 <main>
 <header class="hero">
   <div class="eyebrow">Research Proposal</div>
-  <h1>Research Proposal: Risk-Aware Hybrid Retrieval for Granite RAG</h1>
-  
-  
+  <h1>Granite-Powered Retrieval and RAG: A Faithful System with Rigorous, Downstream-Grounded Evaluation</h1>
+  <p class="subtitle">A Granite RAG system is the project's main line; rigorous evaluation, failure analysis, and cheap attribution are the research contributions layered on top.</p>
   <div class="meta">
-    <span><strong>Source:</strong> <code>docs/research_proposal_risk_aware_hybrid_rag.md</code></span>
-    <span><strong>SHA256:</strong> <code>b7fd2342dadf</code></span>
-    <span><strong>Rendered:</strong> 2026-06-19 18:16 UTC</span>
-    
+    <span><strong>Project:</strong> IBM Granite "Needle in a Haystack" / Enterprise Retrieval</span>
+    <span><strong>Partners:</strong> University of Bristol × IBM (Bharat Arora)</span>
+    <span><strong>Submission:</strong> 2026-09-04</span>
   </div>
 </header>
 
-<h1 id="research-proposal">Research Proposal</h1>
-<h2 id="risk-aware-hybrid-retrieval-for-granite-rag">Risk-Aware Hybrid Retrieval for Granite RAG</h2>
-<p><strong>Project context:</strong> IBM Granite Needle-in-a-Haystack / Enterprise Retrieval <strong>Core theme:</strong> improving Granite RAG retrieval accuracy and reliability through hybrid retrieval and retrieval-side risk signals. <strong>Proposed title:</strong> <em>Risk-Aware Hybrid Retrieval for Granite RAG</em></p>
-<h2 id="1-research-motivation">1. Research Motivation</h2>
-<p>Enterprise RAG systems search large document collections for rare, high-value evidence. In legal, compliance, healthcare, finance, and policy settings, an incorrect retrieved passage can lead to an incorrect answer even when the language model is strong.</p>
-<p>Granite dense retrieval provides the semantic retrieval baseline for this project. It can retrieve paraphrased or conceptually similar evidence, while BM25 captures exact lexical details such as names, dates, numbers, clause-like expressions, and rare keywords. Combining these two retrieval modes gives a practical route to improving retrieval accuracy.</p>
-<p>The remaining research problem is retrieval reliability. A hybrid retriever can still return evidence that looks plausible while being misleading: near-matching decoys, conflicting chunks, or low-confidence evidence. This proposal studies whether lightweight retrieval-side signals can predict these failure cases and guide corrective retrieval actions before Granite generates the final answer.</p>
-<h2 id="2-paper-storyline">2. Paper Storyline</h2>
-<p>The paper follows a three-step progression:</p>
-<table><thead><tr><th>Step</th><th>System version</th><th>Research role</th></tr></thead><tbody><tr><td>V1</td><td>Granite dense retrieval</td><td>Semantic retrieval baseline.</td></tr><tr><td>V2</td><td>Hybrid retrieval: Granite dense + BM25</td><td>First accuracy improvement step.</td></tr><tr><td>V3</td><td>Risk-aware hybrid retrieval</td><td>Reliability improvement step for high-risk cases.</td></tr></tbody></table>
-<p>The story is:</p>
-<blockquote><p>Granite dense retrieval provides the project’s semantic search foundation. Adding BM25 creates a hybrid retriever that preserves exact details and improves retrieval robustness. The hardest remaining cases involve retrieved evidence that appears relevant while carrying decoys, conflicts, or weak confidence. A retrieval reliability layer estimates these risks from the retrieved top-k chunks and triggers targeted actions such as stricter reranking, filtering, re-retrieval, warning, or abstention. The study evaluates this progression through focused baseline comparisons, risk prediction analysis, and risk-aware mitigation experiments.</p></blockquote>
-<h2 id="3-research-gap-and-related-work">3. Research Gap and Related Work</h2>
-<p>Existing retrieval and RAG work provides the background for each part of the proposal:</p>
-<ul><li><strong>BEIR:</strong> retrieval baseline comparison for lexical, dense, and hybrid retrieval.</li><li><strong>RAGAS:</strong> answer faithfulness and grounding evaluation.</li><li><strong>Self-RAG, CRAG, Adaptive-RAG:</strong> adaptive and corrective RAG behaviour.</li><li><strong>Conflicting-evidence RAG:</strong> disagreement between retrieved evidence.</li><li><strong>Granite embedding models:</strong> IBM semantic retrieval foundation.</li></ul>
-<p>The project focuses on lightweight retrieval-side reliability signals for Granite-based enterprise needle retrieval. The signals are computed from retrieved evidence and require no newly trained controller.</p>
-<h2 id="4-research-questions">4. Research Questions</h2>
-<h3 id="rq1-hybrid-retrieval-improvement">RQ1: Hybrid retrieval improvement</h3>
-<p>How much does BM25 + Granite dense hybrid retrieval improve over Granite dense retrieval?</p>
-<p><strong>Purpose:</strong> test whether adding lexical retrieval improves the Granite semantic retrieval baseline.</p>
-<p><strong>Evidence:</strong> precision@1, recall@k, MRR, nDCG@10, and answer accuracy.</p>
-<h3 id="rq2-risk-signal-prediction">RQ2: Risk signal prediction</h3>
-<p>Can decoy-density, evidence conflict, and retrieval uncertainty predict retrieval or answer failures?</p>
-<p><strong>Purpose:</strong> test whether retrieval-side risk signals have diagnostic value.</p>
-<p><strong>Evidence:</strong> AUROC, calibration, and error rate across low/medium/high risk buckets.</p>
-<h3 id="rq3-risk-aware-mitigation">RQ3: Risk-aware mitigation</h3>
-<p>Do risk-triggered actions reduce errors compared with fixed hybrid retrieval?</p>
-<p><strong>Purpose:</strong> test whether acting on risk signals improves high-risk cases.</p>
-<p><strong>Evidence:</strong> high-risk wrong-answer rate, answer accuracy, citation faithfulness, accuracy-coverage, and latency/cost.</p>
-<h2 id="5-proposed-method">5. Proposed Method</h2>
-<p>The proposed system is <strong>Risk-Aware Hybrid Retrieval for Granite RAG</strong>.</p>
-<pre><code class="language-text">User query
-  -&gt; Granite dense retrieval
-  -&gt; BM25 lexical retrieval
-  -&gt; Hybrid merge / rank fusion
-  -&gt; Retrieval reliability signals
-  -&gt; Risk-aware evidence action
-  -&gt; Granite answer generation with citations</code></pre>
-<h3 id="51-granite-dense-retrieval-baseline">5.1 Granite Dense Retrieval Baseline</h3>
-<p>Granite dense retrieval embeds the user query and document chunks into a semantic vector space, then retrieves chunks with high semantic similarity. This is the baseline system for the retrieval study.</p>
-<h3 id="52-hybrid-retrieval">5.2 Hybrid Retrieval</h3>
-<p>BM25 retrieves exact lexical matches. Granite dense retrieval retrieves semantically similar chunks. The hybrid retriever merges both ranked lists using score fusion or rank fusion. This stage tests whether lexical matching improves Granite semantic retrieval, especially for exact entities, numbers, dates, and rare keywords.</p>
-<h3 id="53-retrieval-reliability-signals">5.3 Retrieval Reliability Signals</h3>
-<table><thead><tr><th>Signal</th><th>Computed from</th><th>Predicts</th><th>Action</th></tr></thead><tbody><tr><td>Decoy-density</td><td>Top-k chunks with high similarity and key entity/date/number/condition/negation mismatch</td><td>Wrong top-1 evidence or wrong answer</td><td>Stricter rerank/filter</td></tr><tr><td>Evidence conflict</td><td>Chunks implying incompatible answer candidates, versions, or conditions</td><td>Mixed or contradictory answer</td><td>Group by version, condition, source, or answer candidate</td></tr><tr><td>Retrieval uncertainty</td><td>Score margin, BM25-dense disagreement, top-k entropy/diversity</td><td>Low evidence confidence</td><td>Re-retrieve, warn, or abstain</td></tr></tbody></table>
-<h3 id="54-risk-aware-actions">5.4 Risk-Aware Actions</h3>
-<table><thead><tr><th>Risk profile</th><th>Action</th></tr></thead><tbody><tr><td>Low risk</td><td>Use the hybrid top-ranked evidence.</td></tr><tr><td>High decoy-density</td><td>Apply stricter reranking or filtering around entities, dates, numbers, and negation.</td></tr><tr><td>High conflict</td><td>Separate evidence groups and select evidence matching the query condition.</td></tr><tr><td>High uncertainty</td><td>Re-retrieve, rewrite the query, warn, or abstain.</td></tr></tbody></table>
-<h2 id="6-experimental-design">6. Experimental Design</h2>
-<p>The experiment plan contains one baseline comparison and two research validation blocks.</p>
-<h3 id="e1-hybrid-retrieval-comparison">E1: Hybrid Retrieval Comparison</h3>
-<p>Compare:</p>
-<table><thead><tr><th>Method</th><th>Role</th></tr></thead><tbody><tr><td>Granite dense retrieval</td><td>Main semantic baseline.</td></tr><tr><td>BM25 only</td><td>Lexical reference baseline.</td></tr><tr><td>Hybrid retrieval</td><td>First proposed improvement.</td></tr></tbody></table>
-<p><strong>Goal:</strong> measure whether adding BM25 improves Granite dense retrieval.</p>
-<p><strong>Datasets:</strong> public retrieval benchmark, plus synthetic needle examples.</p>
-<p><strong>Metrics:</strong> precision@1, recall@k, MRR, nDCG@10, answer accuracy.</p>
-<h3 id="e2-risk-signal-prediction">E2: Risk Signal Prediction</h3>
-<p>Compute decoy-density, evidence conflict, and retrieval uncertainty on top-k chunks returned by hybrid retrieval.</p>
-<p><strong>Goal:</strong> measure whether risk scores predict retrieval and answer failures.</p>
-<p><strong>Datasets:</strong> controlled synthetic needle dataset, with optional analysis on public benchmark failures.</p>
-<p><strong>Metrics:</strong> AUROC, calibration curves, low/medium/high risk bucket accuracy, failure rate by risk level.</p>
-<h3 id="e3-risk-aware-mitigation">E3: Risk-Aware Mitigation</h3>
-<p>Compare:</p>
-<table><thead><tr><th>Method</th><th>Role</th></tr></thead><tbody><tr><td>Hybrid retrieval</td><td>Fixed retrieval baseline.</td></tr><tr><td>Risk-aware hybrid retrieval</td><td>Final proposed method.</td></tr></tbody></table>
-<p><strong>Goal:</strong> measure whether risk-triggered reranking, filtering, re-retrieval, warning, or abstention reduces high-risk errors.</p>
-<p><strong>Datasets:</strong> controlled synthetic needle dataset and high-risk subsets.</p>
-<p><strong>Metrics:</strong> wrong-answer rate, answer accuracy, citation faithfulness, accuracy-coverage, latency/cost.</p>
-<h2 id="7-data-and-benchmark-design">7. Data and Benchmark Design</h2>
-<p>The evaluation uses two complementary data sources.</p>
-<h3 id="public-retrieval-benchmark">Public Retrieval Benchmark</h3>
-<p>Use SciFact or a small BEIR-style subset to evaluate general retrieval quality. This benchmark supports the comparison between Granite dense retrieval, BM25, and hybrid retrieval using standard retrieval metrics.</p>
-<h3 id="controlled-synthetic-needle-dataset">Controlled Synthetic Needle Dataset</h3>
-<p>The controlled synthetic dataset evaluates the core research contribution. It creates hard retrieval cases where the true evidence is surrounded by near-matching or conflicting evidence.</p>
-<p>Difficulty factors:</p>
-<ul><li><strong>Decoy count:</strong> number of misleading near-matches.</li><li><strong>Decoy similarity:</strong> lexical and semantic closeness to the true evidence.</li><li><strong>Mismatch type:</strong> entity, number, date, condition, or negation.</li><li><strong>Conflict type:</strong> old vs new policy, general rule vs exception, source A vs source B.</li></ul>
-<p>This dataset supports the risk prediction and risk-aware mitigation experiments.</p>
-<h2 id="8-evaluation-metrics">8. Evaluation Metrics</h2>
-<p>Retrieval quality:</p>
-<ul><li>precision@1;</li><li>recall@k;</li><li>MRR;</li><li>nDCG@10.</li></ul>
-<p>Answer quality:</p>
-<ul><li>answer accuracy;</li><li>wrong-answer rate;</li><li>citation faithfulness.</li></ul>
-<p>Risk reliability:</p>
-<ul><li>AUROC for failure prediction;</li><li>calibration by risk bucket;</li><li>high-risk subset accuracy;</li><li>accuracy-coverage curve for warning or abstention.</li></ul>
-<p>Efficiency:</p>
-<ul><li>retrieval latency;</li><li>reranking cost;</li><li>number of extra retrieval attempts.</li></ul>
-<h2 id="9-expected-contributions">9. Expected Contributions</h2>
-<p>The proposal has four contributions:</p>
-<ol><li><strong>Granite RAG delivery system:</strong> a working system that retrieves evidence, generates answers, and shows source citations.</li><li><strong>Hybrid retrieval evaluation:</strong> a focused comparison testing whether BM25 improves Granite dense retrieval.</li><li><strong>Retrieval reliability layer:</strong> decoy-density, evidence conflict, and uncertainty signals computed from top-k retrieved chunks.</li><li><strong>Controlled failure evaluation:</strong> a synthetic needle dataset and high-risk subset analysis for testing failure prediction and mitigation.</li></ol>
-<p>The central research contribution is the retrieval reliability layer and its evaluation. Hybrid retrieval is the first accuracy improvement step that supports the full system.</p>
-<h2 id="10-feasibility-considerations">10. Feasibility Considerations</h2>
-<table><thead><tr><th>Potential issue</th><th>Planned response</th></tr></thead><tbody><tr><td>Hybrid retrieval may not improve every query type.</td><td>Report both overall retrieval results and query-type results for entities, dates, numbers, and rare terms.</td></tr><tr><td>Risk-aware actions may mainly help difficult high-risk cases.</td><td>Evaluate the full test set and the high-risk subset separately, using accuracy, wrong-answer rate, and latency.</td></tr><tr><td>Synthetic decoy examples may be less realistic than enterprise data.</td><td>Build examples from public documents and apply controlled changes to entities, numbers, dates, negation, or conditions.</td></tr><tr><td>Conflict detection may become too broad for the project scope.</td><td>Prioritize decoy-density and uncertainty, and keep conflict grouping as an optional extension.</td></tr></tbody></table>
-<h2 id="11-abstract-draft">11. Abstract Draft</h2>
-<p>This project investigates risk-aware hybrid retrieval for IBM Granite RAG in enterprise needle-in-a-haystack settings. The system starts from Granite dense retrieval, adds BM25 lexical retrieval to form a hybrid retriever, then applies a lightweight retrieval reliability layer that estimates decoy-density, evidence conflict, and retrieval uncertainty from retrieved top-k chunks. The evaluation first tests whether hybrid retrieval improves over Granite dense retrieval, then tests whether retrieval-side risk signals predict retrieval and answer failures, and finally tests whether risk-triggered actions reduce high-risk errors. Public retrieval benchmarks establish general retrieval performance, while a controlled synthetic needle dataset evaluates near-matching decoys and conflicting evidence. The expected contribution is a working Granite RAG system and a focused study of retrieval-side reliability signals for improving high-risk RAG behaviour.</p>
-<h2 id="12-final-framing">12. Final Framing</h2>
-<blockquote><p>The project delivers a working Granite RAG system and studies retrieval reliability. The first accuracy step adds BM25 lexical retrieval to Granite dense retrieval to form a hybrid retriever. The research contribution is a retrieval reliability layer that detects decoys, conflicting evidence, and uncertainty, then uses those signals to guide evidence selection and reduce high-risk errors.</p></blockquote>
+<h2 id="1-summary">1. Summary</h2>
+<p>We build a <strong>Granite-powered retrieval and RAG system</strong> that finds rare, relevant evidence in large corpora and generates answers that are grounded in — and cited to — that evidence. The system is the project's <strong>main line</strong>. On top of it, our <strong>research work</strong> consists of: (i) a rigorous, transparent comparison of Granite against standard baselines using a <strong>downstream-grounded</strong> evaluation; (ii) an analysis of <strong>where and why Granite fails</strong>; and (iii) a deeper, optional study of <strong>cheap, embedding-based answer attribution</strong>. The rigour and analysis are research contributions layered on the system, not a replacement for it.</p>
 
-<footer class="aris-footer">
-  Generated by <a href="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/skills/render-html/SKILL.md">ARIS <code>/render-html</code></a> ·
-  source path <code>docs/research_proposal_risk_aware_hybrid_rag.md</code> ·
-  SHA256 <code>b7fd2342dadf</code> ·
-  generated at 2026-06-19 18:16 UTC.
-  This is a generated view — edit the source Markdown, then re-render.
-</footer>
+<h2 id="2-motivation">2. Motivation</h2>
+<p>Organisations must locate rare but critical evidence ("needles") inside large, noisy document collections — legal discovery, compliance, healthcare, finance. Even a strong language model produces a wrong answer when the retrieved passage is wrong, so both <strong>retrieval accuracy</strong> and <strong>answer faithfulness</strong> matter. IBM's open-source Granite embedding models provide a strong semantic retriever; this project measures how well they serve this need and delivers a usable RAG system built around them.</p>
+
+<h2 id="3-the-system">3. The System (project main line)</h2>
+<p>A modular retrieve-then-generate pipeline built on one shared retrieval core:</p>
+<pre class="diagram"><code>User query
+  -&gt; Retrieval (BM25 / sentence-transformers / Granite dense / hybrid)
+  -&gt; Top-k evidence passages
+  -&gt; Granite answer generation
+  -&gt; Answer + source citations</code></pre>
+<ul>
+<li><strong>V1 — Granite dense retrieval (baseline system).</strong> Chunk the corpus, embed with Granite, index in FAISS, retrieve top-k by semantic similarity. <em>(Built; first results in.)</em></li>
+<li><strong>V2 — Hybrid retrieval (engineering improvement).</strong> Fuse Granite dense with BM25 lexical retrieval (rank fusion) to recover exact matches — names, dates, numbers, rare terms — that dense retrieval misses. A standard, low-cost step given our architecture (BM25 and dense already share one interface); an engineering improvement, not a research bet.</li>
+<li><strong>RAG MVP + citation.</strong> Feed retrieved passages to the Granite generative model to produce answers, and attribute each answer to its supporting source so users can verify it.</li>
+</ul>
+<p><strong>Deliverable:</strong> a working, demonstrable Granite RAG system with source citations.</p>
+
+<h2 id="4-research-contributions">4. Research Contributions (layered on the system)</h2>
+<p>These are the research work we submit; they sit on top of the system.</p>
+<h3 id="c1">C1 — Rigorous, transparent, downstream-grounded comparison</h3>
+<p><em>(Addresses the supervisor's "no vague claims".)</em> We compare Granite dense against BM25 and a peer neural baseline (sentence-transformers) on standard IR metrics (precision/recall/nDCG/MRR) <strong>and</strong> on a downstream-grounded retrieval evaluation: following <strong>eRAG</strong> (Salemi &amp; Zamani, SIGIR'24), the downstream LLM itself judges each retrieved document's usefulness, because plain query–document relevance labels correlate poorly with end-to-end RAG performance. We report across multiple datasets with explicit, verifiable links to published baseline numbers, and we clearly state dataset/version differences.</p>
+<h3 id="c2">C2 — Granite failure-mode analysis</h3>
+<p><em>(Addresses the supervisor's "find the edge cases".)</em> We characterise where Granite underperforms: per query, we find cases where BM25 beats Granite and categorise them (entity-heavy, numeric, date, rare-term, very short queries). Surfacing weaknesses demonstrates rigour and openness, and motivates the hybrid step in V2.</p>
+<h3 id="c3">C3 — Cheap embedding-based attribution (research upside, not a dependency)</h3>
+<p>As a deeper, optional study: can we measure how strongly an answer is grounded in its retrieved sources using the <strong>retriever's own embeddings</strong> — a training-free attribution signal — and is it competitive with heavier alternatives? We further ask whether <strong>retrieval quality determines attributability</strong>. This extends eRAG's idea (whose downstream signal is accuracy) to <strong>faithfulness / attributability</strong>, and is distinct from corrective-RAG work (CRAG, Self-RAG) that trains a controller to resolve conflicts. We pursue C3 only if time allows; the project's success does not depend on it.</p>
+
+<h2 id="5-research-questions">5. Research Questions</h2>
+<ul>
+<li><strong>RQ1.</strong> How much do Granite dense and hybrid retrieval improve retrieval and end-to-end RAG quality over BM25 and sentence-transformers, measured with downstream-grounded metrics across datasets?</li>
+<li><strong>RQ2.</strong> On which query types does Granite fail, and why?</li>
+<li><strong>RQ3 (upside).</strong> Can cheap, embedding-based attribution faithfully measure answer grounding, and does retrieval quality predict attributability?</li>
+</ul>
+
+<h2 id="6-methodology">6. Methodology and Evaluation</h2>
+<ul>
+<li><strong>Pipeline:</strong> chunk → embed (Granite / sentence-transformers) → FAISS index → retrieve (BM25 / ST / Granite / hybrid) → Granite generation → answer + citations.</li>
+<li><strong>Retrieval evaluation:</strong> standard IR metrics + eRAG-style downstream-grounded relevance.</li>
+<li><strong>RAG evaluation:</strong> answer correctness (vs gold) + faithfulness (RAGAS).</li>
+<li><strong>Datasets:</strong> SciFact (retrieval, done), additional BEIR sets (NFCorpus / FiQA / TREC-COVID) for robustness, and Natural Questions (qrels <strong>and</strong> gold answers, so retrieval and RAG are evaluated on the same data).</li>
+<li><strong>Failure analysis:</strong> per-query nDCG; categorise Granite-vs-BM25 losses.</li>
+<li><strong>Compute:</strong> retrieval and evaluation on CPU/laptops; Granite generation on the university HPC (already verified).</li>
+</ul>
+
+<h2 id="7-positioning">7. Positioning (how this differs from recent work)</h2>
+<p>The "reliable / abstaining / faithful RAG" space is active; we position our contribution against it deliberately.</p>
+<table><thead><tr><th>Recent line</th><th>What it does</th><th>How we differ</th></tr></thead><tbody>
+<tr><td>CRAG / Self-RAG / Adaptive-RAG</td><td>Train a corrective controller to assess retrieval and fix it (re-retrieve, filter, abstain).</td><td>We do not train a controller or resolve conflicts; we deliver a Granite RAG system plus a rigorous evaluation and failure analysis.</td></tr>
+<tr><td>eRAG (Salemi &amp; Zamani, SIGIR'24)</td><td>Evaluate retrieval quality by its downstream impact (accuracy).</td><td>We use eRAG as a tool and extend its downstream signal from accuracy to faithfulness/attributability, applied to the Granite-vs-baseline question.</td></tr>
+<tr><td>SABER / abstention work</td><td>Decide when to answer vs abstain.</td><td>We do not do abstention; cheap embedding attribution is our research angle.</td></tr>
+</tbody></table>
+
+<h2 id="8-timeline">8. Timeline and Feasibility</h2>
+<ul>
+<li><strong>Now → early August:</strong> complete the multi-dataset rigorous comparison (C1), the failure analysis (C2), and the RAG MVP; pursue C3 as time allows.</li>
+<li><strong>Last ~3 weeks:</strong> report and presentation.</li>
+</ul>
+<p>The scope is achievable because it reuses the existing, tested retrieval core and uses eRAG as an off-the-shelf evaluation tool. The only open-ended item (C3) is upside and can be dropped without affecting the core deliverable — keeping us on schedule before the team disperses in August.</p>
+
+<h2 id="9-expected-outcome">9. Expected Outcome</h2>
+<p>A working, cited Granite RAG system; a rigorous, transparent, multi-dataset comparison showing where Granite helps and where it fails; and — time permitting — a cheap attribution study. A complete, defensible deliverable whose strength rests on engineering quality, evaluation rigour, and critical analysis, with the attribution study as additional research depth.</p>
+
 </main>
 
 </div>
