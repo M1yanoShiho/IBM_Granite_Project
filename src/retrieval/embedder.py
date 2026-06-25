@@ -28,12 +28,27 @@ class Embedder:
         Face) or ``"sentence-transformers"`` (open-source baseline embeddings).
     model_id:
         Backend-specific embedding model identifier.
+    query_prefix:
+        String prepended to every query before encoding. Useful for
+        instruction-tuned models that distinguish query vs. passage roles.
+        ``granite-embedding-english-r2`` model card shows no recommended
+        prefix, so the default is empty.
+    doc_prefix:
+        String prepended to every document/passage before encoding.
     """
 
-    def __init__(self, backend: str = "granite", model_id: str | None = None) -> None:
+    def __init__(
+        self,
+        backend: str = "granite",
+        model_id: str | None = None,
+        query_prefix: str = "",
+        doc_prefix: str = "",
+    ) -> None:
         self._validate_backend(backend)
         self.backend = backend
         self.model_id = model_id or self._default_model_id(backend)
+        self.query_prefix = query_prefix
+        self.doc_prefix = doc_prefix
         self._model = self._init_model()
 
     @staticmethod
@@ -78,8 +93,10 @@ class Embedder:
         """Embed a batch of documents/chunks into dense vectors."""
         if not texts:
             return []
-        return self._encode(texts)
+        prefixed = [self.doc_prefix + t for t in texts] if self.doc_prefix else list(texts)
+        return self._encode(prefixed)
 
     def embed_query(self, text: str) -> List[float]:
         """Embed a single query into a dense vector."""
-        return self._encode([text])[0]
+        prefixed = self.query_prefix + text if self.query_prefix else text
+        return self._encode([prefixed])[0]

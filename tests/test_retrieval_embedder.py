@@ -90,3 +90,68 @@ def test_embedder_rejects_unknown_backend() -> None:
     with pytest.raises(ValueError, match="Unsupported embedding backend"):
         Embedder(backend="unknown", model_id="fake-model")
 
+
+# --- instruction-prefix tests ---
+
+
+def test_no_prefix_by_default(monkeypatch) -> None:
+    monkeypatch.setattr("sentence_transformers.SentenceTransformer", FakeSentenceTransformer)
+    embedder = Embedder(backend="sentence-transformers", model_id="fake")
+    assert embedder.query_prefix == ""
+    assert embedder.doc_prefix == ""
+    assert embedder.embed_query("hello") == [5.0, 1.0]
+
+
+def test_query_prefix_prepended_to_embed_query(monkeypatch) -> None:
+    monkeypatch.setattr("sentence_transformers.SentenceTransformer", FakeSentenceTransformer)
+    embedder = Embedder(
+        backend="sentence-transformers",
+        model_id="fake",
+        query_prefix="query: ",
+    )
+    # "query: hello" -> len=13, words=2
+    assert embedder.embed_query("hello") == [13.0, 2.0]
+
+
+def test_doc_prefix_prepended_to_embed_documents(monkeypatch) -> None:
+    monkeypatch.setattr("sentence_transformers.SentenceTransformer", FakeSentenceTransformer)
+    embedder = Embedder(
+        backend="sentence-transformers",
+        model_id="fake",
+        doc_prefix="passage: ",
+    )
+    # "passage: hello" -> len=14, words=2
+    assert embedder.embed_documents(["hello"]) == [[14.0, 2.0]]
+
+
+def test_query_prefix_does_not_affect_embed_documents(monkeypatch) -> None:
+    monkeypatch.setattr("sentence_transformers.SentenceTransformer", FakeSentenceTransformer)
+    embedder = Embedder(
+        backend="sentence-transformers",
+        model_id="fake",
+        query_prefix="query: ",
+    )
+    # doc_prefix is empty, so documents are unchanged
+    assert embedder.embed_documents(["hello"]) == [[5.0, 1.0]]
+
+
+def test_granite_backend_with_instruction_prefix(monkeypatch) -> None:
+    monkeypatch.setattr("sentence_transformers.SentenceTransformer", FakeSentenceTransformer)
+    monkeypatch.setenv("GRANITE_EMBEDDING_MODEL_ID", "ibm-granite/test-granite-embedding")
+    prefix = "Represent the query for retrieval: "
+    embedder = Embedder(backend="granite", query_prefix=prefix)
+    full = prefix + "what is DNA"
+    assert embedder.embed_query("what is DNA") == [float(len(full)), float(len(full.split()))]
+
+
+def test_different_model_ids_are_recorded(monkeypatch) -> None:
+    # Verify that distinct model_id values are passed through to the underlying
+    # SentenceTransformer — the mechanism that lets us compare Granite variants.
+    monkeypatch.setattr("sentence_transformers.SentenceTransformer", FakeSentenceTransformer)
+    Embedder(backend="granite", model_id="ibm-granite/granite-embedding-english-r2")
+    Embedder(backend="granite", model_id="ibm-granite/granite-embedding-small-english-r2")
+    assert FakeSentenceTransformer.created_model_ids == [
+        "ibm-granite/granite-embedding-english-r2",
+        "ibm-granite/granite-embedding-small-english-r2",
+    ]
+
