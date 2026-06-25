@@ -65,7 +65,7 @@ class BenchmarkConfig:
             Number of tokens shared between consecutive chunks (sliding window).
         Passed to :func:`~src.ingestion.chunker.chunk_document` when building the
         dense retrievers' index — the chunking ablation knobs. Default 512/50.
-    pool_strategy:
+    pooling:
         How chunk scores collapse to a doc score in :func:`build_run`
         (``"max"`` or ``"mean"``). An ablation knob; defaults to contract-3 max.
     embedding_model_id:
@@ -87,20 +87,17 @@ class BenchmarkConfig:
     )
     results_path: Path = Path("results/benchmark_results.csv")
     index_cache_dir: Path | None = None
-    pool_strategy: str = "max"
     chunk_size: int = 512
     chunk_overlap: int = 50
+    pooling: str = "max"
     embedding_model_id: str | None = None
     append: bool = False
-    chunk_size: int = 512
-    chunk_overlap: int = 50
-    pool_strategy: str = "max"
 
 
 def build_run(
     retriever: Retriever,
     queries: Dict[str, str],
-    pool_strategy: str = "max",
+    pooling: str = "max",
 ) -> Run:
     """Aggregate a retriever's chunk-level results into a doc-level ``Run``.
 
@@ -117,16 +114,16 @@ def build_run(
     The result is keyed by query id, ready to hand to
     ``eval.ir_metrics.evaluate_run`` (contract 2).
     """
-    if pool_strategy not in ("max", "mean"):
+    if pooling not in ("max", "mean"):
         raise ValueError(
-            f"Unknown pool_strategy {pool_strategy!r}; expected 'max' or 'mean'."
+            f"Unknown pooling {pooling!r}; expected 'max' or 'mean'."
         )
     run: Run = {}
     for query_id, query_text in queries.items():
         chunks_by_doc: Dict[str, List[float]] = {}
         for chunk in retriever.retrieve(query_text):
             chunks_by_doc.setdefault(chunk.doc_id, []).append(chunk.score)
-        if pool_strategy == "max":
+        if pooling == "max":
             run[query_id] = {did: max(scores) for did, scores in chunks_by_doc.items()}
         else:
             run[query_id] = {
@@ -139,7 +136,7 @@ def evaluate_one(
     retriever: Retriever,
     data: BenchmarkData,
     k_values: List[int] | None = None,
-    pool_strategy: str = "max",
+    pooling: str = "max",
 ) -> Dict[str, float]:
     """Score one retriever on a benchmark.
 
@@ -148,7 +145,7 @@ def evaluate_one(
     ``eval.ir_metrics.evaluate_run`` (contract 2). Returns the metric suite
     (precision/recall/nDCG at each k, plus MRR).
     """
-    run = build_run(retriever, data.queries, pool_strategy=pool_strategy)
+    run = build_run(retriever, data.queries, pooling=pooling)
     return evaluate_run(run, data.qrels, k_values)
 
 
@@ -290,7 +287,7 @@ def run(
         retrievers = _build_retrievers(config, data)
 
     results = {
-        name: evaluate_one(retriever, data, config.k_values, pool_strategy=config.pool_strategy)
+        name: evaluate_one(retriever, data, config.k_values, pooling=config.pooling)
         for name, retriever in retrievers.items()
     }
     config_columns = None
@@ -299,7 +296,7 @@ def run(
             "dataset": config.dataset,
             "chunk_size": config.chunk_size,
             "chunk_overlap": config.chunk_overlap,
-            "pooling": config.pool_strategy,
+            "pooling": config.pooling,
             "embedding_model_id": config.embedding_model_id or "default",
         }
     write_results_csv(
@@ -365,25 +362,18 @@ def _parse_args(argv: List[str] | None = None) -> BenchmarkConfig:
              "informative on long-document corpora such as NQ.",
     )
     parser.add_argument(
-        "--chunk-overlap",
+        "--overlap",
         type=int,
         default=defaults.chunk_overlap,
         dest="chunk_overlap",
         help="Overlap tokens between consecutive chunks (default: %(default)s).",
     )
     parser.add_argument(
-        "--pool",
-        default=defaults.pool_strategy,
-        dest="pool_strategy",
+        "--pooling",
+        default=defaults.pooling,
+        dest="pooling",
         choices=["max", "mean"],
         help="Chunk-to-doc score aggregation: max (default) or mean.",
-    )
-    parser.add_argument(
-        "--chunk-size",
-        type=int,
-        default=defaults.chunk_size,
-        dest="chunk_size",
-        help="Token chunk size for the dense index (default: %(default)s).",
     )
     parser.add_argument(
         "--embedding-model-id",
@@ -408,7 +398,7 @@ def _parse_args(argv: List[str] | None = None) -> BenchmarkConfig:
         index_cache_dir=args.index_cache_dir,
         chunk_size=args.chunk_size,
         chunk_overlap=args.chunk_overlap,
-        pool_strategy=args.pool_strategy,
+        pooling=args.pooling,
         embedding_model_id=args.embedding_model_id,
         append=args.append,
     )
