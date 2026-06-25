@@ -55,6 +55,15 @@ class BenchmarkConfig:
     index_cache_dir:
         If set, dense retrievers cache their FAISS index here (keyed by dataset
         and retriever name) so reruns skip re-embedding. ``None`` = no caching.
+    chunk_size:
+        Token window size for splitting documents into chunks. SciFact abstracts
+        are short (≈150 words), so 512 yields ~1 chunk/doc; chunk ablations are
+        more informative on long-document corpora (e.g. NQ).
+    chunk_overlap:
+        Number of tokens shared between consecutive chunks (sliding window).
+    pool_strategy:
+        How to collapse per-chunk scores to a single doc score: ``"max"``
+        (contract 3 default) or ``"mean"``.
     """
 
     dataset: str = "scifact"
@@ -64,25 +73,43 @@ class BenchmarkConfig:
     )
     results_path: Path = Path("results/benchmark_results.csv")
     index_cache_dir: Path | None = None
+    chunk_size: int = 512
+    chunk_overlap: int = 50
+    pool_strategy: str = "max"
 
 
-def build_run(retriever: Retriever, queries: Dict[str, str]) -> Run:
+def build_run(
+    retriever: Retriever,
+    queries: Dict[str, str],
+    pool_strategy: str = "max",
+) -> Run:
     """Aggregate a retriever's chunk-level results into a doc-level ``Run``.
 
     For each query, call ``retriever.retrieve`` and collapse the returned chunks
-    to one score per ``doc_id`` by **max-pool** (contract 3): a document's score
-    is the highest score among its retrieved chunks. On unchunked corpora
-    (e.g. SciFact) this is a pass-through; it only bites once documents are split
-    into chunks (e.g. NQ). The result is keyed by query id, ready to hand to
-    ``eval.ir_metrics.evaluate_run`` (contract 2).
+    to one score per ``doc_id``. Pooling strategy is controlled by
+    ``pool_strategy``:
+
+        - ``"max"`` (default, contract 3): doc score = max chunk score.
+        - ``"mean"``: doc score = average chunk score.
+
+    On unchunked corpora (e.g. SciFact at chunk_size 512) this is a pass-through;
+    pooling matters once a document produces multiple chunks.
     """
+    if pool_strategy not in ("max", "mean"):
+        raise ValueError(
+            f"Unknown pool_strategy {pool_strategy!r}; expected 'max' or 'mean'."
+        )
     run: Run = {}
     for query_id, query_text in queries.items():
-        doc_scores: Dict[str, float] = {}
+        chunks_by_doc: Dict[str, List[float]] = {}
         for chunk in retriever.retrieve(query_text):
-            if chunk.score > doc_scores.get(chunk.doc_id, float("-inf")):
-                doc_scores[chunk.doc_id] = chunk.score
-        run[query_id] = doc_scores
+            chunks_by_doc.setdefault(chunk.doc_id, []).append(chunk.score)
+        if pool_strategy == "max":
+            run[query_id] = {did: max(scores) for did, scores in chunks_by_doc.items()}
+        else:
+            run[query_id] = {
+                did: sum(scores) / len(scores) for did, scores in chunks_by_doc.items()
+            }
     return run
 
 
@@ -90,6 +117,7 @@ def evaluate_one(
     retriever: Retriever,
     data: BenchmarkData,
     k_values: List[int] | None = None,
+    pool_strategy: str = "max",
 ) -> Dict[str, float]:
     """Score one retriever on a benchmark.
 
@@ -98,7 +126,7 @@ def evaluate_one(
     ``eval.ir_metrics.evaluate_run`` (contract 2). Returns the metric suite
     (precision/recall/nDCG at each k, plus MRR).
     """
-    run = build_run(retriever, data.queries)
+    run = build_run(retriever, data.queries, pool_strategy=pool_strategy)
     return evaluate_run(run, data.qrels, k_values)
 
 
@@ -166,7 +194,11 @@ def _build_retrievers(
             chunks = [
                 chunk
                 for did, text in data.corpus.items()
-                for chunk in chunk_document(did, text)
+                for chunk in chunk_document(
+                    did, text,
+                    chunk_size=config.chunk_size,
+                    chunk_overlap=config.chunk_overlap,
+                )
             ]
             indexer = VectorIndexer(embedder)
             if config.index_cache_dir is not None:
@@ -203,7 +235,7 @@ def run(
         retrievers = _build_retrievers(config, data)
 
     results = {
-        name: evaluate_one(retriever, data, config.k_values)
+        name: evaluate_one(retriever, data, config.k_values, pool_strategy=config.pool_strategy)
         for name, retriever in retrievers.items()
     }
     write_results_csv(results, config.results_path)
@@ -254,6 +286,29 @@ def _parse_args(argv: List[str] | None = None) -> BenchmarkConfig:
         dest="index_cache_dir",
         help="Cache dense indexes here to skip re-embedding on reruns (default: off).",
     )
+    parser.add_argument(
+        "--chunk-size",
+        type=int,
+        default=defaults.chunk_size,
+        dest="chunk_size",
+        help="Token window for chunking documents (default: %(default)s). "
+             "Note: SciFact abstracts are short — chunk ablations are more "
+             "informative on long-document corpora such as NQ.",
+    )
+    parser.add_argument(
+        "--chunk-overlap",
+        type=int,
+        default=defaults.chunk_overlap,
+        dest="chunk_overlap",
+        help="Overlap tokens between consecutive chunks (default: %(default)s).",
+    )
+    parser.add_argument(
+        "--pool",
+        default=defaults.pool_strategy,
+        dest="pool_strategy",
+        choices=["max", "mean"],
+        help="Chunk-to-doc score aggregation: max (default) or mean.",
+    )
     args = parser.parse_args(argv)
     return BenchmarkConfig(
         dataset=args.dataset,
@@ -261,6 +316,9 @@ def _parse_args(argv: List[str] | None = None) -> BenchmarkConfig:
         k_values=args.k_values,
         results_path=args.results_path,
         index_cache_dir=args.index_cache_dir,
+        chunk_size=args.chunk_size,
+        chunk_overlap=args.chunk_overlap,
+        pool_strategy=args.pool_strategy,
     )
 
 

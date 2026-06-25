@@ -305,3 +305,85 @@ def test_build_retrievers_dense_uses_cache_path(monkeypatch, tmp_path) -> None:
 def test_parse_args_cache_dir() -> None:
     assert _parse_args([]).index_cache_dir is None
     assert _parse_args(["--cache-dir", "tmp/idx"]).index_cache_dir == Path("tmp/idx")
+
+
+# --- chunk / pool ablation tests ---
+
+
+def test_build_run_mean_pools_chunks_of_same_doc() -> None:
+    retriever = FakeRetriever(
+        {
+            "q": [
+                RetrievedChunk(doc_id="d1", text="chunk a", score=0.4),
+                RetrievedChunk(doc_id="d1", text="chunk b", score=0.8),
+                RetrievedChunk(doc_id="d2", text="other", score=0.5),
+            ]
+        }
+    )
+    result = build_run(retriever, {"q1": "q"}, pool_strategy="mean")
+    assert result == {"q1": {"d1": pytest.approx(0.6), "d2": 0.5}}
+
+
+def test_build_run_unknown_pool_strategy_raises() -> None:
+    retriever = FakeRetriever({"q": []})
+    with pytest.raises(ValueError, match="Unknown pool_strategy"):
+        build_run(retriever, {"q1": "q"}, pool_strategy="sum")
+
+
+def test_parse_args_chunk_and_pool_defaults() -> None:
+    config = _parse_args([])
+    assert config.chunk_size == 512
+    assert config.chunk_overlap == 50
+    assert config.pool_strategy == "max"
+
+
+def test_parse_args_chunk_and_pool_overrides() -> None:
+    config = _parse_args(["--chunk-size", "128", "--chunk-overlap", "0", "--pool", "mean"])
+    assert config.chunk_size == 128
+    assert config.chunk_overlap == 0
+    assert config.pool_strategy == "mean"
+
+
+def test_build_retrievers_passes_chunk_params_to_chunker(monkeypatch) -> None:
+    monkeypatch.setattr("sentence_transformers.SentenceTransformer", FakeSentenceTransformer)
+    captured_calls: list[dict] = []
+
+    original_chunk_document = __import__(
+        "src.ingestion.chunker", fromlist=["chunk_document"]
+    ).chunk_document
+
+    def recording_chunk_document(doc_id, text, chunk_size=512, chunk_overlap=50):
+        captured_calls.append({"chunk_size": chunk_size, "chunk_overlap": chunk_overlap})
+        return original_chunk_document(doc_id, text, chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+
+    monkeypatch.setattr("eval.run_benchmark.chunk_document", recording_chunk_document)
+
+    data = BenchmarkData(
+        corpus={"d1": "word " * 300},
+        queries={"q1": "word"},
+        qrels={"q1": {"d1": 1}},
+    )
+    config = BenchmarkConfig(retrievers=["st_dense"], k_values=[1], chunk_size=128, chunk_overlap=0)
+    _build_retrievers(config, data)
+
+    assert all(c["chunk_size"] == 128 and c["chunk_overlap"] == 0 for c in captured_calls)
+
+
+def test_evaluate_one_with_mean_pool() -> None:
+    data = BenchmarkData(
+        corpus={"d1": "doc one", "d2": "doc two"},
+        queries={"q1": "qtext"},
+        qrels={"q1": {"d1": 1}},
+    )
+    # d1 has two chunks; mean of (0.6, 0.8) = 0.7 beats d2's single chunk 0.5
+    retriever = FakeRetriever(
+        {
+            "qtext": [
+                RetrievedChunk(doc_id="d1", text="chunk a", score=0.6),
+                RetrievedChunk(doc_id="d1", text="chunk b", score=0.8),
+                RetrievedChunk(doc_id="d2", text="other", score=0.5),
+            ]
+        }
+    )
+    metrics = evaluate_one(retriever, data, k_values=[1], pool_strategy="mean")
+    assert metrics["mrr"] == pytest.approx(1.0)
