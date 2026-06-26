@@ -109,8 +109,8 @@ def test_query_prefix_prepended_to_embed_query(monkeypatch) -> None:
         model_id="fake",
         query_prefix="query: ",
     )
-    # "query: hello" -> len=13, words=2
-    assert embedder.embed_query("hello") == [13.0, 2.0]
+    # "query: hello" -> len=12, words=2
+    assert embedder.embed_query("hello") == [12.0, 2.0]
 
 
 def test_doc_prefix_prepended_to_embed_documents(monkeypatch) -> None:
