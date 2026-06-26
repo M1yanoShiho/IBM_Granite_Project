@@ -99,7 +99,7 @@ RAG/生成层需要 GPU。我负责把 Granite 生成模型在学校超算 **Blu
 
 ## 6. 当前状态与下一步
 
-- **已完成:** 4 契约;A+B 架构改造;HPC 生成层打通(3B 验证);Meeting 1 准备;`run_benchmark` 检索编排 + 第一张 SciFact 表;A0 检索 ablation 配置打通。
-- **进行中 / 下一步:** B3(8B 冒烟 + `run_rag.slurm`,HPC 异步);`citations.py` 的 `attribute_answer`(Phase 2);给 Bharat 的架构图(CPU/GPU 分工 + 数据如何喂进 RAG)。
+- **已完成:** 4 契约;A+B 架构改造;HPC 生成层打通(3B + **8B 验证**,8B 冒烟 2026-06-23 `Smoke test OK.`);Meeting 1 准备;`run_benchmark` 检索编排 + 第一张 SciFact 表;A0 检索 ablation 配置打通;**MVP 接缝**(`retrieval/factory.py` + `rag_app.py`,`app/main.py` 接真 RAG 管线,TDD)。
+- **进行中 / 下一步:** B3 剩 `run_rag.slurm` 全量 RAG(待 `run_rag.py` 实现);app 本机 3B 跑通确认;`citations.py` 的 `attribute_answer`(Phase 2);给 Bharat 的架构图(CPU/GPU 分工 + 数据如何喂进 RAG)。
 
 > 后续个人报告可深挖的分析点:chunk→doc 聚合策略(max-pool vs mean)对指标的影响;索引缓存键的串味 bug 与修复(评测严谨性);集成层如何用 mock(FakeRetriever + synthetic benchmark)解耦并行开发;契约优先 + 依赖注入如何支撑 7 人并行。

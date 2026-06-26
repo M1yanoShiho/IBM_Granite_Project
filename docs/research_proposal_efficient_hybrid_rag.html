@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Research Proposal: Efficient Hybrid Retrieval for Granite RAG</title>
+<meta name="aris:generated-at" content="2026-06-23">
+
+<style>
+:root {
+  --bg: #fdfcf7;
+  --bg-soft: #f4f1ea;
+  --bg-code: #f8f5ec;
+  --ink: #1a1a1a;
+  --ink-soft: #4a4a4a;
+  --ink-muted: #6b6b6b;
+  --primary: #1a4a8c;
+  --primary-soft: #2d6cb8;
+  --accent: #b8390e;
+  --warn: #b45309;
+  --warn-bg: #fef3c7;
+  --info-bg: #dbeafe;
+  --good-bg: #d1fae5;
+  --good: #065f46;
+  --bad-bg: #fee2e2;
+  --bad: #991b1b;
+  --border: #d6d0c0;
+  --border-soft: #e8e3d5;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: "Source Serif Pro", "Source Serif 4", "Crimson Pro", "Georgia", "Songti SC", "STSong", serif;
+  line-height: 1.65; color: var(--ink); background: var(--bg); margin: 0; padding: 0; font-size: 16px;
+}
+.layout { max-width: 1280px; margin: 0 auto; display: grid; grid-template-columns: 260px 1fr; gap: 48px; padding: 40px 32px; }
+nav.toc { position: sticky; top: 24px; align-self: start; font-size: 13px; max-height: calc(100vh - 48px); overflow-y: auto; border-right: 1px solid var(--border-soft); padding-right: 16px; }
+nav.toc h3 { margin: 0 0 12px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-muted); font-weight: 600; }
+nav.toc ol { list-style: none; padding: 0; margin: 0; counter-reset: toc; }
+nav.toc ol li { margin: 5px 0; counter-increment: toc; }
+nav.toc ol li::before { content: counter(toc) ". "; color: var(--ink-muted); margin-right: 4px; }
+nav.toc a { color: var(--ink-soft); text-decoration: none; border-bottom: 1px dotted transparent; }
+nav.toc a:hover { color: var(--primary); border-bottom-color: var(--primary); }
+main { min-width: 0; }
+header.hero { border-bottom: 3px double var(--primary); padding-bottom: 24px; margin-bottom: 32px; }
+header.hero .eyebrow { color: var(--accent); font-size: 13px; text-transform: uppercase; letter-spacing: 0.12em; font-weight: 600; margin-bottom: 8px; }
+header.hero h1 { font-size: 32px; line-height: 1.2; margin: 0 0 12px; color: var(--ink); font-weight: 700; letter-spacing: -0.01em; }
+header.hero .subtitle { font-size: 16px; color: var(--ink-soft); margin: 0 0 8px; font-style: italic; }
+header.hero .meta { display: flex; gap: 20px; flex-wrap: wrap; font-size: 12px; color: var(--ink-muted); border-top: 1px solid var(--border-soft); padding-top: 14px; margin-top: 18px; }
+header.hero .meta span strong { color: var(--ink-soft); }
+h2 { font-size: 24px; margin: 44px 0 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border); color: var(--ink); font-weight: 700; }
+h2 .num { color: var(--primary); font-weight: 600; margin-right: 8px; }
+h3 { font-size: 19px; margin: 28px 0 10px; color: var(--primary); font-weight: 600; }
+h4 { font-size: 16px; margin: 20px 0 8px; color: var(--ink); font-weight: 600; }
+p { margin: 10px 0; }
+ul, ol { padding-left: 22px; margin: 10px 0; }
+ul li, ol li { margin: 4px 0; }
+ul li::marker { color: var(--primary); }
+strong { color: var(--accent); font-weight: 600; }
+em { color: var(--ink-soft); }
+a { color: var(--primary); }
+code:not(.hljs) { font-family: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace; font-size: 0.86em; background: var(--bg-code); padding: 1px 5px; border-radius: 3px; border: 1px solid var(--border-soft); color: var(--accent); }
+pre { background: #fafaf6; border: 1px solid var(--border); border-left: 4px solid var(--primary); padding: 0; overflow-x: auto; border-radius: 4px; margin: 14px 0; }
+pre code { background: transparent !important; display: block; padding: 14px 18px !important; font-size: 13px; line-height: 1.55; font-family: "JetBrains Mono", "SF Mono", "Menlo", monospace; color: var(--ink); }
+pre.diagram { background: #f9f6ed; border-left: 4px solid var(--accent); font-size: 12.5px; line-height: 1.4; }
+.callout { margin: 16px 0; padding: 12px 16px; border-radius: 4px; border-left: 4px solid; font-size: 15px; }
+.callout-title { font-weight: 600; margin-bottom: 6px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
+.callout-info { background: var(--info-bg); border-left-color: var(--primary); }
+.callout-info .callout-title { color: var(--primary); }
+.callout-warn { background: var(--warn-bg); border-left-color: var(--warn); }
+.callout-warn .callout-title { color: var(--warn); }
+.callout-good { background: var(--good-bg); border-left-color: var(--good); }
+.callout-good .callout-title { color: var(--good); }
+table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+thead { background: var(--primary); color: white; }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border-soft); vertical-align: top; }
+th { font-weight: 600; font-size: 13px; letter-spacing: 0.02em; }
+tr:last-child td { border-bottom: none; }
+tbody tr:nth-child(even) { background: var(--bg-soft); }
+.pick { color: var(--good); font-weight: 600; }
+.no { color: var(--ink-muted); }
+figure { margin: 20px 0; text-align: center; }
+figure svg { max-width: 100%; height: auto; background: #fffdf8; border: 1px solid var(--border); border-radius: 6px; }
+figcaption { font-size: 12.5px; color: var(--ink-muted); margin-top: 8px; font-style: italic; }
+footer.aris-footer { margin-top: 60px; padding-top: 20px; border-top: 1px solid var(--border); font-size: 12px; color: var(--ink-muted); }
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; gap: 20px; padding: 20px 16px; }
+  nav.toc { position: static; max-height: none; border-right: none; border-bottom: 1px solid var(--border-soft); padding-right: 0; padding-bottom: 14px; }
+  header.hero h1 { font-size: 24px; }
+  h2 { font-size: 20px; }
+}
+@media print { nav.toc { display: none; } .layout { grid-template-columns: 1fr; padding: 0; } body { background: white; } }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav class="toc">
+  <h3>Contents</h3>
+  <ol>
+    <li><a href="#s1">Summary</a></li>
+    <li><a href="#s2">Motivation</a></li>
+    <li><a href="#s3">What we already have</a></li>
+    <li><a href="#s4">Directions considered</a></li>
+    <li><a href="#s5">Chosen direction &amp; questions</a></li>
+    <li><a href="#s6">Methodology &amp; evaluation</a></li>
+    <li><a href="#s7">Expected outcome</a></li>
+    <li><a href="#s8">Positioning</a></li>
+    <li><a href="#s9">Timeline &amp; feasibility</a></li>
+    <li><a href="#s10">Team &amp; next steps</a></li>
+  </ol>
+</nav>
+
+<main>
+<header class="hero">
+  <div class="eyebrow">Research Proposal &middot; Direction Selection</div>
+  <h1>Efficient Hybrid Retrieval for Granite RAG: How Cheap Can &ldquo;Good Enough&rdquo; Get?</h1>
+  <p class="subtitle">Can a cheap hybrid &mdash; a small Granite embedding fused with BM25 &mdash; buy big-model retrieval quality at a fraction of the cost?</p>
+  <div class="meta">
+    <span><strong>Project:</strong> IBM Granite &ldquo;Needle in a Haystack&rdquo; / Enterprise Retrieval</span>
+    <span><strong>Partners:</strong> University of Bristol &times; IBM (Bharat Arora)</span>
+    <span><strong>Submission:</strong> 2026-09-04</span>
+  </div>
+</header>
+
+<h2 id="s1"><span class="num">1.</span>Summary</h2>
+<p>The Granite retrieve-then-generate system is the project&rsquo;s main line and its RAG MVP is already working. For the deeper research deep-dive, the supervisor asked us to go deep on <strong>one or two</strong> directions. After comparing all four, we merge <strong>hybrid retrieval</strong> and <strong>efficiency (cost&ndash;quality)</strong> into a single question:</p>
+<div class="callout callout-info">
+  <div class="callout-title">Core question</div>
+  For Granite RAG, <strong>where is the cost&ndash;quality sweet spot for retrieval</strong>, and can a <strong>cheap hybrid</strong> (a small Granite embedding fused with BM25) recover the quality of an expensive dense retriever at a fraction of the cost?
+</div>
+<p>The contribution is a <strong>cost&ndash;quality frontier</strong> for Granite RAG retrieval, with hybrid fusion studied as an <em>efficiency lever</em>, all measured with a downstream-grounded evaluation. It is a rigorous, deployable, low-risk applied contribution; methodological novelty (cheap attribution) is kept as upside, not the bet.</p>
+
+<h2 id="s2"><span class="num">2.</span>Motivation</h2>
+<p>Enterprises embed and search very large, noisy document collections, then generate answers grounded in the retrieved evidence. At that scale, <strong>cost matters as much as accuracy</strong>: embedding millions of documents, serving low-latency retrieval, and running a generator all cost money and hardware. The interesting question for deployment is therefore not &ldquo;is the biggest model best?&rdquo; (it usually is) but <strong>&ldquo;how cheap can we go and stay good enough?&rdquo;</strong> &mdash; can a smaller, cheaper model do the job?</p>
+<p>A second, complementary lever is fusion: a small dense model and a free lexical retriever (BM25) have <strong>complementary strengths</strong>, so cheaply combining them may recover the quality of a much larger model. This proposal studies exactly that trade-off.</p>
+
+<h2 id="s3"><span class="num">3.</span>What we already have (foundation)</h2>
+<p>This proposal builds on a working, tested base &mdash; it is not a fresh start:</p>
+<ul>
+  <li><strong>First results in.</strong> On SciFact, Granite dense already beats both baselines: <strong>nDCG@10 = 0.767</strong> (Granite) vs <strong>0.636</strong> (BM25) &asymp; <strong>0.641</strong> (sentence-transformers).</li>
+  <li><strong>A swappable evaluation harness.</strong> BM25 / sentence-transformers / Granite retrievers behave identically through one interface; an ablation layer already sweeps chunk size, pooling, and embedding model from the command line.</li>
+  <li><strong>A verified RAG MVP.</strong> A retrieve&rarr;generate&rarr;cite demo, with the Granite generator verified on real models (3B locally, 8B on the university HPC).</li>
+</ul>
+<p>So the assets needed for this direction &mdash; both retrievers, multiple model sizes, and the evaluation pipeline &mdash; already exist.</p>
+
+<h2 id="s4"><span class="num">4.</span>Directions considered (the supervisor&rsquo;s four)</h2>
+<p>The supervisor named four candidate deep-dive directions: <strong>advanced prompting</strong>, <strong>hybrid retrieval</strong>, <strong>explainability</strong>, and <strong>efficiency</strong>. We assessed each on novelty ceiling, cost, scoop risk (how crowded the area is), and how much it reuses what we have built.</p>
+<table>
+  <thead><tr><th>Direction</th><th>Novelty ceiling</th><th>Cost</th><th>Scoop risk</th><th>Reuses our assets</th><th>Decision</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Hybrid retrieval</strong></td><td>Moderate</td><td>Low</td><td>Low</td><td>Both retrievers + shared interface + ablation harness</td><td class="pick">Primary</td></tr>
+    <tr><td><strong>Efficiency / cost&ndash;quality</strong></td><td>Moderate</td><td>Low&ndash;med</td><td>Low</td><td>Model variants + eval harness + local GPU</td><td class="pick">Primary (merged)</td></tr>
+    <tr><td>Advanced prompting</td><td>Moderate</td><td>Med</td><td>Med</td><td>RAG pipeline (needs RAG metrics)</td><td class="no">Folded into RAG tuning</td></tr>
+    <tr><td>Explainability / attribution</td><td><strong>High</strong></td><td>Med&ndash;high</td><td><strong>High (red ocean)</strong></td><td>citations module + embedder</td><td class="no">Upside only</td></tr>
+  </tbody>
+</table>
+<p><strong>Decision.</strong> We pick <strong>hybrid retrieval</strong> and <strong>efficiency (cost&ndash;quality)</strong> &mdash; and unify them, because <em>hybrid fusion is itself an efficiency lever</em> (it lets cheap components punch above their weight). Advanced prompting is absorbed into ordinary RAG tuning rather than run as a separate study. Explainability has the highest novelty ceiling but our own literature review found the faithfulness / attribution space densely occupied (SABER, ProbeRAG, ALCE, Self-RAG&hellip;); we therefore keep it as <em>research upside</em>, consistent with our locked &ldquo;floor on rigour, novelty as upside&rdquo; plan.</p>
+
+<h2 id="s5"><span class="num">5.</span>Chosen direction &amp; research questions</h2>
+<p>The unifying insight ties the two primary directions into one arc:</p>
+<div class="callout callout-good">
+  <div class="callout-title">The arc</div>
+  A small/cheap dense retriever loses to the big one on its own &mdash; but a <strong>cheap hybrid</strong> (small Granite embedding + BM25) may recover most of that loss at a fraction of the cost. We therefore map the cost&ndash;quality frontier and test whether hybrid <strong>moves it up and to the left</strong> (higher quality, lower cost).
+</div>
+<ul>
+  <li><strong>RQ1 (the frontier).</strong> Across configurations &mdash; BM25 / small Granite embedding / full Granite embedding, &times; 3B / 8B generation, &times; context size (top-k) &mdash; what is the <strong>cost&ndash;quality frontier</strong> of Granite RAG, measured downstream?</li>
+  <li><strong>RQ2 (hybrid as the lever).</strong> Where does the cheap dense retriever fail (entity / numeric / date / rare-term queries), and does a cheap <strong>RRF hybrid</strong> of <em>small dense + BM25</em> recover those failures and approach full-Granite quality &mdash; <strong>without regressing</strong> the queries it already answered?</li>
+  <li><strong>RQ3 (what transfers).</strong> Which gains in retrieval precision actually translate into <strong>better downstream answers</strong>, and which do not? (Following eRAG: shallow relevance labels correlate poorly with end-to-end RAG quality.)</li>
+</ul>
+
+<h2 id="s6"><span class="num">6.</span>Methodology &amp; evaluation</h2>
+<p>The method is a controlled optimisation loop. Rigour comes from holding the evaluation fixed and changing one component at a time &mdash; not from a clever narrative.</p>
+<pre class="diagram"><code>Fix the yardstick  ->  Maximise (tune)  ->  Diagnose (failure analysis)
+                            |                         |
+                            v                         v
+                   Augment (cheap hybrid)  ->  Verify (no-regression)</code></pre>
+<ul>
+  <li><strong>Fixed yardstick.</strong> Same datasets, same k, same harness throughout. Metrics: precision / recall / nDCG / MRR for retrieval; answer correctness + faithfulness for RAG.</li>
+  <li><strong>Downstream-grounded evaluation (eRAG).</strong> Following Salemi &amp; Zamani (SIGIR&rsquo;24), each retrieved passage is judged by its effect on the LLM&rsquo;s answer &mdash; the more faithful measure of &ldquo;did we retrieve evidence that actually helps?&rdquo;</li>
+  <li><strong>Cost axes (defined up front).</strong> Embedding model size, index size, retrieval latency, and generation token cost &mdash; reported consistently so the frontier is honest.</li>
+  <li><strong>Datasets.</strong> SciFact (done) + 2&ndash;3 further BEIR sets for robustness + Natural Questions (it carries both relevance labels <em>and</em> gold answers, so retrieval and RAG are evaluated on the same data).</li>
+  <li><strong>Augmentation.</strong> A <code>HybridRetriever</code> using Reciprocal Rank Fusion (Cormack 2009) &mdash; rank-based, no score normalisation, parameter-light; it drops into the existing harness as one more row.</li>
+  <li><strong>Verification rule.</strong> An improvement counts only if it raises overall quality, recovers the diagnosed failure subset, <strong>and does not regress</strong> the queries already answered well.</li>
+  <li><strong>Compute.</strong> Retrieval and evaluation on CPU/laptops; Granite generation on the university HPC (already verified).</li>
+  <li><strong>Small-data-first (de-risking).</strong> Per the supervisor&rsquo;s guidance, every experiment is first run end-to-end on a small slice (e.g. ~100&ndash;200 Natural Questions queries) before scaling to the full datasets, so integration problems surface cheaply, before committing HPC time.</li>
+</ul>
+
+<h2 id="s7"><span class="num">7.</span>Expected outcome &mdash; the cost&ndash;quality frontier</h2>
+<p>The headline deliverable is one figure and one sentence: a cost&ndash;quality frontier with the cheap hybrid sitting in the upper-left sweet spot, plus a deployable claim of the form &ldquo;<em>small + BM25 reaches ~X% of full-Granite quality at ~Y% of the cost</em>.&rdquo;</p>
+<figure>
+<svg viewBox="0 0 560 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Cost-quality frontier sketch">
+  <!-- axes -->
+  <line x1="70" y1="300" x2="525" y2="300" stroke="#6b6b6b" stroke-width="1.5"/>
+  <line x1="70" y1="300" x2="70" y2="36" stroke="#6b6b6b" stroke-width="1.5"/>
+  <polygon points="525,300 517,296 517,304" fill="#6b6b6b"/>
+  <polygon points="70,36 66,44 74,44" fill="#6b6b6b"/>
+  <text x="297" y="332" font-size="13" fill="#4a4a4a" text-anchor="middle" font-family="Georgia, serif">Cost  (embedding size / latency / index)  &#8594;</text>
+  <text x="26" y="168" font-size="13" fill="#4a4a4a" text-anchor="middle" font-family="Georgia, serif" transform="rotate(-90 26 168)">Quality (downstream)  &#8594;</text>
+  <!-- frontier curve: BM25 -> hybrid -> full granite -->
+  <path d="M 124 253 C 180 150, 215 110, 250 96 S 380 86, 439 83" fill="none" stroke="#1a4a8c" stroke-width="2" stroke-dasharray="6 5" opacity="0.7"/>
+  <text x="430" y="118" font-size="11" fill="#1a4a8c" text-anchor="end" font-style="italic">cost&ndash;quality frontier</text>
+  <!-- lift arrow: small -> hybrid -->
+  <line x1="205" y1="166" x2="248" y2="104" stroke="#b8390e" stroke-width="2" marker-end="url(#ah)"/>
+  <defs><marker id="ah" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><polygon points="0,0 7,3 0,6" fill="#b8390e"/></marker></defs>
+  <text x="150" y="138" font-size="11" fill="#b8390e" font-style="italic">+ BM25 (free)</text>
+  <!-- points: measured (solid) -->
+  <circle cx="124" cy="253" r="6" fill="#6b6b6b"/>
+  <text x="132" y="270" font-size="12" fill="#1a1a1a">BM25 &middot; 0.636</text>
+  <circle cx="439" cy="83" r="6" fill="#1a4a8c"/>
+  <text x="431" y="74" font-size="12" fill="#1a1a1a" text-anchor="end">Granite-r2 (full) &middot; 0.767</text>
+  <!-- points: hypothesised (hollow) -->
+  <circle cx="205" cy="170" r="6" fill="#fffdf8" stroke="#6b6b6b" stroke-width="2"/>
+  <text x="214" y="186" font-size="12" fill="#4a4a4a">Granite-small (47M)</text>
+  <circle cx="250" cy="96" r="8" fill="#b8390e"/>
+  <text x="262" y="93" font-size="12.5" fill="#b8390e" font-weight="bold">Cheap hybrid (small + BM25)</text>
+  <text x="262" y="108" font-size="10.5" fill="#6b6b6b">&#8592; target: big-model quality, small-model cost</text>
+</svg>
+<figcaption>Illustrative. Solid points (BM25, full Granite) are measured on SciFact; hollow / orange points are the hypotheses this study tests. The deliverable is this frontier filled with measured points across datasets.</figcaption>
+</figure>
+
+<h2 id="s8"><span class="num">8.</span>Positioning</h2>
+<table>
+  <thead><tr><th>Recent line</th><th>What it does</th><th>How we differ</th></tr></thead>
+  <tbody>
+    <tr><td>eRAG (Salemi &amp; Zamani, SIGIR&rsquo;24)</td><td>Evaluate retrieval by its downstream effect (accuracy).</td><td>We use it as the yardstick and apply it to a cost&ndash;quality study of Granite, not just a single-model evaluation.</td></tr>
+    <tr><td>Dense&ndash;sparse hybrid / RRF</td><td>Established fusion of lexical and neural retrieval.</td><td>We frame fusion as an <em>efficiency lever</em> (cheap components recovering big-model quality) and quantify the trade-off on Granite.</td></tr>
+    <tr><td>CRAG / Self-RAG, abstention work</td><td>Train controllers to correct or abstain.</td><td>We train no controller; our contribution is a rigorous, deployable cost&ndash;quality characterisation, with cheap attribution as optional upside.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="s9"><span class="num">9.</span>Timeline &amp; feasibility</h2>
+<ul>
+  <li><strong>Now &rarr; early August:</strong> build the downstream (eRAG) evaluation; run the cost&ndash;quality sweep (RQ1); failure analysis (RQ2 part 1); the cheap hybrid + verification (RQ2 part 2); the transfer analysis (RQ3).</li>
+  <li><strong>Last ~3 weeks:</strong> report and presentation.</li>
+</ul>
+<div class="callout callout-warn">
+  <div class="callout-title">Honest scoping</div>
+  This is the <strong>safe-distinction</strong> play, not a swing for a novel method: the contribution is rigorous applied engineering + analysis, with a moderate (not high) novelty ceiling. It is feasible because it reuses the tested retrieval core and uses eRAG off-the-shelf. The cheap-attribution study (explainability) remains available as upside and can be dropped without affecting the core deliverable.
+</div>
+
+<h2 id="s10"><span class="num">10.</span>Team &amp; next steps</h2>
+<p>Proposed split (by existing ownership; the team adjusts). The critical path is the downstream evaluation &mdash; everything else hangs on it.</p>
+<table>
+  <thead><tr><th>Who</th><th>Next-phase task</th></tr></thead>
+  <tbody>
+    <tr><td>P6 (integration)</td><td>Per-query output; <code>run_rag</code> + eRAG harness; sweep + pooling; synthesis (the frontier). <em>Critical path.</em></td></tr>
+    <tr><td>P2 (metrics)</td><td>RAG answer-quality metrics (correctness / faithfulness). Can start now.</td></tr>
+    <tr><td>P1 (data)</td><td>Add 2&ndash;3 datasets (further BEIR + Natural Questions).</td></tr>
+    <tr><td>P5 (ingestion)</td><td>Chunk-size / overlap sweep + analysis.</td></tr>
+    <tr><td>P3 / P4 (retrieval)</td><td>Embedding-variant sweep; failure analysis; <code>HybridRetriever</code> (RRF) + reranking.</td></tr>
+    <tr><td>P7 (demo / viz)</td><td>MVP polish; render the cost&ndash;quality frontier and comparison figures.</td></tr>
+  </tbody>
+</table>
+<p><strong>Immediate next step:</strong> lock this direction with the supervisor, then build the downstream evaluation (the yardstick) so every later experiment is measured the same way.</p>
+
+<footer class="aris-footer">
+  IBM Granite &times; University of Bristol &middot; Research proposal (direction selection) &middot; 2026-06-23 &middot; submission 2026-09-04.
+</footer>
+</main>
+</div>
+</body>
+</html>

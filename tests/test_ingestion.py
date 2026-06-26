@@ -8,7 +8,7 @@ import faiss
 
 from src.ingestion.chunker import Chunk, chunk_document
 from src.ingestion.loaders import load_text_file, load_documents
-from src.ingestion.indexer import FaissIndex
+from src.ingestion.indexer import FaissIndex, VectorIndexer
 
 
 def test_chunk_document_chunk_id_format() -> None:
@@ -67,3 +67,27 @@ def test_faiss_index_search_returns_retrieved_chunks() -> None:
     assert len(results) == 2
     assert results[0].doc_id == "doc1"
     assert results[0].score > results[1].score
+
+
+def test_vector_indexer_save_load_round_trips_on_non_ascii_path() -> None:
+    # FAISS's C++ narrow-char file API cannot open non-ASCII paths on Windows;
+    # VectorIndexer.save/load must round-trip through unicode-safe Python I/O.
+    raw_index = faiss.IndexFlatIP(4)
+    raw_index.add(np.array([[1.0, 0.0, 0.0, 0.0],
+                            [0.0, 1.0, 0.0, 0.0]], dtype="float32"))
+    chunks = [
+        Chunk(chunk_id="d::0", doc_id="d", text="alpha"),
+        Chunk(chunk_id="d::1", doc_id="d", text="beta"),
+    ]
+    indexer = VectorIndexer(None)  # embedder is unused by save/load
+
+    with tempfile.TemporaryDirectory() as tmp:
+        nonascii_dir = Path(tmp) / "索引（无）"
+        nonascii_dir.mkdir()
+        stem = str(nonascii_dir / "idx")
+
+        indexer.save(FaissIndex(raw_index, chunks), stem)
+        loaded = indexer.load(stem)
+
+    results = loaded.search([1.0, 0.0, 0.0, 0.0], top_k=1)
+    assert results[0].doc_id == "d"

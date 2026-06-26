@@ -24,9 +24,9 @@ Configuration is read from environment variables (see ``.env.example``):
                            (point at shared scratch on the HPC to avoid re-downloads).
 - ``LLM_DEVICE``           ``"auto"`` (let ``accelerate`` place it), ``"cuda"``, or ``"cpu"``.
 
-Note: the implementation below targets the ``transformers`` API but has not yet
-been executed against a real Granite download — the first live run (model
-download + generation) is the verification step.
+Verified: this client has been run against real Granite models on the University
+HPC (BluePebble) — ``granite-4.1-3b`` and ``granite-4.1-8b`` both load and generate
+correctly (see ``docs/hpc-deployment.md`` / ``docs/dev-log.md``).
 """
 
 from __future__ import annotations
@@ -143,11 +143,15 @@ class LLMClient:
         # Instruct models carry a chat template; base models do not — fall back
         # to feeding the raw prompt text in that case.
         if getattr(tok, "chat_template", None):
-            input_ids = tok.apply_chat_template(
+            encoded = tok.apply_chat_template(
                 [{"role": "user", "content": prompt}],
                 add_generation_prompt=True,
                 return_tensors="pt",
             )
+            # transformers 4.x returns a bare tensor here; 5.x returns a
+            # BatchEncoding (dict-like). Unwrap to the input_ids tensor so the
+            # model.generate(input_ids=...) call below gets a tensor on both.
+            input_ids = encoded["input_ids"] if hasattr(encoded, "keys") else encoded
         else:
             input_ids = tok(prompt, return_tensors="pt").input_ids
         input_ids = input_ids.to(self._client.device)

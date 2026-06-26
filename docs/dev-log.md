@@ -71,7 +71,7 @@
   - ✅ Meeting 1 准备 + 文档对齐(`meeting-1-questions.md` Q1/Q2/Q5)
   - ✅ **`run_benchmark` 检索编排**(2026-06-18):`build_run`/`evaluate_one`/`write_results_csv`/`_build_retrievers`/索引缓存/CLI,TDD;第一张 SciFact 表(granite_dense nDCG@10 0.767 > BM25 0.636 ≈ ST 0.641)
   - ✅ **A0 检索 ablation 配置打通**(2026-06-19,`week3` 未提交):chunk/pooling/model 旋钮接 CLI、配置列 CSV + append、修索引缓存"串味"bug;9 新测试,套件 49 passed/1 xfailed(详见 [dev-log-p6.md](dev-log-p6.md) §5)
-- **进行中:** ☐ B3:8B 冒烟 + `run_rag.slurm`(HPC 异步)
+- **进行中:** B3 的 **8B 冒烟 ✅ 完成**(2026-06-23,granite-4.1-8b 在 RTX 3090 加载+生成,`Smoke test OK.`);剩 `run_rag.slurm` 全量 RAG(待 `run_rag.py` 实现)
 - **下一步:** `citations.py` 的 `attribute_answer`(Phase 2);给 Bharat 的架构图。
 
 ### P7 — 可视化 + demo + 结果 · _(待填)_
@@ -86,6 +86,7 @@
 
 | 日期                   | 区域               | 改动                                                                                                                                            | 文件 | 谁  |
 |----------------------|------------------|-----------------------------------------------------------------------------------------------------------------------------------------------| --- |----|
+| 2026-06-23           | P6 生成层/MVP | **B3:8B 冒烟通过**(granite-4.1-8b 在 BluePebble RTX 3090 加载+生成,`Smoke test OK.`,job 17874131;3B/8B 两模型均验证)。MVP 接缝:`build_dense_retriever_from_text` + `build_rag_pipeline_from_text`,`app/main.py` 由 mock 改接真 RAG 管线(TDD,9 新测试;app 待本机 3B 跑通确认) | `scripts/smoke_8b.slurm`, `src/retrieval/factory.py`, `src/rag_app.py`, `app/main.py`, `tests/` | P6 |
 | 2026-06-22           | P1 loader | A3 beir下多数据集、B4 NQ带答案完成 | `eval/benchmarks/loader.py`, `tests/test_benchmarks_loader.py.py` | P1许展瑜 |
 | 2026-06-19           | P6 ablation | **A0:检索 ablation 配置打通** —— `build_run` 加 `pooling`(max/mean)、chunk/model 旋钮接 CLI、`write_results_csv` 配置列 + append、新增 `_cache_key` 修索引缓存"串味"bug;test-first 9 新测试,套件 49 passed/1 xfailed(`week3` 未提交) | `eval/run_benchmark.py`, `tests/test_run_benchmark.py`, `docs/interfaces.md` | P6 |
 | 2026-06-18           | P6 检索编排 | **`run_benchmark` 检索线完成** —— `build_run`(chunk→doc max-pool)/`evaluate_one`/`write_results_csv`/`_build_retrievers`/索引缓存/CLI,TDD;第一张 SciFact 表(granite_dense nDCG@10 0.767 > BM25 0.636 ≈ ST 0.641) | `eval/run_benchmark.py`, `tests/test_run_benchmark.py` | P6 |

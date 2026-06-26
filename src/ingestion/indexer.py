@@ -63,22 +63,25 @@ class VectorIndexer:
         return FaissIndex(index, chunks)
 
     def save(self, faiss_index_obj: FaissIndex, path: str | Path) -> None:
-        """Persist the index and chunk metadata to disk."""
-        import shutil
-        import tempfile
+        """Persist the index and chunk metadata to disk.
+
+        Serialises the FAISS index in memory and writes the bytes with Python's
+        unicode-safe I/O, instead of handing a path to ``faiss.write_index``:
+        FAISS's C++ narrow-char file API cannot open non-ASCII paths on Windows.
+        """
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
-        with tempfile.NamedTemporaryFile(suffix=".faiss", delete=False) as tmp:
-            tmp_path = tmp.name
-        faiss.write_index(faiss_index_obj._index, tmp_path)
-        shutil.move(tmp_path, str(path) + ".faiss")
+        Path(str(path) + ".faiss").write_bytes(
+            faiss.serialize_index(faiss_index_obj._index).tobytes()
+        )
         with open(str(path) + ".meta", "wb") as f:
             pickle.dump(faiss_index_obj._chunks, f)
 
     def load(self, path: str | Path) -> FaissIndex:
-        """Load a previously persisted index from disk."""
+        """Load a previously persisted index from disk (unicode-safe; see save)."""
         path = Path(path)
-        index = faiss.read_index(str(path) + ".faiss")
+        data = Path(str(path) + ".faiss").read_bytes()
+        index = faiss.deserialize_index(np.frombuffer(data, dtype="uint8"))
         with open(str(path) + ".meta", "rb") as f:
             chunks = pickle.load(f)
         return FaissIndex(index, chunks)

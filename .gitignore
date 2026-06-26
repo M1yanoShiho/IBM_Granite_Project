@@ -46,7 +46,11 @@ data/needles/*
 # !configs/*.json
 
 # ---- Results / artifacts ----
-results/
+# Ignore run outputs by default (they can be large), but SHARE the small
+# headline result tables so teammates (e.g. visualisation) get real data.
+results/*
+!results/.gitkeep
+!results/benchmark_results.csv
 outputs/
 *.log
 *.png
