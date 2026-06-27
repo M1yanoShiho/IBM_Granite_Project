@@ -656,3 +656,87 @@ def test_evaluate_one_with_mean_pooling() -> None:
     )
     metrics = evaluate_one(retriever, data, k_values=[1], pooling="mean")
     assert metrics["mrr"] == pytest.approx(1.0)
+
+
+def test_build_retrievers_builds_gte_baseline_with_pinned_model(monkeypatch) -> None:
+    # gte_dense is a modern, same-class open baseline (a fair peer to Granite,
+    # unlike the older/smaller MiniLM). It must be a first-class retriever name,
+    # pinned to gte-base, so one benchmark run compares Granite against a current
+    # peer. gte needs no query/passage prefix -> apples-to-apples with Granite.
+    captured = {}
+
+    class CapturingST(FakeSentenceTransformer):
+        def __init__(self, model_id, cache_folder=None) -> None:
+            captured["model_id"] = model_id
+            super().__init__(model_id, cache_folder)
+
+    monkeypatch.setattr("sentence_transformers.SentenceTransformer", CapturingST)
+
+    data = BenchmarkData(
+        corpus={"d1": "granite retrieval", "d2": "banana cake"},
+        queries={"q1": "granite retrieval"},
+        qrels={"q1": {"d1": 1}},
+    )
+    config = BenchmarkConfig(retrievers=["gte_dense"], k_values=[1])
+
+    retrievers = _build_retrievers(config, data)
+
+    assert captured["model_id"] == "thenlper/gte-base"
+    dense = retrievers["gte_dense"]
+    assert isinstance(dense, Retriever)
+    assert dense.retrieve("granite retrieval")[0].doc_id == "d1"
+
+
+def test_build_retrievers_e5_baseline_prefixes_query_and_passages(monkeypatch) -> None:
+    # e5 models are crippled without their "query: " / "passage: " prefixes, which
+    # would make the "strong baseline" an accidental strawman. e5_dense must thread
+    # those prefixes through to the encoder for documents (at indexing) and for the
+    # query (at retrieval).
+    recorded: List[str] = []
+
+    class RecordingST(FakeSentenceTransformer):
+        def encode(self, texts, **kwargs):
+            recorded.extend([texts] if isinstance(texts, str) else list(texts))
+            return super().encode(texts, **kwargs)
+
+    monkeypatch.setattr("sentence_transformers.SentenceTransformer", RecordingST)
+
+    data = BenchmarkData(
+        corpus={"d1": "granite retrieval"},
+        queries={"q1": "granite retrieval"},
+        qrels={"q1": {"d1": 1}},
+    )
+    config = BenchmarkConfig(retrievers=["e5_dense"], k_values=[1])
+
+    _build_retrievers(config, data)["e5_dense"].retrieve("granite retrieval")
+
+    assert any(t.startswith("passage: ") for t in recorded)  # documents, at indexing
+    assert any(t.startswith("query: ") for t in recorded)     # query, at retrieval
+
+
+def test_build_retrievers_supports_multiple_dense_models_in_one_run(monkeypatch) -> None:
+    # The Tier-0 goal: a single run compares Granite against several baselines at
+    # once. st_dense (MiniLM) and gte_dense (gte-base) share the sentence-
+    # transformers backend but must each get their own model -- impossible under
+    # the old single embedding_model_id override.
+    seen: List[str] = []
+
+    class CapturingST(FakeSentenceTransformer):
+        def __init__(self, model_id, cache_folder=None) -> None:
+            seen.append(model_id)
+            super().__init__(model_id, cache_folder)
+
+    monkeypatch.setattr("sentence_transformers.SentenceTransformer", CapturingST)
+
+    data = BenchmarkData(
+        corpus={"d1": "granite retrieval", "d2": "banana cake"},
+        queries={"q1": "granite retrieval"},
+        qrels={"q1": {"d1": 1}},
+    )
+    config = BenchmarkConfig(retrievers=["st_dense", "gte_dense"], k_values=[1])
+
+    retrievers = _build_retrievers(config, data)
+
+    assert set(retrievers) == {"st_dense", "gte_dense"}
+    assert "thenlper/gte-base" in seen
+    assert len(seen) == 2 and len(set(seen)) == 2  # two distinct models, one run

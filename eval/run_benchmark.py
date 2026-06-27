@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import argparse
 import csv
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Dict, List
 
@@ -49,7 +49,9 @@ class BenchmarkConfig:
     k_values:
         Cut-offs at which to report precision/recall/nDCG.
     retrievers:
-        Which retrievers to compare (system + baselines).
+        Which retrievers to compare (system + baselines): ``"bm25"`` or any name
+        in :data:`DENSE_SPECS` (``granite_dense``, ``st_dense``, and the modern
+        same-class baselines ``gte_dense`` / ``e5_dense`` / ``bge_dense``).
     results_path:
         Where to write the comparison table (CSV).
     index_cache_dir:
@@ -256,6 +258,71 @@ def _load_or_build_index(
     return index
 
 
+@dataclass(frozen=True)
+class DenseSpec:
+    """How to construct a named dense retriever's embedder.
+
+    Attributes
+    ----------
+    backend:
+        ``Embedder`` backend: ``"granite"`` or ``"sentence-transformers"``.
+    model_id:
+        Embedding model to load. ``None`` defers to the backend's own default
+        (Granite r2 / MiniLM, honouring the ``*_EMBEDDING_MODEL_ID`` env vars) so
+        the original ``granite_dense`` / ``st_dense`` runs reproduce unchanged.
+    query_prefix, doc_prefix:
+        Strings prepended to queries / documents before encoding. Some
+        instruction-tuned baselines need them (e5 wants ``"query: "`` /
+        ``"passage: "``, bge wants a query instruction); omitting them quietly
+        cripples the model and turns a "strong baseline" into an accidental
+        strawman. Granite r2 and gte need none.
+    """
+
+    backend: str
+    model_id: str | None = None
+    query_prefix: str = ""
+    doc_prefix: str = ""
+
+
+# Named dense retrievers the benchmark can build. granite_dense (the delivered
+# system) and st_dense (the original MiniLM baseline) keep model_id=None so their
+# existing results reproduce; gte/e5/bge are modern, same-class open baselines —
+# fair peers to Granite — each pinned to a model and carrying the exact prefixes
+# its model card requires.
+DENSE_SPECS: Dict[str, DenseSpec] = {
+    "granite_dense": DenseSpec(backend="granite"),
+    "st_dense": DenseSpec(backend="sentence-transformers"),
+    "gte_dense": DenseSpec(
+        backend="sentence-transformers", model_id="thenlper/gte-base"
+    ),
+    "e5_dense": DenseSpec(
+        backend="sentence-transformers",
+        model_id="intfloat/e5-base-v2",
+        query_prefix="query: ",
+        doc_prefix="passage: ",
+    ),
+    "bge_dense": DenseSpec(
+        backend="sentence-transformers",
+        model_id="BAAI/bge-base-en-v1.5",
+        query_prefix="Represent this sentence for searching relevant passages: ",
+    ),
+}
+
+
+def _dense_spec(name: str, model_override: str | None = None) -> DenseSpec:
+    """The :class:`DenseSpec` for retriever ``name``, with an optional model swap.
+
+    ``model_override`` (from ``--embedding-model-id``) replaces the spec's model
+    but keeps its backend and prefixes — so a Granite-variant (or e5/bge variant)
+    sweep still applies the right prefixes. It applies to whichever dense
+    retrievers are in the run, so sweep one dense retriever at a time.
+    """
+    spec = DENSE_SPECS[name]
+    if model_override is not None:
+        spec = replace(spec, model_id=model_override)
+    return spec
+
+
 def _build_retrievers(
     config: BenchmarkConfig,
     data: BenchmarkData,
@@ -287,9 +354,14 @@ def _build_retrievers(
     for name in config.retrievers:
         if name == "bm25":
             retrievers[name] = BM25Retriever(corpus, doc_ids, top_k=top_k)
-        elif name in ("granite_dense", "st_dense"):
-            backend = "granite" if name == "granite_dense" else "sentence-transformers"
-            embedder = Embedder(backend=backend, model_id=config.embedding_model_id)
+        elif name in DENSE_SPECS:
+            spec = _dense_spec(name, config.embedding_model_id)
+            embedder = Embedder(
+                backend=spec.backend,
+                model_id=spec.model_id,
+                query_prefix=spec.query_prefix,
+                doc_prefix=spec.doc_prefix,
+            )
             chunk_kwargs = _chunk_kwargs_for(config, embedder)
             chunks = [
                 chunk
@@ -307,7 +379,8 @@ def _build_retrievers(
             )
         else:
             raise ValueError(
-                f"Unknown retriever {name!r}; expected granite_dense, bm25, or st_dense."
+                f"Unknown retriever {name!r}; expected 'bm25' or one of "
+                f"{sorted(DENSE_SPECS)}."
             )
     return retrievers
 
@@ -404,7 +477,11 @@ def _parse_args(argv: List[str] | None = None) -> BenchmarkConfig:
         "--retrievers",
         nargs="+",
         default=defaults.retrievers,
-        help="Retrievers to compare (default: %(default)s).",
+        help=(
+            "Retrievers to compare (default: %(default)s). Available: 'bm25' plus "
+            "dense baselines " + ", ".join(sorted(DENSE_SPECS)) + " (gte/e5/bge are "
+            "modern same-class peers to Granite; their prefixes are wired in)."
+        ),
     )
     parser.add_argument(
         "--k",
