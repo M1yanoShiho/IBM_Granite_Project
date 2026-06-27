@@ -740,3 +740,32 @@ def test_build_retrievers_supports_multiple_dense_models_in_one_run(monkeypatch)
     assert set(retrievers) == {"st_dense", "gte_dense"}
     assert "thenlper/gte-base" in seen
     assert len(seen) == 2 and len(set(seen)) == 2  # two distinct models, one run
+
+
+def test_build_retrievers_builds_granite_small_baseline_with_pinned_model(monkeypatch) -> None:
+    # granite_small_dense pins the ~47M small Granite embedding model so the
+    # efficiency question -- "does a much smaller Granite stay competitive with the
+    # full r2 and with gte-base?" -- is measured in the same run. Granite embeddings
+    # need no query/passage prefix.
+    captured = {}
+
+    class CapturingST(FakeSentenceTransformer):
+        def __init__(self, model_id, cache_folder=None) -> None:
+            captured["model_id"] = model_id
+            super().__init__(model_id, cache_folder)
+
+    monkeypatch.setattr("sentence_transformers.SentenceTransformer", CapturingST)
+
+    data = BenchmarkData(
+        corpus={"d1": "granite retrieval", "d2": "banana cake"},
+        queries={"q1": "granite retrieval"},
+        qrels={"q1": {"d1": 1}},
+    )
+    config = BenchmarkConfig(retrievers=["granite_small_dense"], k_values=[1])
+
+    retrievers = _build_retrievers(config, data)
+
+    assert captured["model_id"] == "ibm-granite/granite-embedding-small-english-r2"
+    dense = retrievers["granite_small_dense"]
+    assert isinstance(dense, Retriever)
+    assert dense.retrieve("granite retrieval")[0].doc_id == "d1"

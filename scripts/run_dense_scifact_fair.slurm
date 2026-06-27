@@ -1,8 +1,9 @@
 #!/bin/bash
 # FAIR retrieval benchmark on a GPU node: Granite vs BM25 vs the modern, same-class
-# dense baselines (gte / e5 / bge) — so the comparison no longer rests on the old,
-# small MiniLM (st_dense) alone. granite_dense + bm25 + st_dense are kept too, so
-# their rows reproduce the original table (a harness sanity check) in the same CSV.
+# dense baselines (gte / e5 / bge), plus a small-Granite efficiency check
+# (granite_small_dense, ~47M) — so the comparison no longer rests on the old, small
+# MiniLM (st_dense) alone. granite_dense + bm25 + st_dense are kept too, so their
+# rows reproduce the original table (a harness sanity check) in the same CSV.
 #
 # Writes a SEPARATE file (results/scifact_fair.csv) so the historical 3-retriever
 # results/benchmark_results.csv is preserved for comparison.
@@ -15,11 +16,12 @@
 #   module load languages/python/3.12.3 && source /user/work/$USER/venv/bin/activate
 #   export HF_HOME=/user/work/$USER/hf_cache
 #   export IR_DATASETS_HOME=/user/work/$USER/ir_datasets
-#   hf download ibm-granite/granite-embedding-english-r2   # already cached if you ran the original
-#   hf download sentence-transformers/all-MiniLM-L6-v2     # already cached if you ran the original
-#   hf download thenlper/gte-base                          # NEW (gte-base; no prefix)
-#   hf download intfloat/e5-base-v2                        # NEW (e5; "query: "/"passage: " wired in code)
-#   hf download BAAI/bge-base-en-v1.5                      # NEW (bge; query instruction wired in code)
+#   hf download ibm-granite/granite-embedding-english-r2         # cached from earlier runs
+#   hf download ibm-granite/granite-embedding-small-english-r2   # NEW (~47M small Granite = efficiency test)
+#   hf download sentence-transformers/all-MiniLM-L6-v2           # cached from earlier runs
+#   hf download thenlper/gte-base                                # cached from the first fair run
+#   hf download intfloat/e5-base-v2                              # cached from the first fair run
+#   hf download BAAI/bge-base-en-v1.5                            # cached from the first fair run
 #   cd /user/work/$USER/IBM_Granite_Project
 #   python -c "from eval.benchmarks.loader import load_benchmark; load_benchmark('scifact')"
 # (the last line caches SciFact so the offline job can read it).
@@ -56,11 +58,11 @@ cd /user/work/$USER/IBM_Granite_Project
 # build — print whether the GPU is actually visible here.
 python -c "import torch; print('CUDA available:', torch.cuda.is_available(), '| torch', torch.__version__)"
 
-# Six retrievers, one CSV. granite_dense/bm25/st_dense reproduce the old numbers;
-# gte_dense/e5_dense/bge_dense are the fair modern peers (prefixes wired in code).
-# Reuses the existing index_cache, so granite/MiniLM indexes are loaded, not rebuilt.
+# Seven retrievers, one CSV. granite_dense/bm25/st_dense reproduce the old numbers;
+# gte/e5/bge are the fair modern peers; granite_small_dense (~47M) is the efficiency
+# test. Reuses the existing index_cache, so only the new small-Granite index builds.
 python -m eval.run_benchmark \
     --dataset scifact \
-    --retrievers granite_dense bm25 st_dense gte_dense e5_dense bge_dense \
+    --retrievers granite_dense granite_small_dense bm25 st_dense gte_dense e5_dense bge_dense \
     --out results/scifact_fair.csv \
     --cache-dir /user/work/$USER/index_cache

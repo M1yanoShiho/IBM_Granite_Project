@@ -291,6 +291,9 @@ class DenseSpec:
 # its model card requires.
 DENSE_SPECS: Dict[str, DenseSpec] = {
     "granite_dense": DenseSpec(backend="granite"),
+    "granite_small_dense": DenseSpec(
+        backend="granite", model_id="ibm-granite/granite-embedding-small-english-r2"
+    ),
     "st_dense": DenseSpec(backend="sentence-transformers"),
     "gte_dense": DenseSpec(
         backend="sentence-transformers", model_id="thenlper/gte-base"
