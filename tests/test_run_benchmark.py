@@ -769,3 +769,67 @@ def test_build_retrievers_builds_granite_small_baseline_with_pinned_model(monkey
     dense = retrievers["granite_small_dense"]
     assert isinstance(dense, Retriever)
     assert dense.retrieve("granite retrieval")[0].doc_id == "d1"
+
+
+def test_write_per_query_csv_round_trips(tmp_path) -> None:
+    # Wide format: first column qid, one column per retriever; the union of query
+    # ids becomes the rows. This is what eval.significance.load_per_query_csv reads.
+    from eval.run_benchmark import write_per_query_csv
+
+    per_query = {
+        "granite_dense": {"q1": 1.0, "q2": 0.0},
+        "bm25": {"q1": 0.5, "q2": 0.5},
+    }
+    path = tmp_path / "per_query.csv"
+
+    write_per_query_csv(per_query, path)
+
+    with open(path, newline="") as f:
+        by_qid = {row["qid"]: row for row in csv.DictReader(f)}
+    assert set(by_qid) == {"q1", "q2"}
+    assert float(by_qid["q1"]["granite_dense"]) == 1.0
+    assert float(by_qid["q2"]["bm25"]) == 0.5
+
+
+def test_run_writes_per_query_csv_when_requested(tmp_path) -> None:
+    # With per_query_out set, run() also dumps per-query ndcg@10 (one column per
+    # retriever) -- the input to eval.significance. "perfect" ranks the relevant doc
+    # first on both queries (ndcg@10 = 1.0); "wrong" never finds it (0.0).
+    data = BenchmarkData(
+        corpus={"d1": "doc one", "d2": "doc two"},
+        queries={"q1": "qa", "q2": "qb"},
+        qrels={"q1": {"d1": 1}, "q2": {"d2": 1}},
+    )
+    retrievers = {
+        "perfect": FakeRetriever(
+            {"qa": [RetrievedChunk("d1", "", 0.9)], "qb": [RetrievedChunk("d2", "", 0.9)]}
+        ),
+        "wrong": FakeRetriever(
+            {"qa": [RetrievedChunk("d2", "", 0.9)], "qb": [RetrievedChunk("d1", "", 0.9)]}
+        ),
+    }
+    pq_path = tmp_path / "per_query.csv"
+    config = BenchmarkConfig(
+        k_values=[10],
+        results_path=tmp_path / "agg.csv",
+        per_query_out=pq_path,
+    )
+
+    run(config, retrievers=retrievers, data=data)
+
+    with open(pq_path, newline="") as f:
+        rows = {row["qid"]: row for row in csv.DictReader(f)}
+    assert set(rows) == {"q1", "q2"}
+    assert float(rows["q1"]["perfect"]) == pytest.approx(1.0)
+    assert float(rows["q2"]["perfect"]) == pytest.approx(1.0)
+    assert float(rows["q1"]["wrong"]) == pytest.approx(0.0)
+    assert float(rows["q2"]["wrong"]) == pytest.approx(0.0)
+
+
+def test_parse_args_per_query_flags() -> None:
+    assert _parse_args([]).per_query_out is None
+    config = _parse_args(
+        ["--per-query-out", "results/pq.csv", "--per-query-metric", "recall@10"]
+    )
+    assert config.per_query_out == Path("results/pq.csv")
+    assert config.per_query_metric == "recall@10"

@@ -66,4 +66,5 @@ python -m eval.run_benchmark \
     --dataset nfcorpus \
     --retrievers granite_dense granite_small_dense bm25 st_dense gte_dense e5_dense bge_dense \
     --out results/nfcorpus_fair.csv \
+    --per-query-out results/nfcorpus_per_query.csv \
     --cache-dir /user/work/$USER/index_cache

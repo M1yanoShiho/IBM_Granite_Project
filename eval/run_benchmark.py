@@ -29,7 +29,7 @@ from pathlib import Path
 from typing import Dict, List
 
 from eval.benchmarks.loader import BenchmarkData, load_benchmark
-from eval.ir_metrics import Run, evaluate_run
+from eval.ir_metrics import Run, evaluate_run, per_query_scores
 from src.ingestion.chunker import Chunk, chunk_document
 from src.ingestion.indexer import FaissIndex, VectorIndexer
 from src.retrieval.base import Retriever
@@ -99,6 +99,14 @@ class BenchmarkConfig:
         config (dataset, chunk size/overlap, pooling, model) and appends to
         ``results_path`` instead of overwriting — so a loop over configs builds
         one master CSV. ``False`` keeps the original single-run schema.
+    per_query_out:
+        If set, :func:`run` also writes a wide per-query CSV here (``qid`` + one
+        column per retriever, scored by ``per_query_metric``) alongside the
+        aggregate table. This is the input to :mod:`eval.significance` (paired
+        significance testing + failure analysis); ``None`` = don't write it.
+    per_query_metric:
+        The metric used for ``per_query_out`` (default ``"ndcg@10"``); any single
+        ranx metric name.
     """
 
     dataset: str = "scifact"
@@ -115,6 +123,8 @@ class BenchmarkConfig:
     dense_fanout: int = 10
     embedding_model_id: str | None = None
     append: bool = False
+    per_query_out: Path | None = None
+    per_query_metric: str = "ndcg@10"
 
 
 def build_run(
@@ -223,6 +233,27 @@ def write_results_csv(
             writer.writeheader()
         for name, metrics in results.items():
             writer.writerow({**config_columns, "retriever": name, **metrics})
+
+
+def write_per_query_csv(
+    per_query: Dict[str, Dict[str, float]],
+    path: Path,
+) -> None:
+    """Write per-query scores as a wide CSV: ``qid`` then one column per retriever.
+
+    ``per_query`` maps ``{retriever: {query_id: score}}``. Rows are the union of
+    query ids (sorted); a blank cell means that retriever has no score for that
+    query. This is the input to :mod:`eval.significance` — paired significance
+    testing and failure analysis read it back with ``load_per_query_csv``.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    retrievers = list(per_query)
+    qids = sorted({qid for scores in per_query.values() for qid in scores})
+    with open(path, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["qid"] + retrievers)
+        for qid in qids:
+            writer.writerow([qid] + [per_query[name].get(qid, "") for name in retrievers])
 
 
 def _cache_key(config: BenchmarkConfig, name: str) -> str:
@@ -424,8 +455,9 @@ def run(
 ) -> None:
     """Run the system-vs-baseline benchmark and write the comparison CSV.
 
-    Loads the benchmark, scores every retriever with :func:`evaluate_one`, and
-    writes the table with :func:`write_results_csv`.
+    Loads the benchmark, builds each retriever's Run once (reused for the aggregate
+    table and, when ``config.per_query_out`` is set, the per-query CSV), and writes
+    the table with :func:`write_results_csv`.
 
     ``data`` and ``retrievers`` are injectable so the orchestration is testable
     without the real loader or real retrievers; in normal use both are left
@@ -437,9 +469,15 @@ def run(
     if retrievers is None:
         retrievers = _build_retrievers(config, data)
 
-    results = {
-        name: evaluate_one(retriever, data, config.k_values, pooling=config.pooling)
+    runs = {
+        name: build_run(
+            retriever, data.queries, pooling=config.pooling, top_n_docs=max(config.k_values)
+        )
         for name, retriever in retrievers.items()
+    }
+    results = {
+        name: evaluate_run(run_, data.qrels, config.k_values)
+        for name, run_ in runs.items()
     }
     config_columns = None
     if config.append:  # sweep mode: self-describe each row and accumulate
@@ -457,6 +495,12 @@ def run(
         config_columns=config_columns,
         append=config.append,
     )
+    if config.per_query_out is not None:  # Tier-1 input: per-query scores for significance
+        per_query = {
+            name: per_query_scores(run_, data.qrels, config.per_query_metric)
+            for name, run_ in runs.items()
+        }
+        write_per_query_csv(per_query, config.per_query_out)
 
 
 def _parse_args(argv: List[str] | None = None) -> BenchmarkConfig:
@@ -564,6 +608,21 @@ def _parse_args(argv: List[str] | None = None) -> BenchmarkConfig:
         help="Sweep mode: tag rows with the config and append to the CSV "
         "instead of overwriting (default: off).",
     )
+    parser.add_argument(
+        "--per-query-out",
+        type=Path,
+        default=defaults.per_query_out,
+        dest="per_query_out",
+        help="Also write per-query scores to this CSV (qid x retriever) for "
+        "eval.significance — paired significance testing / failure analysis "
+        "(default: off).",
+    )
+    parser.add_argument(
+        "--per-query-metric",
+        default=defaults.per_query_metric,
+        dest="per_query_metric",
+        help="Metric for --per-query-out (default: %(default)s).",
+    )
     args = parser.parse_args(argv)
     return BenchmarkConfig(
         dataset=args.dataset,
@@ -578,6 +637,8 @@ def _parse_args(argv: List[str] | None = None) -> BenchmarkConfig:
         dense_fanout=args.dense_fanout,
         embedding_model_id=args.embedding_model_id,
         append=args.append,
+        per_query_out=args.per_query_out,
+        per_query_metric=args.per_query_metric,
     )
 
 

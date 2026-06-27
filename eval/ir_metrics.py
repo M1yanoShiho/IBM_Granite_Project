@@ -149,3 +149,28 @@ def evaluate_run(
     metrics += ["mrr"]
 
     return dict(evaluate(q, r, metrics))
+
+
+def per_query_scores(run: Run, qrels: Qrels, metric: str = "ndcg@10") -> Dict[str, float]:
+    """Per-query scores for a single metric, keyed by query id (not averaged).
+
+    ``evaluate_run`` returns the *mean* over queries; this returns the score for
+    each individual query — what the failure analysis (which queries does a
+    retriever win/lose) and paired significance testing (``eval.significance``)
+    need. ``metric`` is any ranx metric string, e.g. ``"ndcg@10"`` or ``"recall@10"``.
+
+    ranx's ``return_mean=False`` yields one score per query, in ``qrels`` order, so
+    zipping with ``qrels`` keys recovers the ``{query_id: score}`` mapping. The mean
+    of the returned values equals the corresponding aggregate metric by construction.
+
+    Args:
+        run:    retriever output {query_id: {doc_id: score}}.
+        qrels:  ground-truth relevance {query_id: {doc_id: relevance}}.
+        metric: a single ranx metric name (default ``"ndcg@10"``).
+
+    Returns:
+        ``{query_id: score}`` for every query in ``qrels``.
+    """
+    q, r = _to_ranx(run, qrels)
+    scores = evaluate(q, r, metric, return_mean=False)
+    return {query_id: float(score) for query_id, score in zip(qrels.keys(), scores)}
