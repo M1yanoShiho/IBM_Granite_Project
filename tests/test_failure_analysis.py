@@ -96,3 +96,34 @@ def test_summarize_by_bucket_means_per_group() -> None:
     assert out["num"].n == 2
     assert out["num"].mean_delta == pytest.approx(0.4)      # (0.2 + 0.6) / 2
     assert out["text"].mean_delta == pytest.approx(-0.05)   # (-0.1 + 0.0) / 2
+
+
+def test_disagreement_lines_appends_query_text_when_available() -> None:
+    # --show-text: each (qid, delta) row carries the query text, so the upset
+    # queries are readable instead of a wall of ids.
+    from eval.failure_analysis import _disagreement_lines
+
+    pairs = [("q1", 0.5), ("q2", -0.3)]
+    queries = {"q1": "ADAR1 binds to Dicer", "q2": "memory T cells"}
+
+    lines = _disagreement_lines(pairs, queries)
+
+    assert "q1" in lines[0] and "+0.5000" in lines[0] and "ADAR1 binds to Dicer" in lines[0]
+    assert "memory T cells" in lines[1]
+
+
+def test_disagreement_lines_omits_text_when_no_queries() -> None:
+    from eval.failure_analysis import _disagreement_lines
+
+    lines = _disagreement_lines([("q1", 0.5)], None)
+
+    assert lines == [f"  {'q1':<14} {0.5:+.4f}"]
+
+
+def test_show_text_flag_requires_dataset() -> None:
+    # --show-text needs the query text, which only --dataset provides; the CLI must
+    # reject the combination up front rather than silently print nothing.
+    from eval.failure_analysis import main
+
+    with pytest.raises(SystemExit):
+        main(["--per-query-csv", "ignored.csv", "--show-text"])

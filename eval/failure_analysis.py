@@ -186,6 +186,25 @@ def _format_head_to_head(h: HeadToHead) -> str:
     )
 
 
+def _disagreement_lines(
+    pairs: List[Tuple[str, float]], queries: Dict[str, str] | None = None
+) -> List[str]:
+    """Format ``(query_id, delta)`` rows for printing.
+
+    When ``queries`` is given (``--show-text``), append each query's text, turning a
+    wall of ids into a readable failure picture — the upsets on SciFact, for
+    instance, are visibly rare-entity claims (ADAR1, MDS, Sildenafil) that lexical
+    BM25 catches and dense misses.
+    """
+    lines = []
+    for qid, delta in pairs:
+        line = f"  {qid:<14} {delta:+.4f}"
+        if queries is not None:
+            line += f"  {queries.get(qid, '')}"
+        lines.append(line)
+    return lines
+
+
 def main(argv: List[str] | None = None) -> None:
     """CLI: per-query failure analysis of retriever A vs B from a per-query CSV.
 
@@ -212,7 +231,15 @@ def main(argv: List[str] | None = None) -> None:
         help="If set, load this benchmark's query text and bucket the delta by "
         "query length / digit-presence (needs the ir_datasets cache).",
     )
+    parser.add_argument(
+        "--show-text",
+        action="store_true",
+        help="Print each disagreement query's text next to its delta (requires "
+        "--dataset) — so you can see WHAT kind of queries diverge, not just ids.",
+    )
     args = parser.parse_args(argv)
+    if args.show_text and not args.dataset:
+        parser.error("--show-text requires --dataset (to load the query text).")
 
     per_query = load_per_query_csv(args.per_query_csv)
     for name in (args.a, args.b):
@@ -220,20 +247,24 @@ def main(argv: List[str] | None = None) -> None:
             parser.error(f"{name!r} not in CSV; available: {sorted(per_query)}")
     a, b = per_query[args.a], per_query[args.b]
 
-    print(_format_head_to_head(head_to_head(a, b, name_a=args.a, name_b=args.b)))
-
-    a_top, b_top = top_disagreements(a, b, n=args.top)
-    print(f"\nTop {args.top} queries where {args.a} beats {args.b}:")
-    for qid, d in a_top:
-        print(f"  {qid:<14} {d:+.4f}")
-    print(f"\nTop {args.top} queries where {args.b} beats {args.a}:")
-    for qid, d in b_top:
-        print(f"  {qid:<14} {d:+.4f}")
-
+    queries = None
     if args.dataset:
         from eval.benchmarks.loader import load_benchmark
 
         queries = load_benchmark(args.dataset).queries
+    text = queries if args.show_text else None
+
+    print(_format_head_to_head(head_to_head(a, b, name_a=args.a, name_b=args.b)))
+
+    a_top, b_top = top_disagreements(a, b, n=args.top)
+    print(f"\nTop {args.top} queries where {args.a} beats {args.b}:")
+    for line in _disagreement_lines(a_top, text):
+        print(line)
+    print(f"\nTop {args.top} queries where {args.b} beats {args.a}:")
+    for line in _disagreement_lines(b_top, text):
+        print(line)
+
+    if queries is not None:
         deltas = per_query_deltas(a, b)
         feats = {qid: query_features(queries[qid]) for qid in deltas if qid in queries}
         digit = {qid: ("has_digit" if feats[qid]["has_digit"] else "no_digit") for qid in feats}
