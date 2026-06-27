@@ -14,6 +14,8 @@ from __future__ import annotations
 import os
 from typing import List, Sequence
 
+import numpy as np
+
 DEFAULT_GRANITE_EMBEDDING_MODEL_ID = "ibm-granite/granite-embedding-english-r2"
 DEFAULT_BASELINE_EMBEDDING_MODEL_ID = "sentence-transformers/all-MiniLM-L6-v2"
 
@@ -107,13 +109,18 @@ class Embedder:
         return int(value) if value else None
 
     def _encode(self, texts: Sequence[str]) -> List[List[float]]:
+        # convert_to_numpy lets sentence-transformers return one ndarray via its
+        # fast C path; np.asarray(...).tolist() then converts the whole batch to
+        # plain Python floats in one shot (cheaper than a per-element map(float)
+        # over a list of tensors). np.asarray also normalises the stand-in list
+        # output used in tests, so both paths yield List[List[float]].
         vectors = self._model.encode(
             list(texts),
-            convert_to_numpy=False,
+            convert_to_numpy=True,
             normalize_embeddings=True,
             show_progress_bar=False,
         )
-        return [list(map(float, vector)) for vector in vectors]
+        return np.asarray(vectors).tolist()
 
     def embed_documents(self, texts: Sequence[str]) -> List[List[float]]:
         """Embed a batch of documents/chunks into dense vectors."""

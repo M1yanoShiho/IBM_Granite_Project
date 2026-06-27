@@ -122,6 +122,14 @@ def test_faiss_index_search_returns_retrieved_chunks() -> None:
     assert results[0].score > results[1].score
 
 
+def test_vector_indexer_build_rejects_empty_chunks() -> None:
+    # Empty chunk list must raise a clear error, not the cryptic
+    # "IndexError: tuple index out of range" from reading dim off a 0-row array.
+    indexer = VectorIndexer(None)  # embedder unused: we fail before embedding
+    with pytest.raises(ValueError, match="zero chunks"):
+        indexer.build([])
+
+
 def test_vector_indexer_save_load_round_trips_on_non_ascii_path() -> None:
     # FAISS's C++ narrow-char file API cannot open non-ASCII paths on Windows;
     # VectorIndexer.save/load must round-trip through unicode-safe Python I/O.

@@ -53,8 +53,21 @@ class VectorIndexer:
         self.embedder = embedder
 
     def build(self, chunks: Sequence[Chunk]) -> FaissIndex:
-        """Embed chunks and build an in-memory FAISS index."""
+        """Embed chunks and build an in-memory FAISS index.
+
+        Raises
+        ------
+        ValueError
+            If ``chunks`` is empty — surfaced as a clear error rather than the
+            cryptic ``IndexError: tuple index out of range`` from reading the
+            embedding dimension off a zero-row array.
+        """
         chunks = list(chunks)
+        if not chunks:
+            raise ValueError(
+                "Cannot build an index from zero chunks; provide at least one "
+                "chunk (check that the corpus is non-empty and produced chunkable text)."
+            )
         texts = [c.text for c in chunks]
         vectors = np.array(self.embedder.embed_documents(texts), dtype="float32")
         dim = vectors.shape[1]

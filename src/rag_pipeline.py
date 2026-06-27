@@ -109,6 +109,10 @@ class RAGPipeline:
         RAGResult
             The answer plus the retrieved chunks used to produce it.
         """
+        # Cap the context at top_k chunks independently of the retriever's own
+        # depth: the same retriever may be configured to return more (e.g. when
+        # shared with the eval harness), but the prompt should only carry top_k.
+        # If the retriever returns fewer, we use what's available (no padding).
         chunks = self.retriever.retrieve(question)[: self.top_k]
         prompt = self._build_prompt(question, chunks)
         answer = self.llm.generate(prompt)
