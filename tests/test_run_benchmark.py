@@ -12,6 +12,7 @@ from __future__ import annotations
 import csv
 from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Dict, List
 
 import pytest
@@ -23,6 +24,7 @@ from eval.run_benchmark import (
     BenchmarkConfig,
     _build_retrievers,
     _cache_key,
+    _chunk_kwargs_for,
     _load_or_build_index,
     _parse_args,
     build_run,
@@ -81,6 +83,42 @@ def test_build_run_mean_pools_chunks_of_same_doc() -> None:
     run = build_run(retriever, {"q1": "some query"}, pooling="mean")
 
     assert run == {"q1": {"d1": pytest.approx(0.65), "d2": pytest.approx(0.5)}}
+
+
+def test_build_run_trims_to_top_n_docs() -> None:
+    # With many distinct docs but top_n_docs=2, only the two highest-scored docs
+    # survive — the trim that keeps dense (which over-fetches chunks) the same
+    # depth as BM25 so MRR / @k are comparable.
+    retriever = FakeRetriever(
+        {
+            "some query": [
+                RetrievedChunk(doc_id="d1", text="", score=0.9),
+                RetrievedChunk(doc_id="d2", text="", score=0.8),
+                RetrievedChunk(doc_id="d3", text="", score=0.7),
+            ],
+        }
+    )
+
+    run = build_run(retriever, {"q1": "some query"}, top_n_docs=2)
+
+    assert run == {"q1": {"d1": 0.9, "d2": 0.8}}
+
+
+def test_build_run_without_top_n_keeps_all_docs() -> None:
+    # Default (top_n_docs=None) preserves the original behaviour: no trimming.
+    retriever = FakeRetriever(
+        {
+            "some query": [
+                RetrievedChunk(doc_id="d1", text="", score=0.9),
+                RetrievedChunk(doc_id="d2", text="", score=0.8),
+                RetrievedChunk(doc_id="d3", text="", score=0.7),
+            ],
+        }
+    )
+
+    run = build_run(retriever, {"q1": "some query"})
+
+    assert set(run["q1"]) == {"d1", "d2", "d3"}
 
 
 def test_evaluate_one_scores_a_perfect_retriever_as_one() -> None:
@@ -337,7 +375,60 @@ def test_build_retrievers_wires_dense_over_corpus(monkeypatch) -> None:
     assert isinstance(dense, Retriever)
     results = dense.retrieve("granite retrieval")
     assert all(isinstance(r, RetrievedChunk) for r in results)
-    assert [r.doc_id for r in results] == ["d1"]
+    # dense over-fetches (max(k) * dense_fanout chunks) so the chunk->doc pooling
+    # still yields enough distinct docs; the relevant doc must rank first.
+    assert results[0].doc_id == "d1"
+
+
+def test_build_retrievers_dense_over_fetches_by_fanout(monkeypatch) -> None:
+    # The dense retriever fetches max(k) * dense_fanout chunks so the chunk->doc
+    # pooling still yields enough distinct docs on multi-chunk corpora.
+    monkeypatch.setattr(
+        "sentence_transformers.SentenceTransformer", FakeSentenceTransformer
+    )
+    data = BenchmarkData(
+        corpus={"d1": "granite retrieval", "d2": "banana cake"},
+        queries={"q1": "granite retrieval"},
+        qrels={"q1": {"d1": 1}},
+    )
+    config = BenchmarkConfig(retrievers=["st_dense"], k_values=[5], dense_fanout=4)
+
+    retrievers = _build_retrievers(config, data)
+
+    assert retrievers["st_dense"].top_k == 20  # max(k)=5 * fanout 4
+
+
+def test_chunk_kwargs_for_word_mode_forwards_size_and_overlap() -> None:
+    config = BenchmarkConfig(chunk_unit="word", chunk_size=512, chunk_overlap=50)
+    kwargs = _chunk_kwargs_for(config, object())  # embedder unused in word mode
+    assert kwargs == {"chunk_size": 512, "chunk_overlap": 50}
+
+
+def test_chunk_kwargs_for_token_mode_caps_at_max_seq_length() -> None:
+    # Token mode passes the embedder's tokenizer and caps the chunk size at the
+    # model's max_seq_length so chunks are never silently truncated at encode time.
+    config = BenchmarkConfig(chunk_unit="token", chunk_size=512, chunk_overlap=50)
+    embedder = SimpleNamespace(max_seq_length=256, tokenizer="TOK")
+
+    kwargs = _chunk_kwargs_for(config, embedder)
+
+    assert kwargs == {"chunk_size": 256, "chunk_overlap": 50, "tokenizer": "TOK"}
+
+
+def test_chunk_kwargs_for_token_mode_clamps_overlap_below_size() -> None:
+    config = BenchmarkConfig(chunk_unit="token", chunk_size=512, chunk_overlap=400)
+    embedder = SimpleNamespace(max_seq_length=128, tokenizer="TOK")
+
+    kwargs = _chunk_kwargs_for(config, embedder)
+
+    assert kwargs["chunk_size"] == 128
+    assert kwargs["chunk_overlap"] == 127  # clamped below the capped size
+
+
+def test_chunk_kwargs_for_rejects_unknown_unit() -> None:
+    config = BenchmarkConfig(chunk_unit="bogus")
+    with pytest.raises(ValueError, match="Unknown chunk_unit"):
+        _chunk_kwargs_for(config, object())
 
 
 def test_build_retrievers_threads_chunk_params(monkeypatch) -> None:
@@ -420,6 +511,8 @@ def test_parse_args_parses_ablation_flags() -> None:
     assert d.chunk_size == 512
     assert d.chunk_overlap == 50
     assert d.pooling == "max"
+    assert d.chunk_unit == "word"
+    assert d.dense_fanout == 10
     assert d.embedding_model_id is None
     assert d.append is False
 
@@ -428,6 +521,8 @@ def test_parse_args_parses_ablation_flags() -> None:
             "--chunk-size", "256",
             "--overlap", "0",
             "--pooling", "mean",
+            "--chunk-unit", "token",
+            "--dense-fanout", "5",
             "--embedding-model-id", "ibm-granite/x",
             "--append",
         ]
@@ -435,6 +530,8 @@ def test_parse_args_parses_ablation_flags() -> None:
     assert config.chunk_size == 256
     assert config.chunk_overlap == 0
     assert config.pooling == "mean"
+    assert config.chunk_unit == "token"
+    assert config.dense_fanout == 5
     assert config.embedding_model_id == "ibm-granite/x"
     assert config.append is True
 
@@ -496,6 +593,7 @@ def test_cache_key_distinguishes_chunk_and_model_configs() -> None:
         _cache_key(replace(base, embedding_model_id="ibm-granite/other"), "granite_dense")
         != key
     )
+    assert _cache_key(replace(base, chunk_unit="token"), "granite_dense") != key
     assert _cache_key(base, "st_dense") != key  # different retriever
 
 
@@ -526,7 +624,7 @@ def test_build_retrievers_dense_uses_cache_path(monkeypatch, tmp_path) -> None:
 
     _build_retrievers(config, data)
 
-    assert captured["cache_path"] == tmp_path / "scifact__st_dense__cs512_ov50__default"
+    assert captured["cache_path"] == tmp_path / "scifact__st_dense__cs512_ov50__default__word"
 
 
 def test_parse_args_cache_dir() -> None:

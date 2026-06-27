@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import List
 
-from src.retrieval.retriever import RetrievedChunk
+from src.retrieval.base import RetrievedChunk
 
 
 @dataclass

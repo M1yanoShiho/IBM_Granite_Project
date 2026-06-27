@@ -144,6 +144,42 @@ def test_granite_backend_with_instruction_prefix(monkeypatch) -> None:
     assert embedder.embed_query("what is DNA") == [float(len(full)), float(len(full.split()))]
 
 
+# --- token-aware-chunking support: tokenizer + max_seq_length ---
+
+
+def test_embedder_exposes_tokenizer_and_max_seq_length(monkeypatch) -> None:
+    class FakeSTWithTokenizer:
+        tokenizer = "FAKE-TOKENIZER"
+
+        def __init__(self, model_id, cache_folder=None) -> None:
+            pass
+
+        def get_max_seq_length(self):
+            return 256
+
+    monkeypatch.setattr(
+        "sentence_transformers.SentenceTransformer", FakeSTWithTokenizer
+    )
+    embedder = Embedder(backend="sentence-transformers", model_id="fake")
+
+    assert embedder.tokenizer == "FAKE-TOKENIZER"
+    assert embedder.max_seq_length == 256
+
+
+def test_embedder_max_seq_length_falls_back_to_attribute(monkeypatch) -> None:
+    class FakeSTAttrOnly:
+        tokenizer = "T"
+        max_seq_length = 128  # no get_max_seq_length() method
+
+        def __init__(self, model_id, cache_folder=None) -> None:
+            pass
+
+    monkeypatch.setattr("sentence_transformers.SentenceTransformer", FakeSTAttrOnly)
+    embedder = Embedder(backend="sentence-transformers", model_id="fake")
+
+    assert embedder.max_seq_length == 128
+
+
 def test_different_model_ids_are_recorded(monkeypatch) -> None:
     # Verify that distinct model_id values are passed through to the underlying
     # SentenceTransformer — the mechanism that lets us compare Granite variants.

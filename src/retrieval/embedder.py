@@ -80,6 +80,32 @@ class Embedder:
         cache_folder = os.getenv("MODEL_CACHE_DIR") or None
         return SentenceTransformer(self.model_id, cache_folder=cache_folder)
 
+    @property
+    def tokenizer(self):
+        """The model's underlying Hugging Face tokenizer.
+
+        Exposed so token-aware chunking (``src.ingestion.chunker``) can split
+        documents on the *same* sub-word tokens this model encodes, instead of
+        on whitespace words — keeping chunk lengths aligned with the model.
+        """
+        return self._model.tokenizer
+
+    @property
+    def max_seq_length(self) -> int | None:
+        """Max input length, in tokens, the model encodes before truncating.
+
+        Returns ``None`` if the model does not advertise a limit. Used to cap
+        token-aware chunk sizes so chunks are never silently truncated at encode
+        time.
+        """
+        getter = getattr(self._model, "get_max_seq_length", None)
+        if getter is not None:
+            value = getter()
+            if value:
+                return int(value)
+        value = getattr(self._model, "max_seq_length", None)
+        return int(value) if value else None
+
     def _encode(self, texts: Sequence[str]) -> List[List[float]]:
         vectors = self._model.encode(
             list(texts),

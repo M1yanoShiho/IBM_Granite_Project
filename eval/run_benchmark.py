@@ -68,6 +68,25 @@ class BenchmarkConfig:
     pooling:
         How chunk scores collapse to a doc score in :func:`build_run`
         (``"max"`` or ``"mean"``). An ablation knob; defaults to contract-3 max.
+    chunk_unit:
+        Unit for ``chunk_size``/``chunk_overlap`` when building the dense
+        retrievers' index: ``"word"`` (default, whitespace split) or ``"token"``
+        (the embedding model's own sub-word tokens). Token mode caps the chunk
+        size at the model's ``max_seq_length`` so long documents are split rather
+        than silently truncated at encode time; it leaves short-document corpora
+        (e.g. SciFact, ~1 chunk/doc) effectively unchanged. Opt-in so existing
+        word-mode results stay reproducible.
+    dense_fanout:
+        How many chunks the dense retrievers fetch per query, as a multiple of
+        ``max(k_values)``. The retriever ranks *chunks* but the metrics score
+        *docs* (chunks are max/mean-pooled to docs in :func:`build_run`), so on
+        multi-chunk documents the top-``max(k)`` chunks can collapse to fewer
+        than ``max(k)`` distinct docs and understate recall@k. Over-fetching
+        chunks, then trimming the pooled run to the top ``max(k)`` docs
+        (:func:`build_run`), guarantees enough distinct docs while keeping the
+        comparison symmetric with BM25 (which returns ``max(k)`` docs directly).
+        Default 10; raise it if a corpus has many chunks per document. Has no
+        effect on single-chunk corpora like SciFact.
     embedding_model_id:
         Optional override for the dense retrievers' embedding model (e.g. to
         compare Granite variants); ``None`` uses each backend's default. Sweep one
@@ -90,6 +109,8 @@ class BenchmarkConfig:
     chunk_size: int = 512
     chunk_overlap: int = 50
     pooling: str = "max"
+    chunk_unit: str = "word"
+    dense_fanout: int = 10
     embedding_model_id: str | None = None
     append: bool = False
 
@@ -98,6 +119,7 @@ def build_run(
     retriever: Retriever,
     queries: Dict[str, str],
     pooling: str = "max",
+    top_n_docs: int | None = None,
 ) -> Run:
     """Aggregate a retriever's chunk-level results into a doc-level ``Run``.
 
@@ -109,10 +131,19 @@ def build_run(
     - ``"mean"``: the average score over the document's *retrieved* chunks (an
       ablation knob; only chunks the retriever returned are averaged).
 
-    On unchunked corpora (e.g. SciFact) every doc has one chunk, so the choice is
-    a pass-through; it only bites once documents are split into chunks (e.g. NQ).
-    The result is keyed by query id, ready to hand to
-    ``eval.ir_metrics.evaluate_run`` (contract 2).
+    ``top_n_docs`` (optional) keeps only the top-N docs per query by pooled
+    score. The dense retrievers over-fetch chunks (``dense_fanout``) so that,
+    after pooling, there are at least ``max(k)`` distinct docs even when several
+    chunks come from the same document; trimming back to ``max(k)`` here makes
+    every retriever's run the same depth — symmetric with BM25, which returns
+    ``max(k)`` docs directly — so the @k metrics and MRR are comparable and not
+    inflated by the larger candidate pool. ``None`` (default) keeps every pooled
+    doc, preserving the original behaviour for callers that don't pass it.
+
+    On unchunked corpora (e.g. SciFact) every doc has one chunk, so both the
+    pooling choice and the trim are pass-throughs; they only bite once documents
+    are split into chunks (e.g. NQ). The result is keyed by query id, ready to
+    hand to ``eval.ir_metrics.evaluate_run`` (contract 2).
     """
     if pooling not in ("max", "mean"):
         raise ValueError(
@@ -124,11 +155,16 @@ def build_run(
         for chunk in retriever.retrieve(query_text):
             chunks_by_doc.setdefault(chunk.doc_id, []).append(chunk.score)
         if pooling == "max":
-            run[query_id] = {did: max(scores) for did, scores in chunks_by_doc.items()}
+            doc_scores = {did: max(scores) for did, scores in chunks_by_doc.items()}
         else:
-            run[query_id] = {
+            doc_scores = {
                 did: sum(scores) / len(scores) for did, scores in chunks_by_doc.items()
             }
+        if top_n_docs is not None and len(doc_scores) > top_n_docs:
+            doc_scores = dict(
+                sorted(doc_scores.items(), key=lambda kv: kv[1], reverse=True)[:top_n_docs]
+            )
+        run[query_id] = doc_scores
     return run
 
 
@@ -141,11 +177,13 @@ def evaluate_one(
     """Score one retriever on a benchmark.
 
     Builds the retriever's doc-level ``Run`` (:func:`build_run`, contract 3,
-    aggregated by ``pooling``), then scores it against the benchmark's qrels with
-    ``eval.ir_metrics.evaluate_run`` (contract 2). Returns the metric suite
-    (precision/recall/nDCG at each k, plus MRR).
+    aggregated by ``pooling`` and trimmed to the top ``max(k)`` docs so every
+    retriever is scored at the same depth), then scores it against the
+    benchmark's qrels with ``eval.ir_metrics.evaluate_run`` (contract 2).
+    Returns the metric suite (precision/recall/nDCG at each k, plus MRR).
     """
-    run = build_run(retriever, data.queries, pooling=pooling)
+    ks = k_values if k_values is not None else [1, 3, 5, 10]
+    run = build_run(retriever, data.queries, pooling=pooling, top_n_docs=max(ks))
     return evaluate_run(run, data.qrels, k_values)
 
 
@@ -197,6 +235,7 @@ def _cache_key(config: BenchmarkConfig, name: str) -> str:
     return (
         f"{config.dataset}__{name}"
         f"__cs{config.chunk_size}_ov{config.chunk_overlap}__{model_slug}"
+        f"__{config.chunk_unit}"
     )
 
 
@@ -223,14 +262,22 @@ def _build_retrievers(
 ) -> Dict[str, Retriever]:
     """Construct the retrievers named in ``config`` over ``data.corpus``.
 
-    - ``bm25`` builds its own term index from the corpus.
+    - ``bm25`` builds its own term index from the corpus and returns docs
+      directly, so it fetches ``max(k)`` docs.
     - ``granite_dense`` / ``st_dense`` chunk the corpus, embed it with the
       matching :class:`~src.retrieval.embedder.Embedder` backend, build a FAISS
       index (:class:`~src.ingestion.indexer.VectorIndexer`, contract 5), and wrap
-      it in a :class:`~src.retrieval.retriever.DenseRetriever`.
+      it in a :class:`~src.retrieval.retriever.DenseRetriever`. They rank
+      *chunks*, so they fetch ``max(k) * dense_fanout`` chunks to guarantee at
+      least ``max(k)`` distinct docs survive the chunk->doc pooling (the run is
+      trimmed back to ``max(k)`` docs in :func:`build_run`).
 
-    Building a dense retriever loads its embedding model (downloaded from Hugging
-    Face on first use), so that is the one path needing network/models.
+    When ``config.chunk_unit == "token"`` the corpus is split on each embedder's
+    own tokenizer with the chunk size capped at the model's ``max_seq_length``,
+    so chunks are never silently truncated at encode time; otherwise it is split
+    on whitespace words (the default). Building a dense retriever loads its
+    embedding model (downloaded from Hugging Face on first use), so that is the
+    one path needing network/models.
     """
     doc_ids = list(data.corpus.keys())
     corpus = list(data.corpus.values())
@@ -243,14 +290,11 @@ def _build_retrievers(
         elif name in ("granite_dense", "st_dense"):
             backend = "granite" if name == "granite_dense" else "sentence-transformers"
             embedder = Embedder(backend=backend, model_id=config.embedding_model_id)
+            chunk_kwargs = _chunk_kwargs_for(config, embedder)
             chunks = [
                 chunk
                 for did, text in data.corpus.items()
-                for chunk in chunk_document(
-                    did, text,
-                    chunk_size=config.chunk_size,
-                    chunk_overlap=config.chunk_overlap,
-                )
+                for chunk in chunk_document(did, text, **chunk_kwargs)
             ]
             indexer = VectorIndexer(embedder)
             if config.index_cache_dir is not None:
@@ -258,12 +302,43 @@ def _build_retrievers(
                 index = _load_or_build_index(indexer, chunks, cache_path)
             else:
                 index = indexer.build(chunks)
-            retrievers[name] = DenseRetriever(embedder, index, top_k=top_k)
+            retrievers[name] = DenseRetriever(
+                embedder, index, top_k=top_k * config.dense_fanout
+            )
         else:
             raise ValueError(
                 f"Unknown retriever {name!r}; expected granite_dense, bm25, or st_dense."
             )
     return retrievers
+
+
+def _chunk_kwargs_for(config: BenchmarkConfig, embedder: Embedder) -> dict:
+    """Chunking kwargs for ``chunk_document``, honouring ``config.chunk_unit``.
+
+    Word mode (default) just forwards the configured size/overlap. Token mode
+    passes the embedder's tokenizer and caps the chunk size at the model's
+    ``max_seq_length`` (and the overlap below that), so no chunk exceeds what the
+    model encodes — preventing silent truncation and keeping a chunk-size
+    ablation meaningful up to the model limit.
+    """
+    if config.chunk_unit == "word":
+        return {
+            "chunk_size": config.chunk_size,
+            "chunk_overlap": config.chunk_overlap,
+        }
+    if config.chunk_unit != "token":
+        raise ValueError(
+            f"Unknown chunk_unit {config.chunk_unit!r}; expected 'word' or 'token'."
+        )
+
+    max_len = embedder.max_seq_length
+    size = min(config.chunk_size, max_len) if max_len else config.chunk_size
+    overlap = min(config.chunk_overlap, size - 1)
+    return {
+        "chunk_size": size,
+        "chunk_overlap": overlap,
+        "tokenizer": embedder.tokenizer,
+    }
 
 
 def run(
@@ -297,6 +372,7 @@ def run(
             "chunk_size": config.chunk_size,
             "chunk_overlap": config.chunk_overlap,
             "pooling": config.pooling,
+            "chunk_unit": config.chunk_unit,
             "embedding_model_id": config.embedding_model_id or "default",
         }
     write_results_csv(
@@ -376,6 +452,25 @@ def _parse_args(argv: List[str] | None = None) -> BenchmarkConfig:
         help="Chunk-to-doc score aggregation: max (default) or mean.",
     )
     parser.add_argument(
+        "--chunk-unit",
+        default=defaults.chunk_unit,
+        dest="chunk_unit",
+        choices=["word", "token"],
+        help="Unit for chunk size/overlap: 'word' (default, whitespace split) or "
+        "'token' (the embedding model's tokens, capped at its max_seq_length so "
+        "long docs are split rather than silently truncated). Use 'token' for "
+        "long-document corpora such as NQ.",
+    )
+    parser.add_argument(
+        "--dense-fanout",
+        type=int,
+        default=defaults.dense_fanout,
+        dest="dense_fanout",
+        help="Chunks the dense retrievers fetch per query as a multiple of "
+        "max(k), so the chunk->doc pooling still yields max(k) distinct docs on "
+        "multi-chunk corpora (default: %(default)s; no effect on SciFact).",
+    )
+    parser.add_argument(
         "--embedding-model-id",
         default=defaults.embedding_model_id,
         dest="embedding_model_id",
@@ -399,6 +494,8 @@ def _parse_args(argv: List[str] | None = None) -> BenchmarkConfig:
         chunk_size=args.chunk_size,
         chunk_overlap=args.chunk_overlap,
         pooling=args.pooling,
+        chunk_unit=args.chunk_unit,
+        dense_fanout=args.dense_fanout,
         embedding_model_id=args.embedding_model_id,
         append=args.append,
     )

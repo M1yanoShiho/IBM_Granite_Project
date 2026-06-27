@@ -68,6 +68,18 @@ Qrels = Dict[str, Dict[str, int]]     # {query_id: {doc_id: relevance}}  ← ben
 
 SciFact 文档短,基本 1 doc = 1 chunk,这步近乎透传;长文档时才真正生效。
 
+### 3b — chunk over-fetch + 截到 top-`max(k)` 篇 doc(长文档公平性)
+
+dense 检索器排的是 **chunk**,但指标算的是 **doc**。长文档上一篇 doc 有多个 chunk,top-`max(k)` 个 chunk 可能塌缩成不足 `max(k)` 篇 distinct doc → recall@k 被低估,且与 doc 级直接返回 `max(k)` 篇的 BM25 不对等。规则:
+
+> **dense 多取 chunk(`max(k) * dense_fanout`,默认 fanout=10),`build_run` 把 pool 后的 doc 截到分数最高的 `max(k)` 篇。**
+
+这样所有检索器的 run 深度一致(都 `max(k)` 篇),@k 与 MRR 可比、不会因候选池变大而漂移。**SciFact(1 doc=1 chunk)上完全等价于旧行为,headline 数字不变。** 注意:`mean` pooling 的 doc 得分会随取的 chunk 数变化(均值在更多 chunk 上算),`max` pooling 不受影响——默认 `max`。
+
+### 3c — chunk 单位:word(默认)/ token(opt-in)
+
+`chunk_size`/`chunk_overlap` 默认按**空格分词的词**计;长文档(NQ)前可切到 **token 模式**(`--chunk-unit token`):按 embedding 模型自带 tokenizer 切,并把 chunk 大小**截到模型 `max_seq_length`**,避免 chunk 超长被编码时静默截断、以及 chunk-size 消融在截断点以上失真。**opt-in,默认 word,保证现有 word 模式结果可复现。**
+
 ---
 
 ## 附加约定 — embedding 归一化（P4 ↔ P5）

@@ -94,25 +94,22 @@ def load_benchmark(name: str, split: str = "test") -> BenchmarkData:
     docs_count = len(corpus)
     queries_count = len(queries)
     qrels_count = sum(len(docs) for docs in qrels.values())
-    # average word length
-    avg_doc_len = sum(len(t) for t in corpus.values()) / docs_count if docs_count else 0
-    avg_query_len = sum(len(t) for t in queries.values()) / queries_count if queries_count else 0
+    # average length in characters (len() of a str counts characters, not words)
+    avg_doc_chars = sum(len(t) for t in corpus.values()) / docs_count if docs_count else 0
+    avg_query_chars = sum(len(t) for t in queries.values()) / queries_count if queries_count else 0
     # average relevant documents per query
     avg_rel_per_q = qrels_count / queries_count if queries_count else 0
 
     print()
     print(f"Dataset: {name}({split})")
-    print(f"    Corpus: {docs_count} documents(avg {avg_doc_len:.0f} chars)")
-    print(f"    Queries: {queries_count} queries")
-    print(f"    Qrels: {qrels_count} relevance judgments ")
-    print(f"    Average document word length: {avg_doc_len:.0f} chars")
-    print(f"    Average query word length: {avg_query_len:.0f} chars")
+    print(f"    Corpus: {docs_count} documents (avg {avg_doc_chars:.0f} chars)")
+    print(f"    Queries: {queries_count} queries (avg {avg_query_chars:.0f} chars)")
+    print(f"    Qrels: {qrels_count} relevance judgments")
     print(f"    Average relevant documents per query: {avg_rel_per_q:.2f}")
     if final_answers is not None:
-        # todo modify fixed source
-        print(f"    Answers: {len(final_answers)} answers (source: dpr-w100/natural-questions/dev)")
+        print(f"    Answers: {len(final_answers)} gold answers")
     else:
-        print(f"    Answers: None(retrieval-only dataset)")
+        print(f"    Answers: None (retrieval-only dataset)")
     print()
 
     return BenchmarkData(
