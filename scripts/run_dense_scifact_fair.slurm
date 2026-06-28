@@ -64,6 +64,7 @@ python -c "import torch; print('CUDA available:', torch.cuda.is_available(), '| 
 python -m eval.run_benchmark \
     --dataset scifact \
     --retrievers granite_dense granite_small_dense bm25 st_dense gte_dense e5_dense bge_dense \
+                 hybrid_granite_bm25 hybrid_granite_small_bm25 \
     --out results/scifact_fair.csv \
     --per-query-out results/scifact_per_query.csv \
     --cache-dir /user/work/$USER/index_cache

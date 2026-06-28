@@ -833,3 +833,32 @@ def test_parse_args_per_query_flags() -> None:
     )
     assert config.per_query_out == Path("results/pq.csv")
     assert config.per_query_metric == "recall@10"
+
+
+def test_build_retrievers_builds_hybrid_of_dense_and_bm25(monkeypatch) -> None:
+    # hybrid_granite_bm25 fuses the granite dense retriever and BM25 with RRF — the
+    # complementarity the failure analysis found, turned into one retriever. The
+    # embedding model is monkeypatched so nothing downloads.
+    from src.retrieval.hybrid import HybridRetriever
+
+    monkeypatch.setattr(
+        "sentence_transformers.SentenceTransformer", FakeSentenceTransformer
+    )
+    data = BenchmarkData(
+        corpus={"d1": "granite retrieval", "d2": "banana cake"},
+        queries={"q1": "granite retrieval"},
+        qrels={"q1": {"d1": 1}},
+    )
+    config = BenchmarkConfig(retrievers=["hybrid_granite_bm25"], k_values=[1])
+
+    retrievers = _build_retrievers(config, data)
+
+    hybrid = retrievers["hybrid_granite_bm25"]
+    assert isinstance(hybrid, HybridRetriever)
+    assert len(hybrid.retrievers) == 2  # a dense retriever + BM25
+    assert hybrid.retrieve("granite retrieval")[0].doc_id == "d1"
+
+
+def test_parse_args_k_rrf() -> None:
+    assert _parse_args([]).k_rrf == 60
+    assert _parse_args(["--k-rrf", "30"]).k_rrf == 30

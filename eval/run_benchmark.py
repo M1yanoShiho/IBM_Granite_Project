@@ -35,6 +35,7 @@ from src.ingestion.indexer import FaissIndex, VectorIndexer
 from src.retrieval.base import Retriever
 from src.retrieval.bm25_baseline import BM25Retriever
 from src.retrieval.embedder import Embedder
+from src.retrieval.hybrid import HybridRetriever
 from src.retrieval.retriever import DenseRetriever
 
 
@@ -125,6 +126,7 @@ class BenchmarkConfig:
     append: bool = False
     per_query_out: Path | None = None
     per_query_metric: str = "ndcg@10"
+    k_rrf: int = 60
 
 
 def build_run(
@@ -357,28 +359,76 @@ def _dense_spec(name: str, model_override: str | None = None) -> DenseSpec:
     return spec
 
 
+# Hybrid retrievers: name -> the component retrievers fused with RRF
+# (:class:`~src.retrieval.hybrid.HybridRetriever`). Each component must itself be a
+# buildable name (``bm25`` or a DENSE_SPECS key). Motivated by the failure analysis:
+# granite (dense) and BM25 (lexical) win different queries on SciFact, so fusing
+# them should recover documents either misses alone.
+HYBRID_SPECS: Dict[str, List[str]] = {
+    "hybrid_granite_bm25": ["granite_dense", "bm25"],
+    "hybrid_granite_small_bm25": ["granite_small_dense", "bm25"],
+}
+
+
+def _build_component(
+    name: str,
+    config: BenchmarkConfig,
+    data: BenchmarkData,
+    corpus: List[str],
+    doc_ids: List[str],
+    top_k: int,
+) -> Retriever:
+    """Build a single, non-hybrid retriever: ``bm25`` or a ``DENSE_SPECS`` dense one.
+
+    - ``bm25`` builds its own term index from the corpus and returns docs directly
+      (``max(k)`` of them).
+    - a dense name chunks + embeds the corpus, builds/loads a FAISS index, and wraps
+      it in a :class:`~src.retrieval.retriever.DenseRetriever` fetching
+      ``max(k) * dense_fanout`` chunks (so chunk->doc pooling still yields ``max(k)``
+      distinct docs). ``config.chunk_unit == "token"`` caps chunks at the model's
+      ``max_seq_length``; building a dense retriever loads its embedding model.
+    """
+    if name == "bm25":
+        return BM25Retriever(corpus, doc_ids, top_k=top_k)
+    if name in DENSE_SPECS:
+        spec = _dense_spec(name, config.embedding_model_id)
+        embedder = Embedder(
+            backend=spec.backend,
+            model_id=spec.model_id,
+            query_prefix=spec.query_prefix,
+            doc_prefix=spec.doc_prefix,
+        )
+        chunk_kwargs = _chunk_kwargs_for(config, embedder)
+        chunks = [
+            chunk
+            for did, text in data.corpus.items()
+            for chunk in chunk_document(did, text, **chunk_kwargs)
+        ]
+        indexer = VectorIndexer(embedder)
+        if config.index_cache_dir is not None:
+            cache_path = config.index_cache_dir / _cache_key(config, name)
+            index = _load_or_build_index(indexer, chunks, cache_path)
+        else:
+            index = indexer.build(chunks)
+        return DenseRetriever(embedder, index, top_k=top_k * config.dense_fanout)
+    raise ValueError(
+        f"Unknown retriever {name!r}; expected 'bm25', one of {sorted(DENSE_SPECS)}, "
+        f"or a hybrid {sorted(HYBRID_SPECS)}."
+    )
+
+
 def _build_retrievers(
     config: BenchmarkConfig,
     data: BenchmarkData,
 ) -> Dict[str, Retriever]:
     """Construct the retrievers named in ``config`` over ``data.corpus``.
 
-    - ``bm25`` builds its own term index from the corpus and returns docs
-      directly, so it fetches ``max(k)`` docs.
-    - ``granite_dense`` / ``st_dense`` chunk the corpus, embed it with the
-      matching :class:`~src.retrieval.embedder.Embedder` backend, build a FAISS
-      index (:class:`~src.ingestion.indexer.VectorIndexer`, contract 5), and wrap
-      it in a :class:`~src.retrieval.retriever.DenseRetriever`. They rank
-      *chunks*, so they fetch ``max(k) * dense_fanout`` chunks to guarantee at
-      least ``max(k)`` distinct docs survive the chunk->doc pooling (the run is
-      trimmed back to ``max(k)`` docs in :func:`build_run`).
-
-    When ``config.chunk_unit == "token"`` the corpus is split on each embedder's
-    own tokenizer with the chunk size capped at the model's ``max_seq_length``,
-    so chunks are never silently truncated at encode time; otherwise it is split
-    on whitespace words (the default). Building a dense retriever loads its
-    embedding model (downloaded from Hugging Face on first use), so that is the
-    one path needing network/models.
+    Each name is either a single retriever (``bm25`` or a ``DENSE_SPECS`` dense one;
+    see :func:`_build_component`) or a hybrid (a ``HYBRID_SPECS`` key), which builds
+    its components and fuses them with RRF
+    (:class:`~src.retrieval.hybrid.HybridRetriever`). A hybrid's dense component
+    reuses the same index-cache key as its standalone counterpart, so adding a
+    hybrid to a run does not re-embed the corpus.
     """
     doc_ids = list(data.corpus.keys())
     corpus = list(data.corpus.values())
@@ -386,35 +436,17 @@ def _build_retrievers(
 
     retrievers: Dict[str, Retriever] = {}
     for name in config.retrievers:
-        if name == "bm25":
-            retrievers[name] = BM25Retriever(corpus, doc_ids, top_k=top_k)
-        elif name in DENSE_SPECS:
-            spec = _dense_spec(name, config.embedding_model_id)
-            embedder = Embedder(
-                backend=spec.backend,
-                model_id=spec.model_id,
-                query_prefix=spec.query_prefix,
-                doc_prefix=spec.doc_prefix,
-            )
-            chunk_kwargs = _chunk_kwargs_for(config, embedder)
-            chunks = [
-                chunk
-                for did, text in data.corpus.items()
-                for chunk in chunk_document(did, text, **chunk_kwargs)
+        if name in HYBRID_SPECS:
+            components = [
+                _build_component(part, config, data, corpus, doc_ids, top_k)
+                for part in HYBRID_SPECS[name]
             ]
-            indexer = VectorIndexer(embedder)
-            if config.index_cache_dir is not None:
-                cache_path = config.index_cache_dir / _cache_key(config, name)
-                index = _load_or_build_index(indexer, chunks, cache_path)
-            else:
-                index = indexer.build(chunks)
-            retrievers[name] = DenseRetriever(
-                embedder, index, top_k=top_k * config.dense_fanout
+            retrievers[name] = HybridRetriever(
+                components, top_k=top_k * config.dense_fanout, k_rrf=config.k_rrf
             )
         else:
-            raise ValueError(
-                f"Unknown retriever {name!r}; expected 'bm25' or one of "
-                f"{sorted(DENSE_SPECS)}."
+            retrievers[name] = _build_component(
+                name, config, data, corpus, doc_ids, top_k
             )
     return retrievers
 
@@ -525,9 +557,10 @@ def _parse_args(argv: List[str] | None = None) -> BenchmarkConfig:
         nargs="+",
         default=defaults.retrievers,
         help=(
-            "Retrievers to compare (default: %(default)s). Available: 'bm25' plus "
-            "dense baselines " + ", ".join(sorted(DENSE_SPECS)) + " (gte/e5/bge are "
-            "modern same-class peers to Granite; their prefixes are wired in)."
+            "Retrievers to compare (default: %(default)s). Available: 'bm25', "
+            "dense baselines " + ", ".join(sorted(DENSE_SPECS)) + ", and RRF hybrids "
+            + ", ".join(sorted(HYBRID_SPECS)) + " (gte/e5/bge are modern same-class "
+            "peers; hybrids fuse a dense retriever with BM25)."
         ),
     )
     parser.add_argument(
@@ -623,6 +656,13 @@ def _parse_args(argv: List[str] | None = None) -> BenchmarkConfig:
         dest="per_query_metric",
         help="Metric for --per-query-out (default: %(default)s).",
     )
+    parser.add_argument(
+        "--k-rrf",
+        type=int,
+        default=defaults.k_rrf,
+        dest="k_rrf",
+        help="RRF damping constant for hybrid retrievers (default: %(default)s).",
+    )
     args = parser.parse_args(argv)
     return BenchmarkConfig(
         dataset=args.dataset,
@@ -639,6 +679,7 @@ def _parse_args(argv: List[str] | None = None) -> BenchmarkConfig:
         append=args.append,
         per_query_out=args.per_query_out,
         per_query_metric=args.per_query_metric,
+        k_rrf=args.k_rrf,
     )
 
 
