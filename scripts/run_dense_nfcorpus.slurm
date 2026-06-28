@@ -19,6 +19,7 @@
 #   export IR_DATASETS_HOME=/user/work/$USER/ir_datasets
 #   hf download ibm-granite/granite-embedding-english-r2
 #   hf download ibm-granite/granite-embedding-small-english-r2
+#   hf download ibm-granite/granite-embedding-reranker-english-r2
 #   hf download sentence-transformers/all-MiniLM-L6-v2
 #   hf download thenlper/gte-base
 #   hf download intfloat/e5-base-v2
@@ -66,6 +67,7 @@ python -m eval.run_benchmark \
     --dataset nfcorpus \
     --retrievers granite_dense granite_small_dense bm25 st_dense gte_dense e5_dense bge_dense \
                  hybrid_granite_bm25 hybrid_granite_small_bm25 \
+                 granite_rerank granite_small_rerank hybrid_granite_bm25_rerank \
     --out results/nfcorpus_fair.csv \
     --per-query-out results/nfcorpus_per_query.csv \
     --cache-dir /user/work/$USER/index_cache

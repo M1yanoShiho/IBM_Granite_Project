@@ -36,6 +36,11 @@ from src.retrieval.base import Retriever
 from src.retrieval.bm25_baseline import BM25Retriever
 from src.retrieval.embedder import Embedder
 from src.retrieval.hybrid import HybridRetriever
+from src.retrieval.reranker import (
+    DEFAULT_RERANKER_MODEL_ID,
+    Reranker,
+    TwoStageRetriever,
+)
 from src.retrieval.retriever import DenseRetriever
 
 
@@ -127,6 +132,7 @@ class BenchmarkConfig:
     per_query_out: Path | None = None
     per_query_metric: str = "ndcg@10"
     k_rrf: int = 60
+    reranker_model_id: str = DEFAULT_RERANKER_MODEL_ID
 
 
 def build_run(
@@ -417,37 +423,70 @@ def _build_component(
     )
 
 
+# Two-stage rerank retrievers: name -> the first-stage retriever name whose
+# candidate pool a cross-encoder (:class:`~src.retrieval.reranker.Reranker`)
+# re-ranks. The first stage may be a dense retriever OR a hybrid — reranking a
+# hybrid pool lets the cross-encoder pick the complementary BM25 finds that rank
+# fusion alone could not. Stays all-Granite with the default reranker.
+RERANK_SPECS: Dict[str, str] = {
+    "granite_rerank": "granite_dense",
+    "granite_small_rerank": "granite_small_dense",
+    "hybrid_granite_bm25_rerank": "hybrid_granite_bm25",
+}
+
+
+def _build_named(
+    name: str,
+    config: BenchmarkConfig,
+    data: BenchmarkData,
+    corpus: List[str],
+    doc_ids: List[str],
+    top_k: int,
+) -> Retriever:
+    """Build a single retriever or a hybrid by name (the part a reranker can wrap).
+
+    ``bm25`` / a ``DENSE_SPECS`` name -> :func:`_build_component`; a ``HYBRID_SPECS``
+    name -> its components fused with RRF (:class:`~src.retrieval.hybrid.HybridRetriever`).
+    """
+    if name in HYBRID_SPECS:
+        components = [
+            _build_component(part, config, data, corpus, doc_ids, top_k)
+            for part in HYBRID_SPECS[name]
+        ]
+        return HybridRetriever(
+            components, top_k=top_k * config.dense_fanout, k_rrf=config.k_rrf
+        )
+    return _build_component(name, config, data, corpus, doc_ids, top_k)
+
+
 def _build_retrievers(
     config: BenchmarkConfig,
     data: BenchmarkData,
 ) -> Dict[str, Retriever]:
     """Construct the retrievers named in ``config`` over ``data.corpus``.
 
-    Each name is either a single retriever (``bm25`` or a ``DENSE_SPECS`` dense one;
-    see :func:`_build_component`) or a hybrid (a ``HYBRID_SPECS`` key), which builds
-    its components and fuses them with RRF
-    (:class:`~src.retrieval.hybrid.HybridRetriever`). A hybrid's dense component
-    reuses the same index-cache key as its standalone counterpart, so adding a
-    hybrid to a run does not re-embed the corpus.
+    Each name is a single retriever (``bm25`` or a ``DENSE_SPECS`` dense one; see
+    :func:`_build_component`), a hybrid (a ``HYBRID_SPECS`` key, fused with RRF), or
+    a two-stage rerank retriever (a ``RERANK_SPECS`` key: build its first stage —
+    dense or hybrid — and wrap it in a
+    :class:`~src.retrieval.reranker.TwoStageRetriever` with the Granite cross-encoder).
+    Dense index caches are shared by cache key, so reusing a dense retriever across
+    standalone / hybrid / rerank runs does not re-embed the corpus.
     """
     doc_ids = list(data.corpus.keys())
     corpus = list(data.corpus.values())
     top_k = max(config.k_values)
+    pool = top_k * config.dense_fanout  # first-stage / rerank candidate-pool depth
 
     retrievers: Dict[str, Retriever] = {}
     for name in config.retrievers:
-        if name in HYBRID_SPECS:
-            components = [
-                _build_component(part, config, data, corpus, doc_ids, top_k)
-                for part in HYBRID_SPECS[name]
-            ]
-            retrievers[name] = HybridRetriever(
-                components, top_k=top_k * config.dense_fanout, k_rrf=config.k_rrf
+        if name in RERANK_SPECS:
+            first = _build_named(RERANK_SPECS[name], config, data, corpus, doc_ids, top_k)
+            retrievers[name] = TwoStageRetriever(
+                first, Reranker(config.reranker_model_id), top_k=pool, candidates=pool
             )
         else:
-            retrievers[name] = _build_component(
-                name, config, data, corpus, doc_ids, top_k
-            )
+            retrievers[name] = _build_named(name, config, data, corpus, doc_ids, top_k)
     return retrievers
 
 
@@ -558,9 +597,10 @@ def _parse_args(argv: List[str] | None = None) -> BenchmarkConfig:
         default=defaults.retrievers,
         help=(
             "Retrievers to compare (default: %(default)s). Available: 'bm25', "
-            "dense baselines " + ", ".join(sorted(DENSE_SPECS)) + ", and RRF hybrids "
-            + ", ".join(sorted(HYBRID_SPECS)) + " (gte/e5/bge are modern same-class "
-            "peers; hybrids fuse a dense retriever with BM25)."
+            "dense baselines " + ", ".join(sorted(DENSE_SPECS)) + ", RRF hybrids "
+            + ", ".join(sorted(HYBRID_SPECS)) + ", and two-stage rerankers "
+            + ", ".join(sorted(RERANK_SPECS)) + " (hybrids fuse a dense retriever "
+            "with BM25; *_rerank add the Granite cross-encoder)."
         ),
     )
     parser.add_argument(
@@ -663,6 +703,12 @@ def _parse_args(argv: List[str] | None = None) -> BenchmarkConfig:
         dest="k_rrf",
         help="RRF damping constant for hybrid retrievers (default: %(default)s).",
     )
+    parser.add_argument(
+        "--reranker-model-id",
+        default=defaults.reranker_model_id,
+        dest="reranker_model_id",
+        help="Cross-encoder model for the *_rerank retrievers (default: %(default)s).",
+    )
     args = parser.parse_args(argv)
     return BenchmarkConfig(
         dataset=args.dataset,
@@ -680,6 +726,7 @@ def _parse_args(argv: List[str] | None = None) -> BenchmarkConfig:
         per_query_out=args.per_query_out,
         per_query_metric=args.per_query_metric,
         k_rrf=args.k_rrf,
+        reranker_model_id=args.reranker_model_id,
     )
 
 

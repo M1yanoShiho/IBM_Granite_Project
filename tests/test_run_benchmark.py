@@ -862,3 +862,52 @@ def test_build_retrievers_builds_hybrid_of_dense_and_bm25(monkeypatch) -> None:
 def test_parse_args_k_rrf() -> None:
     assert _parse_args([]).k_rrf == 60
     assert _parse_args(["--k-rrf", "30"]).k_rrf == 30
+
+
+class FakeCrossEncoder:
+    """Deterministic stand-in for sentence-transformers CrossEncoder (no download).
+
+    Scores a (query, doc) pair by shared word count, so the relevant doc — which
+    shares the query's words — reranks to the top.
+    """
+
+    def __init__(self, model_id, cache_folder=None) -> None:
+        pass
+
+    def predict(self, pairs):
+        return [
+            float(len(set(q.lower().split()) & set(t.lower().split())))
+            for q, t in pairs
+        ]
+
+
+def test_build_retrievers_builds_granite_rerank_two_stage(monkeypatch) -> None:
+    # granite_rerank = Granite dense first stage + Granite cross-encoder reranker,
+    # as one TwoStageRetriever. Both models are monkeypatched so nothing downloads.
+    from src.retrieval.reranker import TwoStageRetriever
+
+    monkeypatch.setattr(
+        "sentence_transformers.SentenceTransformer", FakeSentenceTransformer
+    )
+    monkeypatch.setattr("sentence_transformers.CrossEncoder", FakeCrossEncoder)
+    data = BenchmarkData(
+        corpus={"d1": "granite retrieval", "d2": "banana cake"},
+        queries={"q1": "granite retrieval"},
+        qrels={"q1": {"d1": 1}},
+    )
+    config = BenchmarkConfig(retrievers=["granite_rerank"], k_values=[1])
+
+    retrievers = _build_retrievers(config, data)
+
+    rr = retrievers["granite_rerank"]
+    assert isinstance(rr, TwoStageRetriever)
+    assert isinstance(rr.retriever, Retriever)  # the first stage
+    assert rr.retrieve("granite retrieval")[0].doc_id == "d1"
+
+
+def test_parse_args_reranker_model_id() -> None:
+    assert (
+        _parse_args([]).reranker_model_id
+        == "ibm-granite/granite-embedding-reranker-english-r2"
+    )
+    assert _parse_args(["--reranker-model-id", "x/y"]).reranker_model_id == "x/y"
