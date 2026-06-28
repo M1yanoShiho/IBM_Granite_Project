@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import time
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Dict, List
@@ -116,6 +117,7 @@ class BenchmarkConfig:
     """
 
     dataset: str = "scifact"
+    split: str = "test"
     k_values: List[int] = field(default_factory=lambda: [1, 3, 5, 10])
     retrievers: List[str] = field(
         default_factory=lambda: ["granite_dense", "bm25", "st_dense"]
@@ -133,6 +135,9 @@ class BenchmarkConfig:
     per_query_metric: str = "ndcg@10"
     k_rrf: int = 60
     reranker_model_id: str = DEFAULT_RERANKER_MODEL_ID
+    index_type: str = "flat"
+    ef_search: int = 64
+    nprobe: int = 8
 
 
 def build_run(
@@ -273,10 +278,13 @@ def _cache_key(config: BenchmarkConfig, name: str) -> str:
     stale index built at a different size.
     """
     model_slug = (config.embedding_model_id or "default").replace("/", "-")
+    # flat keeps the original key (existing caches / reproducibility); ANN types add
+    # a suffix so a flat and an HNSW index for the same corpus never collide.
+    index_suffix = "" if config.index_type == "flat" else f"__{config.index_type}"
     return (
         f"{config.dataset}__{name}"
         f"__cs{config.chunk_size}_ov{config.chunk_overlap}__{model_slug}"
-        f"__{config.chunk_unit}"
+        f"__{config.chunk_unit}{index_suffix}"
     )
 
 
@@ -410,7 +418,12 @@ def _build_component(
             for did, text in data.corpus.items()
             for chunk in chunk_document(did, text, **chunk_kwargs)
         ]
-        indexer = VectorIndexer(embedder)
+        indexer = VectorIndexer(
+            embedder,
+            index_type=config.index_type,
+            ef_search=config.ef_search,
+            nprobe=config.nprobe,
+        )
         if config.index_cache_dir is not None:
             cache_path = config.index_cache_dir / _cache_key(config, name)
             index = _load_or_build_index(indexer, chunks, cache_path)
@@ -536,20 +549,26 @@ def run(
     the dense retrievers are all wired; dense construction downloads its model).
     """
     if data is None:
-        data = load_benchmark(config.dataset)
+        data = load_benchmark(config.dataset, split=config.split)
     if retrievers is None:
         retrievers = _build_retrievers(config, data)
 
-    runs = {
-        name: build_run(
+    # Build each retriever's run once, timing the query phase (end-to-end retrieval
+    # latency) — the basis for the flat-vs-ANN speedup comparison at scale.
+    n_queries = max(1, len(data.queries))
+    runs: Dict[str, Run] = {}
+    ms_per_query: Dict[str, float] = {}
+    for name, retriever in retrievers.items():
+        start = time.perf_counter()
+        runs[name] = build_run(
             retriever, data.queries, pooling=config.pooling, top_n_docs=max(config.k_values)
         )
-        for name, retriever in retrievers.items()
-    }
-    results = {
-        name: evaluate_run(run_, data.qrels, config.k_values)
-        for name, run_ in runs.items()
-    }
+        ms_per_query[name] = (time.perf_counter() - start) / n_queries * 1000.0
+    results = {}
+    for name, run_ in runs.items():
+        metrics = evaluate_run(run_, data.qrels, config.k_values)
+        metrics["ms_per_query"] = ms_per_query[name]
+        results[name] = metrics
     config_columns = None
     if config.append:  # sweep mode: self-describe each row and accumulate
         config_columns = {
@@ -590,6 +609,11 @@ def _parse_args(argv: List[str] | None = None) -> BenchmarkConfig:
         "--dataset",
         default=defaults.dataset,
         help="Benchmark name to evaluate on (default: %(default)s).",
+    )
+    parser.add_argument(
+        "--split",
+        default=defaults.split,
+        help="Dataset split (default: %(default)s). MS MARCO / NQ use 'dev'.",
     )
     parser.add_argument(
         "--retrievers",
@@ -709,9 +733,32 @@ def _parse_args(argv: List[str] | None = None) -> BenchmarkConfig:
         dest="reranker_model_id",
         help="Cross-encoder model for the *_rerank retrievers (default: %(default)s).",
     )
+    parser.add_argument(
+        "--index-type",
+        default=defaults.index_type,
+        dest="index_type",
+        choices=["flat", "hnsw", "ivf"],
+        help="FAISS index for dense retrievers: 'flat' (exact, default) or the ANN "
+        "indexes 'hnsw'/'ivf' — far faster on large corpora at ~no recall loss.",
+    )
+    parser.add_argument(
+        "--ef-search",
+        type=int,
+        default=defaults.ef_search,
+        dest="ef_search",
+        help="HNSW search breadth (recall/speed knob; default: %(default)s).",
+    )
+    parser.add_argument(
+        "--nprobe",
+        type=int,
+        default=defaults.nprobe,
+        dest="nprobe",
+        help="IVF cells probed per query (recall/speed knob; default: %(default)s).",
+    )
     args = parser.parse_args(argv)
     return BenchmarkConfig(
         dataset=args.dataset,
+        split=args.split,
         retrievers=args.retrievers,
         k_values=args.k_values,
         results_path=args.results_path,
@@ -727,6 +774,9 @@ def _parse_args(argv: List[str] | None = None) -> BenchmarkConfig:
         per_query_metric=args.per_query_metric,
         k_rrf=args.k_rrf,
         reranker_model_id=args.reranker_model_id,
+        index_type=args.index_type,
+        ef_search=args.ef_search,
+        nprobe=args.nprobe,
     )
 
 
