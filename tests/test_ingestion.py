@@ -152,3 +152,78 @@ def test_vector_indexer_save_load_round_trips_on_non_ascii_path() -> None:
 
     results = loaded.search([1.0, 0.0, 0.0, 0.0], top_k=1)
     assert results[0].doc_id == "d"
+
+
+class _FakeEmbedder:
+    """Embedder stub returning fixed vectors per text — no model, exact control."""
+
+    def __init__(self, vectors: dict) -> None:
+        self._vectors = vectors
+
+    def embed_documents(self, texts):
+        return [self._vectors[t] for t in texts]
+
+    def embed_query(self, text):
+        return self._vectors[text]
+
+
+def _onehot_chunks_and_embedder():
+    # Three orthogonal one-hot docs; a query equal to beta's vector must rank d2.
+    chunks = [
+        Chunk(chunk_id="d1::0", doc_id="d1", text="alpha"),
+        Chunk(chunk_id="d2::0", doc_id="d2", text="beta"),
+        Chunk(chunk_id="d3::0", doc_id="d3", text="gamma"),
+    ]
+    embedder = _FakeEmbedder(
+        {
+            "alpha": [1.0, 0.0, 0.0, 0.0],
+            "beta": [0.0, 1.0, 0.0, 0.0],
+            "gamma": [0.0, 0.0, 1.0, 0.0],
+        }
+    )
+    return chunks, embedder
+
+
+def test_vector_indexer_defaults_to_exact_flat_index() -> None:
+    # Default behaviour is unchanged: an exact inner-product flat index.
+    chunks, embedder = _onehot_chunks_and_embedder()
+    index = VectorIndexer(embedder).build(chunks)
+    assert isinstance(index._index, faiss.IndexFlatIP)
+    assert index.search([0.0, 1.0, 0.0, 0.0], top_k=1)[0].doc_id == "d2"
+
+
+def test_vector_indexer_builds_hnsw_index_returning_nearest() -> None:
+    # An HNSW (ANN) index — for scale — still returns the true nearest neighbour on
+    # clean data, and is a *different* faiss index type than the exact flat one.
+    chunks, embedder = _onehot_chunks_and_embedder()
+    index = VectorIndexer(embedder, index_type="hnsw").build(chunks)
+    assert isinstance(index._index, faiss.IndexHNSWFlat)
+    assert index.search([0.0, 1.0, 0.0, 0.0], top_k=1)[0].doc_id == "d2"
+
+
+def test_vector_indexer_builds_ivf_index_and_trains_it() -> None:
+    # IVF needs training before it can be searched; build() must train it. nlist=1
+    # (one exhaustive cell) keeps the tiny test deterministic.
+    chunks, embedder = _onehot_chunks_and_embedder()
+    index = VectorIndexer(embedder, index_type="ivf", nlist=1, nprobe=1).build(chunks)
+    assert isinstance(index._index, faiss.IndexIVFFlat)
+    assert index._index.is_trained
+    assert index.search([0.0, 1.0, 0.0, 0.0], top_k=1)[0].doc_id == "d2"
+
+
+def test_vector_indexer_rejects_unknown_index_type() -> None:
+    with pytest.raises(ValueError, match="index_type"):
+        VectorIndexer(None, index_type="bogus")
+
+
+def test_ann_index_save_load_round_trips(tmp_path) -> None:
+    # faiss serialization must round-trip an ANN index too (not just flat).
+    chunks, embedder = _onehot_chunks_and_embedder()
+    indexer = VectorIndexer(embedder, index_type="hnsw")
+    index = indexer.build(chunks)
+    stem = str(tmp_path / "idx")
+
+    indexer.save(index, stem)
+    loaded = indexer.load(stem)
+
+    assert loaded.search([0.0, 1.0, 0.0, 0.0], top_k=1)[0].doc_id == "d2"

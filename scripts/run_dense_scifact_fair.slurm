@@ -18,6 +18,7 @@
 #   export IR_DATASETS_HOME=/user/work/$USER/ir_datasets
 #   hf download ibm-granite/granite-embedding-english-r2         # cached from earlier runs
 #   hf download ibm-granite/granite-embedding-small-english-r2   # NEW (~47M small Granite = efficiency test)
+#   hf download ibm-granite/granite-embedding-reranker-english-r2 # NEW (cross-encoder reranker, for *_rerank)
 #   hf download sentence-transformers/all-MiniLM-L6-v2           # cached from earlier runs
 #   hf download thenlper/gte-base                                # cached from the first fair run
 #   hf download intfloat/e5-base-v2                              # cached from the first fair run
@@ -64,6 +65,8 @@ python -c "import torch; print('CUDA available:', torch.cuda.is_available(), '| 
 python -m eval.run_benchmark \
     --dataset scifact \
     --retrievers granite_dense granite_small_dense bm25 st_dense gte_dense e5_dense bge_dense \
+                 hybrid_granite_bm25 hybrid_granite_small_bm25 \
+                 granite_rerank granite_small_rerank hybrid_granite_bm25_rerank \
     --out results/scifact_fair.csv \
     --per-query-out results/scifact_per_query.csv \
     --cache-dir /user/work/$USER/index_cache

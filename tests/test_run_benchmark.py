@@ -833,3 +833,168 @@ def test_parse_args_per_query_flags() -> None:
     )
     assert config.per_query_out == Path("results/pq.csv")
     assert config.per_query_metric == "recall@10"
+
+
+def test_build_retrievers_builds_hybrid_of_dense_and_bm25(monkeypatch) -> None:
+    # hybrid_granite_bm25 fuses the granite dense retriever and BM25 with RRF — the
+    # complementarity the failure analysis found, turned into one retriever. The
+    # embedding model is monkeypatched so nothing downloads.
+    from src.retrieval.hybrid import HybridRetriever
+
+    monkeypatch.setattr(
+        "sentence_transformers.SentenceTransformer", FakeSentenceTransformer
+    )
+    data = BenchmarkData(
+        corpus={"d1": "granite retrieval", "d2": "banana cake"},
+        queries={"q1": "granite retrieval"},
+        qrels={"q1": {"d1": 1}},
+    )
+    config = BenchmarkConfig(retrievers=["hybrid_granite_bm25"], k_values=[1])
+
+    retrievers = _build_retrievers(config, data)
+
+    hybrid = retrievers["hybrid_granite_bm25"]
+    assert isinstance(hybrid, HybridRetriever)
+    assert len(hybrid.retrievers) == 2  # a dense retriever + BM25
+    assert hybrid.retrieve("granite retrieval")[0].doc_id == "d1"
+
+
+def test_parse_args_k_rrf() -> None:
+    assert _parse_args([]).k_rrf == 60
+    assert _parse_args(["--k-rrf", "30"]).k_rrf == 30
+
+
+class FakeCrossEncoder:
+    """Deterministic stand-in for sentence-transformers CrossEncoder (no download).
+
+    Scores a (query, doc) pair by shared word count, so the relevant doc — which
+    shares the query's words — reranks to the top.
+    """
+
+    def __init__(self, model_id, cache_folder=None) -> None:
+        pass
+
+    def predict(self, pairs):
+        return [
+            float(len(set(q.lower().split()) & set(t.lower().split())))
+            for q, t in pairs
+        ]
+
+
+def test_build_retrievers_builds_granite_rerank_two_stage(monkeypatch) -> None:
+    # granite_rerank = Granite dense first stage + Granite cross-encoder reranker,
+    # as one TwoStageRetriever. Both models are monkeypatched so nothing downloads.
+    from src.retrieval.reranker import TwoStageRetriever
+
+    monkeypatch.setattr(
+        "sentence_transformers.SentenceTransformer", FakeSentenceTransformer
+    )
+    monkeypatch.setattr("sentence_transformers.CrossEncoder", FakeCrossEncoder)
+    data = BenchmarkData(
+        corpus={"d1": "granite retrieval", "d2": "banana cake"},
+        queries={"q1": "granite retrieval"},
+        qrels={"q1": {"d1": 1}},
+    )
+    config = BenchmarkConfig(retrievers=["granite_rerank"], k_values=[1])
+
+    retrievers = _build_retrievers(config, data)
+
+    rr = retrievers["granite_rerank"]
+    assert isinstance(rr, TwoStageRetriever)
+    assert isinstance(rr.retriever, Retriever)  # the first stage
+    assert rr.retrieve("granite retrieval")[0].doc_id == "d1"
+
+
+def test_parse_args_reranker_model_id() -> None:
+    assert (
+        _parse_args([]).reranker_model_id
+        == "ibm-granite/granite-embedding-reranker-english-r2"
+    )
+    assert _parse_args(["--reranker-model-id", "x/y"]).reranker_model_id == "x/y"
+
+
+def test_build_retrievers_threads_index_type(monkeypatch) -> None:
+    # --index-type reaches the VectorIndexer: a dense retriever built with "hnsw"
+    # gets an ANN (HNSW) faiss index, not the exact flat one.
+    import faiss
+
+    monkeypatch.setattr(
+        "sentence_transformers.SentenceTransformer", FakeSentenceTransformer
+    )
+    data = BenchmarkData(
+        corpus={"d1": "granite retrieval", "d2": "banana cake"},
+        queries={"q1": "granite retrieval"},
+        qrels={"q1": {"d1": 1}},
+    )
+    config = BenchmarkConfig(retrievers=["granite_dense"], k_values=[1], index_type="hnsw")
+
+    dense = _build_retrievers(config, data)["granite_dense"]
+
+    assert isinstance(dense.index._index, faiss.IndexHNSWFlat)
+
+
+def test_cache_key_appends_non_flat_index_type() -> None:
+    # Flat keeps the original cache key (back-compat / existing caches); ANN index
+    # types get a suffix so a flat and an HNSW index never collide in the cache.
+    base = BenchmarkConfig(dataset="scifact")
+    flat_key = _cache_key(base, "granite_dense")
+    assert "__hnsw" not in flat_key and "__flat" not in flat_key
+    assert _cache_key(replace(base, index_type="hnsw"), "granite_dense") == flat_key + "__hnsw"
+
+
+def test_parse_args_index_type() -> None:
+    d = _parse_args([])
+    assert d.index_type == "flat" and d.ef_search == 64 and d.nprobe == 8
+    config = _parse_args(["--index-type", "hnsw", "--ef-search", "128", "--nprobe", "16"])
+    assert config.index_type == "hnsw"
+    assert config.ef_search == 128
+    assert config.nprobe == 16
+
+
+def test_run_records_ms_per_query(tmp_path) -> None:
+    # Every results row carries an end-to-end query-latency column (ms_per_query) —
+    # the basis for the flat-vs-ANN speedup figure. It's wall-clock, so assert only
+    # that it is present and non-negative, not a specific time.
+    data = BenchmarkData(
+        corpus={"d1": "doc one"}, queries={"q1": "qtext1"}, qrels={"q1": {"d1": 1}}
+    )
+    retrievers = {"r": FakeRetriever({"qtext1": [RetrievedChunk("d1", "x", 0.9)]})}
+    config = BenchmarkConfig(k_values=[1], results_path=tmp_path / "out.csv")
+
+    run(config, retrievers=retrievers, data=data)
+
+    with open(config.results_path, newline="") as f:
+        row = next(csv.DictReader(f))
+    assert "ms_per_query" in row
+    assert float(row["ms_per_query"]) >= 0.0
+
+
+def test_parse_args_split() -> None:
+    assert _parse_args([]).split == "test"
+    assert _parse_args(["--split", "dev"]).split == "dev"
+
+
+def test_run_passes_split_to_loader(monkeypatch, tmp_path) -> None:
+    # MS MARCO has no public 'test' qrels — it uses 'dev'. run() must thread
+    # config.split through to the loader so those datasets are reachable.
+    captured = {}
+
+    def fake_load(name, split="test"):
+        captured["name"] = name
+        captured["split"] = split
+        return BenchmarkData(
+            corpus={"d1": "x"}, queries={"q1": "q"}, qrels={"q1": {"d1": 1}}
+        )
+
+    monkeypatch.setattr("eval.run_benchmark.load_benchmark", fake_load)
+    config = BenchmarkConfig(
+        dataset="msmarco",
+        split="dev",
+        retrievers=["bm25"],
+        k_values=[1],
+        results_path=tmp_path / "o.csv",
+    )
+
+    run(config)
+
+    assert captured == {"name": "msmarco", "split": "dev"}
