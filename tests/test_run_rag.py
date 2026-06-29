@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from eval.benchmarks.loader import BenchmarkData
-from eval.run_rag import RAGEvalConfig, run
+from eval.run_rag import RAGEvalConfig, _parse_args, run
 from src.retrieval.base import RetrievedChunk
 
 
@@ -92,6 +92,28 @@ def test_append_accumulates_one_row_per_retriever():
     assert [r["retriever"] for r in rows] == ["granite_dense", "bm25"]
 
 
+def test_per_query_out_merges_retriever_columns():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        out = Path(tmpdir) / "rag.csv"
+        pq = Path(tmpdir) / "perq"
+        run(
+            RAGEvalConfig(retriever="granite_dense", results_path=out, per_query_out=pq, append=True),
+            data=_make_data(), retriever=FakeRetriever(), llm=FakeLLM(),
+        )
+        run(
+            RAGEvalConfig(retriever="bm25", results_path=out, per_query_out=pq, append=True),
+            data=_make_data(), retriever=FakeRetriever(), llm=FakeLLM(),
+        )
+        f1_file = Path(tmpdir) / "perq_answer_f1.csv"
+        assert f1_file.exists()
+        with open(f1_file, newline="") as f:
+            rows = list(csv.reader(f))
+    # wide format: qid + one column per retriever (significance-ready)
+    assert rows[0] == ["qid", "granite_dense", "bm25"]
+    assert rows[1][0] == "q1"
+    assert len(rows) == 2  # header + one query
+
+
 def test_no_append_overwrites():
     with tempfile.TemporaryDirectory() as tmpdir:
         out = Path(tmpdir) / "rag_results.csv"
@@ -106,3 +128,26 @@ def test_no_append_overwrites():
         with open(out, newline="") as f:
             rows = list(csv.DictReader(f))
     assert [r["retriever"] for r in rows] == ["bm25"]
+
+
+def test_cli_parses_subset_and_append_flags():
+    cfg = _parse_args(
+        [
+            "--dataset", "nq", "--retriever", "bm25",
+            "--max-queries", "300", "--max-docs", "50000",
+            "--top-k", "6", "--append",
+        ]
+    )
+    assert cfg.dataset == "nq"
+    assert cfg.retriever == "bm25"
+    assert cfg.max_queries == 300
+    assert cfg.max_docs == 50000
+    assert cfg.top_k == 6
+    assert cfg.append is True
+
+
+def test_cli_defaults_to_full_set():
+    cfg = _parse_args([])
+    assert cfg.max_queries is None
+    assert cfg.max_docs is None
+    assert cfg.append is False

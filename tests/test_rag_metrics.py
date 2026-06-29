@@ -23,6 +23,7 @@ from eval.rag_metrics import (
     score_answer_correctness,
     score_context_precision,
     score_faithfulness,
+    score_rag_per_query,
 )
 
 
@@ -216,3 +217,37 @@ class TestEvaluateRag:
             "context_precision": 0.0,
             "faithfulness": 0.0,
         }
+
+
+# ---------------------------------------------------------------------------
+# score_rag_per_query (input to paired significance testing)
+# ---------------------------------------------------------------------------
+class TestPerQuery:
+    def test_returns_all_metrics_per_question(self) -> None:
+        per_q = score_rag_per_query(
+            {"q1": "Paris"},
+            {"q1": "Paris"},
+            {"q1": ["Paris is the capital of France."]},
+            {"q1": ["d1"]},
+            {"q1": {"d1": 1}},
+        )
+        assert set(per_q) == {"q1"}
+        assert set(per_q["q1"]) == {
+            "answer_em",
+            "answer_f1",
+            "context_precision",
+            "faithfulness",
+        }
+        assert per_q["q1"]["answer_em"] == 1.0
+        assert per_q["q1"]["context_precision"] == 1.0
+
+    def test_mean_of_per_query_matches_evaluate_rag(self) -> None:
+        preds = {"q1": "Paris", "q2": "London is the capital."}
+        refs = {"q1": "Paris", "q2": "London"}
+        ctx = {"q1": ["Paris is the capital."], "q2": ["London is a city."]}
+        docs = {"q1": ["d1"], "q2": ["d2"]}
+        qrels = {"q1": {"d1": 1}, "q2": {"d3": 1}}
+        per_q = score_rag_per_query(preds, refs, ctx, docs, qrels)
+        agg = evaluate_rag(preds, refs, ctx, docs, qrels)
+        mean_em = round(sum(v["answer_em"] for v in per_q.values()) / len(per_q), 6)
+        assert agg["answer_em"] == mean_em

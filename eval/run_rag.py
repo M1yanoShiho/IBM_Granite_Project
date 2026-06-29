@@ -23,13 +23,14 @@ Run from the project root:
 
 from __future__ import annotations
 
+import argparse
 import csv
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional
 
 from eval.benchmarks.loader import BenchmarkData, load_benchmark
-from eval.rag_metrics import evaluate_rag
+from eval.rag_metrics import METRIC_NAMES, evaluate_rag, score_rag_per_query
 from src.llm_client import LLMClient
 from src.rag_pipeline import RAGPipeline
 from src.retrieval.base import Retriever
@@ -56,6 +57,11 @@ class RAGEvalConfig:
         When ``True`` and ``results_path`` already exists, append this run's row
         under the existing header instead of overwriting — so comparing several
         retrievers accumulates one table rather than clobbering the previous run.
+    max_queries, max_docs:
+        Subset knobs forwarded to :func:`~eval.benchmarks.loader.load_benchmark`
+        so a huge answer-bearing set (NQ) can be run on a small, valid subset
+        first (gold docs are always kept; distractors capped at ``max_docs``).
+        ``None`` = use the full set.
     """
 
     dataset: str = "nq"
@@ -71,6 +77,9 @@ class RAGEvalConfig:
     )
     results_path: Path = Path("results/rag_results.csv")
     append: bool = False
+    max_queries: Optional[int] = None
+    max_docs: Optional[int] = None
+    per_query_out: Optional[Path] = None
 
 
 def run(
@@ -83,7 +92,11 @@ def run(
     config.results_path.parent.mkdir(parents=True, exist_ok=True)
 
     if data is None:
-        data = load_benchmark(config.dataset)
+        data = load_benchmark(
+            config.dataset,
+            max_queries=config.max_queries,
+            max_docs=config.max_docs,
+        )
 
     if data.answers is None:
         raise ValueError(
@@ -123,6 +136,11 @@ def run(
     )
 
     _write_results(config, metrics)
+    if config.per_query_out is not None:
+        per_query = score_rag_per_query(
+            predictions, references, contexts, retrieved_doc_ids, data.qrels
+        )
+        _write_per_query(config.per_query_out, config.retriever, per_query)
     return metrics
 
 
@@ -137,8 +155,93 @@ def _write_results(config: RAGEvalConfig, metrics: Dict[str, float]) -> None:
         writer.writerow({"retriever": config.retriever, **metrics})
 
 
-def main() -> None:
-    run(RAGEvalConfig())
+def _write_per_query(
+    prefix: Path, retriever: str, per_query: Dict[str, Dict[str, float]]
+) -> None:
+    """Merge this retriever's per-query scores into one wide CSV per metric.
+
+    Writes ``<prefix>_<metric>.csv`` (``qid`` + one column per retriever) for each
+    metric, merging the column in if the file already exists. So calling
+    ``run_rag`` once per retriever (granite/gte/bm25) accumulates a wide table
+    per metric that :mod:`eval.significance` can compare directly (paired test
+    between two retriever columns).
+    """
+    stem = prefix.with_suffix("")  # drop any extension; the suffix is per-metric
+    stem.parent.mkdir(parents=True, exist_ok=True)
+    for metric in METRIC_NAMES:
+        path = stem.with_name(f"{stem.name}_{metric}.csv")
+        table: Dict[str, Dict[str, str]] = {}
+        columns: List[str] = []
+        if path.exists():
+            with open(path, newline="") as f:
+                reader = csv.reader(f)
+                header = next(reader, ["qid"])
+                columns = header[1:]
+                for row in reader:
+                    table[row[0]] = {columns[i]: row[i + 1] for i in range(len(columns))}
+        if retriever not in columns:
+            columns.append(retriever)
+        for qid, scores in per_query.items():
+            table.setdefault(qid, {})[retriever] = scores[metric]
+        with open(path, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["qid"] + columns)
+            for qid in sorted(table):
+                writer.writerow([qid] + [table[qid].get(col, "") for col in columns])
+
+
+def _parse_args(argv: Optional[List[str]] = None) -> RAGEvalConfig:
+    """Parse command-line arguments into a :class:`RAGEvalConfig`.
+
+    Example (NQ subset, comparing two retrievers into one table)::
+
+        python -m eval.run_rag --dataset nq --retriever granite_dense \\
+            --max-queries 300 --max-docs 50000 --out results/rag_nq_subset.csv
+        python -m eval.run_rag --dataset nq --retriever bm25 \\
+            --max-queries 300 --max-docs 50000 --out results/rag_nq_subset.csv --append
+    """
+    defaults = RAGEvalConfig()
+    parser = argparse.ArgumentParser(
+        prog="python -m eval.run_rag",
+        description="Run the RAG evaluation (retrieve-then-generate) and write a CSV.",
+    )
+    parser.add_argument("--dataset", default=defaults.dataset,
+                        help="Answer-bearing QA benchmark (default: %(default)s).")
+    parser.add_argument("--retriever", default=defaults.retriever,
+                        help="Retriever the pipeline reads from (default: %(default)s).")
+    parser.add_argument("--top-k", type=int, default=defaults.top_k, dest="top_k",
+                        help="Chunks passed to the generator as context (default: %(default)s).")
+    parser.add_argument("--out", type=Path, default=defaults.results_path,
+                        dest="results_path", help="Where to write the results CSV.")
+    parser.add_argument("--append", action="store_true", default=defaults.append,
+                        help="Append a row instead of overwriting (compare retrievers).")
+    parser.add_argument("--max-queries", type=int, default=defaults.max_queries,
+                        dest="max_queries",
+                        help="Run only the first N queries (subset mode; default: all).")
+    parser.add_argument("--max-docs", type=int, default=defaults.max_docs,
+                        dest="max_docs",
+                        help="Cap distractor docs in the corpus; gold docs always kept "
+                        "(subset mode; default: full corpus).")
+    parser.add_argument("--per-query-out", type=Path, default=defaults.per_query_out,
+                        dest="per_query_out",
+                        help="Also write per-query scores as <prefix>_<metric>.csv "
+                        "(qid x retriever), merged across retriever runs, for "
+                        "eval.significance. Default: off.")
+    args = parser.parse_args(argv)
+    return RAGEvalConfig(
+        dataset=args.dataset,
+        retriever=args.retriever,
+        top_k=args.top_k,
+        results_path=args.results_path,
+        append=args.append,
+        max_queries=args.max_queries,
+        max_docs=args.max_docs,
+        per_query_out=args.per_query_out,
+    )
+
+
+def main(argv: Optional[List[str]] = None) -> None:
+    run(_parse_args(argv))
 
 
 if __name__ == "__main__":

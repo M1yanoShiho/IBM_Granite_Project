@@ -84,3 +84,47 @@ class TestNQWithAnswers:
         result = load_benchmark("scifact")
 
         assert result.answers is None
+
+
+# Subsampling (so a 21M-passage set like NQ can be run on a small subset first)
+class TestSubsampling:
+
+    def _dataset(self):
+        return _make_mock_dataset(
+            docs=[MockDoc(f"d{i}", f"text {i}") for i in range(1, 6)],
+            queries=[
+                MockAnswer("q1", "Q1", ("a1",)),
+                MockAnswer("q2", "Q2", ("a2",)),
+                MockAnswer("q3", "Q3", ("a3",)),
+            ],
+            qrels=[
+                MockQrel("q1", "d1", 1),
+                MockQrel("q2", "d2", 1),
+                MockQrel("q3", "d3", 1),
+            ],
+        )
+
+    @patch("eval.benchmarks.loader.ir_datasets")
+    def test_no_limits_loads_everything(self, mock_ir):
+        mock_ir.load.return_value = self._dataset()
+        result = load_benchmark("nq")
+        assert set(result.queries) == {"q1", "q2", "q3"}
+        assert len(result.corpus) == 5
+
+    @patch("eval.benchmarks.loader.ir_datasets")
+    def test_max_queries_limits_queries_and_their_qrels(self, mock_ir):
+        mock_ir.load.return_value = self._dataset()
+        result = load_benchmark("nq", max_queries=2)
+        assert set(result.queries) == {"q1", "q2"}
+        assert set(result.qrels) == {"q1", "q2"}
+        assert set(result.answers) == {"q1", "q2"}
+
+    @patch("eval.benchmarks.loader.ir_datasets")
+    def test_max_docs_caps_corpus_but_always_keeps_gold_docs(self, mock_ir):
+        mock_ir.load.return_value = self._dataset()
+        # keep 2 queries (gold docs d1, d2) + at most 1 distractor doc
+        result = load_benchmark("nq", max_queries=2, max_docs=1)
+        # gold docs for the kept queries must be present even past the cap
+        assert {"d1", "d2"} <= set(result.corpus)
+        # exactly one non-gold distractor kept
+        assert len(set(result.corpus) - {"d1", "d2"}) == 1

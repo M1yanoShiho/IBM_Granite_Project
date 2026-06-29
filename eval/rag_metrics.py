@@ -175,6 +175,37 @@ def score_faithfulness(answer: str, context: str) -> float:
     return covered / len(answer_tokens)
 
 
+METRIC_NAMES = ("answer_em", "answer_f1", "context_precision", "faithfulness")
+
+
+def score_rag_per_query(
+    predictions: Dict[str, str],
+    references: Dict[str, References],
+    contexts: Dict[str, List[str]],
+    retrieved_doc_ids: Dict[str, Sequence[str]],
+    qrels: Dict[str, Mapping[str, int]],
+) -> Dict[str, Dict[str, float]]:
+    """Per-question metric dict ``{qid: {metric: value}}``.
+
+    Keyed by every question present in both ``predictions`` and ``references``.
+    This is the input to paired significance testing across retrievers
+    (``eval.significance``): export one retriever's column per run, then compare.
+    """
+    per_query: Dict[str, Dict[str, float]] = {}
+    for qid in set(predictions) & set(references):
+        pred = predictions[qid]
+        ref = references[qid]
+        per_query[qid] = {
+            "answer_em": score_answer_correctness(pred, ref, fuzzy=False),
+            "answer_f1": score_answer_correctness(pred, ref, fuzzy=True),
+            "context_precision": score_context_precision(
+                retrieved_doc_ids.get(qid, []), qrels.get(qid, {})
+            ),
+            "faithfulness": score_faithfulness(pred, "\n".join(contexts.get(qid, []))),
+        }
+    return per_query
+
+
 def evaluate_rag(
     predictions: Dict[str, str],
     references: Dict[str, References],
@@ -206,34 +237,13 @@ def evaluate_rag(
         ``{answer_em, answer_f1, context_precision, faithfulness}`` averaged over
         every question present in both ``predictions`` and ``references``.
     """
-    zero = {
-        "answer_em": 0.0,
-        "answer_f1": 0.0,
-        "context_precision": 0.0,
-        "faithfulness": 0.0,
-    }
-    ids = set(predictions) & set(references)
-    if not ids:
-        return zero
-
-    em: List[float] = []
-    f1: List[float] = []
-    precision: List[float] = []
-    faithfulness: List[float] = []
-    for qid in ids:
-        pred = predictions[qid]
-        ref = references[qid]
-        em.append(score_answer_correctness(pred, ref, fuzzy=False))
-        f1.append(score_answer_correctness(pred, ref, fuzzy=True))
-        precision.append(
-            score_context_precision(retrieved_doc_ids.get(qid, []), qrels.get(qid, {}))
-        )
-        faithfulness.append(score_faithfulness(pred, "\n".join(contexts.get(qid, []))))
-
-    mean = lambda values: round(sum(values) / len(values), 6)
+    per_query = score_rag_per_query(
+        predictions, references, contexts, retrieved_doc_ids, qrels
+    )
+    if not per_query:
+        return {metric: 0.0 for metric in METRIC_NAMES}
+    n = len(per_query)
     return {
-        "answer_em": mean(em),
-        "answer_f1": mean(f1),
-        "context_precision": mean(precision),
-        "faithfulness": mean(faithfulness),
+        metric: round(sum(q[metric] for q in per_query.values()) / n, 6)
+        for metric in METRIC_NAMES
     }

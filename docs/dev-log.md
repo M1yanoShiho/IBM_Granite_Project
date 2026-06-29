@@ -71,8 +71,9 @@
   - ✅ Meeting 1 准备 + 文档对齐(`meeting-1-questions.md` Q1/Q2/Q5)
   - ✅ **`run_benchmark` 检索编排**(2026-06-18):`build_run`/`evaluate_one`/`write_results_csv`/`_build_retrievers`/索引缓存/CLI,TDD;第一张 SciFact 表(granite_dense nDCG@10 0.767 > BM25 0.636 ≈ ST 0.641)
   - ✅ **A0 检索 ablation 配置打通**(2026-06-19,`week3` 未提交):chunk/pooling/model 旋钮接 CLI、配置列 CSV + append、修索引缓存"串味"bug;9 新测试,套件 49 passed/1 xfailed(详见 [dev-log-p6.md](dev-log-p6.md) §5)
-- **进行中:** B3 的 **8B 冒烟 ✅ 完成**(2026-06-23,granite-4.1-8b 在 RTX 3090 加载+生成,`Smoke test OK.`);剩 `run_rag.slurm` 全量 RAG(待 `run_rag.py` 实现)
-- **下一步:** `citations.py` 的 `attribute_answer`(Phase 2);给 Bharat 的架构图。
+  - ✅ **RAG 评测线 review + 标准化**(2026-06-29):合入 `week3_b1_c1`/`week3_b2` 到 `week3` 后,把 RAG 指标重写为学界标准口径——SQuAD 归一化 **EM + token-F1**(多 gold 取 max)、context precision 改 **qrels precision@k**(修了"把 qid 当问题文本"的真 bug)、faithfulness 简化为 token 覆盖;`_tokenize/_jaccard/_split_sentences` 抽到 `src/text_utils.py`;loader 加 **qrels 感知子集抽样**(`max_queries/max_docs`)、`answers` 改 `List[str]`(NQ 多别名);`run_rag` 加 CLI + `--per-query-out`(逐查询分数→显著性);TDD,套件 **218 passed/1 xfailed**(详见 Changelog)
+- **进行中:** NQ 子集 RAG run(granite/gte/bm25,500q/500k,`scripts/run_rag.slurm`)待上 HPC;先在登录节点 verify `dpr-w100` 的 qrels/answers + 预取模型
+- **下一步:** 跑 NQ 子集出第一组答案质量数(EM/F1)+ 配对显著性(`eval/significance.py`);合理则放大子集 / 上 HNSW 全量;给 Bharat 的架构图。
 
 ### P7 — 可视化 + demo + 结果 · _(待填)_
 - **负责:** `notebooks/`, `app/main.py`
@@ -86,6 +87,7 @@
 
 | 日期                   | 区域               | 改动                                                                                                                                            | 文件 | 谁  |
 |----------------------|------------------|-----------------------------------------------------------------------------------------------------------------------------------------------| --- |----|
+| 2026-06-29           | P6 RAG评测线 | **RAG 评测线打通(review→标准化→可跑)**:合入 b1_c1(B1指标+C1引用)/b2(B2 runner)到 `week3`;review 后把 RAG 指标重写为学界标准口径——SQuAD 归一化 EM+token-F1(多 gold 取 max)、context precision 改 qrels precision@k(**修了把 qid 当问题文本的 bug**)、faithfulness 简化为 token 覆盖;`_tokenize/_jaccard/_split_sentences` 抽到 `src/text_utils.py`(去重复+修句切漂移);loader 加 qrels 感知子集抽样(`max_queries/max_docs`)、`answers` 改 `List[str]`;`run_rag` 加 CLI + `--per-query-out`;`run_rag.slurm` 改 NQ 子集 granite/gte/bm25 三路。TDD,套件 218 passed/1 xfailed | `eval/rag_metrics.py`, `src/explainability/citations.py`, `src/text_utils.py`, `eval/run_rag.py`, `eval/benchmarks/loader.py`, `eval/metrics.py`, `scripts/run_rag.slurm`, `tests/` | P6 |
 | 2026-06-23           | P6 生成层/MVP | **B3:8B 冒烟通过**(granite-4.1-8b 在 BluePebble RTX 3090 加载+生成,`Smoke test OK.`,job 17874131;3B/8B 两模型均验证)。MVP 接缝:`build_dense_retriever_from_text` + `build_rag_pipeline_from_text`,`app/main.py` 由 mock 改接真 RAG 管线(TDD,9 新测试;app 待本机 3B 跑通确认) | `scripts/smoke_8b.slurm`, `src/retrieval/factory.py`, `src/rag_app.py`, `app/main.py`, `tests/` | P6 |
 | 2026-06-22           | P1 loader | A3 beir下多数据集、B4 NQ带答案完成 | `eval/benchmarks/loader.py`, `tests/test_benchmarks_loader.py.py` | P1许展瑜 |
 | 2026-06-19           | P6 ablation | **A0:检索 ablation 配置打通** —— `build_run` 加 `pooling`(max/mean)、chunk/model 旋钮接 CLI、`write_results_csv` 配置列 + append、新增 `_cache_key` 修索引缓存"串味"bug;test-first 9 新测试,套件 49 passed/1 xfailed(`week3` 未提交) | `eval/run_benchmark.py`, `tests/test_run_benchmark.py`, `docs/interfaces.md` | P6 |

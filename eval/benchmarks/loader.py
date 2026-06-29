@@ -52,7 +52,12 @@ class BenchmarkData:
     answers: Optional[Dict[str, List[str]]] = None
 
 
-def load_benchmark(name: str, split: str = "test") -> BenchmarkData:
+def load_benchmark(
+    name: str,
+    split: str = "test",
+    max_queries: Optional[int] = None,
+    max_docs: Optional[int] = None,
+) -> BenchmarkData:
     """Load a named benchmark into a :class:`BenchmarkData`.
 
     Parameters
@@ -62,6 +67,15 @@ def load_benchmark(name: str, split: str = "test") -> BenchmarkData:
         or another supported benchmark identifier.
     split:
         Dataset split to load (e.g. ``"test"``).
+    max_queries:
+        If set, keep only the first ``max_queries`` queries (by sorted id), with
+        their qrels/answers. Lets a huge set (NQ's ~21M passages) be run on a
+        small subset first. ``None`` = all queries.
+    max_docs:
+        If set, cap the corpus at ``max_docs`` *distractor* documents — the gold
+        documents of the kept queries are always included on top, so retrieval
+        stays valid. ``None`` = keep the whole corpus (only feasible for small
+        datasets).
     """
     if name == "nq":
         dataset = ir_datasets.load("dpr-w100/natural-questions/dev")
@@ -72,10 +86,6 @@ def load_benchmark(name: str, split: str = "test") -> BenchmarkData:
             dataset = ir_datasets.load(dataset_id)
         except KeyError:
             dataset = ir_datasets.load(f"beir/{name}")
-
-    corpus: Dict[str, str] = {}
-    for doc in dataset.docs_iter():
-        corpus[doc.doc_id] = doc.text
 
     queries: Dict[str, str] = {}
     answers: Dict[str, List[str]] = {}
@@ -91,6 +101,37 @@ def load_benchmark(name: str, split: str = "test") -> BenchmarkData:
     for qrel in dataset.qrels_iter():
         # set default queryId to avoid null inner dict
         qrels.setdefault(qrel.query_id, {})[qrel.doc_id] = int(qrel.relevance)
+
+    # Subsample queries first (deterministic: first max_queries by sorted id) so a
+    # huge corpus (e.g. NQ's ~21M passages) can be run on a small, valid subset.
+    if max_queries is not None:
+        kept = set(sorted(queries)[:max_queries])
+        queries = {q: t for q, t in queries.items() if q in kept}
+        qrels = {q: rels for q, rels in qrels.items() if q in kept}
+        answers = {q: a for q, a in answers.items() if q in kept}
+
+    # The documents the kept queries are judged against MUST be in the corpus,
+    # else retrieval can never succeed and the eval is meaningless. Always keep
+    # those; fill the remainder with up to ``max_docs`` distractor documents
+    # (``None`` = keep the whole corpus, only feasible for small datasets).
+    required_docs = {doc_id for rels in qrels.values() for doc_id in rels}
+    corpus: Dict[str, str] = {}
+    n_distractors = 0
+    n_required_found = 0
+    for doc in dataset.docs_iter():
+        if doc.doc_id in required_docs:
+            if doc.doc_id not in corpus:
+                corpus[doc.doc_id] = doc.text
+                n_required_found += 1
+        elif max_docs is None or n_distractors < max_docs:
+            corpus[doc.doc_id] = doc.text
+            n_distractors += 1
+        if (
+            max_docs is not None
+            and n_distractors >= max_docs
+            and n_required_found >= len(required_docs)
+        ):
+            break
 
     final_answers = answers or None
 
