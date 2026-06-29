@@ -111,10 +111,13 @@ result = pipe.query("...")                    # -> RAGResult
 （**复用契约 1 的 `RetrievedChunk`**,带 `doc_id`/`score`,供 context-precision 打分和
 citations 归因)。
 
-评测侧(`eval/rag_metrics.py`)吃 `predictions / references / contexts`,返回
-`{metric: value}`(answer correctness / context precision / faithfulness)。**答案质量
-评测需要带 gold answer 的数据集**——见契约对 `BenchmarkData.answers` 的扩展(可选字段)
-与 Q5。
+评测侧(`eval/rag_metrics.py`)的 `evaluate_rag` 吃 `predictions / references /
+contexts / retrieved_doc_ids / qrels`,返回 `{answer_em, answer_f1, answer_cover,
+context_precision, faithfulness}`(EM/F1/cover-EM = 答案正确率,context_precision =
+对 qrels 的 precision@k,faithfulness = 答案 token 被 context 覆盖率)。**答案质量评测
+需要带 gold answer 的数据集**:`BenchmarkData.answers` 为可选字段
+`Optional[Dict[str, List[str]]]`——**每题一组可接受答案**(列表,NQ 多别名;检索-only
+集如 SciFact 为 `None`),见 Q5。
 
 ---
 
