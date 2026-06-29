@@ -30,6 +30,8 @@ from src.retrieval.base import RetrievedChunk, Retriever
 # context, which is what makes faithfulness measurable and reduces hallucination.
 DEFAULT_RAG_PROMPT = (
     "Answer the question using only the context below. "
+    "Give only the answer itself — the shortest phrase that answers the question, "
+    "with no explanation and without repeating or quoting the context. "
     "If the answer is not contained in the context, say you don't know.\n\n"
     "Context:\n{context}\n\n"
     "Question: {question}\n"
