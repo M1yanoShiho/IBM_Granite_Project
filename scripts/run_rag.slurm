@@ -1,28 +1,26 @@
 #!/bin/bash
-# RAG evaluation on an NQ SUBSET — the "does better retrieval -> better answers"
-# experiment. Three retrievers over the SAME corpus, scored on answer EM/F1 +
+# RAG evaluation — "does better retrieval -> better answers", across TWO QA sets.
+# Three retrievers over the SAME corpus, scored on answer EM / F1 / cover-EM +
 # qrels-based context precision + faithfulness (eval/rag_metrics.py):
 #   bm25 (weak lexical anchor) -> gte_dense (strong fair peer) -> granite_dense (system)
-# so we can show answer quality TRACKS retrieval quality, and compare Granite to a
-# fair peer (gte), not just to the weak BM25 floor.
+# so we show answer quality TRACKS retrieval quality AND compare Granite to a fair
+# peer (gte). Two datasets test generalisation: NQ and TriviaQA — both served from
+# the SAME dpr-w100 ~21M-passage corpus, so TriviaQA adds no new corpus download.
 #
-# NQ's corpus (dpr-w100) is ~21M passages — too big to index for a first run. We
-# run a qrels-AWARE subset: the gold passages of the sampled queries are always
-# kept, plus up to MAX_DOCS distractor passages. 500 queries / 500k docs is large
-# enough that the dense-vs-BM25 gap is pronounced and n is ample for the paired
-# significance test; scale up once it looks sane.
+# Per dataset we run a qrels-AWARE subset: the gold passages of the sampled queries
+# are always kept, plus up to MAX_DOCS distractor passages. flat index is fine to
+# ~1M docs; the true 21M run needs HNSW (a separate step). Scale MAX_DOCS once sane.
 #
-# ONE-TIME on the LOGIN node (compute nodes are offline). First VERIFY the dataset
-# exposes answers + qrels (context-precision needs qrels), then pre-fetch it — this
-# DOWNLOADS the dpr-w100 corpus (tens of GB):
+# ONE-TIME on the LOGIN node (compute nodes are offline). VERIFY each set exposes
+# answers + qrels, then pre-fetch — the dpr-w100 corpus is tens of GB (download once;
+# both QA sets reuse it):
 #   module load languages/python/3.12.3 && source /user/work/$USER/venv/bin/activate
 #   export HF_HOME=/user/work/$USER/hf_cache IR_DATASETS_HOME=/user/work/$USER/ir_datasets
 #   python - <<'PY'
 #   import ir_datasets
-#   ds = ir_datasets.load("dpr-w100/natural-questions/dev")
-#   print("has_qrels:", ds.has_qrels())
-#   q = next(ds.queries_iter()); print("query fields:", q._fields, "| answers:", getattr(q, "answers", None))
-#   print("doc fields:", next(ds.docs_iter())._fields)
+#   for ds_id in ("dpr-w100/natural-questions/dev", "dpr-w100/trivia-qa/dev"):
+#       ds = ir_datasets.load(ds_id); q = next(ds.queries_iter())
+#       print(ds_id, "has_qrels:", ds.has_qrels(), "| answers:", getattr(q, "answers", None))
 #   PY
 #   for m in ibm-granite/granite-4.1-8b thenlper/gte-base \
 #            ibm-granite/granite-embedding-english-r2; do hf download "$m"; done
@@ -30,17 +28,17 @@
 # Then submit from the project root:
 #   mkdir -p logs && sbatch scripts/run_rag.slurm
 #
-# AFTER the job, get paired p-values between retriever columns (e.g. granite vs gte
-# on answer-F1) by feeding the per-query CSVs to eval/significance.py:
-#   results/rag_nq_subset_perq_answer_f1.csv  (also _answer_em / _context_precision / _faithfulness)
-#SBATCH --job-name=granite-rag-nq-subset
+# AFTER the job, per dataset D in {nq, trivia}: aggregate results/rag_${D}_subset.csv;
+# paired p-values via eval/significance.py on results/rag_${D}_subset_perq_<metric>.csv
+# (answer_f1 / answer_cover / answer_em / context_precision / faithfulness).
+#SBATCH --job-name=granite-rag-qa
 #SBATCH --account=coms039904
 #SBATCH --partition=gpu                 # 14-day cap; RAG loads the 8B generator
 #SBATCH --qos=normal
 #SBATCH --gres=gpu:rtx_3090:1           # 24GB, fits 8B bf16
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=64G
-#SBATCH --time=08:00:00
+#SBATCH --time=12:00:00                  # 2 datasets x 3 retrievers x 500 generations
 #SBATCH --output=logs/%x-%j.out
 
 set -euo pipefail
@@ -60,24 +58,23 @@ cd /user/work/$USER/IBM_Granite_Project
 
 python -c "import torch; print('CUDA available:', torch.cuda.is_available(), '| torch', torch.__version__)"
 
-# Subset size — scale up once the first run looks sane.
+# Subset size — scale MAX_DOCS up once sane (flat index OK to ~1M; 21M needs HNSW).
 MAX_QUERIES=500
-MAX_DOCS=500000
-OUT=results/rag_nq_subset.csv
-PERQ=results/rag_nq_subset_perq
-PRED=results/rag_nq_subset_pred
+MAX_DOCS=1000000
 
-# Fresh aggregate table each job: --append below accumulates the 3 retrievers
-# within THIS run, so remove a stale file first or re-running piles up dup rows.
-rm -f "$OUT"
-
-# Same corpus, three retrievers:
-#   --append          -> aggregate table (one row per retriever) in $OUT
-#   --per-query-out   -> <PERQ>_<metric>.csv (qid x retriever) for eval.significance
-#   --predictions-out -> <PRED>_<retriever>.jsonl (question/gold/answer) to eyeball
-for R in granite_dense gte_dense bm25; do
-    echo "===== RAG retriever: $R ====="
-    python -m eval.run_rag --dataset nq --retriever "$R" \
-        --max-queries "$MAX_QUERIES" --max-docs "$MAX_DOCS" \
-        --out "$OUT" --append --per-query-out "$PERQ" --predictions-out "$PRED"
+# Two QA sets (generalisation) x three retrievers, on the shared dpr-w100 corpus.
+# Per dataset: aggregate table ($OUT, rm'd first so re-runs don't pile up rows) +
+# merged per-query CSVs (--per-query-out, for eval.significance) + prediction
+# dumps (--predictions-out, to eyeball what the model actually answered).
+for D in nq trivia; do
+    OUT=results/rag_${D}_subset.csv
+    PERQ=results/rag_${D}_subset_perq
+    PRED=results/rag_${D}_subset_pred
+    rm -f "$OUT"
+    for R in granite_dense gte_dense bm25; do
+        echo "===== RAG dataset=$D retriever=$R ====="
+        python -m eval.run_rag --dataset "$D" --retriever "$R" \
+            --max-queries "$MAX_QUERIES" --max-docs "$MAX_DOCS" \
+            --out "$OUT" --append --per-query-out "$PERQ" --predictions-out "$PRED"
+    done
 done

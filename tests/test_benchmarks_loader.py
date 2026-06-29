@@ -86,6 +86,41 @@ class TestNQWithAnswers:
         assert result.answers is None
 
 
+# TriviaQA — second answer-bearing QA set; reuses the SAME dpr-w100 corpus as NQ.
+class TestTriviaQA:
+
+    @patch("eval.benchmarks.loader.ir_datasets")
+    def test_trivia_loads_from_dpr_and_keeps_all_aliases(self, mock_ir):
+        ds = _make_mock_dataset(
+            docs=[MockDoc("d1", "Mark Twain wrote it.")],
+            queries=[MockAnswer("q1", "who wrote it?", ("Mark Twain", "Samuel Clemens"))],
+            qrels=[MockQrel("q1", "d1", 1)],
+        )
+
+        def side_effect(dataset_id):
+            if dataset_id == "dpr-w100/trivia-qa/dev":
+                return ds
+            raise KeyError(dataset_id)
+
+        mock_ir.load.side_effect = side_effect
+
+        result = load_benchmark("trivia")
+        assert result.answers == {"q1": ["Mark Twain", "Samuel Clemens"]}
+        mock_ir.load.assert_called_once_with("dpr-w100/trivia-qa/dev")
+
+    @patch("eval.benchmarks.loader.ir_datasets")
+    def test_triviaqa_alias_resolves_to_same_id(self, mock_ir):
+        ds = _make_mock_dataset(
+            docs=[MockDoc("d1", "x")],
+            queries=[MockAnswer("q1", "q?", ("A",))],
+            qrels=[MockQrel("q1", "d1", 1)],
+        )
+        mock_ir.load.return_value = ds
+
+        load_benchmark("triviaqa")
+        mock_ir.load.assert_called_once_with("dpr-w100/trivia-qa/dev")
+
+
 # Subsampling (so a 21M-passage set like NQ can be run on a small subset first)
 class TestSubsampling:
 

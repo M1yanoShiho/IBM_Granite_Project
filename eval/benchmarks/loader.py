@@ -52,6 +52,16 @@ class BenchmarkData:
     answers: Optional[Dict[str, List[str]]] = None
 
 
+# Answer-bearing QA benchmarks served from the DPR Wikipedia split (dpr-w100):
+# they all share the SAME ~21M-passage corpus, so adding one is nearly free once
+# the corpus is cached. Maps our short names to the ir_datasets ids.
+_DPR_QA_DATASETS = {
+    "nq": "dpr-w100/natural-questions/dev",
+    "trivia": "dpr-w100/trivia-qa/dev",
+    "triviaqa": "dpr-w100/trivia-qa/dev",
+}
+
+
 def load_benchmark(
     name: str,
     split: str = "test",
@@ -63,8 +73,8 @@ def load_benchmark(
     Parameters
     ----------
     name:
-        One of e.g. ``"scifact"``, ``"nq"``, ``"msmarco"`` (BEIR dataset names)
-        or another supported benchmark identifier.
+        One of e.g. ``"scifact"``, ``"msmarco"`` (a BEIR dataset name) or a
+        dpr-w100 QA set ``"nq"`` / ``"trivia"`` (see ``_DPR_QA_DATASETS``).
     split:
         Dataset split to load (e.g. ``"test"``).
     max_queries:
@@ -77,8 +87,8 @@ def load_benchmark(
         stays valid. ``None`` = keep the whole corpus (only feasible for small
         datasets).
     """
-    if name == "nq":
-        dataset = ir_datasets.load("dpr-w100/natural-questions/dev")
+    if name in _DPR_QA_DATASETS:
+        dataset = ir_datasets.load(_DPR_QA_DATASETS[name])
     else:
         # support multi dataset under beir
         dataset_id = f"beir/{name}/{split}"
