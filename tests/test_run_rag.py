@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import json
 import tempfile
 from pathlib import Path
 
@@ -40,6 +41,7 @@ def test_run_returns_metric_suite():
     assert set(metrics) == {
         "answer_em",
         "answer_f1",
+        "answer_cover",
         "context_precision",
         "faithfulness",
     }
@@ -112,6 +114,23 @@ def test_per_query_out_merges_retriever_columns():
     assert rows[0] == ["qid", "granite_dense", "bm25"]
     assert rows[1][0] == "q1"
     assert len(rows) == 2  # header + one query
+
+
+def test_predictions_out_dumps_jsonl():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        out = Path(tmpdir) / "rag.csv"
+        pred = Path(tmpdir) / "pred"
+        run(
+            RAGEvalConfig(retriever="granite_dense", results_path=out, predictions_out=pred),
+            data=_make_data(), retriever=FakeRetriever(), llm=FakeLLM(),
+        )
+        f = Path(tmpdir) / "pred_granite_dense.jsonl"
+        assert f.exists()
+        rec = json.loads(f.read_text(encoding="utf-8").splitlines()[0])
+    assert rec["qid"] == "q1"
+    assert rec["prediction"] == "Paris"
+    assert rec["gold"] == ["Paris"]
+    assert "capital of France" in rec["question"]
 
 
 def test_no_append_overwrites():

@@ -21,6 +21,7 @@ from eval.rag_metrics import (
     evaluate_rag,
     normalize_answer,
     score_answer_correctness,
+    score_answer_cover,
     score_context_precision,
     score_faithfulness,
     score_rag_per_query,
@@ -102,6 +103,33 @@ class TestAnswerCorrectness:
 
 
 # ---------------------------------------------------------------------------
+# score_answer_cover  (cover-EM / answer-recall for generative QA)
+# ---------------------------------------------------------------------------
+class TestAnswerCover:
+    def test_verbose_correct_answer_is_covered(self) -> None:
+        # the exact case that tanks EM/F1 but is correct
+        assert score_answer_cover("The capital of France is Paris.", "Paris") == 1.0
+
+    def test_multi_token_gold_contiguous(self) -> None:
+        assert score_answer_cover("It was Barack Obama who won.", "Barack Obama") == 1.0
+
+    def test_token_substring_is_not_a_match(self) -> None:
+        # "cat" must not match "category" (token-level, not char-substring)
+        assert score_answer_cover("category theory", "cat") == 0.0
+
+    def test_absent_gold_is_zero(self) -> None:
+        assert score_answer_cover("London is the capital.", "Paris") == 0.0
+
+    def test_multi_gold_takes_best(self) -> None:
+        assert score_answer_cover("I'd say NYC.", ["New York City", "NYC"]) == 1.0
+
+    def test_empty(self) -> None:
+        assert score_answer_cover("", "") == 1.0
+        assert score_answer_cover("Paris", "") == 0.0
+        assert score_answer_cover("", "Paris") == 0.0
+
+
+# ---------------------------------------------------------------------------
 # score_context_precision  (qrels-based precision@k)
 # ---------------------------------------------------------------------------
 class TestContextPrecision:
@@ -176,6 +204,7 @@ class TestEvaluateRag:
         assert set(result) == {
             "answer_em",
             "answer_f1",
+            "answer_cover",
             "context_precision",
             "faithfulness",
         }
@@ -205,6 +234,7 @@ class TestEvaluateRag:
         assert result == {
             "answer_em": 0.0,
             "answer_f1": 0.0,
+            "answer_cover": 0.0,
             "context_precision": 0.0,
             "faithfulness": 0.0,
         }
@@ -214,6 +244,7 @@ class TestEvaluateRag:
         assert result == {
             "answer_em": 0.0,
             "answer_f1": 0.0,
+            "answer_cover": 0.0,
             "context_precision": 0.0,
             "faithfulness": 0.0,
         }
@@ -235,6 +266,7 @@ class TestPerQuery:
         assert set(per_q["q1"]) == {
             "answer_em",
             "answer_f1",
+            "answer_cover",
             "context_precision",
             "faithfulness",
         }

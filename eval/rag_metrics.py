@@ -108,6 +108,41 @@ def score_answer_correctness(
     return max(score_fn(prediction, ref) for ref in refs)
 
 
+def _cover_match(prediction: str, reference: str) -> float:
+    """1.0 if the normalised reference appears as a contiguous token span of the
+    normalised prediction."""
+    pred_tokens = normalize_answer(prediction).split()
+    ref_tokens = normalize_answer(reference).split()
+    if not ref_tokens:
+        return float(not pred_tokens)
+    if len(ref_tokens) > len(pred_tokens):
+        return 0.0
+    span = len(ref_tokens)
+    return float(
+        any(
+            pred_tokens[i : i + span] == ref_tokens
+            for i in range(len(pred_tokens) - span + 1)
+        )
+    )
+
+
+def score_answer_cover(prediction: str, references: References) -> float:
+    """Cover-EM / answer-recall: 1.0 if any gold answer is *contained* in the
+    prediction (as a contiguous token span, after SQuAD normalisation).
+
+    This is the de-facto metric for **generative** open-domain QA (DPR/RAG): a
+    correct answer phrased as a full sentence ("The capital is Paris.") scores 0
+    on Exact Match and low on token-F1 — both penalise verbosity — but should
+    count as correct. Token-level (not character-substring) containment avoids
+    false positives like "cat" matching "category". Returns the best over all
+    acceptable gold answers.
+    """
+    refs = _as_reference_list(references)
+    if not refs:
+        return 0.0
+    return max(_cover_match(prediction, ref) for ref in refs)
+
+
 def score_context_precision(
     retrieved_doc_ids: Sequence[str],
     relevant_doc_ids: Union[Iterable[str], Mapping[str, int]],
@@ -175,7 +210,13 @@ def score_faithfulness(answer: str, context: str) -> float:
     return covered / len(answer_tokens)
 
 
-METRIC_NAMES = ("answer_em", "answer_f1", "context_precision", "faithfulness")
+METRIC_NAMES = (
+    "answer_em",
+    "answer_f1",
+    "answer_cover",
+    "context_precision",
+    "faithfulness",
+)
 
 
 def score_rag_per_query(
@@ -198,6 +239,7 @@ def score_rag_per_query(
         per_query[qid] = {
             "answer_em": score_answer_correctness(pred, ref, fuzzy=False),
             "answer_f1": score_answer_correctness(pred, ref, fuzzy=True),
+            "answer_cover": score_answer_cover(pred, ref),
             "context_precision": score_context_precision(
                 retrieved_doc_ids.get(qid, []), qrels.get(qid, {})
             ),

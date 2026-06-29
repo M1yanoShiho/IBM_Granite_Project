@@ -65,13 +65,19 @@ MAX_QUERIES=500
 MAX_DOCS=500000
 OUT=results/rag_nq_subset.csv
 PERQ=results/rag_nq_subset_perq
+PRED=results/rag_nq_subset_pred
 
-# Same corpus, three retrievers, one aggregate table + merged per-query CSVs.
-# --append accumulates the aggregate rows; --per-query-out merges each retriever's
-# column into <PERQ>_<metric>.csv for the paired significance test.
+# Fresh aggregate table each job: --append below accumulates the 3 retrievers
+# within THIS run, so remove a stale file first or re-running piles up dup rows.
+rm -f "$OUT"
+
+# Same corpus, three retrievers:
+#   --append          -> aggregate table (one row per retriever) in $OUT
+#   --per-query-out   -> <PERQ>_<metric>.csv (qid x retriever) for eval.significance
+#   --predictions-out -> <PRED>_<retriever>.jsonl (question/gold/answer) to eyeball
 for R in granite_dense gte_dense bm25; do
     echo "===== RAG retriever: $R ====="
     python -m eval.run_rag --dataset nq --retriever "$R" \
         --max-queries "$MAX_QUERIES" --max-docs "$MAX_DOCS" \
-        --out "$OUT" --append --per-query-out "$PERQ"
+        --out "$OUT" --append --per-query-out "$PERQ" --predictions-out "$PRED"
 done

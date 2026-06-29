@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import json
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -80,6 +81,7 @@ class RAGEvalConfig:
     max_queries: Optional[int] = None
     max_docs: Optional[int] = None
     per_query_out: Optional[Path] = None
+    predictions_out: Optional[Path] = None
 
 
 def run(
@@ -141,6 +143,10 @@ def run(
             predictions, references, contexts, retrieved_doc_ids, data.qrels
         )
         _write_per_query(config.per_query_out, config.retriever, per_query)
+    if config.predictions_out is not None:
+        _write_predictions(
+            config.predictions_out, config.retriever, data.queries, predictions, references
+        )
     return metrics
 
 
@@ -190,6 +196,34 @@ def _write_per_query(
                 writer.writerow([qid] + [table[qid].get(col, "") for col in columns])
 
 
+def _write_predictions(
+    prefix: Path,
+    retriever: str,
+    questions: Dict[str, str],
+    predictions: Dict[str, str],
+    references: Dict[str, object],
+) -> None:
+    """Dump per-question (question, gold, generated answer) as JSONL for eyeballing.
+
+    Writes ``<prefix>_<retriever>.jsonl`` — one record per answered question — so
+    you can see *what the model actually said* vs the gold (e.g. confirm that a low
+    EM/F1 is verbosity rather than wrong answers). JSONL, not CSV, because answers
+    contain commas and newlines.
+    """
+    stem = prefix.with_suffix("")
+    path = stem.with_name(f"{stem.name}_{retriever}.jsonl")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        for qid, prediction in predictions.items():
+            record = {
+                "qid": qid,
+                "question": questions.get(qid, ""),
+                "gold": references.get(qid),
+                "prediction": prediction,
+            }
+            f.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+
 def _parse_args(argv: Optional[List[str]] = None) -> RAGEvalConfig:
     """Parse command-line arguments into a :class:`RAGEvalConfig`.
 
@@ -227,6 +261,10 @@ def _parse_args(argv: Optional[List[str]] = None) -> RAGEvalConfig:
                         help="Also write per-query scores as <prefix>_<metric>.csv "
                         "(qid x retriever), merged across retriever runs, for "
                         "eval.significance. Default: off.")
+    parser.add_argument("--predictions-out", type=Path, default=defaults.predictions_out,
+                        dest="predictions_out",
+                        help="Also dump per-question question/gold/prediction JSONL to "
+                        "<prefix>_<retriever>.jsonl for inspection. Default: off.")
     args = parser.parse_args(argv)
     return RAGEvalConfig(
         dataset=args.dataset,
@@ -237,6 +275,7 @@ def _parse_args(argv: Optional[List[str]] = None) -> RAGEvalConfig:
         max_queries=args.max_queries,
         max_docs=args.max_docs,
         per_query_out=args.per_query_out,
+        predictions_out=args.predictions_out,
     )
 
 
