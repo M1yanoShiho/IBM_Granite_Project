@@ -5,10 +5,13 @@ NIAH-specific scoring:
 - **Accuracy** — did the model retrieve the injected needle (exact / fuzzy /
   LLM-judged match against the ground-truth answer)?
 
-The RAG answer-quality metrics (**context precision**, **faithfulness**) now
-live in ``eval/rag_metrics.py`` — the single source of truth shared by the
-primary RAG evaluation and this NIAH diagnostic. They are re-exported below so
-existing ``from eval.metrics import score_context_precision`` imports keep working.
+The RAG context/faithfulness metrics now live in ``eval/rag_metrics.py`` — the
+single source of truth shared by the primary RAG evaluation and this NIAH
+diagnostic. They are re-exported below so existing
+``from eval.metrics import score_context_precision`` imports keep working. Note
+their definitions are now the standard ones: ``score_context_precision`` is
+qrels-based precision@k (it takes retrieved doc ids + the relevant set), and
+``score_faithfulness`` is answer-token coverage of the context.
 
 Implementations are left as documented skeletons.
 """

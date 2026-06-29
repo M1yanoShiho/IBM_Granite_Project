@@ -1,9 +1,16 @@
 """Tests for RAG answer-quality metrics (``eval/rag_metrics``).
 
-All tests use deterministic, heuristic scoring — no model download, no GPU,
-no LLM-judge dependency.  The tests verify behaviour on clear-cut cases
-(perfect match, no match, partial overlap, empty inputs) so the heuristics
-are locked in and can be upgraded later with confidence.
+The metrics follow the established open-domain QA / IR conventions so the numbers
+are comparable to published work and not a bespoke heuristic:
+
+- **answer correctness** = SQuAD-style normalised Exact Match + token-F1, taking
+  the best score over all acceptable gold answers (NQ-style multi-answer).
+- **context precision** = qrels-based precision@k of the retrieved documents
+  (fraction of the supplied chunks whose document is gold-relevant).
+- **faithfulness** = fraction of the answer's content tokens grounded in the
+  retrieved context (a model-free proxy).
+
+All tests are deterministic — no model download, no GPU, no LLM judge.
 """
 
 from __future__ import annotations
@@ -12,6 +19,7 @@ import pytest
 
 from eval.rag_metrics import (
     evaluate_rag,
+    normalize_answer,
     score_answer_correctness,
     score_context_precision,
     score_faithfulness,
@@ -19,46 +27,69 @@ from eval.rag_metrics import (
 
 
 # ---------------------------------------------------------------------------
-# score_answer_correctness
+# normalize_answer (SQuAD canonical normalisation)
+# ---------------------------------------------------------------------------
+class TestNormalizeAnswer:
+    def test_lowercases_and_trims(self) -> None:
+        assert normalize_answer("  PARIS ") == "paris"
+
+    def test_strips_punctuation(self) -> None:
+        assert normalize_answer("Paris, France!") == "paris france"
+
+    def test_removes_articles(self) -> None:
+        assert normalize_answer("the United States") == "united states"
+
+    def test_keeps_accented_letters(self) -> None:
+        # [a-z0-9]+ would have dropped the accent and split the token; SQuAD
+        # normalisation keeps unicode letters.
+        assert normalize_answer("Beyoncé") == "beyoncé"
+
+
+# ---------------------------------------------------------------------------
+# score_answer_correctness  (fuzzy=False -> EM, fuzzy=True -> token-F1)
 # ---------------------------------------------------------------------------
 class TestAnswerCorrectness:
-    """Tests for ``score_answer_correctness``."""
-
     def test_exact_match_identical(self) -> None:
         assert score_answer_correctness("Paris", "Paris", fuzzy=False) == 1.0
 
-    def test_exact_match_case_insensitive(self) -> None:
-        assert score_answer_correctness("paris", "Paris", fuzzy=False) == 1.0
+    def test_exact_match_case_and_punctuation_insensitive(self) -> None:
+        assert score_answer_correctness("paris.", "Paris", fuzzy=False) == 1.0
+
+    def test_exact_match_article_insensitive(self) -> None:
+        assert score_answer_correctness("the Louvre", "Louvre", fuzzy=False) == 1.0
 
     def test_exact_match_no_match(self) -> None:
         assert score_answer_correctness("Paris", "London", fuzzy=False) == 0.0
 
-    def test_exact_match_whitespace_insensitive(self) -> None:
-        assert score_answer_correctness("  Paris  ", "Paris", fuzzy=False) == 1.0
-
-    def test_fuzzy_substring_containment(self) -> None:
-        # reference is fully contained in prediction
+    def test_multiple_gold_answers_takes_best(self) -> None:
+        # NQ-style: any acceptable alias counts.
         assert (
-            score_answer_correctness(
-                "The capital of France is Paris.", "Paris", fuzzy=True
-            )
+            score_answer_correctness("NYC", ["New York City", "NYC"], fuzzy=False)
             == 1.0
         )
 
-    def test_fuzzy_partial_overlap(self) -> None:
+    def test_f1_partial_overlap(self) -> None:
         score = score_answer_correctness(
             "The capital of France is Paris",
             "The capital of Italy is Rome",
             fuzzy=True,
         )
-        # Partial token overlap (shared "the capital of is")
         assert 0.0 < score < 1.0
 
-    def test_fuzzy_no_overlap(self) -> None:
-        # "Paris" and "elephant" share essentially no content — any fuzzy
-        # score from character-level similarity should be negligible.
-        score = score_answer_correctness("Paris", "elephant", fuzzy=True)
-        assert score < 0.2
+    def test_f1_no_overlap_is_zero(self) -> None:
+        assert score_answer_correctness("Paris", "elephant", fuzzy=True) == 0.0
+
+    def test_verbose_correct_answer_is_not_a_false_full_match(self) -> None:
+        # A verbose answer that merely *contains* the gold string must NOT score
+        # 1.0 (the old substring rule did); F1 gives partial credit instead.
+        score = score_answer_correctness(
+            "The capital of France is Paris.", "Paris", fuzzy=True
+        )
+        assert 0.0 < score < 1.0
+
+    def test_substring_token_is_not_a_false_match(self) -> None:
+        # "cat" must not match "category" (character-substring false positive).
+        assert score_answer_correctness("category", "cat", fuzzy=True) == 0.0
 
     def test_both_empty(self) -> None:
         assert score_answer_correctness("", "", fuzzy=False) == 1.0
@@ -70,61 +101,35 @@ class TestAnswerCorrectness:
 
 
 # ---------------------------------------------------------------------------
-# score_context_precision
+# score_context_precision  (qrels-based precision@k)
 # ---------------------------------------------------------------------------
 class TestContextPrecision:
-    """Tests for ``score_context_precision``."""
+    def test_all_retrieved_docs_relevant(self) -> None:
+        assert score_context_precision(["d1", "d2"], {"d1", "d2"}) == 1.0
 
-    def test_all_chunks_relevant(self) -> None:
-        chunks = [
-            "Paris is the capital of France.",
-            "France is a country in Europe.",
-        ]
-        question = "What is the capital of France?"
-        ground_truth = "Paris"
-        assert score_context_precision(question, chunks, ground_truth) == 1.0
+    def test_half_relevant(self) -> None:
+        assert score_context_precision(["d1", "d2"], {"d1"}) == 0.5
 
-    def test_no_chunks_relevant(self) -> None:
-        chunks = [
-            "Elephants are large mammals.",
-            "Bananas grow on trees.",
-        ]
-        question = "What is the capital of France?"
-        ground_truth = "Paris"
-        score = score_context_precision(question, chunks, ground_truth)
-        # "bananas" vs query — pure stop-word chunks could give a false positive
-        # so we allow a tiny score at most; the point is it's well below 1.0
-        assert score < 0.5
+    def test_none_relevant(self) -> None:
+        assert score_context_precision(["d1", "d2"], {"d9"}) == 0.0
 
-    def test_partial_relevance(self) -> None:
-        chunks = [
-            "Paris is the capital of France.",
-            "Elephants are large mammals.",
-        ]
-        question = "What is the capital of France?"
-        ground_truth = "Paris"
-        assert score_context_precision(question, chunks, ground_truth) == 0.5
+    def test_empty_retrieved(self) -> None:
+        assert score_context_precision([], {"d1"}) == 0.0
 
-    def test_empty_chunks(self) -> None:
-        assert (
-            score_context_precision("What is the capital?", [], "Paris") == 0.0
-        )
+    def test_duplicate_docs_counted_once(self) -> None:
+        # two chunks from the same relevant doc + one irrelevant doc -> 1/2.
+        assert score_context_precision(["d1", "d1", "d2"], {"d1"}) == 0.5
 
-    def test_relevance_via_ground_truth_token(self) -> None:
-        # A chunk that shares a token with the *ground truth* but not the
-        # question should still be counted as relevant.
-        chunks = ["The Louvre is in Paris."]
-        question = "Where is the Louvre?"
-        ground_truth = "Paris"
-        assert score_context_precision(question, chunks, ground_truth) == 1.0
+    def test_accepts_qrels_dict_relevance_map(self) -> None:
+        # convenience: a {doc_id: relevance} mapping is treated as the relevant
+        # set (relevance > 0).
+        assert score_context_precision(["d1", "d2"], {"d1": 1, "d2": 0}) == 0.5
 
 
 # ---------------------------------------------------------------------------
-# score_faithfulness
+# score_faithfulness  (token coverage of the answer by the context)
 # ---------------------------------------------------------------------------
 class TestFaithfulness:
-    """Tests for ``score_faithfulness``."""
-
     def test_fully_grounded(self) -> None:
         context = "Paris is the capital of France. It is a major European city."
         answer = "Paris is the capital of France."
@@ -133,90 +138,81 @@ class TestFaithfulness:
     def test_fully_hallucinated(self) -> None:
         context = "Paris is the capital of France."
         answer = "Elephants eat bananas in the jungle."
-        score = score_faithfulness(answer, context)
-        # None of the answer's content words exist in context
-        assert score == 0.0
+        assert score_faithfulness(answer, context) == 0.0
 
     def test_partially_grounded(self) -> None:
         context = "Paris is the capital of France. France is a country in Europe."
         answer = "Paris is the capital but elephants fly there."
-        score = score_faithfulness(answer, context)
-        # "Paris" and "capital" are grounded; "elephants", "fly" are not
-        assert 0.2 < score < 0.8
+        assert 0.2 < score_faithfulness(answer, context) < 0.8
 
-    def test_empty_answer(self) -> None:
+    def test_empty_answer_is_trivially_faithful(self) -> None:
         assert score_faithfulness("", "Paris is the capital of France.") == 1.0
 
-    def test_empty_context(self) -> None:
+    def test_empty_context_is_unfaithful(self) -> None:
         assert score_faithfulness("Paris is the capital.", "") == 0.0
-
-    def test_both_empty(self) -> None:
-        assert score_faithfulness("", "") == 1.0
 
 
 # ---------------------------------------------------------------------------
 # evaluate_rag
 # ---------------------------------------------------------------------------
 class TestEvaluateRag:
-    """Tests for the ``evaluate_rag`` aggregation function."""
-
-    def test_aggregates_mean_over_two_queries(self) -> None:
+    def _inputs(self):
         predictions = {
             "q1": "Paris is the capital of France.",
             "q2": "London is the capital of England.",
         }
-        references = {
-            "q1": "Paris",
-            "q2": "London",
-        }
+        references = {"q1": "Paris", "q2": "London"}
         contexts = {
-            "q1": [
-                "Paris is the capital of France.",
-                "France is in Europe.",
-            ],
-            "q2": [
-                "London is a major city in England.",
-                "Elephants are large.",
-            ],
+            "q1": ["Paris is the capital of France.", "France is in Europe."],
+            "q2": ["London is a major city in England.", "Elephants are large."],
         }
+        retrieved_doc_ids = {"q1": ["d1", "d2"], "q2": ["d3", "d4"]}
+        qrels = {"q1": {"d1": 1}, "q2": {"d3": 1}}
+        return predictions, references, contexts, retrieved_doc_ids, qrels
 
-        result = evaluate_rag(predictions, references, contexts)
-
-        assert set(result) == {"answer_correctness", "context_precision", "faithfulness"}
+    def test_returns_standard_metric_keys(self) -> None:
+        result = evaluate_rag(*self._inputs())
+        assert set(result) == {
+            "answer_em",
+            "answer_f1",
+            "context_precision",
+            "faithfulness",
+        }
         for v in result.values():
             assert 0.0 <= v <= 1.0
-        # correctness should be high (answers contain references)
-        assert result["answer_correctness"] > 0.5
+
+    def test_context_precision_uses_qrels(self) -> None:
+        # each query retrieved one relevant + one irrelevant doc -> 0.5.
+        result = evaluate_rag(*self._inputs())
+        assert result["context_precision"] == pytest.approx(0.5)
+
+    def test_perfect_em_when_predictions_equal_normalized_gold(self) -> None:
+        predictions = {"q1": "Paris."}
+        references = {"q1": "paris"}
+        contexts = {"q1": ["Paris is the capital of France."]}
+        retrieved_doc_ids = {"q1": ["d1"]}
+        qrels = {"q1": {"d1": 1}}
+        result = evaluate_rag(
+            predictions, references, contexts, retrieved_doc_ids, qrels
+        )
+        assert result["answer_em"] == 1.0
+        assert result["answer_f1"] == 1.0
+        assert result["context_precision"] == 1.0
 
     def test_no_overlapping_ids_returns_zero(self) -> None:
-        result = evaluate_rag(
-            {"q1": "a"}, {"q2": "b"}, {"q3": ["c"]}
-        )
+        result = evaluate_rag({"q1": "a"}, {"q2": "b"}, {}, {}, {})
         assert result == {
-            "answer_correctness": 0.0,
+            "answer_em": 0.0,
+            "answer_f1": 0.0,
             "context_precision": 0.0,
             "faithfulness": 0.0,
         }
 
     def test_empty_inputs(self) -> None:
-        result = evaluate_rag({}, {}, {})
+        result = evaluate_rag({}, {}, {}, {}, {})
         assert result == {
-            "answer_correctness": 0.0,
+            "answer_em": 0.0,
+            "answer_f1": 0.0,
             "context_precision": 0.0,
             "faithfulness": 0.0,
         }
-
-    def test_perfect_scores_when_all_answers_are_from_context(self) -> None:
-        predictions = {
-            "q1": "Paris is the capital.",
-        }
-        references = {
-            "q1": "Paris is the capital.",
-        }
-        contexts = {
-            "q1": ["Paris is the capital of France."],
-        }
-        result = evaluate_rag(predictions, references, contexts)
-        assert result["answer_correctness"] == pytest.approx(1.0)
-        assert result["context_precision"] == pytest.approx(1.0)
-        assert result["faithfulness"] == pytest.approx(1.0)

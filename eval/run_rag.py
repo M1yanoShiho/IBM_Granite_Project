@@ -12,18 +12,17 @@ runner scores the full RAG system on a QA benchmark:
    the retrieval benchmark.
 3. For each query, run the :class:`~src.rag_pipeline.RAGPipeline` (the delivered
    retriever + the Granite generative model).
-4. Score answers with ``eval.rag_metrics`` (answer correctness, context
-   precision, faithfulness).
+4. Score answers with ``eval.rag_metrics`` (Exact Match, token-F1, qrels-based
+   context precision, faithfulness).
 5. Save a results table for the report.
 
 Run from the project root:
 
     python -m eval.run_rag --dataset nq
-
-The implementation is left as a documented skeleton.
 """
 
 from __future__ import annotations
+
 import csv
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -34,6 +33,7 @@ from eval.rag_metrics import evaluate_rag
 from src.llm_client import LLMClient
 from src.rag_pipeline import RAGPipeline
 from src.retrieval.base import Retriever
+
 
 @dataclass
 class RAGEvalConfig:
@@ -52,15 +52,25 @@ class RAGEvalConfig:
         Which answer-quality metrics to report.
     results_path:
         Where to write the results table (CSV).
+    append:
+        When ``True`` and ``results_path`` already exists, append this run's row
+        under the existing header instead of overwriting — so comparing several
+        retrievers accumulates one table rather than clobbering the previous run.
     """
 
     dataset: str = "nq"
     retriever: str = "granite_dense"
     top_k: int = 4
     metrics: List[str] = field(
-        default_factory=lambda: ["answer_correctness", "context_precision", "faithfulness"]
+        default_factory=lambda: [
+            "answer_em",
+            "answer_f1",
+            "context_precision",
+            "faithfulness",
+        ]
     )
     results_path: Path = Path("results/rag_results.csv")
+    append: bool = False
 
 
 def run(
@@ -86,14 +96,18 @@ def run(
 
     if retriever is None:
         from eval.run_benchmark import BenchmarkConfig, _build_retrievers
-        bench_cfg = BenchmarkConfig(dataset=config.dataset, retrievers=[config.retriever])
+
+        bench_cfg = BenchmarkConfig(
+            dataset=config.dataset, retrievers=[config.retriever]
+        )
         retriever = _build_retrievers(bench_cfg, data)[config.retriever]
 
     pipeline = RAGPipeline(retriever=retriever, llm=llm, top_k=config.top_k)
 
     predictions: Dict[str, str] = {}
-    references: Dict[str, str] = {}
+    references: Dict[str, List[str]] = {}
     contexts: Dict[str, List[str]] = {}
+    retrieved_doc_ids: Dict[str, List[str]] = {}
 
     for qid, question in data.queries.items():
         if qid not in data.answers:
@@ -102,15 +116,25 @@ def run(
         predictions[qid] = result.answer
         references[qid] = data.answers[qid]
         contexts[qid] = [chunk.text for chunk in result.retrieved_chunks]
+        retrieved_doc_ids[qid] = [chunk.doc_id for chunk in result.retrieved_chunks]
 
-    metrics = evaluate_rag(predictions, references, contexts)
+    metrics = evaluate_rag(
+        predictions, references, contexts, retrieved_doc_ids, data.qrels
+    )
 
-    with open(config.results_path, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=["retriever", *metrics.keys()])
-        writer.writeheader()
-        writer.writerow({"retriever": config.retriever, **metrics})
-
+    _write_results(config, metrics)
     return metrics
+
+
+def _write_results(config: RAGEvalConfig, metrics: Dict[str, float]) -> None:
+    """Write one ``retriever``-tagged row of metrics, honouring ``append``."""
+    fieldnames = ["retriever", *metrics.keys()]
+    appending = config.append and config.results_path.exists()
+    with open(config.results_path, "a" if appending else "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        if not appending:
+            writer.writeheader()
+        writer.writerow({"retriever": config.retriever, **metrics})
 
 
 def main() -> None:

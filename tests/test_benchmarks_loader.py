@@ -41,13 +41,15 @@ class TestNQWithAnswers:
 
         result = load_benchmark("nq")
 
-        assert result.answers == {"q1": "Paris"}
+        assert result.answers == {"q1": ["Paris"]}
         assert result.corpus == {"d1": "Paris is the capital of France."}
         assert result.qrels == {"q1": {"d1": 1}}
         mock_ir.load.assert_called_once_with("dpr-w100/natural-questions/dev")
 
     @patch("eval.benchmarks.loader.ir_datasets")
-    def test_nq_takes_first_of_multiple_gold_answers(self, mock_ir):
+    def test_nq_keeps_all_gold_answers(self, mock_ir):
+        # NQ questions have several acceptable aliases; all are kept so the
+        # answer-correctness metric can score against the best match.
         dpr_nq = _make_mock_dataset(
             docs=[MockDoc("d1", "...")],
             queries=[MockAnswer("q1", "q?", ("NYC", "New York City"))],
@@ -62,7 +64,7 @@ class TestNQWithAnswers:
         mock_ir.load.side_effect = side_effect
 
         result = load_benchmark("nq")
-        assert result.answers == {"q1": "NYC"}
+        assert result.answers == {"q1": ["NYC", "New York City"]}
 
     @patch("eval.benchmarks.loader.ir_datasets")
     def test_non_nq_dataset_has_no_answers(self, mock_ir):

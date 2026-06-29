@@ -19,7 +19,7 @@ way, against the same ground truth.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 import ir_datasets
 
@@ -38,16 +38,18 @@ class BenchmarkData:
         ``{query_id: {doc_id: relevance}}`` — human relevance judgments
         (drives the retrieval metrics).
     answers:
-        ``{query_id: gold_answer}`` — optional free-text answers, present only
-        for answer-bearing QA benchmarks (e.g. NQ, MS MARCO QA). Required for the
-        RAG evaluation (``eval/run_rag.py``); retrieval-only sets like SciFact
+        ``{query_id: [gold_answer, ...]}`` — optional free-text answers, present
+        only for answer-bearing QA benchmarks (e.g. NQ, MS MARCO QA). A query may
+        have several acceptable golds (NQ aliases), so this is a *list* per query;
+        the answer-correctness metric scores against the best match. Required for
+        the RAG evaluation (``eval/run_rag.py``); retrieval-only sets like SciFact
         leave this ``None``. See meeting question Q5.
     """
 
     corpus: Dict[str, str]
     queries: Dict[str, str]
     qrels: Dict[str, Dict[str, int]]
-    answers: Optional[Dict[str, str]] = None
+    answers: Optional[Dict[str, List[str]]] = None
 
 
 def load_benchmark(name: str, split: str = "test") -> BenchmarkData:
@@ -76,12 +78,14 @@ def load_benchmark(name: str, split: str = "test") -> BenchmarkData:
         corpus[doc.doc_id] = doc.text
 
     queries: Dict[str, str] = {}
-    answers: Dict[str, str] = {}
+    answers: Dict[str, List[str]] = {}
     for query in dataset.queries_iter():
         queries[query.query_id] = query.text
         gold = getattr(query, "answers", None)
         if gold:
-            answers[query.query_id] = gold[0]
+            # Keep every acceptable gold (NQ aliases), not just the first, so
+            # answer-correctness can score against the best match.
+            answers[query.query_id] = list(gold)
 
     qrels: Dict[str, Dict[str, int]] = {}
     for qrel in dataset.qrels_iter():

@@ -1,282 +1,239 @@
 """Answer-quality metrics for the RAG evaluation (primary, A+B headline).
 
 Where ``eval/ir_metrics.py`` scores the *retrieval* layer against qrels, this
-module scores the *generation* layer of the retrieve-then-generate system:
+module scores the *generation* layer of the retrieve-then-generate system. The
+definitions follow the established open-domain QA / IR conventions so the numbers
+are comparable to published work rather than a bespoke heuristic:
 
-- **Answer correctness** — does the generated answer match the reference answer
-  (exact / fuzzy matching)?
-- **Context precision** — of the chunks supplied to the model, how many were
-  actually relevant to answering the question?
-- **Faithfulness** — is the answer grounded in the retrieved context rather than
-  hallucinated?
+- **Answer correctness** — SQuAD-style normalised **Exact Match** and **token-F1**
+  (Rajpurkar et al., 2016), taking the best score over all acceptable gold
+  answers (so NQ-style multi-answer questions are scored fairly).
+- **Context precision** — **precision@k against qrels**: of the chunks supplied
+  to the model, the fraction whose document is judged relevant. This reuses the
+  same ground-truth relevance the retrieval benchmark uses, instead of a token
+  heuristic that saturates near 1.0.
+- **Faithfulness** — a model-free grounding proxy: the fraction of the answer's
+  content tokens that appear in the retrieved context.
 
-The current implementation uses heuristic, model-free scoring (token overlap and
-string matching) so it can run CPU-only without an LLM judge.  When the RAGAS
-dependency is repaired or a GPU becomes available for LLM-as-judge, these
-heuristics can be upgraded to the RAGAS equivalents without changing the public
-signatures.
-
-These metrics are shared: the long-context NIAH diagnostic (``eval/metrics.py``)
-re-exports ``score_context_precision`` / ``score_faithfulness`` from here so
-there is a single source of truth.
+The answer/faithfulness scores are model-free so they run CPU-only without an
+LLM judge; they can later be upgraded to an LLM-as-judge / NLI model without
+changing these signatures. ``score_faithfulness`` (and historically
+``score_context_precision``) are re-exported by the NIAH diagnostic
+(``eval/metrics.py``) so there is a single source of truth.
 """
 
 from __future__ import annotations
 
 import re
-from difflib import SequenceMatcher
-from typing import Dict, List
+import string
+from collections import Counter
+from typing import Dict, Iterable, List, Mapping, Sequence, Union
 
-# Stop words filtered out during token-overlap checks so short function words
-# ("the", "is", ...) don't inflate relevance scores.
-_STOP_WORDS: set[str] = {
-    "a", "an", "the", "is", "are", "was", "were", "be", "been", "being",
-    "have", "has", "had", "do", "does", "did", "will", "would", "could",
-    "should", "may", "might", "can", "shall", "to", "of", "in", "for",
-    "on", "with", "at", "by", "from", "as", "into", "through", "during",
-    "before", "after", "above", "below", "between", "and", "but", "or",
-    "nor", "not", "so", "yet", "both", "either", "neither", "each",
-    "every", "all", "any", "few", "more", "most", "some", "no", "only",
-    "other", "same", "than", "too", "very", "just", "about", "also",
-    "it", "its", "that", "this", "these", "those", "he", "she", "they",
-    "we", "you", "i", "me", "him", "her", "us", "them", "my", "your",
-    "his", "our", "their", "there",
-}
+from src.text_utils import tokenize
+
+# Type alias: an answer may have one or several acceptable gold strings.
+References = Union[str, Sequence[str]]
+
+_ARTICLES_RE = re.compile(r"\b(a|an|the)\b")
+_PUNCTUATION = set(string.punctuation)
 
 
-def _tokenize(text: str) -> List[str]:
-    """Lower-case, extract alphanumeric tokens, drop stop words."""
-    tokens: List[str] = re.findall(r"[a-z0-9]+", text.lower())
-    return [t for t in tokens if t not in _STOP_WORDS]
+def normalize_answer(text: str) -> str:
+    """SQuAD canonical answer normalisation.
+
+    Lower-cases, removes punctuation, drops the articles ``a/an/the``, and
+    collapses whitespace — the standard pre-processing for QA Exact Match / F1.
+    Unicode letters are preserved (so "Beyoncé" stays intact). Crucially it does
+    *not* strip a broad stop-word list: removing words like "no"/"not" would flip
+    an answer's meaning.
+    """
+    text = text.lower()
+    text = "".join(ch for ch in text if ch not in _PUNCTUATION)
+    text = _ARTICLES_RE.sub(" ", text)
+    return " ".join(text.split())
 
 
-def _jaccard(tokens_a: List[str], tokens_b: List[str]) -> float:
-    """Jaccard similarity between two token lists."""
-    set_a, set_b = set(tokens_a), set(tokens_b)
-    if not set_a and not set_b:
+def _as_reference_list(references: References) -> List[str]:
+    """Coerce a single gold string or a list of acceptable golds into a list."""
+    if isinstance(references, str):
+        return [references]
+    return list(references)
+
+
+def _exact_match(prediction: str, reference: str) -> float:
+    return float(normalize_answer(prediction) == normalize_answer(reference))
+
+
+def _token_f1(prediction: str, reference: str) -> float:
+    """SQuAD token-level F1 between a prediction and a single reference."""
+    pred_tokens = normalize_answer(prediction).split()
+    ref_tokens = normalize_answer(reference).split()
+    if not pred_tokens and not ref_tokens:
         return 1.0
-    intersection = set_a & set_b
-    union = set_a | set_b
-    return len(intersection) / len(union) if union else 0.0
-
-
-def _split_sentences(text: str) -> List[str]:
-    """Split *text* into sentences on ``. ! ?``, keeping non-empty parts."""
-    parts = re.split(r"[.!?]+", text)
-    return [s.strip() for s in parts if s.strip()]
+    if not pred_tokens or not ref_tokens:
+        return 0.0
+    overlap = sum((Counter(pred_tokens) & Counter(ref_tokens)).values())
+    if overlap == 0:
+        return 0.0
+    precision = overlap / len(pred_tokens)
+    recall = overlap / len(ref_tokens)
+    return 2 * precision * recall / (precision + recall)
 
 
 def score_answer_correctness(
-    prediction: str, reference: str, fuzzy: bool = True
+    prediction: str, references: References, fuzzy: bool = True
 ) -> float:
-    """Score whether ``prediction`` matches the reference answer.
+    """Score ``prediction`` against one or more acceptable gold answers.
 
     Parameters
     ----------
     prediction:
         The model's generated answer.
-    reference:
-        The gold answer from the QA benchmark.
+    references:
+        The gold answer, or a list of acceptable gold answers (NQ-style). The
+        best score over all golds is returned.
     fuzzy:
-        If ``True``, allow case-insensitive substring / fuzzy matching;
-        otherwise require an exact match.
+        ``True`` (default) returns the SQuAD **token-F1** (partial credit);
+        ``False`` returns strict **Exact Match** after normalisation.
 
     Returns
     -------
     float
         A score in ``[0.0, 1.0]``.
     """
-    pred = prediction.strip()
-    ref = reference.strip()
-
-    if not pred and not ref:
-        return 1.0
-    if not pred or not ref:
+    refs = _as_reference_list(references)
+    if not refs:
         return 0.0
-
-    # --- exact (case-insensitive) -------------------------------------------
-    if pred.lower() == ref.lower():
-        return 1.0
-
-    if not fuzzy:
-        return 0.0
-
-    # --- fuzzy --------------------------------------------------------------
-    pred_lower = pred.lower()
-    ref_lower = ref.lower()
-
-    # substring containment
-    if ref_lower in pred_lower or pred_lower in ref_lower:
-        return 1.0
-
-    # token-level Jaccard
-    pred_tokens = _tokenize(pred_lower)
-    ref_tokens = _tokenize(ref_lower)
-    token_score = _jaccard(pred_tokens, ref_tokens)
-
-    # character-level sequence similarity (robust to reordering / extra words)
-    char_score = SequenceMatcher(None, pred_lower, ref_lower).ratio()
-
-    # equally-weighted blend of token overlap and character similarity
-    return round((token_score + char_score) / 2.0, 6)
+    score_fn = _token_f1 if fuzzy else _exact_match
+    return max(score_fn(prediction, ref) for ref in refs)
 
 
 def score_context_precision(
-    question: str,
-    retrieved_chunks: List[str],
-    ground_truth: str,
+    retrieved_doc_ids: Sequence[str],
+    relevant_doc_ids: Union[Iterable[str], Mapping[str, int]],
 ) -> float:
-    """Estimate how much of the retrieved context was relevant.
-
-    A chunk is judged relevant when it shares at least one meaningful
-    (non-stop-word) token with the combined question + ground-truth query.
+    """Precision@k of the retrieved context against the gold relevance set.
 
     Parameters
     ----------
-    question:
-        The probe question.
-    retrieved_chunks:
-        Context chunks supplied to the model (ordered as presented).
-    ground_truth:
-        The expected answer.
+    retrieved_doc_ids:
+        Document ids of the chunks supplied to the model, in rank order.
+        Duplicate ids (several chunks from the same document) are counted once,
+        so the score is precision over *distinct retrieved documents*.
+    relevant_doc_ids:
+        The gold-relevant document ids. A ``{doc_id: relevance}`` mapping (a row
+        of the benchmark qrels) is also accepted — entries with relevance > 0 are
+        treated as relevant.
 
     Returns
     -------
     float
-        A precision score in ``[0.0, 1.0]`` — fraction of retrieved chunks
-        that are relevant.
+        ``relevant ∩ retrieved`` over ``retrieved`` in ``[0.0, 1.0]``; ``0.0``
+        when nothing was retrieved.
     """
-    if not retrieved_chunks:
+    if isinstance(relevant_doc_ids, Mapping):
+        relevant = {doc_id for doc_id, rel in relevant_doc_ids.items() if rel > 0}
+    else:
+        relevant = set(relevant_doc_ids)
+
+    distinct: List[str] = []
+    for doc_id in retrieved_doc_ids:
+        if doc_id not in distinct:
+            distinct.append(doc_id)
+    if not distinct:
         return 0.0
 
-    query_tokens = set(_tokenize(f"{question} {ground_truth}"))
-    if not query_tokens:
-        return 0.0
-
-    relevant = 0
-    for chunk in retrieved_chunks:
-        chunk_tokens = set(_tokenize(chunk))
-        if query_tokens & chunk_tokens:  # at least one shared token
-            relevant += 1
-
-    return round(relevant / len(retrieved_chunks), 6)
+    hits = sum(1 for doc_id in distinct if doc_id in relevant)
+    return hits / len(distinct)
 
 
-def score_faithfulness(
-    answer: str,
-    context: str,
-) -> float:
-    """Estimate how grounded ``answer`` is in ``context``.
+def score_faithfulness(answer: str, context: str) -> float:
+    """Fraction of the answer's content tokens that appear in the context.
 
-    Two signals are averaged:
-
-    1. **Token coverage** — fraction of answer tokens present in the context.
-    2. **Sentence support** — fraction of answer sentences whose tokens are at
-       least 50% covered by the context.
+    A model-free grounding proxy: higher means more of the answer is supported by
+    the retrieved context (less hallucination). An empty answer is trivially
+    faithful (``1.0`` — nothing to ground); a non-empty answer with empty context
+    is ``0.0``.
 
     Parameters
     ----------
     answer:
         The model's generated answer.
     context:
-        The context the answer should be grounded in.
-
-    Returns
-    -------
-    float
-        A faithfulness score in ``[0.0, 1.0]`` (higher = less hallucination).
+        The retrieved context the answer should be grounded in.
     """
-    answer_stripped = answer.strip()
-    if not answer_stripped:
-        return 1.0  # nothing to hallucinate
-
-    context_stripped = context.strip()
-    if not context_stripped:
-        return 0.0  # no grounding available
-
-    context_tokens = set(_tokenize(context_stripped))
-
-    # 1. token coverage -------------------------------------------------------
-    answer_tokens = _tokenize(answer_stripped)
-    if not answer_tokens:
+    if not answer.strip():
+        return 1.0
+    if not context.strip():
         return 0.0
-    token_covered = sum(1 for t in answer_tokens if t in context_tokens)
-    token_score = token_covered / len(answer_tokens)
 
-    # 2. sentence support -----------------------------------------------------
-    sentences = _split_sentences(answer_stripped)
-    if not sentences:
-        return token_score
-
-    supported = 0
-    for sent in sentences:
-        sent_tokens = [t for t in _tokenize(sent)]
-        if not sent_tokens:
-            supported += 1  # degenerate sentence: give the benefit of the doubt
-            continue
-        sent_covered = sum(1 for t in sent_tokens if t in context_tokens)
-        if sent_covered / len(sent_tokens) >= 0.5:
-            supported += 1
-    sentence_score = supported / len(sentences)
-
-    return round((token_score + sentence_score) / 2.0, 6)
+    answer_tokens = tokenize(answer)
+    if not answer_tokens:  # answer is all function words: no content to ground
+        return 1.0
+    context_tokens = set(tokenize(context))
+    covered = sum(1 for token in answer_tokens if token in context_tokens)
+    return covered / len(answer_tokens)
 
 
 def evaluate_rag(
     predictions: Dict[str, str],
-    references: Dict[str, str],
+    references: Dict[str, References],
     contexts: Dict[str, List[str]],
+    retrieved_doc_ids: Dict[str, Sequence[str]],
+    qrels: Dict[str, Mapping[str, int]],
 ) -> Dict[str, float]:
-    """Compute the full RAG metric suite over a set of answered questions.
+    """Compute the mean RAG metric suite over a set of answered questions.
 
     Parameters
     ----------
     predictions:
         ``{question_id: generated_answer}``.
     references:
-        ``{question_id: gold_answer}``.
+        ``{question_id: gold_answer | [gold_answers]}``.
     contexts:
-        ``{question_id: [chunk_text, ...]}`` — the context shown to the model,
-        for context-precision and faithfulness.
+        ``{question_id: [chunk_text, ...]}`` — the context text shown to the
+        model (for faithfulness).
+    retrieved_doc_ids:
+        ``{question_id: [doc_id, ...]}`` — the documents of the supplied chunks
+        (for qrels-based context precision).
+    qrels:
+        ``{question_id: {doc_id: relevance}}`` — the benchmark relevance
+        judgments (for context precision).
 
     Returns
     -------
     dict
-        ``{metric: mean_value}`` across all questions (answer correctness,
-        context precision, faithfulness).
+        ``{answer_em, answer_f1, context_precision, faithfulness}`` averaged over
+        every question present in both ``predictions`` and ``references``.
     """
-    ids = set(predictions) & set(references) & set(contexts)
+    zero = {
+        "answer_em": 0.0,
+        "answer_f1": 0.0,
+        "context_precision": 0.0,
+        "faithfulness": 0.0,
+    }
+    ids = set(predictions) & set(references)
     if not ids:
-        return {
-            "answer_correctness": 0.0,
-            "context_precision": 0.0,
-            "faithfulness": 0.0,
-        }
+        return zero
 
-    correctness_scores: List[float] = []
-    precision_scores: List[float] = []
-    faithfulness_scores: List[float] = []
-
+    em: List[float] = []
+    f1: List[float] = []
+    precision: List[float] = []
+    faithfulness: List[float] = []
     for qid in ids:
         pred = predictions[qid]
         ref = references[qid]
-        chunks = contexts[qid]
-
-        correctness_scores.append(score_answer_correctness(pred, ref, fuzzy=True))
-        precision_scores.append(score_context_precision(qid, chunks, ref))
-        # faithfulness uses the concatenated context as the grounding source
-        faithfulness_scores.append(
-            score_faithfulness(pred, "\n".join(chunks))
+        em.append(score_answer_correctness(pred, ref, fuzzy=False))
+        f1.append(score_answer_correctness(pred, ref, fuzzy=True))
+        precision.append(
+            score_context_precision(retrieved_doc_ids.get(qid, []), qrels.get(qid, {}))
         )
+        faithfulness.append(score_faithfulness(pred, "\n".join(contexts.get(qid, []))))
 
+    mean = lambda values: round(sum(values) / len(values), 6)
     return {
-        "answer_correctness": round(
-            sum(correctness_scores) / len(correctness_scores), 6
-        ),
-        "context_precision": round(
-            sum(precision_scores) / len(precision_scores), 6
-        ),
-        "faithfulness": round(
-            sum(faithfulness_scores) / len(faithfulness_scores), 6
-        ),
+        "answer_em": mean(em),
+        "answer_f1": mean(f1),
+        "context_precision": mean(precision),
+        "faithfulness": mean(faithfulness),
     }
