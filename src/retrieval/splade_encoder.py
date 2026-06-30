@@ -72,7 +72,12 @@ class SpladeEncoder:
 
         cache = os.getenv("MODEL_CACHE_DIR") or None
         tokenizer = AutoTokenizer.from_pretrained(self.model_id, cache_dir=cache)
-        model = AutoModelForMaskedLM.from_pretrained(self.model_id, cache_dir=cache)
+        # use_safetensors avoids torch.load, which transformers blocks on torch < 2.6
+        # (the HPC's torch 2.5.1) for CVE-2025-32434. The weights load from the model's
+        # .safetensors file instead of pytorch_model.bin.
+        model = AutoModelForMaskedLM.from_pretrained(
+            self.model_id, cache_dir=cache, use_safetensors=True
+        )
         model.eval()
         if torch.cuda.is_available():
             model = model.to("cuda")  # encode the corpus on GPU (CPU is far too slow at scale)

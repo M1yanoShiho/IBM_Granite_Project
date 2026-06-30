@@ -13,10 +13,10 @@
 #
 #   mkdir -p logs && sbatch scripts/run_splade_hybrid.slurm
 #
-# FIRST, on the LOGIN node (compute nodes are offline) pre-fetch the SPLADE model
-# (ungated) and the dataset splits if not already cached:
+# FIRST, on the LOGIN node (compute nodes are offline), one-time setup:
 #   source scripts/env.sh
-#   hf download naver/splade-cocondenser-ensembledistil
+#   bash scripts/convert_splade_safetensors.sh    # SPLADE .bin -> safetensors
+#                                                  # (HPC torch 2.5.1 < 2.6 blocks torch.load)
 #   python -c "from eval.benchmarks.loader import load_benchmark as L; \
 #     [L(d, split=s) for d, s in [('scifact','train'),('nfcorpus','dev'),('fiqa','dev')]]"
 #SBATCH --job-name=splade-hybrid
@@ -39,6 +39,9 @@ export HF_HUB_OFFLINE=1
 export TRANSFORMERS_OFFLINE=1
 export IR_DATASETS_HOME=/user/work/$USER/ir_datasets
 export PYTHONUNBUFFERED=1
+# SPLADE weights loaded from the locally-converted safetensors copy (see
+# scripts/convert_splade_safetensors.sh) — the HPC's torch 2.5.1 cannot torch.load .bin.
+export SPLADE_MODEL_ID="${SPLADE_MODEL_ID:-/user/work/$USER/splade_st}"
 
 source /user/work/$USER/venv/bin/activate
 cd /user/work/$USER/IBM_Granite_Project
