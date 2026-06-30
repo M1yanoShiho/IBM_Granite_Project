@@ -60,29 +60,40 @@ Also (ref = `gte_dense`): `granite_small_dense` vs gte is **not significant** on
 6. **Failure analysis (per-query, nDCG@10):** granite vs gte are **redundant** (Pearson r = 0.88 SciFact / 0.93 NFCorpus, balanced query wins). granite vs BM25 are **complementary on SciFact** (r = 0.63; BM25 wins 28/300 queries, some by a wide margin) but more redundant on NFCorpus (r = 0.80). The complementarity is **not exploitable** by global RRF fusion or reranking (findings 4–5). NB: a clean "BM25 wins on rare-entity queries" pattern did **not** survive inspection of the full top-20 (both win-sets are entity-heavy).
 7. **ANN indexing (HNSW) — efficiency-axis optimization.** Built (`VectorIndexer` `index_type`); exact `flat` index is O(N)/query and tens of GB at millions of docs. *Recall-retention + speedup figure (flat vs HNSW on a large corpus, e.g. dbpedia-entity / MS MARCO) is PENDING the scale run* (`scripts/run_scale_demo.slurm`).
 
-## Table 3 — RAG answer quality (NQ subset): does better retrieval → better answers?
+## Table 3 — RAG answer quality (NQ + TriviaQA): does better retrieval → better answers?
 
-Controlled retrieve-then-generate experiment: same generator (`granite-4.1-8b` instruct), same corpus, same prompt — **only the retriever varies**, so any difference in answer quality is attributable to retrieval. NQ (`dpr-w100/natural-questions/dev`) **subset**: first 500 queries; corpus = their gold passages + distractors, **573,622 docs** total; `top_k`=4 chunks to the generator. Metrics: **cover-EM** (answer recall — a gold answer is contained in the generated answer; the de-facto metric for *generative* open-domain QA), strict normalised **EM** / token-**F1**, **context_precision** (precision@k of retrieved docs vs qrels), **faithfulness** (answer-token coverage of context). Significance = the same paired randomization test as the retrieval tables (`eval/significance.py`), 500 paired queries.
+Controlled retrieve-then-generate experiment: same generator (`granite-4.1-8b` instruct), same corpus, same (concise-answer) prompt — **only the retriever varies**, so any difference in answer quality is attributable to retrieval. Two answer-bearing QA sets, both on the shared `dpr-w100` Wikipedia corpus (generalisation): NQ (`dpr-w100/natural-questions/dev`) and TriviaQA (`dpr-w100/trivia-qa/dev`). Per set: first 500 queries; qrels-aware subset (gold passages always kept + distractors), **~1.0M docs**; `top_k`=4 chunks to the generator. Metrics: **cover-EM** (answer recall — a gold answer is contained in the answer; the de-facto metric for *generative* open-domain QA), normalised **EM** / token-**F1**, **context_precision** (precision@k of retrieved docs vs qrels), **faithfulness** (answer-token coverage of context). Significance = paired randomization test (`eval/significance.py`), 500 paired queries.
+
+**NQ:**
 
 | retriever | cover-EM | F1 | EM | context_precision | faithfulness |
 |---|---|---|---|---|---|
-| **granite_dense** | **0.662** | 0.065 | 0.000 | 0.345 | 0.741 |
-| gte_dense | 0.640 | 0.064 | 0.000 | 0.345 | 0.738 |
-| bm25 | 0.450 | 0.044 | 0.000 | 0.203 | 0.642 |
+| **granite_dense** | **0.584** | 0.517 | 0.376 | 0.337 | 0.891 |
+| gte_dense | 0.554 | 0.483 | 0.344 | 0.335 | 0.897 |
+| bm25 | 0.418 | 0.361 | 0.266 | 0.202 | 0.760 |
 
-Significance on cover-EM (Δ = retriever − reference):
-- vs **bm25**: granite **+0.212** (p=0.0001), gte **+0.190** (p=0.0001) — dense significantly beats lexical.
-- vs **gte**: granite +0.022 (p=0.29, **ns**) — granite ≈ gte (statistically indistinguishable).
+**TriviaQA:**
 
-8. **Retrieval quality drives RAG answer quality.** Only the retriever changes, so the gap is causal: dense retrieval yields **~19–21 points higher answer correctness (cover-EM) than BM25**, p<0.001. This is the downstream payoff the retrieval-only nDCG numbers cannot demonstrate on their own.
-9. **Granite matches the strongest open peer end-to-end.** granite ≈ gte on every RAG metric (cover-EM p=0.29, F1 p=0.71, context, faithfulness), and both beat BM25 — the same pattern as the retrieval audit, now at the answer level (two independent measurement layers agree).
-10. **Strict EM/F1 under-report generative answers; cover-EM is the right metric.** The reader gives correct but verbose, context-quoting answers (gold "Linda Davis" → "Linda Davis sings 'Does He Love You' with Reba McEntire. This is stated in the context: …"), so EM=0 and F1≈0.06 across the board despite ~66% being correct. cover-EM (answer recall) is the standard generative-QA metric.
+| retriever | cover-EM | F1 | EM | context_precision | faithfulness |
+|---|---|---|---|---|---|
+| **granite_dense** | **0.698** | 0.650 | 0.586 | 0.358 | 0.797 |
+| gte_dense | 0.670 | 0.635 | 0.570 | 0.376 | 0.807 |
+| bm25 | 0.608 | 0.566 | 0.498 | 0.345 | 0.719 |
 
-**Caveats (do not overclaim):** (a) granite vs gte is a *tie*, not a win — "Granite specifically wins" holds only on the harder FiQA *retrieval* set, not this NQ RAG. (b) Because answers quote the context, cover-EM/faithfulness are *generous* in absolute terms (they partly reward "answer passage retrieved + quoted"); the **relative** dense≫lexical ordering is the robust claim. (c) Single subset, and NQ is dense-favourable (natural-language questions where BM25 is weak), so the ~20-pt gap is partly NQ-specific. (d) Absolutes are from the verbose default prompt; a concise-answer-prompt rerun is expected to firm up EM/F1 and de-inflate cover-EM/faithfulness without changing the relative ordering.
+Significance on cover-EM (Δ = retriever − reference; EM and F1 are same-direction and same-significance):
+- vs **bm25**: NQ — granite **+0.166** (p=0.0001), gte +0.136 (p=0.0001); TriviaQA — granite **+0.090** (p=0.0001), gte +0.062 (p=0.0013). Dense significantly beats lexical on **both** sets.
+- granite vs **gte**: NQ +0.030 (p=0.069, **ns**), TriviaQA +0.028 (p=0.072, **ns**) — a small, consistent, but non-significant lean to Granite.
+
+8. **Retrieval quality drives RAG answer quality — and it generalises.** Only the retriever changes, so the gap is causal: dense retrieval yields significantly higher answer correctness than BM25 on **both** QA sets (cover-EM +0.09 to +0.17, all p≤0.0013; EM/F1 agree). The downstream payoff the retrieval-only nDCG numbers cannot show on their own.
+9. **Granite matches the strongest open peer end-to-end.** granite ≈ gte on every metric and both sets — a consistent ~+0.03 cover-EM edge to Granite that does **not** reach significance (p≈0.07). Mirrors the retrieval audit (granite ≈ peers on these); both significantly beat BM25.
+10. **The dense-vs-lexical gap is dataset-dependent.** Much larger on NQ (cover-EM +0.166 over BM25) than TriviaQA (+0.090): TriviaQA's entity/keyword-heavy questions make BM25 far more competitive (its cover-EM 0.608 vs 0.418 on NQ), shrinking — but not erasing — dense's significant lead. Confirms NQ is dense-favourable; the effect generalises, its magnitude is dataset-specific.
+11. **Strict EM/F1 under-report verbose generative answers; a concise prompt fixes the metric.** With the default verbose prompt the reader quoted the context (gold "Linda Davis" → a whole paragraph), giving EM=0 / F1≈0.06 on NQ despite being correct. A concise-answer `DEFAULT_RAG_PROMPT` → crisp spans ("Linda Davis"), lifting NQ EM to 0.376 / F1 to 0.517; cover-EM de-inflates 0.66→0.58 (no longer rewarded for quoting). cover-EM is robust across both prompts and is the headline metric.
+
+**Caveats (do not overclaim):** (a) granite vs gte is a *tie* (ns, p≈0.07 both sets), not a win — "Granite specifically wins" holds only on the harder FiQA *retrieval* set. (b) faithfulness is ~0.8–0.9 with little discrimination — a short correct answer's tokens are almost always in the context — so treat it as secondary, not a system-separating metric. (c) 500-query subset at ~1M docs, not the full 21M corpus (flat index; scale-to-21M with HNSW pending). (d) cover-EM can still over-credit an incidental gold mention; EM/F1 (now meaningful) are the stricter cross-checks and agree.
 
 ## Pending / not yet done
 
 - ANN scale demo (recall-vs-latency on a millions-doc corpus).
 - Failure-mode analysis write-up (per-query CSVs + `eval/failure_analysis.py` exist).
-- RAG evaluation: **first NQ-subset result DONE (Table 3)**; remaining = concise-answer-prompt rerun (de-inflate absolutes), scale up the subset / add a second QA dataset, and NIAH RAG-vs-long-context (still skeleton).
+- RAG evaluation: **DONE — Table 3** (concise prompt; NQ + TriviaQA; dense ≫ BM25 significant on both, granite ≈ gte). Remaining: scale to the full 21M corpus (needs HNSW in run_rag), and NIAH RAG-vs-long-context (still skeleton).
 - A more lexical dataset (ArguAna/Touché) if the failure analysis needs more BM25-favourable material.
