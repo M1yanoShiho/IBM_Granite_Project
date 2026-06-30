@@ -998,3 +998,34 @@ def test_run_passes_split_to_loader(monkeypatch, tmp_path) -> None:
     run(config)
 
     assert captured == {"name": "msmarco", "split": "dev"}
+
+
+def test_build_retrievers_builds_convex_hybrid_of_dense_and_bm25(monkeypatch) -> None:
+    # convex_hybrid_granite_bm25 fuses the granite dense retriever and BM25 by convex
+    # combination of normalised scores (alpha = dense weight). At alpha=1 it ranks by
+    # the dense arm alone. Embedding model monkeypatched so nothing downloads.
+    from src.retrieval.hybrid import ConvexHybridRetriever
+
+    monkeypatch.setattr(
+        "sentence_transformers.SentenceTransformer", FakeSentenceTransformer
+    )
+    data = BenchmarkData(
+        corpus={"d1": "granite retrieval", "d2": "banana cake"},
+        queries={"q1": "granite retrieval"},
+        qrels={"q1": {"d1": 1}},
+    )
+    config = BenchmarkConfig(
+        retrievers=["convex_hybrid_granite_bm25"], k_values=[1], alpha=1.0
+    )
+
+    retrievers = _build_retrievers(config, data)
+
+    hybrid = retrievers["convex_hybrid_granite_bm25"]
+    assert isinstance(hybrid, ConvexHybridRetriever)
+    assert hybrid.alpha == 1.0
+    assert hybrid.retrieve("granite retrieval")[0].doc_id == "d1"
+
+
+def test_parse_args_alpha() -> None:
+    assert _parse_args([]).alpha == 0.5
+    assert _parse_args(["--alpha", "0.7"]).alpha == 0.7

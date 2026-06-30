@@ -36,7 +36,7 @@ from src.ingestion.indexer import FaissIndex, VectorIndexer
 from src.retrieval.base import Retriever
 from src.retrieval.bm25_baseline import BM25Retriever
 from src.retrieval.embedder import Embedder
-from src.retrieval.hybrid import HybridRetriever
+from src.retrieval.hybrid import ConvexHybridRetriever, HybridRetriever
 from src.retrieval.reranker import (
     DEFAULT_RERANKER_MODEL_ID,
     Reranker,
@@ -134,6 +134,7 @@ class BenchmarkConfig:
     per_query_out: Path | None = None
     per_query_metric: str = "ndcg@10"
     k_rrf: int = 60
+    alpha: float = 0.5
     reranker_model_id: str = DEFAULT_RERANKER_MODEL_ID
     index_type: str = "flat"
     ef_search: int = 64
@@ -384,6 +385,15 @@ HYBRID_SPECS: Dict[str, List[str]] = {
 }
 
 
+# Convex-combination hybrids: name -> [dense_name, lexical_name]. Unlike HYBRID_SPECS
+# (RRF over rankings), these fuse per-query min-max-normalised SCORES with weight
+# config.alpha (the dense weight), via ConvexHybridRetriever. The fix for finding #4's
+# RRF-loses result: convex combination beats RRF and is tunable (Bruch et al., 2023).
+CONVEX_HYBRID_SPECS: Dict[str, List[str]] = {
+    "convex_hybrid_granite_bm25": ["granite_dense", "bm25"],
+}
+
+
 def _build_component(
     name: str,
     config: BenchmarkConfig,
@@ -469,6 +479,14 @@ def _build_named(
         return HybridRetriever(
             components, top_k=top_k * config.dense_fanout, k_rrf=config.k_rrf
         )
+    if name in CONVEX_HYBRID_SPECS:
+        dense_name, lexical_name = CONVEX_HYBRID_SPECS[name]
+        pool = top_k * config.dense_fanout  # ~100 candidates/arm for fusion to reorder
+        # dense over-fetches internally (top_k * dense_fanout chunks); BM25 returns
+        # `pool` docs directly — so both arms surface ~`pool` docs.
+        dense = _build_component(dense_name, config, data, corpus, doc_ids, top_k)
+        lexical = _build_component(lexical_name, config, data, corpus, doc_ids, pool)
+        return ConvexHybridRetriever(dense, lexical, alpha=config.alpha, top_k=pool)
     return _build_component(name, config, data, corpus, doc_ids, top_k)
 
 
@@ -728,6 +746,14 @@ def _parse_args(argv: List[str] | None = None) -> BenchmarkConfig:
         help="RRF damping constant for hybrid retrievers (default: %(default)s).",
     )
     parser.add_argument(
+        "--alpha",
+        type=float,
+        default=defaults.alpha,
+        dest="alpha",
+        help="Dense weight for convex-combination hybrids "
+        "(0 = BM25 only, 1 = dense only; default: %(default)s).",
+    )
+    parser.add_argument(
         "--reranker-model-id",
         default=defaults.reranker_model_id,
         dest="reranker_model_id",
@@ -773,6 +799,7 @@ def _parse_args(argv: List[str] | None = None) -> BenchmarkConfig:
         per_query_out=args.per_query_out,
         per_query_metric=args.per_query_metric,
         k_rrf=args.k_rrf,
+        alpha=args.alpha,
         reranker_model_id=args.reranker_model_id,
         index_type=args.index_type,
         ef_search=args.ef_search,
