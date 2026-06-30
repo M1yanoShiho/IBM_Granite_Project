@@ -13,7 +13,7 @@ from typing import List
 import pytest
 
 from src.retrieval.base import RetrievedChunk, Retriever
-from src.retrieval.hybrid import HybridRetriever
+from src.retrieval.hybrid import ConvexHybridRetriever, HybridRetriever
 
 
 class FixedRetriever:
@@ -95,3 +95,58 @@ def test_hybrid_rejects_bad_top_k_and_k_rrf() -> None:
         HybridRetriever([FixedRetriever([])], top_k=0)
     with pytest.raises(ValueError, match="k_rrf"):
         HybridRetriever([FixedRetriever([])], k_rrf=0)
+
+
+def _chunk(doc_id: str, score: float) -> RetrievedChunk:
+    """A scored chunk — convex fusion uses the score, not just the rank."""
+    return RetrievedChunk(doc_id=doc_id, text=f"text-{doc_id}", score=score)
+
+
+def test_convex_hybrid_satisfies_retriever_protocol() -> None:
+    arm = FixedRetriever([_chunk("d1", 1.0)])
+    assert isinstance(ConvexHybridRetriever(arm, arm, alpha=0.5), Retriever)
+
+
+def test_convex_alpha_one_reproduces_dense_order() -> None:
+    dense = FixedRetriever([_chunk("d1", 0.9), _chunk("d2", 0.1)])
+    lexical = FixedRetriever([_chunk("d2", 5.0), _chunk("d3", 1.0)])
+    out = ConvexHybridRetriever(dense, lexical, alpha=1.0, top_k=10).retrieve("q")
+    assert [c.doc_id for c in out][:2] == ["d1", "d2"]
+
+
+def test_convex_alpha_zero_reproduces_lexical_order() -> None:
+    dense = FixedRetriever([_chunk("d1", 0.9), _chunk("d2", 0.1)])
+    lexical = FixedRetriever([_chunk("d2", 5.0), _chunk("d3", 1.0)])
+    out = ConvexHybridRetriever(dense, lexical, alpha=0.0, top_k=10).retrieve("q")
+    assert [c.doc_id for c in out][0] == "d2"
+
+
+def test_convex_hybrid_respects_top_k() -> None:
+    dense = FixedRetriever([_chunk("d1", 0.9), _chunk("d2", 0.5), _chunk("d3", 0.1)])
+    lexical = FixedRetriever([_chunk("d4", 1.0)])
+    out = ConvexHybridRetriever(dense, lexical, alpha=0.5, top_k=2).retrieve("q")
+    assert len(out) == 2
+
+
+def test_convex_hybrid_max_pools_repeated_doc_chunks() -> None:
+    # Dense returns d1 twice (0.2 then 0.9); the doc's arm score is the MAX (0.9),
+    # so at alpha=1 d1 (max 0.9 -> norm 1.0) beats d2 (0.5 -> norm 0.0).
+    dense = FixedRetriever([_chunk("d1", 0.2), _chunk("d2", 0.5), _chunk("d1", 0.9)])
+    lexical = FixedRetriever([_chunk("d2", 1.0)])
+    out = ConvexHybridRetriever(dense, lexical, alpha=1.0, top_k=10).retrieve("q")
+    assert out[0].doc_id == "d1"
+
+
+def test_convex_hybrid_carries_doc_text() -> None:
+    dense = FixedRetriever([_chunk("d1", 1.0)])
+    lexical = FixedRetriever([_chunk("d1", 1.0)])
+    out = ConvexHybridRetriever(dense, lexical, alpha=0.5, top_k=10).retrieve("q")
+    assert out[0].text == "text-d1"
+
+
+def test_convex_hybrid_rejects_bad_alpha_and_top_k() -> None:
+    arm = FixedRetriever([_chunk("d1", 1.0)])
+    with pytest.raises(ValueError, match="alpha"):
+        ConvexHybridRetriever(arm, arm, alpha=2.0)
+    with pytest.raises(ValueError, match="top_k"):
+        ConvexHybridRetriever(arm, arm, alpha=0.5, top_k=0)

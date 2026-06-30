@@ -20,6 +20,7 @@ from __future__ import annotations
 from typing import Dict, List, Sequence
 
 from src.retrieval.base import RetrievedChunk, Retriever
+from src.retrieval.fusion import Scores, fuse_one
 
 
 class HybridRetriever:
@@ -80,3 +81,67 @@ class HybridRetriever:
             RetrievedChunk(doc_id=doc_id, text=texts[doc_id], score=score)
             for doc_id, score in ranked[: self.top_k]
         ]
+
+
+class ConvexHybridRetriever:
+    """Fuse a dense and a lexical retriever by convex combination of normalised scores.
+
+    Unlike RRF (:class:`HybridRetriever`), this uses the arms' *scores* — per-query
+    min-max normalised — with a tunable weight ``alpha`` (the dense weight).
+    ``alpha = 1`` reproduces the dense ranking, ``alpha = 0`` the lexical ranking. The
+    fusion maths live in :mod:`src.retrieval.fusion`, shared with the offline alpha
+    sweep (``eval/tune_alpha.py``).
+
+    Parameters
+    ----------
+    dense, lexical:
+        The two component retrievers. They must already return a deep candidate pool
+        (~100 each) — the caller builds them that way; this class has no pool knob, it
+        fuses whatever the arms return and keeps the top ``top_k``.
+    alpha:
+        Dense weight in [0, 1].
+    top_k:
+        Number of fused documents to return.
+    """
+
+    def __init__(
+        self,
+        dense: Retriever,
+        lexical: Retriever,
+        alpha: float,
+        top_k: int = 10,
+    ) -> None:
+        if not 0.0 <= alpha <= 1.0:
+            raise ValueError(f"alpha must be in [0, 1]; got {alpha}.")
+        if top_k < 1:
+            raise ValueError("top_k must be at least 1.")
+        self.dense = dense
+        self.lexical = lexical
+        self.alpha = alpha
+        self.top_k = top_k
+
+    def _doc_scores(self, retriever: Retriever, query: str) -> tuple[Scores, Dict[str, str]]:
+        """Max-pool one arm's chunks to ``{doc_id: score}`` (+ ``{doc_id: text}``).
+
+        A document hit via several chunks is scored at its best (max) chunk, matching
+        contract 3, so a multi-chunk document is not under-credited before fusion.
+        """
+        scores: Scores = {}
+        texts: Dict[str, str] = {}
+        for chunk in retriever.retrieve(query):
+            if chunk.doc_id not in scores or chunk.score > scores[chunk.doc_id]:
+                scores[chunk.doc_id] = chunk.score
+            texts.setdefault(chunk.doc_id, chunk.text)
+        return scores, texts
+
+    def retrieve(self, query: str) -> List[RetrievedChunk]:
+        """Return the top-k documents by convex-fused score, ranked best-first."""
+        dense_scores, dense_texts = self._doc_scores(self.dense, query)
+        lex_scores, lex_texts = self._doc_scores(self.lexical, query)
+        fused = fuse_one(dense_scores, lex_scores, self.alpha)
+        ranked = sorted(fused.items(), key=lambda kv: (-kv[1], kv[0]))
+        out: List[RetrievedChunk] = []
+        for doc_id, score in ranked[: self.top_k]:
+            text = dense_texts.get(doc_id) or lex_texts.get(doc_id, "")
+            out.append(RetrievedChunk(doc_id=doc_id, text=text, score=score))
+        return out
