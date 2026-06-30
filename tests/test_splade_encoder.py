@@ -50,10 +50,11 @@ class _FakeTokenizer:
 
 
 class _FakeMaskedLM:
-    """Returns canned logits regardless of inputs."""
+    """Returns canned logits regardless of inputs; exposes a vocab_size config."""
 
     def __init__(self, logits) -> None:
         self._logits = logits
+        self.config = SimpleNamespace(vocab_size=int(logits.shape[-1]))
 
     def __call__(self, **inputs):
         return SimpleNamespace(logits=self._logits)
@@ -81,3 +82,11 @@ def test_encode_empty_returns_empty() -> None:
         tokenizer=_FakeTokenizer([], []),
     )
     assert enc.encode([]) == []
+
+
+def test_encoder_exposes_vocab_size() -> None:
+    enc = SpladeEncoder(
+        model=_FakeMaskedLM(torch.zeros((1, 1, 7))),
+        tokenizer=_FakeTokenizer([[1]], [[1]]),
+    )
+    assert enc.vocab_size == 7

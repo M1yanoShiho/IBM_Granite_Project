@@ -1029,3 +1029,90 @@ def test_build_retrievers_builds_convex_hybrid_of_dense_and_bm25(monkeypatch) ->
 def test_parse_args_alpha() -> None:
     assert _parse_args([]).alpha == 0.5
     assert _parse_args(["--alpha", "0.7"]).alpha == 0.7
+
+
+class FakeSpladeEncoder:
+    """Deterministic stand-in for SpladeEncoder (no model download).
+
+    Encodes text as term counts over a tiny fixed vocabulary, so a query lands on the
+    doc that shares its words — the sparse analogue of FakeSentenceTransformer.
+    """
+
+    _VOCAB = {"granite": 0, "retrieval": 1, "banana": 2, "cake": 3}
+    vocab_size = 4
+
+    def __init__(self, *args, **kwargs) -> None:
+        pass
+
+    def encode(self, texts):
+        out = []
+        for t in texts:
+            tw: Dict[int, float] = {}
+            for w in t.lower().split():
+                if w in self._VOCAB:
+                    tw[self._VOCAB[w]] = tw.get(self._VOCAB[w], 0.0) + 1.0
+            out.append(tw)
+        return out
+
+
+def test_build_retrievers_builds_splade_sparse_retriever(monkeypatch) -> None:
+    # splade builds a SparseRetriever (SPLADE encoder + scipy CSR index). The encoder is
+    # monkeypatched so nothing downloads; the query shares words only with d1.
+    from src.retrieval.sparse_retriever import SparseRetriever
+
+    monkeypatch.setattr("eval.run_benchmark.SpladeEncoder", FakeSpladeEncoder)
+    data = BenchmarkData(
+        corpus={"d1": "granite retrieval", "d2": "banana cake"},
+        queries={"q1": "granite retrieval"},
+        qrels={"q1": {"d1": 1}},
+    )
+    config = BenchmarkConfig(retrievers=["splade"], k_values=[1])
+
+    retrievers = _build_retrievers(config, data)
+
+    splade = retrievers["splade"]
+    assert isinstance(splade, SparseRetriever)
+    assert splade.retrieve("granite retrieval")[0].doc_id == "d1"
+
+
+def test_build_retrievers_builds_convex_hybrid_granite_splade(monkeypatch) -> None:
+    # convex_hybrid_granite_splade fuses the granite dense retriever with the SPLADE arm
+    # by convex combination. Both models are monkeypatched so nothing downloads.
+    from src.retrieval.hybrid import ConvexHybridRetriever
+
+    monkeypatch.setattr(
+        "sentence_transformers.SentenceTransformer", FakeSentenceTransformer
+    )
+    monkeypatch.setattr("eval.run_benchmark.SpladeEncoder", FakeSpladeEncoder)
+    data = BenchmarkData(
+        corpus={"d1": "granite retrieval", "d2": "banana cake"},
+        queries={"q1": "granite retrieval"},
+        qrels={"q1": {"d1": 1}},
+    )
+    config = BenchmarkConfig(
+        retrievers=["convex_hybrid_granite_splade"], k_values=[1], alpha=0.5
+    )
+
+    retrievers = _build_retrievers(config, data)
+
+    hybrid = retrievers["convex_hybrid_granite_splade"]
+    assert isinstance(hybrid, ConvexHybridRetriever)
+    assert hybrid.retrieve("granite retrieval")[0].doc_id == "d1"
+
+
+def test_build_retrievers_splade_uses_sparse_index_cache(monkeypatch, tmp_path) -> None:
+    # With a cache dir, the splade branch encodes once and persists the CSR index
+    # (keyed by dataset) so repeat runs skip re-encoding the corpus.
+    monkeypatch.setattr("eval.run_benchmark.SpladeEncoder", FakeSpladeEncoder)
+    data = BenchmarkData(
+        corpus={"d1": "granite retrieval", "d2": "banana cake"},
+        queries={"q1": "granite retrieval"},
+        qrels={"q1": {"d1": 1}},
+    )
+    config = BenchmarkConfig(
+        retrievers=["splade"], k_values=[1], index_cache_dir=tmp_path
+    )
+
+    _build_retrievers(config, data)
+
+    assert (tmp_path / "scifact__splade.npz").exists()

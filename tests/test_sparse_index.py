@@ -65,3 +65,14 @@ def test_build_length_mismatch_raises() -> None:
 def test_search_rejects_bad_top_k() -> None:
     with pytest.raises(ValueError, match="top_k"):
         _index().search({0: 1.0}, top_k=0)
+
+
+def test_save_load_round_trip(tmp_path) -> None:
+    idx = _index()
+    path = tmp_path / "splade_idx"
+    idx.save(path)
+    loaded = SparseIndex.load(path)
+    assert loaded.doc_ids == idx.doc_ids
+    assert loaded.vocab_size == idx.vocab_size
+    query = {1: 1.0, 2: 1.0}
+    assert loaded.search(query, top_k=10) == idx.search(query, top_k=10)

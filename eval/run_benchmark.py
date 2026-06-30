@@ -43,6 +43,9 @@ from src.retrieval.reranker import (
     TwoStageRetriever,
 )
 from src.retrieval.retriever import DenseRetriever
+from src.retrieval.sparse_index import SparseIndex
+from src.retrieval.sparse_retriever import SparseRetriever
+from src.retrieval.splade_encoder import SpladeEncoder
 
 
 @dataclass
@@ -306,6 +309,23 @@ def _load_or_build_index(
     return index
 
 
+def _load_or_build_sparse_index(
+    encoder: SpladeEncoder,
+    corpus: List[str],
+    doc_ids: List[str],
+    cache_path: Path,
+) -> SparseIndex:
+    """Load a persisted SPLADE CSR index from ``cache_path`` if present, otherwise encode
+    the corpus, build it, and save it — so repeat runs skip re-encoding (the expensive
+    step). The ``.npz`` suffix is what ``SparseIndex.save`` writes.
+    """
+    if Path(f"{cache_path}.npz").exists():
+        return SparseIndex.load(cache_path)
+    index = SparseIndex.build(encoder.encode(corpus), doc_ids, encoder.vocab_size)
+    index.save(cache_path)
+    return index
+
+
 @dataclass(frozen=True)
 class DenseSpec:
     """How to construct a named dense retriever's embedder.
@@ -391,6 +411,7 @@ HYBRID_SPECS: Dict[str, List[str]] = {
 # RRF-loses result: convex combination beats RRF and is tunable (Bruch et al., 2023).
 CONVEX_HYBRID_SPECS: Dict[str, List[str]] = {
     "convex_hybrid_granite_bm25": ["granite_dense", "bm25"],
+    "convex_hybrid_granite_splade": ["granite_dense", "splade"],
 }
 
 
@@ -440,9 +461,17 @@ def _build_component(
         else:
             index = indexer.build(chunks)
         return DenseRetriever(embedder, index, top_k=top_k * config.dense_fanout)
+    if name == "splade":
+        encoder = SpladeEncoder()
+        if config.index_cache_dir is not None:
+            cache_path = config.index_cache_dir / f"{config.dataset}__splade"
+            index = _load_or_build_sparse_index(encoder, corpus, doc_ids, cache_path)
+        else:
+            index = SparseIndex.build(encoder.encode(corpus), doc_ids, encoder.vocab_size)
+        return SparseRetriever(encoder, index, corpus, top_k=top_k)
     raise ValueError(
-        f"Unknown retriever {name!r}; expected 'bm25', one of {sorted(DENSE_SPECS)}, "
-        f"or a hybrid {sorted(HYBRID_SPECS)}."
+        f"Unknown retriever {name!r}; expected 'bm25', 'splade', one of "
+        f"{sorted(DENSE_SPECS)}, or a hybrid {sorted(HYBRID_SPECS)}."
     )
 
 

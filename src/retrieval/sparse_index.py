@@ -10,6 +10,8 @@ SPLADE encoder, so it stays a small, independently-testable unit.
 
 from __future__ import annotations
 
+import pickle
+from pathlib import Path
 from typing import Dict, List, Sequence, Tuple
 
 import numpy as np
@@ -86,3 +88,20 @@ class SparseIndex:
                 break  # stable descending order -> everything after this is <= 0 too
             out.append((int(i), score))
         return out
+
+    def save(self, path: str | Path) -> None:
+        """Persist the CSR matrix (+ doc_ids / vocab_size) to ``<path>.npz`` / ``.meta``."""
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        sparse.save_npz(str(path) + ".npz", self.matrix)
+        with open(str(path) + ".meta", "wb") as f:
+            pickle.dump({"doc_ids": self.doc_ids, "vocab_size": self.vocab_size}, f)
+
+    @classmethod
+    def load(cls, path: str | Path) -> "SparseIndex":
+        """Load an index previously written by :meth:`save`."""
+        path = Path(path)
+        matrix = sparse.load_npz(str(path) + ".npz")
+        with open(str(path) + ".meta", "rb") as f:
+            meta = pickle.load(f)
+        return cls(matrix, meta["doc_ids"], meta["vocab_size"])

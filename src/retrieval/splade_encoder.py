@@ -76,6 +76,11 @@ class SpladeEncoder:
         model.eval()
         return model, tokenizer
 
+    @property
+    def vocab_size(self) -> int:
+        """Vocabulary size = the MLM head's output dimension (the term-id space)."""
+        return int(self._model.config.vocab_size)
+
     def encode(self, texts: Sequence[str]) -> List[TermWeights]:
         """Encode a batch of texts into sparse ``{term_id: weight}`` dicts (weight > 0)."""
         texts = list(texts)
