@@ -31,17 +31,19 @@ def _arm_runs(
     dataset: str,
     split: str,
     chunk_unit: str,
+    lexical: str,
     pool_depth: int,
     cache_dir: Optional[Path],
     max_queries: Optional[int],
     max_docs: Optional[int],
 ) -> Tuple[Run, Run, Qrels]:
-    """Retrieve once per arm on a split; return ``(dense_run, bm25_run, qrels)``.
+    """Retrieve once per arm on a split; return ``(dense_run, lexical_run, qrels)``.
 
     Each arm is built and its run trimmed to ``pool_depth`` docs per query, so fusion
-    has a deep, equal-depth pool to reorder. Reuses the benchmark's component builder
-    (so the dense arm is identical to the audited ``granite_dense``) and its index
-    cache, so the test-split index is reused by the final ``run_benchmark`` run.
+    has a deep, equal-depth pool to reorder. ``lexical`` is the lexical arm's retriever
+    name (``"bm25"`` or ``"splade"``). Reuses the benchmark's component builder (so the
+    dense arm is identical to the audited ``granite_dense``) and its index cache, so the
+    test-split index is reused by the final ``run_benchmark`` run.
     """
     data = load_benchmark(
         dataset, split=split, max_queries=max_queries, max_docs=max_docs
@@ -52,10 +54,10 @@ def _arm_runs(
     doc_ids = list(data.corpus.keys())
     corpus = list(data.corpus.values())
     dense = _build_component("granite_dense", config, data, corpus, doc_ids, pool_depth)
-    bm25 = _build_component("bm25", config, data, corpus, doc_ids, pool_depth)
+    lex = _build_component(lexical, config, data, corpus, doc_ids, pool_depth)
     dense_run = build_run(dense, data.queries, pooling="max", top_n_docs=pool_depth)
-    bm25_run = build_run(bm25, data.queries, pooling="max", top_n_docs=pool_depth)
-    return dense_run, bm25_run, data.qrels
+    lex_run = build_run(lex, data.queries, pooling="max", top_n_docs=pool_depth)
+    return dense_run, lex_run, data.qrels
 
 
 def sweep(
@@ -94,10 +96,10 @@ def write_curve(curve: List[Tuple[float, float]], path: Path) -> None:
             writer.writerow([alpha, ndcg])
 
 
-def main(argv: Optional[List[str]] = None) -> None:
+def _parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="python -m eval.tune_alpha",
-        description="Sweep/tune the convex-hybrid alpha (dense vs BM25) without test leakage.",
+        description="Sweep/tune the convex-hybrid alpha (dense vs a lexical arm) without test leakage.",
     )
     parser.add_argument("--dataset", required=True)
     parser.add_argument("--tune-split", default="dev",
@@ -106,6 +108,8 @@ def main(argv: Optional[List[str]] = None) -> None:
                         help="Split to report the alpha-curve on (default: %(default)s).")
     parser.add_argument("--chunk-unit", default="word", choices=["word", "token"],
                         help="Chunking unit for the dense arm (default: %(default)s).")
+    parser.add_argument("--lexical", default="bm25", choices=["bm25", "splade"],
+                        help="Lexical arm fused with granite_dense (default: %(default)s).")
     parser.add_argument("--alpha-step", type=float, default=0.05)
     parser.add_argument("--pool-depth", type=int, default=100)
     parser.add_argument("--cache-dir", type=Path, default=None,
@@ -116,13 +120,17 @@ def main(argv: Optional[List[str]] = None) -> None:
                         help="Write the TEST alpha-curve CSV here (alpha,ndcg@10).")
     parser.add_argument("--best-alpha-out", type=Path, default=None,
                         help="Write the chosen alpha (a float) here, for the run script.")
-    args = parser.parse_args(argv)
+    return parser.parse_args(argv)
+
+
+def main(argv: Optional[List[str]] = None) -> None:
+    args = _parse_args(argv)
 
     grid = _grid(args.alpha_step)
 
     # Tune on the dev/train split.
     d_run, b_run, qrels = _arm_runs(
-        args.dataset, args.tune_split, args.chunk_unit, args.pool_depth,
+        args.dataset, args.tune_split, args.chunk_unit, args.lexical, args.pool_depth,
         args.cache_dir, args.max_queries, args.max_docs,
     )
     a_star, ndcg_dev = best_alpha(sweep(d_run, b_run, qrels, grid))
@@ -130,7 +138,7 @@ def main(argv: Optional[List[str]] = None) -> None:
 
     # Report the curve on the test split.
     td_run, tb_run, tqrels = _arm_runs(
-        args.dataset, args.test_split, args.chunk_unit, args.pool_depth,
+        args.dataset, args.test_split, args.chunk_unit, args.lexical, args.pool_depth,
         args.cache_dir, args.max_queries, args.max_docs,
     )
     test_curve = sweep(td_run, tb_run, tqrels, grid)

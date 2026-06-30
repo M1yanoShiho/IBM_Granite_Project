@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from eval.tune_alpha import _grid, best_alpha, sweep, write_curve
+from eval.tune_alpha import _grid, _parse_args, best_alpha, sweep, write_curve
 
 
 def test_grid_is_inclusive_unit_interval() -> None:
@@ -46,3 +46,8 @@ def test_write_curve_round_trips(tmp_path: Path) -> None:
     lines = path.read_text().splitlines()
     assert lines[0] == "alpha,ndcg@10"
     assert lines[1] == "0.0,0.1"
+
+
+def test_parse_args_lexical_defaults_to_bm25_and_accepts_splade() -> None:
+    assert _parse_args(["--dataset", "scifact"]).lexical == "bm25"
+    assert _parse_args(["--dataset", "scifact", "--lexical", "splade"]).lexical == "splade"
