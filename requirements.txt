@@ -16,6 +16,7 @@ accelerate==1.13.0       # device placement (device_map="auto") for larger model
 # ---- RAG baseline: vector store + embeddings ----
 faiss-cpu==1.14.2
 sentence-transformers==5.5.1
+scipy==1.17.1            # CSR sparse index for SPLADE learned-sparse retrieval (src/retrieval/sparse_index.py)
 
 # ---- Tokenization (for trimming/padding haystacks to a target token count) ----
 tiktoken==0.13.0
