@@ -74,6 +74,8 @@ class SpladeEncoder:
         tokenizer = AutoTokenizer.from_pretrained(self.model_id, cache_dir=cache)
         model = AutoModelForMaskedLM.from_pretrained(self.model_id, cache_dir=cache)
         model.eval()
+        if torch.cuda.is_available():
+            model = model.to("cuda")  # encode the corpus on GPU (CPU is far too slow at scale)
         return model, tokenizer
 
     @property
@@ -89,6 +91,9 @@ class SpladeEncoder:
         inputs = self._tokenizer(
             texts, padding=True, truncation=True, return_tensors="pt"
         )
+        device = getattr(self._model, "device", None)
+        if device is not None:
+            inputs = {k: v.to(device) for k, v in inputs.items()}
         with torch.no_grad():
             logits = self._model(**inputs).logits
         pooled = splade_pool(logits, inputs["attention_mask"])

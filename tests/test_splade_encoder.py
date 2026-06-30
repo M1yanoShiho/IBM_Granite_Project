@@ -90,3 +90,13 @@ def test_encoder_exposes_vocab_size() -> None:
         tokenizer=_FakeTokenizer([[1]], [[1]]),
     )
     assert enc.vocab_size == 7
+
+
+def test_encode_moves_inputs_to_model_device() -> None:
+    # When the model exposes a device, encode moves inputs there (a no-op on CPU here,
+    # but the path the GPU run takes). Output must be unchanged.
+    logits = torch.tensor([[[2.0, -1.0, 0.0, -5.0], [0.0, 3.0, -1.0, -5.0]]])
+    model = _FakeMaskedLM(logits)
+    model.device = torch.device("cpu")
+    enc = SpladeEncoder(model=model, tokenizer=_FakeTokenizer([[1, 2]], [[1, 1]]))
+    assert enc.encode(["x"])[0] == pytest.approx({0: math.log(3.0), 1: math.log(4.0)})
