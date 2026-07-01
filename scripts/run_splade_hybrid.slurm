@@ -42,6 +42,10 @@ export PYTHONUNBUFFERED=1
 # SPLADE weights loaded from the locally-converted safetensors copy (see
 # scripts/convert_splade_safetensors.sh) — the HPC's torch 2.5.1 cannot torch.load .bin.
 export SPLADE_MODEL_ID="${SPLADE_MODEL_ID:-/user/work/$USER/splade_st}"
+# SPLADE encodes the corpus in batches of SPLADE_BATCH_SIZE (default 32); lower it (e.g. 8)
+# if the GPU OOMs. expandable_segments reduces CUDA fragmentation.
+export SPLADE_BATCH_SIZE="${SPLADE_BATCH_SIZE:-32}"
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
 source /user/work/$USER/venv/bin/activate
 cd /user/work/$USER/IBM_Granite_Project

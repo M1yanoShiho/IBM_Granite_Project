@@ -88,22 +88,35 @@ class SpladeEncoder:
         """Vocabulary size = the MLM head's output dimension (the term-id space)."""
         return int(self._model.config.vocab_size)
 
-    def encode(self, texts: Sequence[str]) -> List[TermWeights]:
-        """Encode a batch of texts into sparse ``{term_id: weight}`` dicts (weight > 0)."""
+    def encode(
+        self, texts: Sequence[str], batch_size: int | None = None
+    ) -> List[TermWeights]:
+        """Encode texts into sparse ``{term_id: weight}`` dicts (weight > 0), in batches.
+
+        ``batch_size`` bounds GPU memory: the intermediate logits are ``[batch, seq,
+        vocab]`` with ``vocab`` ~30k, so encoding the whole corpus at once OOMs. Defaults
+        to the ``SPLADE_BATCH_SIZE`` env var, else 32. Pooled rows move to CPU before
+        sparsifying, freeing GPU memory between batches.
+        """
         texts = list(texts)
         if not texts:
             return []
-        inputs = self._tokenizer(
-            texts, padding=True, truncation=True, return_tensors="pt"
-        )
+        bs = batch_size or int(os.getenv("SPLADE_BATCH_SIZE", "32"))
         device = getattr(self._model, "device", None)
-        if device is not None:
-            inputs = {k: v.to(device) for k, v in inputs.items()}
-        with torch.no_grad():
-            logits = self._model(**inputs).logits
-        pooled = splade_pool(logits, inputs["attention_mask"])
         out: List[TermWeights] = []
-        for row in pooled:
-            nz = torch.nonzero(row > 0.0, as_tuple=False).flatten().tolist()
-            out.append({int(j): float(row[j]) for j in nz})
+        for start in range(0, len(texts), bs):
+            inputs = self._tokenizer(
+                texts[start : start + bs],
+                padding=True,
+                truncation=True,
+                return_tensors="pt",
+            )
+            if device is not None:
+                inputs = {k: v.to(device) for k, v in inputs.items()}
+            with torch.no_grad():
+                logits = self._model(**inputs).logits
+            pooled = splade_pool(logits, inputs["attention_mask"]).cpu()
+            for row in pooled:
+                nz = torch.nonzero(row > 0.0, as_tuple=False).flatten().tolist()
+                out.append({int(j): float(row[j]) for j in nz})
         return out

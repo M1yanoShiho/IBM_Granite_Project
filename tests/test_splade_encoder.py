@@ -100,3 +100,42 @@ def test_encode_moves_inputs_to_model_device() -> None:
     model.device = torch.device("cpu")
     enc = SpladeEncoder(model=model, tokenizer=_FakeTokenizer([[1, 2]], [[1, 1]]))
     assert enc.encode(["x"])[0] == pytest.approx({0: math.log(3.0), 1: math.log(4.0)})
+
+
+class _CountingTokenizer:
+    """Returns one row per input text; records how many times it is called (batches)."""
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def __call__(self, texts, padding=True, truncation=True, return_tensors="pt"):
+        self.calls += 1
+        n = len(texts)
+        return {
+            "input_ids": torch.ones(n, 1, dtype=torch.long),
+            "attention_mask": torch.ones(n, 1, dtype=torch.long),
+        }
+
+
+class _OnesModel:
+    """Every example activates term 0 with logit 1.0 (vocab size 3)."""
+
+    def __init__(self) -> None:
+        self.config = SimpleNamespace(vocab_size=3)
+
+    def __call__(self, input_ids=None, attention_mask=None, **kwargs):
+        b = input_ids.shape[0]
+        logits = torch.zeros(b, 1, 3)
+        logits[:, 0, 0] = 1.0
+        return SimpleNamespace(logits=logits)
+
+
+def test_encode_batches_the_corpus() -> None:
+    # A corpus larger than batch_size is encoded in several forward passes (bounding GPU
+    # memory), preserving order and count.
+    tok = _CountingTokenizer()
+    enc = SpladeEncoder(model=_OnesModel(), tokenizer=tok)
+    out = enc.encode(["a", "b", "c"], batch_size=2)
+    assert len(out) == 3          # all texts encoded, in order
+    assert tok.calls == 2         # split into 2 batches (2 + 1)
+    assert all(d == pytest.approx({0: math.log(2.0)}) for d in out)
