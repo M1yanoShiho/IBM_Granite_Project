@@ -21,7 +21,7 @@ See ``docs/interfaces.md`` (CONTRACT 4 — RAG I/O).
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List
+from typing import Callable, List, Optional
 
 from src.llm_client import LLMClient
 from src.retrieval.base import RetrievedChunk, Retriever
@@ -119,3 +119,84 @@ class RAGPipeline:
         prompt = self._build_prompt(question, chunks)
         answer = self.llm.generate(prompt)
         return RAGResult(answer=answer, retrieved_chunks=chunks)
+
+
+class CorrectiveRAGPipeline(RAGPipeline):
+    """A confidence-gated, adaptive variant of :class:`RAGPipeline`.
+
+    Turns the static single-shot flow into: retrieve -> score retrieval
+    confidence -> if it is below ``confidence_threshold``, re-retrieve with a
+    ``query_rewriter``-rewritten query and widen the context to
+    ``fallback_top_k`` -> generate. Closed-corpus, so the corrective action is a
+    re-retrieval (e.g. a HyDE-expanded query), not a web search.
+
+    The confidence signal is deliberately **model-free**: the *margin* of the
+    top-1 retrieval score over the top-2, normalised by the top score. It is ~0
+    when the leading results are indistinguishable (ambiguous retrieval → correct)
+    and near 1 when one document clearly dominates (confident → keep). This is a
+    lightweight gate in the spirit of Corrective RAG (Yan et al., 2024), **not**
+    their learned retrieval evaluator — named for the family, not a reimplementation.
+
+    Only the pipeline changes, so ``eval.run_rag`` scores it against the vanilla
+    pipeline with everything else fixed: the cover-EM delta is attributable to the
+    adaptive loop alone.
+
+    Parameters
+    ----------
+    query_rewriter:
+        A ``str -> str`` callable used to rewrite the query on a low-confidence
+        first pass (e.g. :class:`~src.retrieval.query_transform.HyDETransform`).
+        ``None`` disables correction (the pipeline then matches the vanilla one).
+    confidence_threshold:
+        Re-retrieve when the first-pass confidence is *below* this value.
+    fallback_top_k:
+        Context depth used after a corrective re-retrieval (usually wider than
+        ``top_k`` to give the generator more to work with).
+    """
+
+    def __init__(
+        self,
+        retriever: Retriever,
+        llm: LLMClient,
+        top_k: int = 4,
+        prompt_template: str = DEFAULT_RAG_PROMPT,
+        query_rewriter: Optional[Callable[[str], str]] = None,
+        confidence_threshold: float = 0.5,
+        fallback_top_k: int = 8,
+    ) -> None:
+        super().__init__(retriever, llm, top_k=top_k, prompt_template=prompt_template)
+        self.query_rewriter = query_rewriter
+        self.confidence_threshold = confidence_threshold
+        self.fallback_top_k = fallback_top_k
+
+    @staticmethod
+    def _confidence(chunks: List[RetrievedChunk]) -> float:
+        """Retrieval confidence in ``[0, 1]``: the top-1 score's margin over top-2.
+
+        ``0.0`` when nothing was retrieved or the top score is non-positive; ``1.0``
+        when there is a single candidate. Otherwise ``(s0 - s1) / s0`` clamped to
+        ``[0, 1]`` — small when the leading results tie (ambiguous), large when one
+        dominates.
+        """
+        if not chunks:
+            return 0.0
+        if len(chunks) < 2:
+            return 1.0
+        top, second = chunks[0].score, chunks[1].score
+        if top <= 0:
+            return 0.0
+        return max(0.0, min(1.0, (top - second) / top))
+
+    def query(self, question: str) -> RAGResult:
+        """Retrieve, and if the first pass is low-confidence, correct then generate."""
+        chunks = self.retriever.retrieve(question)
+        if (
+            self.query_rewriter is not None
+            and self._confidence(chunks) < self.confidence_threshold
+        ):
+            chunks = self.retriever.retrieve(self.query_rewriter(question))
+            top = chunks[: self.fallback_top_k]
+        else:
+            top = chunks[: self.top_k]
+        answer = self.llm.generate(self._build_prompt(question, top))
+        return RAGResult(answer=answer, retrieved_chunks=top)

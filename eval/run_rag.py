@@ -82,6 +82,7 @@ class RAGEvalConfig:
     max_docs: Optional[int] = None
     per_query_out: Optional[Path] = None
     predictions_out: Optional[Path] = None
+    pipeline: str = "vanilla"
 
 
 def run(
@@ -89,8 +90,14 @@ def run(
     data: Optional[BenchmarkData] = None,
     retriever: Optional[Retriever] = None,
     llm: Optional[LLMClient] = None,
+    judge=None,
 ) -> Dict[str, float]:
-    """Load QA data, run RAGPipeline per query, score, and write CSV."""
+    """Load QA data, run RAGPipeline per query, score, and write CSV.
+
+    ``judge`` (optional): a callable ``(premise, hypothesis) -> bool`` enabling the
+    claim-level ``answer_claims`` metric (:func:`~eval.rag_metrics.score_answer_claims`);
+    ``None`` keeps the model-free CPU metric suite.
+    """
     config.results_path.parent.mkdir(parents=True, exist_ok=True)
 
     if data is None:
@@ -115,9 +122,22 @@ def run(
         bench_cfg = BenchmarkConfig(
             dataset=config.dataset, retrievers=[config.retriever]
         )
-        retriever = _build_retrievers(bench_cfg, data)[config.retriever]
+        retriever = _build_retrievers(bench_cfg, data, llm=llm)[config.retriever]
 
-    pipeline = RAGPipeline(retriever=retriever, llm=llm, top_k=config.top_k)
+    if config.pipeline == "corrective":
+        from src.rag_pipeline import CorrectiveRAGPipeline
+        from src.retrieval.query_transform import HyDETransform
+
+        # Only the pipeline varies vs the vanilla run (same retriever/generator/
+        # prompt), so the cover-EM delta isolates the adaptive re-retrieval loop.
+        pipeline = CorrectiveRAGPipeline(
+            retriever=retriever,
+            llm=llm,
+            top_k=config.top_k,
+            query_rewriter=HyDETransform(llm),
+        )
+    else:
+        pipeline = RAGPipeline(retriever=retriever, llm=llm, top_k=config.top_k)
 
     predictions: Dict[str, str] = {}
     references: Dict[str, List[str]] = {}
@@ -134,13 +154,13 @@ def run(
         retrieved_doc_ids[qid] = [chunk.doc_id for chunk in result.retrieved_chunks]
 
     metrics = evaluate_rag(
-        predictions, references, contexts, retrieved_doc_ids, data.qrels
+        predictions, references, contexts, retrieved_doc_ids, data.qrels, judge=judge
     )
 
     _write_results(config, metrics)
     if config.per_query_out is not None:
         per_query = score_rag_per_query(
-            predictions, references, contexts, retrieved_doc_ids, data.qrels
+            predictions, references, contexts, retrieved_doc_ids, data.qrels, judge=judge
         )
         _write_per_query(config.per_query_out, config.retriever, per_query)
     if config.predictions_out is not None:
@@ -174,7 +194,14 @@ def _write_per_query(
     """
     stem = prefix.with_suffix("")  # drop any extension; the suffix is per-metric
     stem.parent.mkdir(parents=True, exist_ok=True)
-    for metric in METRIC_NAMES:
+    # Persist whatever metrics are present (METRIC_NAMES first, then extras like
+    # answer_claims when a judge was used), so the significance-ready per-query CSVs
+    # cover the judge metric too. Falls back to METRIC_NAMES when there are no rows.
+    present = next(iter(per_query.values())).keys() if per_query else METRIC_NAMES
+    metric_list = [m for m in METRIC_NAMES if m in present] + [
+        m for m in present if m not in METRIC_NAMES
+    ]
+    for metric in metric_list:
         path = stem.with_name(f"{stem.name}_{metric}.csv")
         table: Dict[str, Dict[str, str]] = {}
         columns: List[str] = []
@@ -265,6 +292,11 @@ def _parse_args(argv: Optional[List[str]] = None) -> RAGEvalConfig:
                         dest="predictions_out",
                         help="Also dump per-question question/gold/prediction JSONL to "
                         "<prefix>_<retriever>.jsonl for inspection. Default: off.")
+    parser.add_argument("--pipeline", default=defaults.pipeline,
+                        choices=["vanilla", "corrective"],
+                        help="RAG pipeline: 'vanilla' single-shot (default) or "
+                        "'corrective' confidence-gated re-retrieval with a rewritten "
+                        "query.")
     args = parser.parse_args(argv)
     return RAGEvalConfig(
         dataset=args.dataset,
@@ -276,6 +308,7 @@ def _parse_args(argv: Optional[List[str]] = None) -> RAGEvalConfig:
         max_docs=args.max_docs,
         per_query_out=args.per_query_out,
         predictions_out=args.predictions_out,
+        pipeline=args.pipeline,
     )
 
 

@@ -170,3 +170,72 @@ def test_cli_defaults_to_full_set():
     assert cfg.max_queries is None
     assert cfg.max_docs is None
     assert cfg.append is False
+
+
+def test_run_passes_llm_to_retriever_builder(monkeypatch):
+    # run_rag must hand its generator LLM to the retriever builder so an LLM-driven
+    # retriever (e.g. HyDE) reuses that one client instead of loading a second
+    # model. Assert at the seam: _build_retrievers receives the same llm object.
+    import eval.run_benchmark as rb
+
+    captured = {}
+
+    def fake_build(config, data, llm=None):
+        captured["llm"] = llm
+        return {"hyde_granite": FakeRetriever()}
+
+    monkeypatch.setattr(rb, "_build_retrievers", fake_build)
+
+    fake_llm = FakeLLM()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config = RAGEvalConfig(
+            retriever="hyde_granite", results_path=Path(tmpdir) / "o.csv"
+        )
+        run(config, data=_make_data(), llm=fake_llm)  # retriever=None -> build path
+
+    assert captured["llm"] is fake_llm
+
+
+def test_cli_parses_pipeline_flag():
+    assert _parse_args([]).pipeline == "vanilla"
+    assert _parse_args(["--pipeline", "corrective"]).pipeline == "corrective"
+
+
+def test_run_uses_corrective_pipeline_when_selected(monkeypatch):
+    # --pipeline corrective routes run() through CorrectiveRAGPipeline (adaptive
+    # re-retrieval); the default stays the plain RAGPipeline.
+    import src.rag_pipeline as rp
+
+    built = {}
+    original = rp.CorrectiveRAGPipeline
+
+    class SpyCorrective(original):
+        def __init__(self, *args, **kwargs):
+            built["yes"] = True
+            super().__init__(*args, **kwargs)
+
+    monkeypatch.setattr(rp, "CorrectiveRAGPipeline", SpyCorrective)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config = RAGEvalConfig(
+            pipeline="corrective", results_path=Path(tmpdir) / "o.csv"
+        )
+        run(config, data=_make_data(), retriever=FakeRetriever(), llm=FakeLLM())
+
+    assert built.get("yes") is True
+
+
+def test_run_threads_judge_into_metrics():
+    # A judge (claim-level entailment) is injectable through run(); when supplied,
+    # the metric suite gains answer_claims. FakeLLM answers "Paris", gold "Paris".
+    judge = lambda premise, hypothesis: hypothesis.lower() in premise.lower()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config = RAGEvalConfig(results_path=Path(tmpdir) / "rag.csv")
+        metrics = run(
+            config,
+            data=_make_data(),
+            retriever=FakeRetriever(),
+            llm=FakeLLM(),
+            judge=judge,
+        )
+    assert metrics["answer_claims"] == 1.0

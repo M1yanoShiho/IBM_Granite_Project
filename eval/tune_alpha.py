@@ -108,7 +108,8 @@ def _parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
                         help="Split to report the alpha-curve on (default: %(default)s).")
     parser.add_argument("--chunk-unit", default="word", choices=["word", "token"],
                         help="Chunking unit for the dense arm (default: %(default)s).")
-    parser.add_argument("--lexical", default="bm25", choices=["bm25", "splade"],
+    parser.add_argument("--lexical", default="bm25",
+                        choices=["bm25", "strong_bm25", "splade"],
                         help="Lexical arm fused with granite_dense (default: %(default)s).")
     parser.add_argument("--alpha-step", type=float, default=0.05)
     parser.add_argument("--pool-depth", type=int, default=100)

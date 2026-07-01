@@ -27,7 +27,7 @@ import csv
 import time
 from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional, Tuple
 
 from eval.benchmarks.loader import BenchmarkData, load_benchmark
 from eval.ir_metrics import Run, evaluate_run, per_query_scores
@@ -35,6 +35,7 @@ from src.ingestion.chunker import Chunk, chunk_document
 from src.ingestion.indexer import FaissIndex, VectorIndexer
 from src.retrieval.base import Retriever
 from src.retrieval.bm25_baseline import BM25Retriever
+from src.retrieval.strong_bm25 import StrongBM25Retriever
 from src.retrieval.embedder import Embedder
 from src.retrieval.hybrid import ConvexHybridRetriever, HybridRetriever
 from src.retrieval.reranker import (
@@ -411,7 +412,21 @@ HYBRID_SPECS: Dict[str, List[str]] = {
 # RRF-loses result: convex combination beats RRF and is tunable (Bruch et al., 2023).
 CONVEX_HYBRID_SPECS: Dict[str, List[str]] = {
     "convex_hybrid_granite_bm25": ["granite_dense", "bm25"],
+    "convex_hybrid_granite_strong_bm25": ["granite_dense", "strong_bm25"],
     "convex_hybrid_granite_splade": ["granite_dense", "splade"],
+}
+
+
+# LLM query-side augmentation: name -> (base retriever name, transform kind).
+# HyDE / Query2Doc wrap a base retriever with an LLM query-transform
+# (:mod:`src.retrieval.query_transform`); because the wrapper is itself a
+# ``Retriever`` it is measured on nDCG (here) AND cover-EM (``run_rag``). The
+# generating LLM is injected (reused from the RAG generator) rather than loaded a
+# second time.
+HYDE_SPECS: Dict[str, Tuple[str, str]] = {
+    "hyde_granite": ("granite_dense", "hyde"),
+    "q2d_granite": ("granite_dense", "query2doc"),
+    "hyde_strong_bm25": ("strong_bm25", "hyde"),  # HyDE also expands the lexical arm
 }
 
 
@@ -435,6 +450,8 @@ def _build_component(
     """
     if name == "bm25":
         return BM25Retriever(corpus, doc_ids, top_k=top_k)
+    if name == "strong_bm25":
+        return StrongBM25Retriever(corpus, doc_ids, top_k=top_k)
     if name in DENSE_SPECS:
         spec = _dense_spec(name, config.embedding_model_id)
         embedder = Embedder(
@@ -470,8 +487,8 @@ def _build_component(
             index = SparseIndex.build(encoder.encode(corpus), doc_ids, encoder.vocab_size)
         return SparseRetriever(encoder, index, corpus, top_k=top_k)
     raise ValueError(
-        f"Unknown retriever {name!r}; expected 'bm25', 'splade', one of "
-        f"{sorted(DENSE_SPECS)}, or a hybrid {sorted(HYBRID_SPECS)}."
+        f"Unknown retriever {name!r}; expected 'bm25', 'strong_bm25', 'splade', "
+        f"one of {sorted(DENSE_SPECS)}, or a hybrid {sorted(HYBRID_SPECS)}."
     )
 
 
@@ -494,12 +511,32 @@ def _build_named(
     corpus: List[str],
     doc_ids: List[str],
     top_k: int,
+    llm=None,
 ) -> Retriever:
     """Build a single retriever or a hybrid by name (the part a reranker can wrap).
 
     ``bm25`` / a ``DENSE_SPECS`` name -> :func:`_build_component`; a ``HYBRID_SPECS``
-    name -> its components fused with RRF (:class:`~src.retrieval.hybrid.HybridRetriever`).
+    name -> its components fused with RRF (:class:`~src.retrieval.hybrid.HybridRetriever`);
+    a ``HYDE_SPECS`` name -> its base wrapped in an LLM query-transform (reusing the
+    injected ``llm`` if given, else constructing one).
     """
+    if name in HYDE_SPECS:
+        base_name, kind = HYDE_SPECS[name]
+        base = _build_component(base_name, config, data, corpus, doc_ids, top_k)
+        from src.llm_client import LLMClient
+        from src.retrieval.query_transform import (
+            HyDETransform,
+            Query2DocTransform,
+            TransformingRetriever,
+        )
+
+        client = llm if llm is not None else LLMClient()
+        transform = (
+            Query2DocTransform(client)
+            if kind == "query2doc"
+            else HyDETransform(client)
+        )
+        return TransformingRetriever(base, transform)
     if name in HYBRID_SPECS:
         components = [
             _build_component(part, config, data, corpus, doc_ids, top_k)
@@ -522,6 +559,7 @@ def _build_named(
 def _build_retrievers(
     config: BenchmarkConfig,
     data: BenchmarkData,
+    llm=None,
 ) -> Dict[str, Retriever]:
     """Construct the retrievers named in ``config`` over ``data.corpus``.
 
@@ -541,12 +579,16 @@ def _build_retrievers(
     retrievers: Dict[str, Retriever] = {}
     for name in config.retrievers:
         if name in RERANK_SPECS:
-            first = _build_named(RERANK_SPECS[name], config, data, corpus, doc_ids, top_k)
+            first = _build_named(
+                RERANK_SPECS[name], config, data, corpus, doc_ids, top_k, llm=llm
+            )
             retrievers[name] = TwoStageRetriever(
                 first, Reranker(config.reranker_model_id), top_k=pool, candidates=pool
             )
         else:
-            retrievers[name] = _build_named(name, config, data, corpus, doc_ids, top_k)
+            retrievers[name] = _build_named(
+                name, config, data, corpus, doc_ids, top_k, llm=llm
+            )
     return retrievers
 
 

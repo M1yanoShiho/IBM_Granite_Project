@@ -283,3 +283,58 @@ class TestPerQuery:
         agg = evaluate_rag(preds, refs, ctx, docs, qrels)
         mean_em = round(sum(v["answer_em"] for v in per_q.values()) / len(per_q), 6)
         assert agg["answer_em"] == mean_em
+
+
+# ---------------------------------------------------------------------------
+# score_answer_claims + judge threading (claim-level entailment metric)
+# ---------------------------------------------------------------------------
+class TestAnswerClaims:
+    def test_falls_back_to_cover_when_no_judge(self) -> None:
+        # Default (CPU-only) path == cover-EM, so nothing downloads and the
+        # existing metric suite is unchanged unless a judge is supplied.
+        from eval.rag_metrics import score_answer_claims
+
+        pred = "The capital is Paris."
+        assert score_answer_claims(pred, ["Paris"]) == score_answer_cover(pred, ["Paris"])
+        assert score_answer_claims(pred, ["Paris"]) == 1.0
+
+    def test_uses_judge_entailment_when_provided(self) -> None:
+        from eval.rag_metrics import score_answer_claims
+
+        # judge(premise, hypothesis) -> bool: is the gold entailed by the answer?
+        judge = lambda premise, hypothesis: hypothesis.lower() in premise.lower()
+        assert score_answer_claims("The capital is Paris", ["Paris"], judge=judge) == 1.0
+        assert score_answer_claims("The capital is Lyon", ["Paris"], judge=judge) == 0.0
+
+    def test_best_over_multiple_acceptable_golds(self) -> None:
+        from eval.rag_metrics import score_answer_claims
+
+        judge = lambda premise, hypothesis: hypothesis.lower() in premise.lower()
+        assert score_answer_claims("It is NYC", ["New York", "NYC"], judge=judge) == 1.0
+
+    def test_per_query_includes_answer_claims_only_with_judge(self) -> None:
+        preds = {"q1": "Paris"}
+        refs = {"q1": ["Paris"]}
+        ctx = {"q1": ["Paris is the capital."]}
+        docs = {"q1": ["d1"]}
+        qrels = {"q1": {"d1": 1}}
+
+        without = score_rag_per_query(preds, refs, ctx, docs, qrels)
+        assert "answer_claims" not in without["q1"]
+
+        judge = lambda premise, hypothesis: hypothesis.lower() in premise.lower()
+        withj = score_rag_per_query(preds, refs, ctx, docs, qrels, judge=judge)
+        assert withj["q1"]["answer_claims"] == 1.0
+
+    def test_evaluate_rag_reports_answer_claims_only_with_judge(self) -> None:
+        preds = {"q1": "Paris"}
+        refs = {"q1": ["Paris"]}
+        ctx = {"q1": ["Paris is the capital."]}
+        docs = {"q1": ["d1"]}
+        qrels = {"q1": {"d1": 1}}
+
+        assert "answer_claims" not in evaluate_rag(preds, refs, ctx, docs, qrels)
+
+        judge = lambda premise, hypothesis: hypothesis.lower() in premise.lower()
+        agg = evaluate_rag(preds, refs, ctx, docs, qrels, judge=judge)
+        assert agg["answer_claims"] == 1.0

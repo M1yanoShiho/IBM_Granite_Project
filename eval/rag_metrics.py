@@ -143,6 +143,26 @@ def score_answer_cover(prediction: str, references: References) -> float:
     return max(_cover_match(prediction, ref) for ref in refs)
 
 
+def score_answer_claims(prediction: str, references: References, judge=None) -> float:
+    """Claim-level answer correctness via entailment.
+
+    ``judge`` is a callable ``(premise, hypothesis) -> bool`` (an NLI model or an
+    LLM-as-judge): does the prediction (premise) entail a gold answer (hypothesis)?
+    Returns the best over all acceptable golds.
+
+    When ``judge is None`` this falls back to :func:`score_answer_cover`, so the
+    default path stays model-free / CPU-only and the metric suite is unchanged
+    unless a judge is supplied. Unlike token EM/F1/cover, a judge credits
+    semantically-correct answers phrased with a different surface form.
+    """
+    refs = _as_reference_list(references)
+    if not refs:
+        return 0.0
+    if judge is None:
+        return score_answer_cover(prediction, references)
+    return max(float(bool(judge(prediction, ref))) for ref in refs)
+
+
 def score_context_precision(
     retrieved_doc_ids: Sequence[str],
     relevant_doc_ids: Union[Iterable[str], Mapping[str, int]],
@@ -225,18 +245,23 @@ def score_rag_per_query(
     contexts: Dict[str, List[str]],
     retrieved_doc_ids: Dict[str, Sequence[str]],
     qrels: Dict[str, Mapping[str, int]],
+    judge=None,
 ) -> Dict[str, Dict[str, float]]:
     """Per-question metric dict ``{qid: {metric: value}}``.
 
     Keyed by every question present in both ``predictions`` and ``references``.
     This is the input to paired significance testing across retrievers
     (``eval.significance``): export one retriever's column per run, then compare.
+
+    ``judge`` (optional): when supplied, each question also gets an
+    ``answer_claims`` entry (:func:`score_answer_claims`); omitted otherwise, so the
+    default keys are unchanged.
     """
     per_query: Dict[str, Dict[str, float]] = {}
     for qid in set(predictions) & set(references):
         pred = predictions[qid]
         ref = references[qid]
-        per_query[qid] = {
+        scores = {
             "answer_em": score_answer_correctness(pred, ref, fuzzy=False),
             "answer_f1": score_answer_correctness(pred, ref, fuzzy=True),
             "answer_cover": score_answer_cover(pred, ref),
@@ -245,6 +270,9 @@ def score_rag_per_query(
             ),
             "faithfulness": score_faithfulness(pred, "\n".join(contexts.get(qid, []))),
         }
+        if judge is not None:
+            scores["answer_claims"] = score_answer_claims(pred, ref, judge=judge)
+        per_query[qid] = scores
     return per_query
 
 
@@ -254,6 +282,7 @@ def evaluate_rag(
     contexts: Dict[str, List[str]],
     retrieved_doc_ids: Dict[str, Sequence[str]],
     qrels: Dict[str, Mapping[str, int]],
+    judge=None,
 ) -> Dict[str, float]:
     """Compute the mean RAG metric suite over a set of answered questions.
 
@@ -280,12 +309,13 @@ def evaluate_rag(
         every question present in both ``predictions`` and ``references``.
     """
     per_query = score_rag_per_query(
-        predictions, references, contexts, retrieved_doc_ids, qrels
+        predictions, references, contexts, retrieved_doc_ids, qrels, judge=judge
     )
+    names = METRIC_NAMES + (("answer_claims",) if judge is not None else ())
     if not per_query:
-        return {metric: 0.0 for metric in METRIC_NAMES}
+        return {metric: 0.0 for metric in names}
     n = len(per_query)
     return {
         metric: round(sum(q[metric] for q in per_query.values()) / n, 6)
-        for metric in METRIC_NAMES
+        for metric in names
     }

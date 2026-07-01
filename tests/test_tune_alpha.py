@@ -51,3 +51,10 @@ def test_write_curve_round_trips(tmp_path: Path) -> None:
 def test_parse_args_lexical_defaults_to_bm25_and_accepts_splade() -> None:
     assert _parse_args(["--dataset", "scifact"]).lexical == "bm25"
     assert _parse_args(["--dataset", "scifact", "--lexical", "splade"]).lexical == "splade"
+
+
+def test_parse_args_lexical_accepts_strong_bm25() -> None:
+    # The fair BM25 arm must be tunable as the convex lexical arm too, so its
+    # deployment alpha is picked on dev like the naive-bm25 and splade arms.
+    args = _parse_args(["--dataset", "scifact", "--lexical", "strong_bm25"])
+    assert args.lexical == "strong_bm25"

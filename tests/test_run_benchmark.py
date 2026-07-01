@@ -1116,3 +1116,117 @@ def test_build_retrievers_splade_uses_sparse_index_cache(monkeypatch, tmp_path) 
     _build_retrievers(config, data)
 
     assert (tmp_path / "scifact__splade.npz").exists()
+
+
+def test_build_retrievers_builds_strong_bm25() -> None:
+    # strong_bm25 = the fair lexical baseline (tuned k1/b + a real analyzer). Like
+    # bm25 it needs no model, so _build_retrievers builds it directly over the
+    # corpus. Query terms appear only in d1 (a minority term -> positive BM25 idf).
+    from src.retrieval.strong_bm25 import StrongBM25Retriever
+
+    data = BenchmarkData(
+        corpus={
+            "d1": "granite dense retrieval embeddings",
+            "d2": "banana cake recipe with sugar",
+            "d3": "weather forecast tomorrow rain",
+        },
+        queries={"q1": "granite retrieval"},
+        qrels={"q1": {"d1": 1}},
+    )
+    config = BenchmarkConfig(retrievers=["strong_bm25"], k_values=[1])
+
+    retrievers = _build_retrievers(config, data)
+
+    assert isinstance(retrievers["strong_bm25"], StrongBM25Retriever)
+    assert retrievers["strong_bm25"].retrieve("granite retrieval")[0].doc_id == "d1"
+
+
+def test_build_retrievers_builds_convex_hybrid_granite_strong_bm25(monkeypatch) -> None:
+    # convex_hybrid_granite_strong_bm25 fuses the granite dense retriever with the
+    # FAIR bm25 arm (not the naive one) by convex combination — the deployment
+    # hybrid that no longer rests on a strawman lexical baseline. Embedding model
+    # monkeypatched so nothing downloads; >=4 docs so bm25 idf is positive.
+    from src.retrieval.hybrid import ConvexHybridRetriever
+
+    monkeypatch.setattr(
+        "sentence_transformers.SentenceTransformer", FakeSentenceTransformer
+    )
+    data = BenchmarkData(
+        corpus={
+            "d1": "granite retrieval",
+            "d2": "banana cake",
+            "d3": "weather forecast",
+            "d4": "quantum physics",
+        },
+        queries={"q1": "granite retrieval"},
+        qrels={"q1": {"d1": 1}},
+    )
+    config = BenchmarkConfig(
+        retrievers=["convex_hybrid_granite_strong_bm25"], k_values=[1], alpha=0.5
+    )
+
+    retrievers = _build_retrievers(config, data)
+
+    hybrid = retrievers["convex_hybrid_granite_strong_bm25"]
+    assert isinstance(hybrid, ConvexHybridRetriever)
+    assert hybrid.retrieve("granite retrieval")[0].doc_id == "d1"
+
+
+def test_build_retrievers_hyde_reuses_injected_llm(monkeypatch) -> None:
+    # hyde_granite wraps the granite dense retriever with an LLM query-transform.
+    # When run_rag injects its generator LLM, the transform must REUSE that one
+    # client -- not load a second model (a second load would OOM the 6GB GPU).
+    from src.retrieval.query_transform import TransformingRetriever
+
+    monkeypatch.setattr(
+        "sentence_transformers.SentenceTransformer", FakeSentenceTransformer
+    )
+
+    class InjectedLLM:
+        def generate(self, prompt):
+            return "granite retrieval passage"
+
+    injected = InjectedLLM()
+    data = BenchmarkData(
+        corpus={"d1": "granite retrieval", "d2": "banana cake"},
+        queries={"q1": "granite"},
+        qrels={"q1": {"d1": 1}},
+    )
+    config = BenchmarkConfig(retrievers=["hyde_granite"], k_values=[1])
+
+    retrievers = _build_retrievers(config, data, llm=injected)
+
+    hyde = retrievers["hyde_granite"]
+    assert isinstance(hyde, TransformingRetriever)
+    assert hyde.transform.llm is injected  # the fix: reuse, not a second load
+    assert hyde.retrieve("granite")[0].doc_id == "d1"
+
+
+def test_build_retrievers_hyde_builds_own_llm_when_none_injected(monkeypatch) -> None:
+    # Standalone nDCG eval (run_benchmark) has no generator LLM, so HyDE builds one
+    # itself -- exactly once. Faked so nothing downloads.
+    monkeypatch.setattr(
+        "sentence_transformers.SentenceTransformer", FakeSentenceTransformer
+    )
+    built = []
+
+    class FakeLLMClient:
+        def __init__(self, *args, **kwargs):
+            built.append(1)
+
+        def generate(self, prompt):
+            return "granite retrieval"
+
+    monkeypatch.setattr("src.llm_client.LLMClient", FakeLLMClient)
+
+    data = BenchmarkData(
+        corpus={"d1": "granite retrieval", "d2": "banana cake"},
+        queries={"q1": "granite"},
+        qrels={"q1": {"d1": 1}},
+    )
+    config = BenchmarkConfig(retrievers=["hyde_granite"], k_values=[1])
+
+    retrievers = _build_retrievers(config, data)  # no llm injected
+
+    assert built == [1]  # constructed exactly one client itself
+    assert isinstance(retrievers["hyde_granite"].transform.llm, FakeLLMClient)
