@@ -106,10 +106,13 @@ def load_benchmark_data() -> pd.DataFrame | None:
 
 
 def load_rag_data() -> pd.DataFrame | None:
-    """Load rag_results.csv if available, else return None."""
-    csv_path = _resolve_results_dir() / "rag_results.csv"
-    if csv_path.exists():
-        return pd.read_csv(csv_path)
+    """Load real RAG results (rag_trivia_subset.csv), with mock fallback."""
+    results_dir = _resolve_results_dir()
+    # Real data first.
+    for name in ["rag_trivia_subset.csv", "rag_results.csv"]:
+        path = results_dir / name
+        if path.exists():
+            return pd.read_csv(path)
     return None
 
 
@@ -203,55 +206,59 @@ def render_ablation_chart(df: pd.DataFrame) -> None:
 
 
 def render_rag_chart(df_rag: pd.DataFrame) -> None:
-    """Draw RAG quality charts from rag_results.csv."""
-    rag_metrics = ["answer_correctness", "context_precision", "faithfulness"]
-    available = [m for m in rag_metrics if m in df_rag.columns]
-    if not available:
-        st.warning("No RAG metric columns found in rag_results.csv.")
+    """Draw RAG quality charts from real (or mock) RAG CSV."""
+    id_col = "retriever" if "retriever" in df_rag.columns else "model"
+    metric_cols = [c for c in df_rag.columns if c != id_col
+                   and c not in ("dataset", "source", "generator", "top_k")]
+    if not metric_cols:
+        st.warning("No RAG metric columns found.")
         return
 
     sns.set_theme(style="white", context="notebook")
 
-    # Chart 1 — RAG quality by retriever (top_k=4).
-    st.markdown("#### RAG Quality by Retriever (top‑k=4)")
-    df_tk4 = df_rag[df_rag["top_k"] == 4] if "top_k" in df_rag.columns else df_rag
-    if not df_tk4.empty:
-        df_rm = df_tk4.melt(id_vars=["model"], value_vars=available,
-                             var_name="metric", value_name="score")
-        fig, ax = plt.subplots(figsize=(7, 4))
-        pal = {"granite_rag": "#8a5cc4", "st_rag": "#7eb0d5", "bm25_rag": "#b0b0b0"}
-        sns.barplot(data=df_rm, x="metric", y="score", hue="model",
-                    palette=pal, ax=ax)
-        ax.set_title("RAG Quality: Correctness / Context Precision / Faithfulness",
-                     fontsize=12, weight="bold")
-        ax.set_xlabel("")
+    # Chart 1 — RAG quality by retriever.
+    st.markdown("#### RAG Quality by Retriever")
+    df_rm = df_rag.melt(id_vars=[id_col], value_vars=metric_cols,
+                         var_name="metric", value_name="score")
+    fig, ax = plt.subplots(figsize=(max(7, len(metric_cols) * 1.8), 5))
+    pal = {
+        "granite_dense": "#8a5cc4", "gte_dense": "#4c9f70", "bm25": "#b0b0b0",
+        "granite_rag": "#8a5cc4", "st_rag": "#7eb0d5", "bm25_rag": "#b0b0b0",
+    }
+    present = [m for m in df_rag[id_col].unique() if m in pal]
+    sns.barplot(data=df_rm, x="metric", y="score", hue=id_col,
+                palette={m: pal[m] for m in present} if present else None, ax=ax)
+    ax.set_title("RAG Quality on TriviaQA (real HPC)", fontsize=13, weight="bold")
+    ax.set_xlabel("")
+    ax.set_ylabel("Score")
+    ax.set_ylim(0, 1.0)
+    ax.legend(title="Pipeline", frameon=True)
+    ax.grid(axis="y", alpha=0.3)
+    for container in ax.containers:
+        ax.bar_label(container, fmt="%.3f", fontsize=8)
+    plt.tight_layout()
+    st.pyplot(fig)
+    plt.close(fig)
+
+    # Chart 2 — Top‑k sweep (only if the CSV has a top_k column).
+    if "top_k" in df_rag.columns and df_rag["top_k"].nunique() >= 2:
+        st.markdown("#### Top‑k Sweep")
+        fig, ax = plt.subplots(figsize=(6, 4))
+        for retriever, grp in df_rag.groupby(id_col):
+            grp_s = grp.sort_values("top_k")
+            for m in metric_cols:
+                if m in grp_s.columns:
+                    ax.plot(grp_s["top_k"], grp_s[m], marker="o",
+                            linewidth=2, label=f"{retriever} — {m}")
+        ax.set_title("RAG: Top‑k vs. Quality", fontsize=12, weight="bold")
+        ax.set_xlabel("Top‑k retrieved chunks")
         ax.set_ylabel("Score")
-        ax.set_ylim(0, 1.0)
-        ax.legend(title="Pipeline", frameon=True)
-        ax.grid(axis="y", alpha=0.3)
-        for container in ax.containers:
-            ax.bar_label(container, fmt="%.2f", fontsize=8)
+        ax.set_ylim(0.3, 1.0)
+        ax.legend(frameon=True, fontsize=8)
+        ax.grid(True, alpha=0.3)
         plt.tight_layout()
         st.pyplot(fig)
         plt.close(fig)
-
-    # Chart 2 — Top‑k sweep for Granite RAG.
-    if "top_k" in df_rag.columns and "granite_rag" in df_rag["model"].values:
-        st.markdown("#### Top‑k Sweep (Granite RAG)")
-        df_tk = df_rag[df_rag["model"] == "granite_rag"].sort_values("top_k")
-        if len(df_tk) >= 2:
-            fig, ax = plt.subplots(figsize=(6, 4))
-            for m in available:
-                ax.plot(df_tk["top_k"], df_tk[m], marker="o", linewidth=2, label=m)
-            ax.set_title("RAG: Top‑k vs. Quality (Granite RAG)", fontsize=12, weight="bold")
-            ax.set_xlabel("Top‑k retrieved chunks")
-            ax.set_ylabel("Score")
-            ax.set_ylim(0.6, 1.0)
-            ax.legend(frameon=True)
-            ax.grid(True, alpha=0.3)
-            plt.tight_layout()
-            st.pyplot(fig)
-            plt.close(fig)
 
 
 # ---------------------------------------------------------------------------
@@ -488,13 +495,13 @@ def _render_evaluation_section() -> None:
         if df_rag is not None:
             render_rag_chart(df_rag)
             st.caption(
-                "Mock RAG data from `results/rag_results.csv` — "
-                "real data pending B1 (rag_metrics) + B2 (run_rag)."
+                "RAG results from `results/rag_trivia_subset.csv` "
+                "(real HPC, `python -m eval.run_rag --dataset trivia`)."
             )
         else:
             st.warning(
-                "`results/rag_results.csv` not found. "
-                "Run `python -m eval.run_rag` first, or create mock data."
+                "`results/rag_trivia_subset.csv` not found. "
+                "Run `python -m eval.run_rag --dataset trivia` first."
             )
 
 
