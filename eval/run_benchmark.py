@@ -40,6 +40,7 @@ from src.retrieval.embedder import Embedder
 from src.retrieval.hybrid import ConvexHybridRetriever, HybridRetriever
 from src.retrieval.reranker import (
     DEFAULT_RERANKER_MODEL_ID,
+    LLMListwiseReranker,
     Reranker,
     TwoStageRetriever,
 )
@@ -140,6 +141,7 @@ class BenchmarkConfig:
     k_rrf: int = 60
     alpha: float = 0.5
     reranker_model_id: str = DEFAULT_RERANKER_MODEL_ID
+    rerank_pool: int | None = None
     index_type: str = "flat"
     ef_search: int = 64
     nprobe: int = 8
@@ -504,6 +506,18 @@ RERANK_SPECS: Dict[str, str] = {
 }
 
 
+# LLM listwise rerankers: name -> first-stage retriever name. A RankGPT-style
+# :class:`~src.retrieval.reranker.LLMListwiseReranker` (the project's own generative
+# LLM) re-ranks the first stage's pool — retesting the "reranking fails" finding
+# with a *listwise* reranker instead of the pointwise cross-encoder. The candidate
+# pool is capped by ``config.rerank_pool`` (LLM calls scale with it); the LLM is
+# reused from the injected generator when there is one.
+LLM_RERANK_SPECS: Dict[str, str] = {
+    "granite_listrank": "granite_dense",
+    "strong_bm25_listrank": "strong_bm25",
+}
+
+
 def _build_named(
     name: str,
     config: BenchmarkConfig,
@@ -584,6 +598,19 @@ def _build_retrievers(
             )
             retrievers[name] = TwoStageRetriever(
                 first, Reranker(config.reranker_model_id), top_k=pool, candidates=pool
+            )
+        elif name in LLM_RERANK_SPECS:
+            first = _build_named(
+                LLM_RERANK_SPECS[name], config, data, corpus, doc_ids, top_k, llm=llm
+            )
+            from src.llm_client import LLMClient
+
+            client = llm if llm is not None else LLMClient()
+            retrievers[name] = TwoStageRetriever(
+                first,
+                LLMListwiseReranker(client),
+                top_k=pool,
+                candidates=config.rerank_pool or pool,
             )
         else:
             retrievers[name] = _build_named(
@@ -831,6 +858,14 @@ def _parse_args(argv: List[str] | None = None) -> BenchmarkConfig:
         help="Cross-encoder model for the *_rerank retrievers (default: %(default)s).",
     )
     parser.add_argument(
+        "--rerank-pool",
+        type=int,
+        default=defaults.rerank_pool,
+        dest="rerank_pool",
+        help="Candidate-pool size for the LLM listwise rerankers (*_listrank); "
+        "default is the dense fan-out pool. Lower it to bound LLM calls per query.",
+    )
+    parser.add_argument(
         "--index-type",
         default=defaults.index_type,
         dest="index_type",
@@ -872,6 +907,7 @@ def _parse_args(argv: List[str] | None = None) -> BenchmarkConfig:
         k_rrf=args.k_rrf,
         alpha=args.alpha,
         reranker_model_id=args.reranker_model_id,
+        rerank_pool=args.rerank_pool,
         index_type=args.index_type,
         ef_search=args.ef_search,
         nprobe=args.nprobe,

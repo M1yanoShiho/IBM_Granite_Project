@@ -1230,3 +1230,63 @@ def test_build_retrievers_hyde_builds_own_llm_when_none_injected(monkeypatch) ->
 
     assert built == [1]  # constructed exactly one client itself
     assert isinstance(retrievers["hyde_granite"].transform.llm, FakeLLMClient)
+
+
+def test_build_retrievers_builds_granite_listrank_reusing_injected_llm(monkeypatch) -> None:
+    # granite_listrank = granite dense first stage + an LLM listwise reranker, as one
+    # TwoStageRetriever. Retests the "reranking fails" claim with a listwise reranker
+    # instead of the pointwise cross-encoder. Reuses the injected LLM (no 2nd load).
+    from src.retrieval.reranker import LLMListwiseReranker, TwoStageRetriever
+
+    monkeypatch.setattr(
+        "sentence_transformers.SentenceTransformer", FakeSentenceTransformer
+    )
+
+    class InjectedLLM:
+        def generate(self, prompt):
+            return "1 > 2"  # keep the first-stage order
+
+    injected = InjectedLLM()
+    data = BenchmarkData(
+        corpus={"d1": "granite retrieval", "d2": "banana cake"},
+        queries={"q1": "granite"},
+        qrels={"q1": {"d1": 1}},
+    )
+    config = BenchmarkConfig(retrievers=["granite_listrank"], k_values=[1])
+
+    retrievers = _build_retrievers(config, data, llm=injected)
+
+    rr = retrievers["granite_listrank"]
+    assert isinstance(rr, TwoStageRetriever)
+    assert isinstance(rr.reranker, LLMListwiseReranker)
+    assert rr.reranker.llm is injected  # reuse, not a second load
+    assert rr.retrieve("granite")[0].doc_id == "d1"
+
+
+def test_build_retrievers_listrank_respects_rerank_pool(monkeypatch) -> None:
+    # --rerank-pool bounds the candidate pool the (expensive) LLM reranker sees.
+    monkeypatch.setattr(
+        "sentence_transformers.SentenceTransformer", FakeSentenceTransformer
+    )
+
+    class InjectedLLM:
+        def generate(self, prompt):
+            return "1"
+
+    data = BenchmarkData(
+        corpus={"d1": "granite retrieval", "d2": "banana cake"},
+        queries={"q1": "granite"},
+        qrels={"q1": {"d1": 1}},
+    )
+    config = BenchmarkConfig(
+        retrievers=["granite_listrank"], k_values=[1], rerank_pool=5
+    )
+
+    rr = _build_retrievers(config, data, llm=InjectedLLM())["granite_listrank"]
+
+    assert rr.candidates == 5
+
+
+def test_parse_args_rerank_pool() -> None:
+    assert _parse_args([]).rerank_pool is None
+    assert _parse_args(["--rerank-pool", "20"]).rerank_pool == 20
