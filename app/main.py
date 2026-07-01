@@ -86,51 +86,179 @@ def _resolve_results_dir() -> Path:
 
 
 def load_benchmark_data() -> pd.DataFrame | None:
-    """Load benchmark_results.csv if available, else return None."""
-    csv_path = _resolve_results_dir() / "benchmark_results.csv"
-    if csv_path.exists():
-        return pd.read_csv(csv_path)
+    """Load all *_fair.csv evaluation results, concat with a 'dataset' column."""
+    results_dir = _resolve_results_dir()
+    datasets = ["scifact", "fiqa", "nfcorpus"]
+    frames = []
+    for ds in datasets:
+        path = results_dir / f"{ds}_fair.csv"
+        if path.exists():
+            df_ds = pd.read_csv(path)
+            df_ds["dataset"] = ds
+            frames.append(df_ds)
+    if frames:
+        return pd.concat(frames, ignore_index=True)
+    # Fallback: try the old single-file format.
+    legacy = results_dir / "benchmark_results.csv"
+    if legacy.exists():
+        return pd.read_csv(legacy)
+    return None
+
+
+def load_rag_data() -> pd.DataFrame | None:
+    """Load real RAG results (rag_trivia_subset.csv), with mock fallback."""
+    results_dir = _resolve_results_dir()
+    # Real data first.
+    for name in ["rag_trivia_subset.csv", "rag_results.csv"]:
+        path = results_dir / name
+        if path.exists():
+            return pd.read_csv(path)
     return None
 
 
 def render_benchmark_chart(df: pd.DataFrame) -> None:
-    """Draw the system-vs-baselines grouped bar chart inline."""
-    headline = ["precision@10", "recall@10", "ndcg@10", "mrr"]
-    available = [m for m in headline if m in df.columns]
+    """Multi-dataset grouped bar chart: headline metrics × key retrievers."""
+    # Detect column name (new CSVs use 'retriever', legacy use 'model').
+    id_col = "retriever" if "retriever" in df.columns else "model"
+
+    headline = ["ndcg@10", "recall@10", "mrr"]
+    available = [m for m in headline if m in df.columns and df[m].notna().any()]
     if not available:
-        st.warning("No headline metrics found in benchmark_results.csv.")
+        st.warning("No headline metrics found in benchmark data.")
         return
 
-    df_long = df.melt(
-        id_vars=["retriever"],
-        value_vars=available,
-        var_name="metric",
-        value_name="score",
-    )
+    key_retrievers = ["granite_dense", "bm25", "st_dense", "bge_dense", "granite_rerank"]
+    present = [r for r in key_retrievers if r in df[id_col].values]
+    if not present:
+        present = df[id_col].unique().tolist()[:5]
+    df_plot = df[df[id_col].isin(present)]
+
+    palette = {
+        "granite_dense": "#8a5cc4", "granite_rerank": "#b38add",
+        "bge_dense": "#4c9f70", "st_dense": "#7eb0d5", "bm25": "#b0b0b0",
+    }
+
+    datasets = df_plot["dataset"].unique() if "dataset" in df_plot.columns else ["scifact"]
+    n_ds = len(datasets)
 
     sns.set_theme(style="white", context="notebook")
-    fig, ax = plt.subplots(figsize=(8, 5))
-    palette = {"bm25": "#b0b0b0", "st_dense": "#7eb0d5", "granite_dense": "#8a5cc4"}
-    # Only use colours for models actually present.
-    present_models = [m for m in palette if m in df["retriever"].values]
-    sns.barplot(
-        data=df_long,
-        x="metric",
-        y="score",
-        hue="retriever",
-        palette={m: palette[m] for m in present_models},
-        ax=ax,
-    )
-    ax.set_title("Retrieval Benchmark: Granite Dense vs. Baselines (SciFact)",
-                 fontsize=12, weight="bold")
-    ax.set_xlabel("")
-    ax.set_ylabel("Score")
-    ax.set_ylim(0, 1.0)
-    ax.legend(title="Retriever", frameon=True)
-    ax.grid(axis="y", alpha=0.3)
+    fig, axes = plt.subplots(1, n_ds, figsize=(6 * n_ds, 5), sharey=True)
+    if n_ds == 1:
+        axes = [axes]
+
+    for ax, ds in zip(axes, datasets):
+        df_ds = df_plot[df_plot["dataset"] == ds] if "dataset" in df_plot.columns else df_plot
+        df_melt = df_ds.melt(id_vars=[id_col], value_vars=available,
+                              var_name="metric", value_name="score")
+        sns.barplot(data=df_melt, x="metric", y="score", hue=id_col,
+                    palette=palette, ax=ax, legend=(ax == axes[0]))
+        ax.set_title(ds.upper(), fontsize=13, weight="bold")
+        ax.set_xlabel("")
+        ax.set_ylabel("Score" if ax == axes[0] else "")
+        ax.set_ylim(0, 1.0)
+        ax.grid(axis="y", alpha=0.3)
+
+    fig.suptitle("Retrieval Benchmark: Key Retrievers Across Datasets",
+                 fontsize=14, weight="bold", y=1.02)
     plt.tight_layout()
     st.pyplot(fig)
     plt.close(fig)
+
+
+def render_ablation_chart(df: pd.DataFrame) -> None:
+    """Multi-dataset heatmap: all retrievers × all datasets, coloured by nDCG@10."""
+    id_col = "retriever" if "retriever" in df.columns else "model"
+    if "dataset" not in df.columns:
+        st.info("Multi-dataset columns not available. Run A3 first.")
+        return
+
+    pivot = df.pivot_table(
+        index=id_col,
+        columns="dataset",
+        values="ndcg@10",
+        aggfunc="mean",
+    )
+    if pivot.empty:
+        return
+    pivot["avg"] = pivot.mean(axis=1)
+    pivot = pivot.sort_values("avg", ascending=False).drop(columns="avg")
+
+    sns.set_theme(style="white", context="notebook")
+    fig, ax = plt.subplots(figsize=(8, max(5, len(pivot) * 0.4)))
+    sns.heatmap(
+        pivot,
+        annot=True,
+        fmt=".3f",
+        cmap="RdYlGn",
+        vmin=0.15,
+        vmax=0.80,
+        linewidths=0.5,
+        linecolor="white",
+        cbar_kws={"label": "nDCG@10"},
+        ax=ax,
+    )
+    ax.set_title("nDCG@10: All Retrievers × All Datasets", fontsize=13, weight="bold")
+    ax.set_xlabel("")
+    ax.set_ylabel("")
+    plt.tight_layout()
+    st.pyplot(fig)
+    plt.close(fig)
+
+
+def render_rag_chart(df_rag: pd.DataFrame) -> None:
+    """Draw RAG quality charts from real (or mock) RAG CSV."""
+    id_col = "retriever" if "retriever" in df_rag.columns else "model"
+    metric_cols = [c for c in df_rag.columns if c != id_col
+                   and c not in ("dataset", "source", "generator", "top_k")]
+    if not metric_cols:
+        st.warning("No RAG metric columns found.")
+        return
+
+    sns.set_theme(style="white", context="notebook")
+
+    # Chart 1 — RAG quality by retriever.
+    st.markdown("#### RAG Quality by Retriever")
+    df_rm = df_rag.melt(id_vars=[id_col], value_vars=metric_cols,
+                         var_name="metric", value_name="score")
+    fig, ax = plt.subplots(figsize=(max(7, len(metric_cols) * 1.8), 5))
+    pal = {
+        "granite_dense": "#8a5cc4", "gte_dense": "#4c9f70", "bm25": "#b0b0b0",
+        "granite_rag": "#8a5cc4", "st_rag": "#7eb0d5", "bm25_rag": "#b0b0b0",
+    }
+    present = [m for m in df_rag[id_col].unique() if m in pal]
+    sns.barplot(data=df_rm, x="metric", y="score", hue=id_col,
+                palette={m: pal[m] for m in present} if present else None, ax=ax)
+    ax.set_title("RAG Quality on TriviaQA (real HPC)", fontsize=13, weight="bold")
+    ax.set_xlabel("")
+    ax.set_ylabel("Score")
+    ax.set_ylim(0, 1.0)
+    ax.legend(title="Pipeline", frameon=True)
+    ax.grid(axis="y", alpha=0.3)
+    for container in ax.containers:
+        ax.bar_label(container, fmt="%.3f", fontsize=8)
+    plt.tight_layout()
+    st.pyplot(fig)
+    plt.close(fig)
+
+    # Chart 2 — Top‑k sweep (only if the CSV has a top_k column).
+    if "top_k" in df_rag.columns and df_rag["top_k"].nunique() >= 2:
+        st.markdown("#### Top‑k Sweep")
+        fig, ax = plt.subplots(figsize=(6, 4))
+        for retriever, grp in df_rag.groupby(id_col):
+            grp_s = grp.sort_values("top_k")
+            for m in metric_cols:
+                if m in grp_s.columns:
+                    ax.plot(grp_s["top_k"], grp_s[m], marker="o",
+                            linewidth=2, label=f"{retriever} — {m}")
+        ax.set_title("RAG: Top‑k vs. Quality", fontsize=12, weight="bold")
+        ax.set_xlabel("Top‑k retrieved chunks")
+        ax.set_ylabel("Score")
+        ax.set_ylim(0.3, 1.0)
+        ax.legend(frameon=True, fontsize=8)
+        ax.grid(True, alpha=0.3)
+        plt.tight_layout()
+        st.pyplot(fig)
+        plt.close(fig)
 
 
 # ---------------------------------------------------------------------------
@@ -206,10 +334,23 @@ def _render_sidebar() -> None:
         )
         st.divider()
         st.checkbox(
-            "📊 Show benchmark comparison",
+            "📊 Show benchmark (real HPC)",
             value=False,
             key="show_benchmark",
-            help="Overlay the system-vs-baselines bar chart from benchmark_results.csv.",
+            help="Baseline comparison: Granite Dense vs. BM25 / ST Dense on SciFact.",
+        )
+        st.checkbox(
+            "🔬 Show multi-dataset overview",
+            value=False,
+            key="show_ablation",
+            help="All-retrievers × all-datasets heatmap of nDCG@10.",
+        )
+        st.checkbox(
+            "🤖 Show RAG results",
+            value=False,
+            key="show_rag",
+            help="Answer correctness, context precision, faithfulness "
+                 "from rag_results.csv.",
         )
 
 
@@ -307,24 +448,61 @@ def _render_results(chunks: List[RetrievedChunk], answer: str, elapsed: float) -
             st.text(chunk.text)
 
 
-def _render_benchmark_section() -> None:
-    """Render the benchmark comparison chart if toggled on."""
-    if not st.session_state.get("show_benchmark"):
+def _render_evaluation_section() -> None:
+    """Render benchmark / ablation / RAG charts based on sidebar toggles."""
+    show_bench = st.session_state.get("show_benchmark", False)
+    show_ablation = st.session_state.get("show_ablation", False)
+    show_rag = st.session_state.get("show_rag", False)
+
+    if not (show_bench or show_ablation or show_rag):
         return
+
     st.divider()
-    st.subheader("📊 Benchmark: System vs. Baselines")
+    st.subheader("📈 Evaluation Results")
+
     df_bench = load_benchmark_data()
-    if df_bench is not None:
-        render_benchmark_chart(df_bench)
-        st.caption(
-            "Data from `results/benchmark_results.csv` "
-            "(run `python -m eval.run_benchmark` to (re)generate it)."
-        )
-    else:
-        st.warning(
-            "`results/benchmark_results.csv` not found. "
-            "Run `python -m eval.run_benchmark` first, or create mock data."
-        )
+    if show_bench:
+        st.markdown("### 📊 Benchmark: System vs. Baselines")
+        if df_bench is not None:
+            render_benchmark_chart(df_bench)
+            st.caption(
+                "Real HPC results from `results/benchmark_results.csv` "
+                "(source=real). Granite Dense nDCG@10 = 0.767 vs. BM25 0.636."
+            )
+        else:
+            st.warning(
+                "`results/benchmark_results.csv` not found. "
+                "Run `python -m eval.run_benchmark` first, or create mock data."
+            )
+
+    if show_ablation:
+        st.markdown("### 🔬 Multi-Dataset Overview")
+        if df_bench is not None and "dataset" in df_bench.columns:
+            render_ablation_chart(df_bench)
+            st.caption(
+                "All retrievers × all datasets from `results/*_fair.csv` "
+                "(generated by `python -m eval.run_benchmark`)."
+            )
+        else:
+            st.info(
+                "Multi-dataset `*_fair.csv` files not found. "
+                "Run `python -m eval.run_benchmark --dataset scifact,fiqa,nfcorpus`."
+            )
+
+    if show_rag:
+        st.markdown("### 🤖 RAG Quality")
+        df_rag = load_rag_data()
+        if df_rag is not None:
+            render_rag_chart(df_rag)
+            st.caption(
+                "RAG results from `results/rag_trivia_subset.csv` "
+                "(real HPC, `python -m eval.run_rag --dataset trivia`)."
+            )
+        else:
+            st.warning(
+                "`results/rag_trivia_subset.csv` not found. "
+                "Run `python -m eval.run_rag --dataset trivia` first."
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -378,8 +556,8 @@ def main() -> None:
         elapsed = time.perf_counter() - t0
         _render_results(result.retrieved_chunks, result.answer, elapsed)
 
-    # --- Benchmark overlay (always available) ------------------------- #
-    _render_benchmark_section()
+    # --- Evaluation charts (benchmark / ablation / RAG) ---------------- #
+    _render_evaluation_section()
 
 
 if __name__ == "__main__":
