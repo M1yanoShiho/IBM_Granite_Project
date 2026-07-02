@@ -48,3 +48,10 @@ def test_make_counterfactual_swaps_answer_in_passage() -> None:
     llm = _FakeLLM("Mary Jones")
     out = make_counterfactual("Linda Davis won the 1994 award.", "Linda Davis", llm)
     assert out == "Mary Jones won the 1994 award."
+
+
+def test_make_counterfactual_rejects_no_op_swap() -> None:
+    # answer absent from the passage -> swap is a no-op -> would duplicate the needle
+    llm = _FakeLLM("Mary Jones")
+    with pytest.raises(ValueError, match="no-op"):
+        make_counterfactual("A passage without the answer.", "Linda Davis", llm)

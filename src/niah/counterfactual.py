@@ -36,6 +36,14 @@ def propose_wrong_entity(answer: str, llm) -> str:
 
 
 def make_counterfactual(needle_text: str, answer: str, llm) -> str:
-    """Build a counterfactual distractor passage from a needle + its answer."""
+    """Build a counterfactual distractor passage from a needle + its answer.
+
+    Raises ``ValueError`` if ``answer`` does not occur in ``needle_text`` (the swap
+    would be a no-op, yielding a verbatim copy of the needle — a false negative, not
+    a distractor), so callers skip it like the empty/echo cases.
+    """
     wrong = propose_wrong_entity(answer, llm)
-    return swap_entity(needle_text, answer, wrong)
+    out = swap_entity(needle_text, answer, wrong)
+    if out == needle_text:
+        raise ValueError("answer not found in needle text; counterfactual would be a no-op.")
+    return out

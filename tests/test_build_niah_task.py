@@ -39,3 +39,23 @@ def test_build_task_makes_counterfactual_distractor_and_keeps_qrels_clean() -> N
     assert "q1__d1__cf0" not in task.qrels["q1"]        # distractor NOT relevant
     assert task.qrels["q1"] == {"d1": 1}                # needle still the only gold
     assert task.examples[0].distractors[0].source == "counterfactual"
+
+
+def test_build_task_ignores_non_positive_qrels() -> None:
+    # a judged-negative (rel=0) qrels entry must NOT be treated as a needle
+    corpus = {"d1": "Linda Davis won the 1994 award.", "d2": "Unrelated judged-negative doc."}
+    queries = {"q1": "who won the 1994 award?"}
+    qrels = {"q1": {"d1": 1, "d2": 0}}
+    answers = {"q1": ["Linda Davis"]}
+    dense_rank = {"q1": _rank(["d1", "q1__d1__cf0"])}
+    sparse_rank = {"q1": _rank(["d1", "q1__d1__cf0"])}
+    scores = {"q1": {"q1__d1__cf0": 0.4}}
+
+    task = build_task(
+        corpus=corpus, queries=queries, qrels=qrels, answers=answers,
+        llm=_FakeLLM(), judge=_FakeLLM(),
+        dense_rank=dense_rank, sparse_rank=sparse_rank, cand_scores=scores,
+        positive_score=0.9, margin=0.05, rank_threshold=10,
+    )
+    assert task.examples[0].needle_ids == ["d1"]     # d2 (rel=0) excluded
+    assert "q1__d2__cf0" not in task.corpus           # no distractor built from d2

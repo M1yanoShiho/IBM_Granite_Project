@@ -12,7 +12,12 @@ from typing import List, Set
 
 
 def mine_topical(query: str, dense, sparse, k: int, exclude_ids: Set[str]) -> List[str]:
-    """Top-``k`` doc ids from dense ∪ sparse, excluding needles, order-preserving."""
+    """Top-``k`` doc ids from dense ∪ sparse, excluding needles, order-preserving.
+
+    NB: each retriever also applies its own configured ``top_k`` before returning, so
+    the effective count per arm is ``min(k, retriever.top_k)``; configure real
+    retrievers with ``top_k >= k`` or fewer than ``k`` ids are silently returned.
+    """
     seen: Set[str] = set()
     out: List[str] = []
     for retriever in (dense, sparse):

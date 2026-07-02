@@ -37,7 +37,7 @@ def build_task(
     all_distractors: List[Distractor] = []
 
     for qid, query in queries.items():
-        needle_ids = list(qrels.get(qid, {}))
+        needle_ids = [doc_id for doc_id, rel in qrels.get(qid, {}).items() if rel > 0]
         gold_answer = (answers.get(qid) or [None])[0]
         ex = NiahExample(query_id=qid, query=query, needle_ids=needle_ids)
         if gold_answer:
