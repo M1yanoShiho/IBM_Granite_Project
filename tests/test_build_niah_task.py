@@ -30,7 +30,7 @@ def test_build_task_makes_counterfactual_distractor_and_keeps_qrels_clean() -> N
         corpus=corpus, queries=queries, qrels=qrels, answers=answers,
         llm=_FakeLLM(), judge=_FakeLLM(),
         dense_rank=dense_rank, sparse_rank=sparse_rank, cand_scores=scores,
-        positive_score=0.9, margin=0.05, rank_threshold=10,
+        positive_scores={"q1": 0.9}, margin=0.05, rank_threshold=10,
     )
 
     assert isinstance(task, NiahTask)
@@ -55,7 +55,34 @@ def test_build_task_ignores_non_positive_qrels() -> None:
         corpus=corpus, queries=queries, qrels=qrels, answers=answers,
         llm=_FakeLLM(), judge=_FakeLLM(),
         dense_rank=dense_rank, sparse_rank=sparse_rank, cand_scores=scores,
-        positive_score=0.9, margin=0.05, rank_threshold=10,
+        positive_scores={"q1": 0.9}, margin=0.05, rank_threshold=10,
     )
     assert task.examples[0].needle_ids == ["d1"]     # d2 (rel=0) excluded
     assert "q1__d2__cf0" not in task.corpus           # no distractor built from d2
+
+
+def test_build_task_wires_mined_source_c_without_polluting_qrels() -> None:
+    # a mined topical negative (Source C) is recorded as a distractor but stays
+    # out of qrels; the needle itself is never mined as a distractor.
+    corpus = {
+        "d1": "Linda Davis won the 1994 award.",
+        "m1": "A topically adjacent passage that does not answer the question.",
+    }
+    queries = {"q1": "who won the 1994 award?"}
+    qrels = {"q1": {"d1": 1}}
+    answers = {"q1": ["Linda Davis"]}
+    dense_rank = {"q1": _rank(["d1", "m1"])}
+    sparse_rank = {"q1": _rank(["d1", "m1"])}
+    scores = {"q1": {"m1": 0.4}}   # mined m1 scored below the positive anchor
+
+    task = build_task(
+        corpus=corpus, queries=queries, qrels=qrels, answers=answers,
+        llm=_FakeLLM(), judge=_FakeLLM(),
+        dense_rank=dense_rank, sparse_rank=sparse_rank, cand_scores=scores,
+        positive_scores={"q1": 0.9}, margin=0.05, rank_threshold=10,
+        mined_ids={"q1": ["m1", "d1"]},   # d1 is the needle -> must be skipped
+    )
+    sources = {d.doc_id: d.source for d in task.examples[0].distractors}
+    assert sources.get("m1") == "mined"       # mined distractor recorded
+    assert "d1" not in sources                 # the needle is never a distractor
+    assert "m1" not in task.qrels["q1"]        # mined stays non-relevant
