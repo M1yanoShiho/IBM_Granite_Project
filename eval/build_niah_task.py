@@ -6,6 +6,18 @@ For each query: gold docs (qrels ``rel > 0``) = needles; build distractors from
 negatives), keep those passing the §5.1 filters, inject the freshly-generated
 ones, and return a ``NiahTask`` whose qrels still mark ONLY the needles relevant.
 
+The two sources take *different* filters, on purpose:
+
+- **Source A (counterfactual)** — a ~1-token edit of a needle, so it embeds
+  near-identically (hard for both retrievers *by construction*) and scores *high*,
+  close to the needle. The positive-anchor margin is therefore inapplicable (it
+  would reject exactly these high-similarity distractors); non-relevance is
+  guaranteed by the broken fact and confirmed by the answerability judge. So
+  Source A is gated by the judge alone.
+- **Source C (mined)** — a real corpus doc surfaced by the retrievers, where a high
+  score may signal a false negative (an actually-relevant doc). Here the full
+  filter applies: margin + not-answering + dual-retriever hardness.
+
 ``build_task`` takes precomputed *per-query* ranks/scores + injected models so it
 is unit testable; ``main`` (below) computes them from the real retrievers.
 """
@@ -15,7 +27,7 @@ from typing import Dict, List
 
 from src.niah.assembly import inject
 from src.niah.counterfactual import make_counterfactual
-from src.niah.filters import answers_query, keep_distractor, passes_margin
+from src.niah.filters import answers_query, keep_distractor
 from src.niah.types import (
     SOURCE_COUNTERFACTUAL,
     SOURCE_MINED,
@@ -43,13 +55,9 @@ def build_task(
 ) -> NiahTask:
     """Assemble a NIAH task from Sources A (counterfactual) and C (mined).
 
-    Parameters of note:
-    - ``positive_scores`` — the per-query anchor (the needle's own retrieval score);
-      distractors must score below it by ``margin`` (NV-Retriever positive-anchor).
-    - ``mined_ids`` — Source-C candidate doc ids per query. They are already in the
-      corpus and were surfaced by the retrievers, so Filter 2 (hardness) is implicit
-      and only Filter 1 (margin + not-answering) is applied; they are recorded as
-      distractors but not re-injected.
+    ``positive_scores`` is the per-query anchor (the needle's own retrieval score)
+    used by the Source-C margin guard. ``mined_ids`` are the Source-C candidate doc
+    ids per query (already in the corpus, so they are recorded but not re-injected).
     """
     mined = mined_ids or {}
     examples: List[NiahExample] = []
@@ -61,7 +69,8 @@ def build_task(
         pos = positive_scores.get(qid, 0.0)
         ex = NiahExample(query_id=qid, query=query, needle_ids=needle_ids)
 
-        # Source A — counterfactual, one per needle (freshly generated -> injected).
+        # Source A — counterfactual per needle (freshly generated -> injected);
+        # gated by the answerability judge only (see module docstring).
         if gold_answer:
             for nid in needle_ids:
                 cand_id = f"{qid}__{nid}__cf0"
@@ -69,31 +78,28 @@ def build_task(
                     text = make_counterfactual(corpus[nid], gold_answer, llm)
                 except (ValueError, KeyError):
                     continue  # answer absent / echo / no-op swap -> skip this needle
-                if keep_distractor(
-                    cand_score=cand_scores.get(qid, {}).get(cand_id, 0.0),
-                    positive_score=pos,
-                    margin=margin,
-                    cand_text=text,
-                    query=query,
-                    judge=judge,
-                    cand_id=cand_id,
-                    dense_rank=dense_rank.get(qid, {}),
-                    sparse_rank=sparse_rank.get(qid, {}),
-                    rank_threshold=rank_threshold,
-                ):
+                if not answers_query(text, query, judge):
                     d = Distractor(cand_id, text, SOURCE_COUNTERFACTUAL, nid)
                     ex.distractors.append(d)
                     injected.append(d)
 
-        # Source C — mined topical negatives: already in the corpus with real ranks,
-        # so Filter 2 is implicit; apply only Filter 1 (margin + not-answering).
+        # Source C — mined topical negatives (already in the corpus). Full filter.
         needle_set = set(needle_ids)
         for mined_id in mined.get(qid, []):
             if mined_id in needle_set or mined_id not in corpus:
                 continue
-            if passes_margin(
-                cand_scores.get(qid, {}).get(mined_id, 0.0), pos, margin
-            ) and not answers_query(corpus[mined_id], query, judge):
+            if keep_distractor(
+                cand_score=cand_scores.get(qid, {}).get(mined_id, 0.0),
+                positive_score=pos,
+                margin=margin,
+                cand_text=corpus[mined_id],
+                query=query,
+                judge=judge,
+                cand_id=mined_id,
+                dense_rank=dense_rank.get(qid, {}),
+                sparse_rank=sparse_rank.get(qid, {}),
+                rank_threshold=rank_threshold,
+            ):
                 ex.distractors.append(
                     Distractor(mined_id, corpus[mined_id], SOURCE_MINED, "")
                 )

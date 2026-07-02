@@ -86,3 +86,26 @@ def test_build_task_wires_mined_source_c_without_polluting_qrels() -> None:
     assert sources.get("m1") == "mined"       # mined distractor recorded
     assert "d1" not in sources                 # the needle is never a distractor
     assert "m1" not in task.qrels["q1"]        # mined stays non-relevant
+
+
+class _AnswerLeakLLM:
+    # wrong-entity proposer returns an alternative, but the answerability judge
+    # says the (counterfactual) passage still answers the query -> it is dropped.
+    def generate(self, prompt: str) -> str:
+        return "YES" if prompt.strip().endswith("Answer:") else "Mary Jones"
+
+
+def test_build_task_drops_counterfactual_that_still_answers() -> None:
+    corpus = {"d1": "Linda Davis won the 1994 award."}
+    queries = {"q1": "who won the 1994 award?"}
+    qrels = {"q1": {"d1": 1}}
+    answers = {"q1": ["Linda Davis"]}
+
+    task = build_task(
+        corpus=corpus, queries=queries, qrels=qrels, answers=answers,
+        llm=_AnswerLeakLLM(), judge=_AnswerLeakLLM(),
+        dense_rank={}, sparse_rank={}, cand_scores={},
+        positive_scores={"q1": 0.9}, margin=0.05, rank_threshold=10,
+    )
+    assert task.examples[0].distractors == []          # answer-leaking A dropped
+    assert "q1__d1__cf0" not in task.corpus
