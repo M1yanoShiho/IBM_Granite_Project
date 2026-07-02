@@ -65,10 +65,25 @@ The project's validity rests on how **needle / haystack / misleading hay** are o
 
 - **Needle.** What is the rare relevant item — queries with ≤1 gold doc (SciFact-like), a synthetically inserted fact (long-context NIAH), and/or a rare-entity / rare-term query subset.
 - **Haystack.** The corpus and how it scales (subsets of `dpr-w100` up to the probed ceiling) + the distractor pool.
-- **Misleading hay.** How hard negatives / near-duplicates are sourced or generated (BM25/dense hard negatives; near-duplicate perturbations; topically-adjacent distractors) and injected at a controlled ratio.
+- **Misleading hay.** Constructed by the three-source + two-filter pipeline in §5.1 (literature-grounded), injected at a controlled ratio.
 - **Metrics.** recall@k / precision@k / nDCG on the needle; "needle-found" rate; `context_precision`; citation-correctness; abstention correctness. Reuse `eval/significance.py`.
 
-**Phase-0 output:** a written task definition + a small builder (query/distractor construction) with a **hardness gate** — a check that baselines do *not* saturate the constructed task (else it measures nothing).
+### 5.1 Distractor construction pipeline (literature-grounded)
+
+Three complementary distractor sources, each targeting a different retriever weakness, then two mandatory filters + the task-level hardness gate. Grounded in 2023–2025 SOTA (full refs in the dev-log / report).
+
+**Sources.**
+- **(A) Counterfactual near-duplicates — the sharpest dual-adversarial hay.** For a needle, an LLM identifies the answer-bearing entity/date/number/relation and substitutes a *type-consistent but factually wrong* alternative (entity-substitution / knowledge-conflict method: Longpre et al. 2021; Faithfulness-QA; FaithEval; WikiContradict, NeurIPS 2024). A ~1-token edit keeps lexical overlap near-maximal (fools BM25/SPLADE) *and* the embedding near-identical (fools dense), while the answer is now wrong (a true non-answer). Optionally LLM-rewrite the surrounding passage for coherence, preserving the query terms.
+- **(B) LLM-generated plausible non-answers.** Multi-attribute self-reflection prompting (SyNeg, 2024) + MCQ-distractor design principles (EMNLP-2024 survey; student-choice-prediction): generate on-topic passages that share the query's terms/entities and are highly plausible but do *not* answer the query (or answer a subtly different question). Multi-stage CoT improves plausibility.
+- **(C) Mined topical hard negatives.** Union of dense- and SPLADE/BM25-top-k passages from the corpus itself (ANCE-style + lexical) → natural, realistic distractors covering both modalities.
+
+**Filters (both mandatory — they protect eval validity, not just efficiency).**
+- **(1) False-negative / answerability filter.** ~70% of naively-mined top "negatives" are actually relevant (NV-Retriever, SIGIR-2024) — injecting those corrupts recall. Discard any candidate whose relevance is too close to the needle's, using the positive score as anchor (NV-Retriever TopK-MarginPos / TopK-PercPos) **and** a cross-encoder / LLM-judge answerability check ("does this answer the query?" → if yes, drop). For (A)/(B), additionally verify the answer actually changed.
+- **(2) Dual-retriever hardness check.** Keep only distractors that rank highly under *both* a dense retriever and SPLADE/BM25 — otherwise they are not "hard". Operationalises the hardness gate at the distractor level.
+
+**Task-level hardness gate.** After injection, baselines must sit well below saturation (recall ≪ 1.0); if not, raise the distractor ratio/hardness. Bonus: the (A) counterfactual distractors double as an RGB-style *counterfactual-robustness* test (Chen et al., AAAI 2024) on the RAG side → feeds claim C4 (trust) and the abstention eval.
+
+**Phase-0 output:** a written task definition + a small builder implementing §5.1 (sources + filters), with the hardness-gate check wired in.
 
 ## 6. Work plan (phases; backward from 2026-09-03, ~9 weeks)
 
