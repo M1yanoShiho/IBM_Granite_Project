@@ -10,7 +10,7 @@ testable; ``main`` (below) computes them from the real retrievers.
 """
 from __future__ import annotations
 
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 from src.niah.assembly import inject
 from src.niah.counterfactual import make_counterfactual
