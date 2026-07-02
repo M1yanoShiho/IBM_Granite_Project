@@ -145,6 +145,8 @@ class BenchmarkConfig:
     index_type: str = "flat"
     ef_search: int = 64
     nprobe: int = 8
+    max_docs: int | None = None
+    max_queries: int | None = None
 
 
 def build_run(
@@ -665,7 +667,12 @@ def run(
     the dense retrievers are all wired; dense construction downloads its model).
     """
     if data is None:
-        data = load_benchmark(config.dataset, split=config.split)
+        data = load_benchmark(
+            config.dataset,
+            split=config.split,
+            max_docs=config.max_docs,
+            max_queries=config.max_queries,
+        )
     if retrievers is None:
         retrievers = _build_retrievers(config, data)
 
@@ -887,6 +894,21 @@ def _parse_args(argv: List[str] | None = None) -> BenchmarkConfig:
         dest="nprobe",
         help="IVF cells probed per query (recall/speed knob; default: %(default)s).",
     )
+    parser.add_argument(
+        "--max-docs",
+        type=int,
+        default=defaults.max_docs,
+        dest="max_docs",
+        help="Cap the corpus at this many distractor docs (gold docs always kept); "
+        "for the scale sweep / feasibility probe (default: whole corpus).",
+    )
+    parser.add_argument(
+        "--max-queries",
+        type=int,
+        default=defaults.max_queries,
+        dest="max_queries",
+        help="Evaluate only the first N queries by sorted id (default: all).",
+    )
     args = parser.parse_args(argv)
     return BenchmarkConfig(
         dataset=args.dataset,
@@ -911,6 +933,8 @@ def _parse_args(argv: List[str] | None = None) -> BenchmarkConfig:
         index_type=args.index_type,
         ef_search=args.ef_search,
         nprobe=args.nprobe,
+        max_docs=args.max_docs,
+        max_queries=args.max_queries,
     )
 
 

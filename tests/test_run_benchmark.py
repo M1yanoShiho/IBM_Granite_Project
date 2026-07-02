@@ -864,6 +864,14 @@ def test_parse_args_k_rrf() -> None:
     assert _parse_args(["--k-rrf", "30"]).k_rrf == 30
 
 
+def test_parse_args_max_docs_and_queries() -> None:
+    assert _parse_args([]).max_docs is None
+    assert _parse_args([]).max_queries is None
+    config = _parse_args(["--max-docs", "1000000", "--max-queries", "100"])
+    assert config.max_docs == 1000000
+    assert config.max_queries == 100
+
+
 class FakeCrossEncoder:
     """Deterministic stand-in for sentence-transformers CrossEncoder (no download).
 
@@ -976,12 +984,15 @@ def test_parse_args_split() -> None:
 
 def test_run_passes_split_to_loader(monkeypatch, tmp_path) -> None:
     # MS MARCO has no public 'test' qrels — it uses 'dev'. run() must thread
-    # config.split through to the loader so those datasets are reachable.
+    # config.split — and the corpus/query caps used by the scale sweep — through
+    # to the loader so those datasets and sizes are reachable.
     captured = {}
 
-    def fake_load(name, split="test"):
+    def fake_load(name, split="test", max_docs=None, max_queries=None):
         captured["name"] = name
         captured["split"] = split
+        captured["max_docs"] = max_docs
+        captured["max_queries"] = max_queries
         return BenchmarkData(
             corpus={"d1": "x"}, queries={"q1": "q"}, qrels={"q1": {"d1": 1}}
         )
@@ -993,11 +1004,18 @@ def test_run_passes_split_to_loader(monkeypatch, tmp_path) -> None:
         retrievers=["bm25"],
         k_values=[1],
         results_path=tmp_path / "o.csv",
+        max_docs=500,
+        max_queries=100,
     )
 
     run(config)
 
-    assert captured == {"name": "msmarco", "split": "dev"}
+    assert captured == {
+        "name": "msmarco",
+        "split": "dev",
+        "max_docs": 500,
+        "max_queries": 100,
+    }
 
 
 def test_build_retrievers_builds_convex_hybrid_of_dense_and_bm25(monkeypatch) -> None:
