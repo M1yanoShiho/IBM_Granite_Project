@@ -34,9 +34,11 @@ from typing import Dict, List
 from src.niah.assembly import inject
 from src.niah.counterfactual import make_counterfactual
 from src.niah.filters import answers_query, keep_distractor
+from src.niah.generative import make_generative_distractor
 from src.niah.mining import mine_topical
 from src.niah.types import (
     SOURCE_COUNTERFACTUAL,
+    SOURCE_GENERATIVE,
     SOURCE_MINED,
     Distractor,
     NiahExample,
@@ -109,7 +111,25 @@ def build_task(
                 ex.distractors.append(d)
                 injected.append(d)
 
-        # Source C — mined topical negatives (already in the corpus). Full filter.
+        # Source B — LLM plausible non-answer for the query (freshly generated ->
+        # injected); on-topic but does not answer, confirmed by the judge. Its
+        # retrieval hardness is not verified (not indexed) — the synthetic-insert
+        # upgrade would fix that; here it adds distractor-TYPE diversity.
+        if needle is not None:
+            gen_id = f"{qid}__gen0"
+            try:
+                gen_text = make_generative_distractor(query, corpus[needle], llm)
+            except (ValueError, KeyError):
+                gen_text = None
+            if gen_text is not None and not answers_query(gen_text, query, judge):
+                d = Distractor(gen_id, gen_text, SOURCE_GENERATIVE, needle)
+                ex.distractors.append(d)
+                injected.append(d)
+
+        # Source C — mined topical negatives (already in the corpus). Looser Filter 2
+        # (require_both=False): a mined doc came from the top-k of at least one arm,
+        # so "hard for either retriever" keeps more, richer distractors; margin +
+        # not-answering still guard against false negatives.
         needle_set = set(needle_ids)
         for mined_id in mined.get(qid, []):
             if mined_id in needle_set or mined_id not in corpus:
@@ -125,6 +145,7 @@ def build_task(
                 dense_rank=dense_rank.get(qid, {}),
                 sparse_rank=sparse_rank.get(qid, {}),
                 rank_threshold=rank_threshold,
+                require_both=False,
             ):
                 ex.distractors.append(
                     Distractor(mined_id, corpus[mined_id], SOURCE_MINED, "")

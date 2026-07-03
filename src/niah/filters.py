@@ -37,13 +37,17 @@ def is_hard(
     dense_rank: Dict[str, int],
     sparse_rank: Dict[str, int],
     rank_threshold: int,
+    require_both: bool = True,
 ) -> bool:
-    """True if ``cand_id`` is within top-``rank_threshold`` in BOTH rank maps."""
+    """True if ``cand_id`` is within top-``rank_threshold``. With ``require_both``
+    (default) it must be so in BOTH rank maps; otherwise EITHER — a looser gate that
+    keeps a candidate that is hard for at least one retriever.
+    """
     d = dense_rank.get(cand_id)
     s = sparse_rank.get(cand_id)
-    if d is None or s is None:
-        return False
-    return d <= rank_threshold and s <= rank_threshold
+    d_hard = d is not None and d <= rank_threshold
+    s_hard = s is not None and s <= rank_threshold
+    return (d_hard and s_hard) if require_both else (d_hard or s_hard)
 
 
 def keep_distractor(
@@ -58,10 +62,15 @@ def keep_distractor(
     dense_rank: Dict[str, int],
     sparse_rank: Dict[str, int],
     rank_threshold: int,
+    require_both: bool = True,
 ) -> bool:
-    """Apply Filter 1 (margin AND not-answering) then Filter 2 (hard in both)."""
+    """Apply Filter 1 (margin AND not-answering) then Filter 2 (hard). ``require_both``
+    selects Filter 2's mode: both retrievers (strict, default) or either (looser).
+    """
     if not passes_margin(cand_score, positive_score, margin):
         return False
     if answers_query(cand_text, query, judge):
         return False
-    return is_hard(cand_id, dense_rank, sparse_rank, rank_threshold)
+    return is_hard(
+        cand_id, dense_rank, sparse_rank, rank_threshold, require_both=require_both
+    )

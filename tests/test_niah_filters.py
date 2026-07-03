@@ -54,3 +54,19 @@ def test_keep_distractor_drops_answer_leaking_candidate() -> None:
         cand_text="Paris is the capital.", query="capital of France?", judge=_FakeJudge("YES"),
         cand_id="cf0", dense_rank={"cf0": 1}, sparse_rank={"cf0": 2}, rank_threshold=10,
     ) is False
+
+
+def test_is_hard_either_keeps_candidate_hard_in_one_run() -> None:
+    # require_both=False: top-rank in at least one arm is enough
+    assert is_hard("m1", {"m1": 1}, {}, rank_threshold=10, require_both=False) is True
+    assert is_hard("m2", {"m2": 50}, {"m2": 50}, rank_threshold=10, require_both=False) is False
+
+
+def test_keep_distractor_either_mode_is_looser_than_both() -> None:
+    kw = dict(
+        cand_score=0.4, positive_score=0.9, margin=0.05,
+        cand_text="Rome is the capital.", query="capital of France?", judge=_FakeJudge("NO"),
+        cand_id="m1", dense_rank={"m1": 1}, sparse_rank={}, rank_threshold=10,
+    )
+    assert keep_distractor(**kw) is False                      # strict (both) -> reject
+    assert keep_distractor(**kw, require_both=False) is True    # either -> keep

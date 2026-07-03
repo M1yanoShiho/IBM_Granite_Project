@@ -197,3 +197,22 @@ def test_build_task_designates_one_needle_from_multiple_golds() -> None:
     cfs = [d for d in ex.distractors if d.source == "counterfactual"]
     assert len(cfs) == 1                              # exactly ONE counterfactual, not one per gold
     assert cfs[0].parent_needle_id == "d1"
+
+
+def test_build_task_wires_source_b_generative() -> None:
+    corpus = {"d1": "Linda Davis won the 1994 award."}
+    queries = {"q1": "who won the 1994 award?"}
+    qrels = {"q1": {"d1": 1}}
+    answers = {"q1": ["Linda Davis"]}
+    task = build_task(
+        corpus=corpus, queries=queries, qrels=qrels, answers=answers,
+        llm=_FakeLLM(), judge=_FakeLLM(),
+        dense_rank={}, sparse_rank={}, cand_scores={},
+        positive_scores={"q1": 0.9}, margin=0.05, rank_threshold=10,
+    )
+    sources = {d.source for d in task.examples[0].distractors}
+    assert "counterfactual" in sources       # Source A
+    assert "generative" in sources           # Source B now wired in -> distractor diversity
+    gen = [d for d in task.examples[0].distractors if d.source == "generative"]
+    assert gen[0].doc_id == "q1__gen0"
+    assert gen[0].doc_id in task.corpus      # injected into the haystack
