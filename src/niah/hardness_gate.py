@@ -11,11 +11,29 @@ from typing import Dict, List, Set
 
 
 def recall_at_k(ranked_ids: List[str], gold_ids: Set[str], k: int) -> float:
-    """Fraction of gold ids present in the top-``k`` retrieved ids."""
+    """Fraction of gold ids present in the top-``k`` retrieved ids (multi-gold)."""
     if not gold_ids:
         return 0.0
     topk = set(ranked_ids[:k])
     return len(topk & gold_ids) / len(gold_ids)
+
+
+def hit_at_k(ranked_ids: List[str], needle_id: str, k: int) -> float:
+    """1.0 if the single designated needle is in the top-``k``, else 0.0.
+
+    The single-target NIAH metric (vs ``recall_at_k`` for the multi-gold case);
+    averaged over queries it is the needle-found rate. Robust to NQ-style incomplete
+    labels because it tracks one *known* target, not "any relevant doc".
+    """
+    return 1.0 if needle_id in ranked_ids[:k] else 0.0
+
+
+def reciprocal_rank(ranked_ids: List[str], needle_id: str) -> float:
+    """Reciprocal of the designated needle's 1-indexed rank; 0.0 if not present."""
+    for i, doc_id in enumerate(ranked_ids):
+        if doc_id == needle_id:
+            return 1.0 / (i + 1)
+    return 0.0
 
 
 def mean_recall(per_query: Dict[str, float]) -> float:

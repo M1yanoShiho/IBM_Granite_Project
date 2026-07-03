@@ -2,7 +2,14 @@
 """Tests for src/niah/hardness_gate.py — the non-saturation gate."""
 from __future__ import annotations
 
-from src.niah.hardness_gate import gate_report, is_saturated, mean_recall, recall_at_k
+from src.niah.hardness_gate import (
+    gate_report,
+    hit_at_k,
+    is_saturated,
+    mean_recall,
+    recall_at_k,
+    reciprocal_rank,
+)
 
 
 def test_recall_at_k_counts_found_gold_in_top_k() -> None:
@@ -31,3 +38,16 @@ def test_gate_report_flags_pass_or_fail() -> None:
     assert rep["mean_recall"] == 0.5
     assert rep["saturated"] is False
     assert rep["passes_gate"] is True   # NOT saturated -> the task is hard enough
+
+
+def test_hit_at_k_flags_designated_needle_in_top_k() -> None:
+    ranked = ["d3", "n1", "d9"]
+    assert hit_at_k(ranked, "n1", k=3) == 1.0
+    assert hit_at_k(ranked, "n1", k=1) == 0.0     # n1 is at rank 2
+    assert hit_at_k(["d3", "d9"], "n1", k=3) == 0.0
+
+
+def test_reciprocal_rank_of_needle() -> None:
+    assert reciprocal_rank(["n1", "d2"], "n1") == 1.0
+    assert reciprocal_rank(["d1", "n1", "d3"], "n1") == 0.5   # rank 2
+    assert reciprocal_rank(["d1", "d2"], "n1") == 0.0         # not found

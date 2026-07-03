@@ -270,7 +270,7 @@ def main(argv: List[str] | None = None) -> None:
     from eval.benchmarks.loader import load_benchmark
     from eval.run_benchmark import BenchmarkConfig, _build_retrievers
     from src.llm_client import LLMClient
-    from src.niah.hardness_gate import gate_report, recall_at_k
+    from src.niah.hardness_gate import gate_report, hit_at_k, reciprocal_rank
 
     data = load_benchmark(
         args.dataset, split=args.split,
@@ -303,14 +303,21 @@ def main(argv: List[str] | None = None) -> None:
     # Hardness gate (CONSERVATIVE): the dense baseline is indexed over the ORIGINAL
     # corpus, which already contains the mined Source-C distractors. The injected
     # Source-A counterfactuals are not in that index, but adding them could only
-    # push the needle further down — so "not saturated" here guarantees the built
-    # task is at least as hard. (A full gate would re-index over task.corpus.)
-    per_q = {}
+    # push the designated needle further down — so "not saturated" here guarantees
+    # the built task is at least as hard. (A full gate would re-index over
+    # task.corpus.) Single-target metric: needle-found (hit@k) + MRR of each query's
+    # DESIGNATED needle (robust to NQ's incomplete multi-gold labels).
+    needle_by_qid = {e.query_id: e.needle_id for e in task.examples}
+    hits, rrs = {}, {}
     for qid, query in task.queries.items():
-        needles = {d for d, rel in task.qrels.get(qid, {}).items() if rel > 0}
-        ranked = [c.doc_id for c in dense.retrieve(query)[: args.gate_k]]
-        per_q[qid] = recall_at_k(ranked, needles, args.gate_k)
-    report = gate_report(per_q)
+        needle = needle_by_qid.get(qid)
+        if needle is None:
+            continue  # no usable gold -> excluded from the gate
+        ranked = list(dict.fromkeys(c.doc_id for c in dense.retrieve(query)))
+        hits[qid] = hit_at_k(ranked, needle, args.gate_k)
+        rrs[qid] = reciprocal_rank(ranked, needle)
+    report = gate_report(hits)
+    mean_mrr = sum(rrs.values()) / len(rrs) if rrs else 0.0
 
     write_task_json(task, args.out)
     n_distractors = sum(len(e.distractors) for e in task.examples)
@@ -319,9 +326,9 @@ def main(argv: List[str] | None = None) -> None:
         f"{len(task.corpus)} corpus docs -> {args.out}"
     )
     print(
-        f"Hardness gate (dense recall@{args.gate_k}, conservative): "
-        f"mean_recall={report['mean_recall']:.3f} saturated={report['saturated']} "
-        f"passes_gate={report['passes_gate']}"
+        f"Hardness gate (needle-found@{args.gate_k}, conservative): "
+        f"needle_found={report['mean_recall']:.3f} MRR={mean_mrr:.3f} "
+        f"saturated={report['saturated']} passes_gate={report['passes_gate']}"
     )
     if report["saturated"]:
         print(
