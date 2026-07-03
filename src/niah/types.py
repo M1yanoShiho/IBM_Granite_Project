@@ -35,6 +35,10 @@ class NiahExample:
     query_id: str
     query: str
     needle_ids: List[str]
+    # The single designated target for single-target NIAH (needle-found / MRR).
+    # ``None`` when the query has no usable gold. ``needle_ids`` keeps the full
+    # gold set (honest qrels); the metric tracks only ``needle_id``.
+    needle_id: str | None = None
     distractors: List[Distractor] = field(default_factory=list)
 
 

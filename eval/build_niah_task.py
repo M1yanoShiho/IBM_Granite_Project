@@ -44,6 +44,23 @@ from src.niah.types import (
 )
 
 
+def designate_needle(gold_ids, gold_answer, corpus) -> str | None:
+    """Pick ONE designated needle per query, difficulty-neutrally (single-target
+    NIAH; cf. RULER MK-NIAH). Prefer a gold that literally contains the answer (so
+    Source A can build a counterfactual for it); among those the smallest doc_id —
+    deterministic and uncorrelated with retrieval difficulty, so it does not bias the
+    needle-found metric. Fall back to the smallest gold in the corpus, else None.
+    """
+    present = [g for g in gold_ids if g in corpus]
+    if not present:
+        return None
+    if gold_answer:
+        answer_bearing = [g for g in present if gold_answer in corpus[g]]
+        if answer_bearing:
+            return min(answer_bearing)
+    return min(present)
+
+
 def build_task(
     *,
     corpus: Dict[str, str],
@@ -74,21 +91,23 @@ def build_task(
         needle_ids = [doc_id for doc_id, rel in qrels.get(qid, {}).items() if rel > 0]
         gold_answer = (answers.get(qid) or [None])[0]
         pos = positive_scores.get(qid, 0.0)
-        ex = NiahExample(query_id=qid, query=query, needle_ids=needle_ids)
+        needle = designate_needle(needle_ids, gold_answer, corpus)
+        ex = NiahExample(
+            query_id=qid, query=query, needle_ids=needle_ids, needle_id=needle
+        )
 
-        # Source A — counterfactual per needle (freshly generated -> injected);
-        # gated by the answerability judge only (see module docstring).
-        if gold_answer:
-            for nid in needle_ids:
-                cand_id = f"{qid}__{nid}__cf0"
-                try:
-                    text = make_counterfactual(corpus[nid], gold_answer, llm)
-                except (ValueError, KeyError):
-                    continue  # answer absent / echo / no-op swap -> skip this needle
-                if not answers_query(text, query, judge):
-                    d = Distractor(cand_id, text, SOURCE_COUNTERFACTUAL, nid)
-                    ex.distractors.append(d)
-                    injected.append(d)
+        # Source A — ONE counterfactual for the DESIGNATED needle (single-target
+        # NIAH; see module docstring); gated by the answerability judge only.
+        if gold_answer and needle is not None:
+            cand_id = f"{qid}__{needle}__cf0"
+            try:
+                text = make_counterfactual(corpus[needle], gold_answer, llm)
+            except (ValueError, KeyError):
+                text = None
+            if text is not None and not answers_query(text, query, judge):
+                d = Distractor(cand_id, text, SOURCE_COUNTERFACTUAL, needle)
+                ex.distractors.append(d)
+                injected.append(d)
 
         # Source C — mined topical negatives (already in the corpus). Full filter.
         needle_set = set(needle_ids)
@@ -191,6 +210,7 @@ def write_task_json(task: NiahTask, path: Path) -> None:
             {
                 "query_id": e.query_id,
                 "query": e.query,
+                "needle_id": e.needle_id,
                 "needle_ids": e.needle_ids,
                 "distractors": [
                     {

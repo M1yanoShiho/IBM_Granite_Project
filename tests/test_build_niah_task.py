@@ -6,7 +6,12 @@ import json
 
 from src.niah.types import NiahTask
 from src.retrieval.base import RetrievedChunk
-from eval.build_niah_task import build_task, compute_retrieval_signals, write_task_json
+from eval.build_niah_task import (
+    build_task,
+    compute_retrieval_signals,
+    designate_needle,
+    write_task_json,
+)
 
 
 class _FakeLLM:
@@ -41,6 +46,7 @@ def test_build_task_makes_counterfactual_distractor_and_keeps_qrels_clean() -> N
     assert task.corpus["q1__d1__cf0"] == "Mary Jones won the 1994 award."
     assert "q1__d1__cf0" not in task.qrels["q1"]        # distractor NOT relevant
     assert task.qrels["q1"] == {"d1": 1}                # needle still the only gold
+    assert task.examples[0].needle_id == "d1"           # the single designated needle
     assert task.examples[0].distractors[0].source == "counterfactual"
 
 
@@ -153,4 +159,41 @@ def test_write_task_json_roundtrips(tmp_path) -> None:
     loaded = json.loads(out.read_text(encoding="utf-8"))
     assert "q1__d1__cf0" in loaded["corpus"]
     assert loaded["qrels"]["q1"] == {"d1": 1}
+    assert loaded["examples"][0]["needle_id"] == "d1"
     assert loaded["examples"][0]["distractors"][0]["source"] == "counterfactual"
+
+
+def test_designate_needle_prefers_answer_bearing_smallest_id() -> None:
+    corpus = {"d1": "no answer here", "d2": "Linda Davis won", "d3": "Linda Davis too"}
+    assert designate_needle(["d1", "d2", "d3"], "Linda Davis", corpus) == "d2"
+
+
+def test_designate_needle_falls_back_to_smallest_gold() -> None:
+    corpus = {"d1": "x", "d2": "y"}
+    assert designate_needle(["d2", "d1"], "absent answer", corpus) == "d1"
+
+
+def test_designate_needle_none_when_no_gold_in_corpus() -> None:
+    assert designate_needle(["d9"], "x", {"d1": "y"}) is None
+
+
+def test_build_task_designates_one_needle_from_multiple_golds() -> None:
+    corpus = {
+        "d1": "Linda Davis won the 1994 award.",
+        "d2": "Linda Davis performed at the 1994 award show.",
+    }
+    queries = {"q1": "who won the 1994 award?"}
+    qrels = {"q1": {"d1": 1, "d2": 1}}          # two golds -> exactly one designated
+    answers = {"q1": ["Linda Davis"]}
+    task = build_task(
+        corpus=corpus, queries=queries, qrels=qrels, answers=answers,
+        llm=_FakeLLM(), judge=_FakeLLM(),
+        dense_rank={}, sparse_rank={}, cand_scores={},
+        positive_scores={"q1": 0.9}, margin=0.05, rank_threshold=10,
+    )
+    ex = task.examples[0]
+    assert set(ex.needle_ids) == {"d1", "d2"}        # both golds recorded (honest qrels)
+    assert ex.needle_id == "d1"                       # one designated (answer-bearing, smallest id)
+    cfs = [d for d in ex.distractors if d.source == "counterfactual"]
+    assert len(cfs) == 1                              # exactly ONE counterfactual, not one per gold
+    assert cfs[0].parent_needle_id == "d1"
