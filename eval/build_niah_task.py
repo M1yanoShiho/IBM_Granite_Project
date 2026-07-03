@@ -220,13 +220,18 @@ def compute_retrieval_signals(
     return RetrievalSignals(dense_rank, sparse_rank, cand_scores, positive_scores, mined_ids)
 
 
-def write_task_json(task: NiahTask, path: Path) -> None:
-    """Persist a ``NiahTask`` as JSON (distractor text lives in ``corpus``)."""
+def write_task_json(task: NiahTask, path: Path, recipe: dict) -> None:
+    """Persist a task as a RECIPE, not a full-corpus dump.
+
+    Stores the ``load_benchmark`` args that reconstruct the background haystack +
+    needles, plus every distractor WITH its text (generated Source-A/B text is not in
+    the benchmark; mined Source-C text is stored too so the distractor set is
+    identical at every corpus size in the Phase-1 scale sweep). ~MBs instead of the
+    100s of MB of a corpus dump; rebuild deterministically with :func:`load_niah_task`.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
-        "corpus": task.corpus,
-        "queries": task.queries,
-        "qrels": task.qrels,
+        "recipe": recipe,
         "examples": [
             {
                 "query_id": e.query_id,
@@ -236,6 +241,7 @@ def write_task_json(task: NiahTask, path: Path) -> None:
                 "distractors": [
                     {
                         "doc_id": d.doc_id,
+                        "text": d.text,
                         "source": d.source,
                         "parent_needle_id": d.parent_needle_id,
                     }
@@ -246,6 +252,49 @@ def write_task_json(task: NiahTask, path: Path) -> None:
         ],
     }
     path.write_text(json.dumps(payload), encoding="utf-8")
+
+
+def load_niah_task(path: str | Path, *, loader=None) -> NiahTask:
+    """Reconstruct a :class:`NiahTask` from a recipe file (see :func:`write_task_json`).
+
+    Reloads the benchmark (background haystack + needles + qrels) from the stored
+    recipe via ``load_benchmark`` — the SAME deterministic, nested ``max_docs``
+    subsample — then re-injects the stored distractors. ``loader`` is injected in
+    tests; production uses ``eval.benchmarks.loader.load_benchmark``.
+    """
+    payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    recipe = payload["recipe"]
+    if loader is None:
+        from eval.benchmarks.loader import load_benchmark as loader
+    data = loader(
+        recipe["dataset"],
+        split=recipe.get("split", "test"),
+        max_queries=recipe.get("max_queries"),
+        max_docs=recipe.get("max_docs"),
+    )
+    examples: List[NiahExample] = []
+    distractors: List[Distractor] = []
+    for e in payload["examples"]:
+        ds = [
+            Distractor(d["doc_id"], d["text"], d["source"], d["parent_needle_id"])
+            for d in e["distractors"]
+        ]
+        distractors.extend(ds)
+        examples.append(
+            NiahExample(
+                query_id=e["query_id"],
+                query=e["query"],
+                needle_ids=e["needle_ids"],
+                needle_id=e.get("needle_id"),
+                distractors=ds,
+            )
+        )
+    return NiahTask(
+        corpus=inject(data.corpus, distractors),
+        queries=data.queries,
+        qrels=data.qrels,
+        examples=examples,
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -340,7 +389,16 @@ def main(argv: List[str] | None = None) -> None:
     report = gate_report(hits)
     mean_mrr = sum(rrs.values()) / len(rrs) if rrs else 0.0
 
-    write_task_json(task, args.out)
+    write_task_json(
+        task,
+        args.out,
+        recipe={
+            "dataset": args.dataset,
+            "split": args.split,
+            "max_queries": args.max_queries,
+            "max_docs": args.max_docs,
+        },
+    )
     n_distractors = sum(len(e.distractors) for e in task.examples)
     print(
         f"Built NIAH task: {len(task.queries)} queries, {n_distractors} distractors, "

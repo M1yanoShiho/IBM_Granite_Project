@@ -6,10 +6,12 @@ import json
 
 from src.niah.types import NiahTask
 from src.retrieval.base import RetrievedChunk
+from eval.benchmarks.loader import BenchmarkData
 from eval.build_niah_task import (
     build_task,
     compute_retrieval_signals,
     designate_needle,
+    load_niah_task,
     write_task_json,
 )
 
@@ -143,8 +145,8 @@ def test_compute_retrieval_signals_derives_ranks_positive_and_mined() -> None:
     assert set(sig.mined_ids["q1"]) == {"m1"}           # d1 (needle) excluded
 
 
-def test_write_task_json_roundtrips(tmp_path) -> None:
-    task = build_task(
+def _sample_task():
+    return build_task(
         corpus={"d1": "Linda Davis won the 1994 award."},
         queries={"q1": "who won the 1994 award?"},
         qrels={"q1": {"d1": 1}},
@@ -153,14 +155,41 @@ def test_write_task_json_roundtrips(tmp_path) -> None:
         dense_rank={}, sparse_rank={}, cand_scores={},
         positive_scores={"q1": 0.9}, margin=0.05, rank_threshold=10,
     )
+
+
+_RECIPE = {"dataset": "nq", "split": "dev", "max_queries": 1, "max_docs": 10}
+
+
+def test_write_task_json_stores_recipe_and_distractor_text_not_corpus(tmp_path) -> None:
     out = tmp_path / "task.json"
-    write_task_json(task, out)
+    write_task_json(_sample_task(), out, recipe=_RECIPE)
 
     loaded = json.loads(out.read_text(encoding="utf-8"))
-    assert "q1__d1__cf0" in loaded["corpus"]
-    assert loaded["qrels"]["q1"] == {"d1": 1}
-    assert loaded["examples"][0]["needle_id"] == "d1"
-    assert loaded["examples"][0]["distractors"][0]["source"] == "counterfactual"
+    assert "corpus" not in loaded                        # no full-corpus dump
+    assert loaded["recipe"]["dataset"] == "nq"
+    d0 = loaded["examples"][0]["distractors"][0]
+    assert d0["source"] == "counterfactual"
+    assert d0["text"] == "Mary Jones won the 1994 award."   # generated text preserved
+
+
+def test_load_niah_task_reconstructs_from_recipe(tmp_path) -> None:
+    out = tmp_path / "task.json"
+    write_task_json(_sample_task(), out, recipe=_RECIPE)
+
+    def fake_loader(name, split="test", max_queries=None, max_docs=None):
+        # background haystack + the needle d1, deterministically rebuilt from recipe
+        return BenchmarkData(
+            corpus={"d1": "Linda Davis won the 1994 award.", "bg1": "unrelated hay"},
+            queries={"q1": "who won the 1994 award?"},
+            qrels={"q1": {"d1": 1}},
+        )
+
+    task = load_niah_task(out, loader=fake_loader)
+    assert task.corpus["d1"] == "Linda Davis won the 1994 award."          # needle
+    assert "bg1" in task.corpus                                             # background
+    assert task.corpus["q1__d1__cf0"] == "Mary Jones won the 1994 award."  # distractor re-injected
+    assert task.examples[0].needle_id == "d1"
+    assert task.qrels["q1"] == {"d1": 1}
 
 
 def test_designate_needle_prefers_answer_bearing_smallest_id() -> None:
