@@ -872,6 +872,13 @@ def test_parse_args_max_docs_and_queries() -> None:
     assert config.max_queries == 100
 
 
+def test_parse_args_ivfpq_and_pq_nbits() -> None:
+    assert _parse_args([]).pq_nbits == 8
+    config = _parse_args(["--index-type", "ivfpq", "--pq-nbits", "4"])
+    assert config.index_type == "ivfpq"
+    assert config.pq_nbits == 4
+
+
 class FakeCrossEncoder:
     """Deterministic stand-in for sentence-transformers CrossEncoder (no download).
 

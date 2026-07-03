@@ -145,6 +145,7 @@ class BenchmarkConfig:
     index_type: str = "flat"
     ef_search: int = 64
     nprobe: int = 8
+    pq_nbits: int = 8
     max_docs: int | None = None
     max_queries: int | None = None
 
@@ -475,6 +476,7 @@ def _build_component(
             index_type=config.index_type,
             ef_search=config.ef_search,
             nprobe=config.nprobe,
+            pq_nbits=config.pq_nbits,
         )
         if config.index_cache_dir is not None:
             cache_path = config.index_cache_dir / _cache_key(config, name)
@@ -876,9 +878,17 @@ def _parse_args(argv: List[str] | None = None) -> BenchmarkConfig:
         "--index-type",
         default=defaults.index_type,
         dest="index_type",
-        choices=["flat", "hnsw", "ivf"],
-        help="FAISS index for dense retrievers: 'flat' (exact, default) or the ANN "
-        "indexes 'hnsw'/'ivf' — far faster on large corpora at ~no recall loss.",
+        choices=["flat", "hnsw", "ivf", "ivfpq"],
+        help="FAISS index for dense retrievers: 'flat' (exact, default), the ANN "
+        "indexes 'hnsw'/'ivf', or 'ivfpq' (PQ-compressed — millions of docs in RAM).",
+    )
+    parser.add_argument(
+        "--pq-nbits",
+        type=int,
+        default=defaults.pq_nbits,
+        dest="pq_nbits",
+        help="Bits per PQ sub-quantizer for --index-type ivfpq (default: %(default)s; "
+        "lower = smaller index, lower recall).",
     )
     parser.add_argument(
         "--ef-search",
@@ -933,6 +943,7 @@ def _parse_args(argv: List[str] | None = None) -> BenchmarkConfig:
         index_type=args.index_type,
         ef_search=args.ef_search,
         nprobe=args.nprobe,
+        pq_nbits=args.pq_nbits,
         max_docs=args.max_docs,
         max_queries=args.max_queries,
     )

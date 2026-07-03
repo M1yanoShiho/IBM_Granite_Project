@@ -211,6 +211,22 @@ def test_vector_indexer_builds_ivf_index_and_trains_it() -> None:
     assert index.search([0.0, 1.0, 0.0, 0.0], top_k=1)[0].doc_id == "d2"
 
 
+def test_vector_indexer_builds_ivfpq_compressed_index() -> None:
+    # IVFPQ compresses vectors via Product Quantization (so millions of docs fit in
+    # RAM). It trains + searches; PQ is lossy, so we assert the index TYPE + that it
+    # trains and returns a result, not the exact nearest neighbour.
+    n, dim = 64, 8
+    rng = np.random.default_rng(0)
+    vecs = {f"t{i}": rng.standard_normal(dim).astype("float32").tolist() for i in range(n)}
+    chunks = [Chunk(chunk_id=f"d{i}::0", doc_id=f"d{i}", text=f"t{i}") for i in range(n)]
+    index = VectorIndexer(
+        _FakeEmbedder(vecs), index_type="ivfpq", nlist=4, nprobe=4, pq_m=2, pq_nbits=4
+    ).build(chunks)
+    assert isinstance(index._index, faiss.IndexIVFPQ)
+    assert index._index.is_trained
+    assert len(index.search(vecs["t0"], top_k=1)) == 1
+
+
 def test_vector_indexer_rejects_unknown_index_type() -> None:
     with pytest.raises(ValueError, match="index_type"):
         VectorIndexer(None, index_type="bogus")

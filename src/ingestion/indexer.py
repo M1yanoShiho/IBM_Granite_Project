@@ -63,6 +63,10 @@ class VectorIndexer:
           Orders of magnitude faster at scale, ~no training, very high recall.
         - ``"ivf"``: an inverted-file ANN index (``IndexIVFFlat``); needs
           training, recall/speed traded via ``nprobe``.
+        - ``"ivfpq"``: IVF + Product Quantization (``IndexIVFPQ``) — compresses
+          each vector from ``dim*4`` bytes to ``pq_m*pq_nbits/8`` bytes (e.g. 768d
+          fp32 -> 96 bytes at m=96,nbits=8 = ~32x), so millions of docs fit in a
+          single node's RAM at some recall cost. ``pq_m`` must divide ``dim``.
 
         ANN indexes are what make "find the needle in a *large* haystack"
         practical — the default stays ``"flat"`` so existing results reproduce.
@@ -76,7 +80,7 @@ class VectorIndexer:
         IVF cells probed per query; higher = better recall, slower. The IVF knob.
     """
 
-    _INDEX_TYPES = ("flat", "hnsw", "ivf")
+    _INDEX_TYPES = ("flat", "hnsw", "ivf", "ivfpq")
 
     def __init__(
         self,
@@ -87,6 +91,8 @@ class VectorIndexer:
         ef_search: int = 64,
         nlist: int = 100,
         nprobe: int = 8,
+        pq_m: int | None = None,
+        pq_nbits: int = 8,
     ) -> None:
         if index_type not in self._INDEX_TYPES:
             raise ValueError(
@@ -98,6 +104,16 @@ class VectorIndexer:
         self.ef_search = ef_search
         self.nlist = nlist
         self.nprobe = nprobe
+        self.pq_m = pq_m
+        self.pq_nbits = pq_nbits
+
+    @staticmethod
+    def _auto_pq_m(dim: int) -> int:
+        """Largest divisor of ``dim`` giving ~8 dims per subquantizer (m must | dim)."""
+        for m in range(max(1, dim // 8), 0, -1):
+            if dim % m == 0:
+                return m
+        return 1
 
     def _new_index(self, dim: int, n_vectors: int):
         """Construct the empty FAISS index for ``index_type`` (inner product)."""
@@ -107,10 +123,16 @@ class VectorIndexer:
             index = faiss.IndexHNSWFlat(dim, self.hnsw_m, faiss.METRIC_INNER_PRODUCT)
             index.hnsw.efSearch = self.ef_search
             return index
-        # ivf — can't have more cells than vectors; probe at least one cell.
+        # ivf / ivfpq — can't have more cells than vectors; probe at least one cell.
         nlist = max(1, min(self.nlist, n_vectors))
         quantizer = faiss.IndexFlatIP(dim)
-        index = faiss.IndexIVFFlat(quantizer, dim, nlist, faiss.METRIC_INNER_PRODUCT)
+        if self.index_type == "ivfpq":
+            m = self.pq_m or self._auto_pq_m(dim)
+            index = faiss.IndexIVFPQ(
+                quantizer, dim, nlist, m, self.pq_nbits, faiss.METRIC_INNER_PRODUCT
+            )
+        else:
+            index = faiss.IndexIVFFlat(quantizer, dim, nlist, faiss.METRIC_INNER_PRODUCT)
         index.nprobe = max(1, min(self.nprobe, nlist))
         return index
 
