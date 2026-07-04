@@ -500,13 +500,20 @@ def _build_component(
 
 # Two-stage rerank retrievers: name -> the first-stage retriever name whose
 # candidate pool a cross-encoder (:class:`~src.retrieval.reranker.Reranker`)
-# re-ranks. The first stage may be a dense retriever OR a hybrid — reranking a
-# hybrid pool lets the cross-encoder pick the complementary BM25 finds that rank
-# fusion alone could not. Stays all-Granite with the default reranker.
+# re-ranks. The first stage may be a dense retriever, a hybrid, OR an LLM
+# query-transform (HyDE / Query2Doc). Reranking a hybrid pool lets the cross-encoder
+# pick the complementary BM25 finds that rank fusion alone could not; reranking a
+# query-transform pool tests whether the two gains compound — on the NIAH task the
+# needle is almost always in the dense top-100 (R@100 = 0.87) yet reranking alone
+# lifted top-10 only +0.04 (ns) while query-transform lifted it +0.08 (Q2D, p=.04),
+# so this stacks the winning first stage under the reranker to try to close the
+# 0.43 -> 0.87 ranking gap. Stays all-Granite with the default reranker.
 RERANK_SPECS: Dict[str, str] = {
     "granite_rerank": "granite_dense",
     "granite_small_rerank": "granite_small_dense",
     "hybrid_granite_bm25_rerank": "hybrid_granite_bm25",
+    "q2d_granite_rerank": "q2d_granite",
+    "hyde_granite_rerank": "hyde_granite",
 }
 
 

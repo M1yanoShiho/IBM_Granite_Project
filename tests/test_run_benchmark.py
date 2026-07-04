@@ -1288,6 +1288,42 @@ def test_build_retrievers_builds_granite_listrank_reusing_injected_llm(monkeypat
     assert rr.retrieve("granite")[0].doc_id == "d1"
 
 
+def test_build_retrievers_builds_q2d_rerank_stack_reusing_injected_llm(monkeypatch) -> None:
+    # q2d_granite_rerank stacks the NIAH-winning first stage (a Query2Doc query
+    # transform, +0.08 needle-found) UNDER the cross-encoder reranker as one
+    # TwoStageRetriever -- testing whether query-transform and reranking compound to
+    # close the 0.43 -> 0.87 ranking gap. The transform's first stage must be the
+    # query-transform and it must REUSE the injected LLM (no second model load).
+    from src.retrieval.query_transform import TransformingRetriever
+    from src.retrieval.reranker import Reranker, TwoStageRetriever
+
+    monkeypatch.setattr(
+        "sentence_transformers.SentenceTransformer", FakeSentenceTransformer
+    )
+    monkeypatch.setattr("sentence_transformers.CrossEncoder", FakeCrossEncoder)
+
+    class InjectedLLM:
+        def generate(self, prompt):
+            return "granite retrieval passage"
+
+    injected = InjectedLLM()
+    data = BenchmarkData(
+        corpus={"d1": "granite retrieval", "d2": "banana cake"},
+        queries={"q1": "granite"},
+        qrels={"q1": {"d1": 1}},
+    )
+    config = BenchmarkConfig(retrievers=["q2d_granite_rerank"], k_values=[1])
+
+    retrievers = _build_retrievers(config, data, llm=injected)
+
+    rr = retrievers["q2d_granite_rerank"]
+    assert isinstance(rr, TwoStageRetriever)
+    assert isinstance(rr.reranker, Reranker)  # the cross-encoder, not the LLM
+    assert isinstance(rr.retriever, TransformingRetriever)  # query-transform first
+    assert rr.retriever.transform.llm is injected  # reuse, not a second load
+    assert rr.retrieve("granite")[0].doc_id == "d1"
+
+
 def test_build_retrievers_listrank_respects_rerank_pool(monkeypatch) -> None:
     # --rerank-pool bounds the candidate pool the (expensive) LLM reranker sees.
     monkeypatch.setattr(
