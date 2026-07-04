@@ -6,6 +6,12 @@
 #
 #   mkdir -p logs results && sbatch scripts/run_niah.slurm results/niah_nq_task.json nq
 #
+# Optional 3rd/4th+ args override the cut-off k and the retriever list, e.g.
+#   # pool-recall diagnostic (rerank ceiling = dense needle-found@100):
+#   sbatch scripts/run_niah.slurm results/niah_nq_task.json nq_k100 100 granite_dense granite_rerank
+#   # ceiling-raiser candidates (all already built in run_benchmark):
+#   sbatch scripts/run_niah.slurm results/niah_nq_task.json nq_raisers 10 granite_dense granite_listrank hyde_granite q2d_granite
+#
 # FIRST, on the LOGIN node (one-time; compute nodes are offline):
 #   source scripts/env.sh
 #   bash scripts/convert_splade_safetensors.sh                      # SPLADE .bin -> safetensors
@@ -22,8 +28,13 @@
 #SBATCH --output=logs/%x-%j.out
 
 set -euo pipefail
-TASK="${1:?usage: sbatch scripts/run_niah.slurm <task.json> [tag]}"
+TASK="${1:?usage: sbatch scripts/run_niah.slurm <task.json> [tag] [k] [retriever ...]}"
 TAG="${2:-nq}"
+K="${3:-10}"
+RETRIEVERS=("${@:4}")
+if [ ${#RETRIEVERS[@]} -eq 0 ]; then
+    RETRIEVERS=(granite_dense splade convex_hybrid_granite_splade granite_rerank)
+fi
 
 module load languages/python/3.12.3
 export HF_HOME=/user/work/$USER/hf_cache HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1
@@ -40,14 +51,18 @@ python -c "import torch; print('CUDA:', torch.cuda.is_available(), '| torch', to
 # granite_dense / the convex hybrid / granite_rerank; SPLADE is built once too.
 python -m eval.run_niah \
     --task "$TASK" \
-    --retrievers granite_dense splade convex_hybrid_granite_splade granite_rerank \
-    --k 10 --index-type hnsw \
+    --retrievers "${RETRIEVERS[@]}" \
+    --k "$K" --index-type hnsw \
     --out "results/niah_eval_${TAG}.csv" \
     --per-query-out "results/niah_eval_${TAG}_per_query.csv" \
     --cache-dir /user/work/$USER/index_cache
 
-echo "=================== needle-found@10 + MRR per retriever ==================="
+echo "=================== needle-found@${K} + MRR per retriever ==================="
 cat "results/niah_eval_${TAG}.csv"
-echo "=================== significance vs granite_dense ==================="
-python -m eval.significance --per-query-csv "results/niah_eval_${TAG}_per_query.csv" --reference granite_dense
+case " ${RETRIEVERS[*]} " in
+    *" granite_dense "*)
+        echo "=================== significance vs granite_dense ==================="
+        python -m eval.significance --per-query-csv "results/niah_eval_${TAG}_per_query.csv" --reference granite_dense
+        ;;
+esac
 echo "=================== DONE ==================="
