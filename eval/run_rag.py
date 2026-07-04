@@ -136,6 +136,13 @@ def run(
             top_k=config.top_k,
             query_rewriter=HyDETransform(llm),
         )
+    elif config.pipeline == "astute":
+        from src.rag_pipeline import AstuteRAGPipeline
+
+        # Same retriever/generator/prompt as vanilla; only the generation flow adds
+        # elicit -> source-aware consolidate -> finalise, so the cover-EM delta
+        # isolates the consolidation's effect on counterfactual-distractor robustness.
+        pipeline = AstuteRAGPipeline(retriever=retriever, llm=llm, top_k=config.top_k)
     else:
         pipeline = RAGPipeline(retriever=retriever, llm=llm, top_k=config.top_k)
 
@@ -293,10 +300,11 @@ def _parse_args(argv: Optional[List[str]] = None) -> RAGEvalConfig:
                         help="Also dump per-question question/gold/prediction JSONL to "
                         "<prefix>_<retriever>.jsonl for inspection. Default: off.")
     parser.add_argument("--pipeline", default=defaults.pipeline,
-                        choices=["vanilla", "corrective"],
-                        help="RAG pipeline: 'vanilla' single-shot (default) or "
+                        choices=["vanilla", "corrective", "astute"],
+                        help="RAG pipeline: 'vanilla' single-shot (default), "
                         "'corrective' confidence-gated re-retrieval with a rewritten "
-                        "query.")
+                        "query, or 'astute' source-aware internal/external "
+                        "consolidation (elicit -> consolidate -> finalise).")
     args = parser.parse_args(argv)
     return RAGEvalConfig(
         dataset=args.dataset,

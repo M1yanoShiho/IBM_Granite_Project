@@ -200,3 +200,71 @@ class CorrectiveRAGPipeline(RAGPipeline):
             top = chunks[: self.top_k]
         answer = self.llm.generate(self._build_prompt(question, top))
         return RAGResult(answer=answer, retrieved_chunks=top)
+
+
+class AstuteRAGPipeline(RAGPipeline):
+    """Source-aware internal/external consolidation, an Astute-RAG-style variant.
+
+    Where the vanilla pipeline generates straight from the retrieved passages, this
+    runs the three steps of Astute RAG (Wang et al., 2024) so a single misleading
+    passage cannot decide the answer on its own:
+
+    1. **Elicit** — the LLM writes a passage from its *own* parametric knowledge,
+       grounded on the question only (``ELICIT_PROMPT``), giving an independent
+       source to check the retrieved ones against.
+    2. **Consolidate** — the retrieved passages (tagged ``[Document i]``) and the
+       elicited passage (tagged ``[Model knowledge]``) go into one *source-aware*
+       prompt (``CONSOLIDATE_PROMPT``); the LLM keeps agreeing facts, flags
+       conflicts, and drops what it judges unreliable.
+    3. **Finalise** — the answer is generated from the consolidated notes
+       (``FINALIZE_PROMPT``), not the raw passages.
+
+    This directly targets the NIAH failure mode measured on the task: the top-k
+    often contains a near-duplicate *counterfactual* distractor a reranker cannot
+    tell from the needle — consolidation cross-checks it against the other sources
+    and the model's own knowledge before answering. Like
+    :class:`CorrectiveRAGPipeline`, it is a lightweight, prompt-only member of the
+    family (**not** a fine-tuned reimplementation) and reuses the single injected
+    ``LLMClient`` for all three calls (three generations per query, no extra load).
+    Only the generation flow changes, so ``eval.run_rag`` scores it against the
+    vanilla pipeline with retrieval fixed — any cover-EM delta is the consolidation's.
+    """
+
+    ELICIT_PROMPT = (
+        "Generate a short passage from your own knowledge that answers the question. "
+        "If you are unsure, state only what you are confident about.\n\n"
+        "Question: {question}\nPassage:"
+    )
+    CONSOLIDATE_PROMPT = (
+        "You are given passages about a question from two kinds of source: DOCUMENTS "
+        "retrieved from a corpus (which may be wrong or contradict each other) and "
+        "your own MODEL knowledge. Consolidate them — keep facts that agree across "
+        "sources, flag conflicts, and drop information you judge unreliable.\n\n"
+        "{sources}\n\n"
+        "Question: {question}\nConsolidated notes:"
+    )
+    FINALIZE_PROMPT = (
+        "Answer the question using only the consolidated notes below. Give only the "
+        "answer itself — the shortest phrase that answers the question, with no "
+        "explanation. If the notes do not contain the answer, say you don't know.\n\n"
+        "Consolidated notes:\n{consolidated}\n\nQuestion: {question}\nAnswer:"
+    )
+
+    def _format_sources(self, chunks: List[RetrievedChunk], internal: str) -> str:
+        """Source-tag each passage so the consolidator can weigh reliability: the
+        retrieved chunks as ``[Document i]`` and the elicited passage as ``[Model]``."""
+        lines = [f"[Document {i + 1}] {chunk.text}" for i, chunk in enumerate(chunks)]
+        lines.append(f"[Model knowledge] {internal}")
+        return "\n".join(lines)
+
+    def query(self, question: str) -> RAGResult:
+        chunks = self.retriever.retrieve(question)[: self.top_k]
+        internal = self.llm.generate(self.ELICIT_PROMPT.format(question=question))
+        sources = self._format_sources(chunks, internal)
+        consolidated = self.llm.generate(
+            self.CONSOLIDATE_PROMPT.format(sources=sources, question=question)
+        )
+        answer = self.llm.generate(
+            self.FINALIZE_PROMPT.format(consolidated=consolidated, question=question)
+        )
+        return RAGResult(answer=answer, retrieved_chunks=chunks)

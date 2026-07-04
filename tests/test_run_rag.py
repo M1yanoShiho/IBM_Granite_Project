@@ -199,6 +199,31 @@ def test_run_passes_llm_to_retriever_builder(monkeypatch):
 def test_cli_parses_pipeline_flag():
     assert _parse_args([]).pipeline == "vanilla"
     assert _parse_args(["--pipeline", "corrective"]).pipeline == "corrective"
+    assert _parse_args(["--pipeline", "astute"]).pipeline == "astute"
+
+
+def test_run_uses_astute_pipeline_when_selected(monkeypatch):
+    # --pipeline astute routes run() through AstuteRAGPipeline (elicit/consolidate/
+    # finalise); the default stays the plain RAGPipeline.
+    import src.rag_pipeline as rp
+
+    built = {}
+    original = rp.AstuteRAGPipeline
+
+    class SpyAstute(original):
+        def __init__(self, *args, **kwargs):
+            built["yes"] = True
+            super().__init__(*args, **kwargs)
+
+    monkeypatch.setattr(rp, "AstuteRAGPipeline", SpyAstute)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config = RAGEvalConfig(
+            pipeline="astute", results_path=Path(tmpdir) / "o.csv"
+        )
+        run(config, data=_make_data(), retriever=FakeRetriever(), llm=FakeLLM())
+
+    assert built.get("yes") is True
 
 
 def test_run_uses_corrective_pipeline_when_selected(monkeypatch):
