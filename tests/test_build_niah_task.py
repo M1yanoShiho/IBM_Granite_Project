@@ -192,6 +192,21 @@ def test_load_niah_task_reconstructs_from_recipe(tmp_path) -> None:
     assert task.qrels["q1"] == {"d1": 1}
 
 
+def test_load_niah_task_max_docs_override_drives_the_scale_sweep(tmp_path) -> None:
+    out = tmp_path / "task.json"
+    write_task_json(_sample_task(), out, recipe=_RECIPE)   # recipe max_docs = 10
+    seen = {}
+
+    def fake_loader(name, split="test", max_queries=None, max_docs=None):
+        seen["max_docs"] = max_docs
+        return BenchmarkData(corpus={"d1": "x"}, queries={"q1": "q"}, qrels={"q1": {"d1": 1}})
+
+    load_niah_task(out, loader=fake_loader, max_docs=5000)
+    assert seen["max_docs"] == 5000     # override wins (a scale-sweep point)
+    load_niah_task(out, loader=fake_loader)
+    assert seen["max_docs"] == 10        # falls back to the recipe
+
+
 def test_designate_needle_prefers_answer_bearing_smallest_id() -> None:
     corpus = {"d1": "no answer here", "d2": "Linda Davis won", "d3": "Linda Davis too"}
     assert designate_needle(["d1", "d2", "d3"], "Linda Davis", corpus) == "d2"

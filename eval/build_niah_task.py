@@ -254,13 +254,17 @@ def write_task_json(task: NiahTask, path: Path, recipe: dict) -> None:
     path.write_text(json.dumps(payload), encoding="utf-8")
 
 
-def load_niah_task(path: str | Path, *, loader=None) -> NiahTask:
+def load_niah_task(
+    path: str | Path, *, loader=None, max_docs: int | None = None
+) -> NiahTask:
     """Reconstruct a :class:`NiahTask` from a recipe file (see :func:`write_task_json`).
 
     Reloads the benchmark (background haystack + needles + qrels) from the stored
     recipe via ``load_benchmark`` — the SAME deterministic, nested ``max_docs``
     subsample — then re-injects the stored distractors. ``loader`` is injected in
-    tests; production uses ``eval.benchmarks.loader.load_benchmark``.
+    tests; production uses ``eval.benchmarks.loader.load_benchmark``. ``max_docs``
+    OVERRIDES the recipe's corpus cap: the Phase-1 scale sweep rebuilds the same
+    needle + distractors against a background haystack of any size.
     """
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
     recipe = payload["recipe"]
@@ -270,7 +274,7 @@ def load_niah_task(path: str | Path, *, loader=None) -> NiahTask:
         recipe["dataset"],
         split=recipe.get("split", "test"),
         max_queries=recipe.get("max_queries"),
-        max_docs=recipe.get("max_docs"),
+        max_docs=max_docs if max_docs is not None else recipe.get("max_docs"),
     )
     examples: List[NiahExample] = []
     distractors: List[Distractor] = []
