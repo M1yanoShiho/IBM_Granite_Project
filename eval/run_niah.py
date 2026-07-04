@@ -67,8 +67,13 @@ def main(argv=None) -> None:
     args = _parse_args(argv)
     # Heavy deps imported lazily so unit tests of the scoring core stay light.
     from eval.benchmarks.loader import BenchmarkData
+    from eval.run_benchmark import (
+        BenchmarkConfig,
+        _build_retrievers,
+        retrievers_need_llm,
+        write_per_query_csv,
+    )
     from eval.build_niah_task import load_niah_task
-    from eval.run_benchmark import BenchmarkConfig, _build_retrievers, write_per_query_csv
 
     task = load_niah_task(args.task, max_docs=args.max_docs)
     data = BenchmarkData(corpus=task.corpus, queries=task.queries, qrels=task.qrels)
@@ -81,7 +86,15 @@ def main(argv=None) -> None:
         chunk_unit="token",
         index_cache_dir=args.cache_dir,
     )
-    retrievers = _build_retrievers(config, data)
+    # Build ONE LLMClient and share it across every transform / LLM reranker in this
+    # run; without this each (hyde/q2d/listrank) loads its own 3B and several in one
+    # job OOM the GPU. Pure dense/sparse/cross-encoder runs need no LLM at all.
+    llm = None
+    if retrievers_need_llm(args.retrievers):
+        from src.llm_client import LLMClient
+
+        llm = LLMClient()
+    retrievers = _build_retrievers(config, data, llm=llm)
 
     rows = []
     per_query: Dict[str, Dict[str, float]] = {}

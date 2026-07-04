@@ -529,6 +529,21 @@ LLM_RERANK_SPECS: Dict[str, str] = {
 }
 
 
+def retrievers_need_llm(names: List[str]) -> bool:
+    """True if any named retriever needs a generator LLM — a HyDE/Query2Doc query
+    transform, an LLM listwise reranker, or a cross-encoder rerank whose first stage
+    is itself a query transform. Lets a caller build ONE shared ``LLMClient`` and
+    inject it via ``_build_retrievers(..., llm=)`` instead of each retriever loading
+    its own model (N concurrent 3B loads OOM a single GPU — the failure mode when
+    evaluating several transforms in one run_niah job)."""
+    for name in names:
+        if name in HYDE_SPECS or name in LLM_RERANK_SPECS:
+            return True
+        if name in RERANK_SPECS and RERANK_SPECS[name] in HYDE_SPECS:
+            return True
+    return False
+
+
 def _build_named(
     name: str,
     config: BenchmarkConfig,
