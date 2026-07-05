@@ -128,3 +128,34 @@ def test_builder_threads_corrective_parameters() -> None:
     assert isinstance(pipeline, CorrectiveRAGPipeline)
     assert pipeline.confidence_threshold == 0.25
     assert pipeline.fallback_top_k == 6
+
+
+def test_builder_defaults_to_plain_dense_retriever() -> None:
+    from src.retrieval.query_transform import TransformingRetriever
+
+    pipeline = build_rag_pipeline_from_text("granite retrieval", FakeLLM(), top_k=2)
+
+    assert not isinstance(pipeline.retriever, TransformingRetriever)  # plain dense
+
+
+def test_builder_wraps_retriever_with_q2d_transform() -> None:
+    # The certified NIAH raiser: Query2Doc expands the query with the shared LLM, then
+    # the dense retriever searches with it. The transform must REUSE the injected LLM.
+    from src.retrieval.query_transform import Query2DocTransform, TransformingRetriever
+
+    llm = FakeLLM()
+    pipeline = build_rag_pipeline_from_text(
+        "granite retrieval", llm, top_k=2, retriever_type="q2d"
+    )
+
+    assert isinstance(pipeline.retriever, TransformingRetriever)
+    assert isinstance(pipeline.retriever.transform, Query2DocTransform)
+    assert pipeline.retriever.transform.llm is llm       # reuse, no second model load
+    assert pipeline.query("granite retrieval").answer == "a grounded answer"
+
+
+def test_builder_rejects_unknown_retriever_type() -> None:
+    with pytest.raises(ValueError, match="retriever_type"):
+        build_rag_pipeline_from_text(
+            "granite retrieval", FakeLLM(), top_k=2, retriever_type="bogus"
+        )

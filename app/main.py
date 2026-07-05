@@ -61,6 +61,7 @@ def _get_llm():
 def _get_pipeline(
     document_text: str,
     top_k: int,
+    retriever_type: str,
     pipeline_type: str,
     confidence_threshold: float,
 ):
@@ -74,6 +75,7 @@ def _get_pipeline(
         document_text,
         _get_llm(),
         top_k=top_k,
+        retriever_type=retriever_type,
         pipeline_type=pipeline_type,
         confidence_threshold=confidence_threshold,
         fallback_top_k=max(top_k * 2, top_k),
@@ -344,6 +346,14 @@ def _render_sidebar() -> None:
             key="top_k",
         )
         st.selectbox(
+            "Retriever",
+            options=["dense", "q2d"],
+            index=0,
+            help="Dense = Granite embeddings; q2d = Query2Doc query expansion (the "
+                 "certified NIAH raiser, +0.07 needle-found) before the dense search.",
+            key="retriever_type",
+        )
+        st.selectbox(
             "RAG pipeline",
             options=["corrective", "plain", "astute"],
             index=0,
@@ -597,6 +607,7 @@ def main() -> None:
         question = st.session_state.last_query
         document_text = st.session_state.get("document_text", "")
         top_k = st.session_state.get("top_k", 4)
+        retriever_type = st.session_state.get("retriever_type", "dense")
         pipeline_type = st.session_state.get("pipeline_type", "corrective")
         confidence_threshold = st.session_state.get("confidence_threshold", 0.5)
 
@@ -612,6 +623,7 @@ def main() -> None:
                 pipeline = _get_pipeline(
                     document_text,
                     top_k,
+                    retriever_type,
                     pipeline_type,
                     confidence_threshold,
                 )

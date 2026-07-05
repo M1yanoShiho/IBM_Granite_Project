@@ -18,6 +18,7 @@ from typing import Callable
 from src.llm_client import LLMClient
 from src.rag_pipeline import AstuteRAGPipeline, CorrectiveRAGPipeline, RAGPipeline
 from src.retrieval.factory import build_dense_retriever_from_text
+from src.retrieval.query_transform import Query2DocTransform, TransformingRetriever
 
 
 def build_rag_pipeline_from_text(
@@ -28,6 +29,7 @@ def build_rag_pipeline_from_text(
     backend: str = "granite",
     embedding_model_id: str | None = None,
     doc_id: str = "document",
+    retriever_type: str = "dense",
     pipeline_type: str = "corrective",
     query_rewriter: Callable[[str], str] | None = None,
     confidence_threshold: float = 0.5,
@@ -40,6 +42,11 @@ def build_rag_pipeline_from_text(
     with ``llm`` for generation. ``top_k`` controls both how many chunks the
     retriever returns and how many are passed to the generator as context, so the
     answer is grounded in exactly the chunks shown as citations.
+
+    ``retriever_type`` selects the retrieval front end: ``"dense"`` (plain Granite
+    dense) or ``"q2d"``, the certified NIAH raiser — a Query2Doc transform that expands
+    the query with ``llm`` before the dense search (reusing the injected model, no
+    second load).
     """
     retriever = build_dense_retriever_from_text(
         document_text,
@@ -48,6 +55,10 @@ def build_rag_pipeline_from_text(
         backend=backend,
         embedding_model_id=embedding_model_id,
     )
+    if retriever_type == "q2d":
+        retriever = TransformingRetriever(retriever, Query2DocTransform(llm))
+    elif retriever_type != "dense":
+        raise ValueError("retriever_type must be 'dense' or 'q2d'")
     if pipeline_type == "plain":
         return RAGPipeline(retriever, llm, top_k=top_k)
     if pipeline_type == "corrective":
