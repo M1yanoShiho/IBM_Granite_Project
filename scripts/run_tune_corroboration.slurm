@@ -5,9 +5,12 @@
 # = it should match q2d's needle-found). The curve answers "does ANY alpha beat pure q2d?"
 # WITHOUT trusting one blind default alpha.
 #
-#   mkdir -p logs results && sbatch scripts/run_tune_corroboration.slurm results/niah_nq300_frozen.json nq300
+#   # fast FIRST-READ on a 100-query subset (full 300q times out; extraction is the cost):
+#   mkdir -p logs results && sbatch scripts/run_tune_corroboration.slurm results/niah_nq300_frozen.json nq100 0.1 100
+#   # full sweep (no cap) once the first-read looks promising:
+#   sbatch scripts/run_tune_corroboration.slurm results/niah_nq300_frozen.json nq300
 #   # 8B extractor instead of the default 3B:
-#   GRANITE_MODEL_ID=ibm-granite/granite-4.1-8b sbatch scripts/run_tune_corroboration.slurm results/niah_nq300_frozen.json nq300_8b
+#   GRANITE_MODEL_ID=ibm-granite/granite-4.1-8b sbatch scripts/run_tune_corroboration.slurm results/niah_nq300_frozen.json nq300_8b 0.1 100
 #
 # Prefetch on the LOGIN node (one-time): the Granite dense embedder + the generator LLM:
 #   hf download ibm-granite/granite-embedding-english-r2
@@ -23,9 +26,12 @@
 #SBATCH --output=logs/%x-%j.out
 
 set -euo pipefail
-TASK="${1:?usage: sbatch scripts/run_tune_corroboration.slurm <task.json> [tag] [alpha-step]}"
+TASK="${1:?usage: sbatch scripts/run_tune_corroboration.slurm <task.json> [tag] [alpha-step] [max-queries]}"
 TAG="${2:-nq}"
 ALPHA_STEP="${3:-0.1}"
+MAXQ="${4:-}"
+EXTRA=()
+[ -n "$MAXQ" ] && EXTRA=(--max-queries "$MAXQ")
 
 module load languages/python/3.12.3
 export HF_HOME=/user/work/$USER/hf_cache HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1
@@ -41,7 +47,7 @@ python -c "import torch; print('CUDA:', torch.cuda.is_available(), '| torch', to
 python -m eval.tune_corroboration \
     --task "$TASK" \
     --first-stage q2d_granite \
-    --k 10 --top-n 20 --alpha-step "$ALPHA_STEP" \
+    --k 10 --top-n 20 --alpha-step "$ALPHA_STEP" "${EXTRA[@]}" \
     --index-type hnsw \
     --cache-dir /user/work/$USER/index_cache \
     --out "results/corroboration_alpha_curve_${TAG}.csv"

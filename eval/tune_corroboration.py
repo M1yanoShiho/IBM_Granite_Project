@@ -43,27 +43,29 @@ def dedup_docs(chunks: List[RetrievedChunk], top_n: int) -> List[RetrievedChunk]
 
 
 def build_corroboration_runs(
-    task, retriever, reranker, top_n: int
+    task, retriever, reranker, top_n: int, max_queries: Optional[int] = None
 ) -> Tuple[Run, Run, Dict[str, str]]:
     """Extract answers ONCE per query; return ``(relevance_run, corroboration_run, needles)``.
 
     ``reranker`` needs a ``score_docs(query, docs) -> (relevance, corroboration)`` method
     (:class:`~src.retrieval.reranker.CorroborationReranker`). ``needles`` maps qid -> the
-    designated needle doc_id; queries without a designated needle are skipped.
+    designated needle doc_id; examples without a designated needle are skipped.
+    ``max_queries`` caps the number of scored queries (in task-example order) so a fast
+    first-read on a subset finishes within the wall clock -- the extraction is the cost.
     """
-    needle_by_qid = {e.query_id: e.needle_id for e in task.examples}
     relevance_run: Run = {}
     corroboration_run: Run = {}
     needles: Dict[str, str] = {}
-    for qid, query in task.queries.items():
-        needle = needle_by_qid.get(qid)
-        if needle is None:
+    for ex in task.examples:
+        if ex.needle_id is None:
             continue
-        docs = dedup_docs(retriever.retrieve(query), top_n)
-        relevance, corroboration = reranker.score_docs(query, docs)
-        relevance_run[qid] = {docs[i].doc_id: relevance[i] for i in range(len(docs))}
-        corroboration_run[qid] = {docs[i].doc_id: corroboration[i] for i in range(len(docs))}
-        needles[qid] = needle
+        if max_queries is not None and len(needles) >= max_queries:
+            break
+        docs = dedup_docs(retriever.retrieve(ex.query), top_n)
+        relevance, corroboration = reranker.score_docs(ex.query, docs)
+        relevance_run[ex.query_id] = {docs[i].doc_id: relevance[i] for i in range(len(docs))}
+        corroboration_run[ex.query_id] = {docs[i].doc_id: corroboration[i] for i in range(len(docs))}
+        needles[ex.query_id] = ex.needle_id
     return relevance_run, corroboration_run, needles
 
 
@@ -125,6 +127,8 @@ def _parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     p.add_argument("--k", type=int, default=10, help="needle-found cut-off (default: %(default)s).")
     p.add_argument("--top-n", type=int, default=20, dest="top_n",
                    help="Docs re-scored per query (default: %(default)s).")
+    p.add_argument("--max-queries", type=int, default=None, dest="max_queries",
+                   help="Cap scored queries for a fast first-read subset (default: all).")
     p.add_argument("--alpha-step", type=float, default=0.1, dest="alpha_step")
     p.add_argument("--no-parametric", dest="use_parametric", action="store_false",
                    help="Disable the parametric-knowledge voter.")
@@ -163,7 +167,7 @@ def main(argv: Optional[List[str]] = None) -> None:
     reranker = CorroborationReranker(llm, top_n=args.top_n, use_parametric=args.use_parametric)
 
     relevance_run, corroboration_run, needles = build_corroboration_runs(
-        task, retriever, reranker, args.top_n
+        task, retriever, reranker, args.top_n, max_queries=args.max_queries
     )
     curve = sweep_corroboration(relevance_run, corroboration_run, needles, _grid(args.alpha_step), args.k)
     a_star, best = best_alpha(curve)

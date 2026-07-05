@@ -95,8 +95,27 @@ def test_best_alpha_breaks_ties_toward_larger_alpha():
     assert best_alpha([(0.0, 0.9), (0.5, 0.5)]) == (0.0, 0.9)
 
 
+def test_build_corroboration_runs_caps_at_max_queries():
+    task = _task([
+        NiahExample(query_id="q1", query="a", needle_ids=["n1"], needle_id="n1"),
+        NiahExample(query_id="q2", query="b", needle_ids=["n2"], needle_id="n2"),
+    ])
+    retr = FakeRetriever({"a": [RetrievedChunk("n1", "", 0.9)], "b": [RetrievedChunk("n2", "", 0.9)]})
+    scorer = FakeScorer(rel_by_id={"n1": 0.9, "n2": 0.9}, corr_by_id={"n1": 0.0, "n2": 0.0})
+
+    rel, corr, needles = build_corroboration_runs(task, retr, scorer, top_n=20, max_queries=1)
+
+    assert set(needles) == {"q1"}          # only the first query processed
+    assert set(rel) == {"q1"} and set(corr) == {"q1"}
+
+
 def test_parse_args_defaults():
     args = _parse_args(["--task", "results/x.json"])
     assert args.task.name == "x.json"
     assert args.first_stage == "q2d_granite"
     assert args.k == 10
+    assert args.max_queries is None
+
+
+def test_parse_args_max_queries():
+    assert _parse_args(["--task", "x.json", "--max-queries", "100"]).max_queries == 100
