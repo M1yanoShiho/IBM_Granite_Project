@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import json
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -69,17 +70,47 @@ def build_corroboration_runs(
     return relevance_run, corroboration_run, needles
 
 
-def needle_found_at_k(fused: Run, needles: Dict[str, str], k: int) -> float:
-    """Fraction of queries whose designated needle is in the top-``k`` of ``fused``."""
-    if not needles:
-        return 0.0
-    hits = 0
+def per_query_hits(fused: Run, needles: Dict[str, str], k: int) -> Dict[str, float]:
+    """Per-query ``1.0``/``0.0`` -- is each query's designated needle in ``fused``'s
+    top-``k``. The per-query vector a paired significance test consumes (vs the scalar
+    mean below)."""
+    hits: Dict[str, float] = {}
     for qid, needle in needles.items():
         scores = fused.get(qid, {})
         ranked = sorted(scores, key=lambda d: scores[d], reverse=True)
-        if needle in ranked[:k]:
-            hits += 1
-    return hits / len(needles)
+        hits[qid] = 1.0 if needle in ranked[:k] else 0.0
+    return hits
+
+
+def needle_found_at_k(fused: Run, needles: Dict[str, str], k: int) -> float:
+    """Fraction of queries whose designated needle is in the top-``k`` of ``fused``."""
+    hits = per_query_hits(fused, needles, k)
+    return sum(hits.values()) / len(hits) if hits else 0.0
+
+
+def dump_runs(
+    relevance_run: Run, corroboration_run: Run, needles: Dict[str, str], path: Path
+) -> None:
+    """Persist the two runs + needles as JSON, so significance / re-sweeps run OFFLINE
+    (``--from-runs``) without re-extracting -- the extraction is the expensive step."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            {
+                "relevance_run": relevance_run,
+                "corroboration_run": corroboration_run,
+                "needles": needles,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
+def load_runs(path: Path) -> Tuple[Run, Run, Dict[str, str]]:
+    """Load ``(relevance_run, corroboration_run, needles)`` dumped by :func:`dump_runs`."""
+    payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    return payload["relevance_run"], payload["corroboration_run"], payload["needles"]
 
 
 def sweep_corroboration(
@@ -122,7 +153,7 @@ def _parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         description="Sweep the corroboration reranker's blend weight (relevance vs "
         "corroboration) without re-extraction; report the needle-found@k curve.",
     )
-    p.add_argument("--task", type=Path, required=True, help="NIAH task recipe JSON.")
+    p.add_argument("--task", type=Path, default=None, help="NIAH task recipe JSON (or use --from-runs).")
     p.add_argument("--first-stage", default="q2d_granite", dest="first_stage")
     p.add_argument("--k", type=int, default=10, help="needle-found cut-off (default: %(default)s).")
     p.add_argument("--top-n", type=int, default=20, dest="top_n",
@@ -138,37 +169,55 @@ def _parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
                    choices=["flat", "hnsw", "ivf", "ivfpq"])
     p.add_argument("--cache-dir", type=Path, default=None, dest="cache_dir")
     p.add_argument("--out", type=Path, default=Path("results/corroboration_alpha_curve.csv"))
+    p.add_argument("--per-query-out", type=Path, default=None, dest="per_query_out",
+                   help="Write per-query needle-found at alpha=1.0 (q2d) and alpha* "
+                        "(q2d_corroborate) -> feed eval.significance for the p-value.")
+    p.add_argument("--dump-runs", type=Path, default=None, dest="dump_runs",
+                   help="Dump the extracted (relevance, corroboration) runs as JSON for "
+                        "offline re-analysis (avoids re-extraction).")
+    p.add_argument("--from-runs", type=Path, default=None, dest="from_runs",
+                   help="Load dumped runs and sweep OFFLINE (skips the LLM extraction).")
     return p.parse_args(argv)
 
 
 def main(argv: Optional[List[str]] = None) -> None:
     args = _parse_args(argv)
-    # Heavy deps imported lazily so the unit tests of the pure logic stay light.
-    from eval.benchmarks.loader import BenchmarkData
-    from eval.build_niah_task import load_niah_task
-    from eval.run_benchmark import BenchmarkConfig, _build_named
-    from src.llm_client import LLMClient
-    from src.retrieval.reranker import CorroborationReranker
 
-    task = load_niah_task(args.task, max_docs=args.max_docs)
-    data = BenchmarkData(corpus=task.corpus, queries=task.queries, qrels=task.qrels)
-    config = BenchmarkConfig(
-        dataset="niah",
-        retrievers=[args.first_stage],
-        k_values=[args.k],
-        index_type=args.index_type,
-        chunk_unit="token",
-        index_cache_dir=args.cache_dir,
-    )
-    llm = LLMClient()
-    doc_ids = list(data.corpus.keys())
-    corpus = list(data.corpus.values())
-    retriever = _build_named(args.first_stage, config, data, corpus, doc_ids, args.k, llm=llm)
-    reranker = CorroborationReranker(llm, top_n=args.top_n, use_parametric=args.use_parametric)
+    if args.from_runs is not None:
+        # Offline: reuse a previous extraction; no model loads, no GPU.
+        relevance_run, corroboration_run, needles = load_runs(args.from_runs)
+    else:
+        if args.task is None:
+            raise SystemExit("give --task (to extract) or --from-runs (to reuse a dump).")
+        # Heavy deps imported lazily so the unit tests of the pure logic stay light.
+        from eval.benchmarks.loader import BenchmarkData
+        from eval.build_niah_task import load_niah_task
+        from eval.run_benchmark import BenchmarkConfig, _build_named
+        from src.llm_client import LLMClient
+        from src.retrieval.reranker import CorroborationReranker
 
-    relevance_run, corroboration_run, needles = build_corroboration_runs(
-        task, retriever, reranker, args.top_n, max_queries=args.max_queries
-    )
+        task = load_niah_task(args.task, max_docs=args.max_docs)
+        data = BenchmarkData(corpus=task.corpus, queries=task.queries, qrels=task.qrels)
+        config = BenchmarkConfig(
+            dataset="niah",
+            retrievers=[args.first_stage],
+            k_values=[args.k],
+            index_type=args.index_type,
+            chunk_unit="token",
+            index_cache_dir=args.cache_dir,
+        )
+        llm = LLMClient()
+        doc_ids = list(data.corpus.keys())
+        corpus = list(data.corpus.values())
+        retriever = _build_named(args.first_stage, config, data, corpus, doc_ids, args.k, llm=llm)
+        reranker = CorroborationReranker(llm, top_n=args.top_n, use_parametric=args.use_parametric)
+        relevance_run, corroboration_run, needles = build_corroboration_runs(
+            task, retriever, reranker, args.top_n, max_queries=args.max_queries
+        )
+        if args.dump_runs is not None:
+            dump_runs(relevance_run, corroboration_run, needles, args.dump_runs)
+            print(f"dumped runs to {args.dump_runs} (re-analyse offline with --from-runs)")
+
     curve = sweep_corroboration(relevance_run, corroboration_run, needles, _grid(args.alpha_step), args.k)
     a_star, best = best_alpha(curve)
     pure_rel = dict(curve).get(1.0)
@@ -182,6 +231,17 @@ def main(argv: Optional[List[str]] = None) -> None:
         )
     write_curve(curve, args.out, args.k)
     print(f"wrote {args.out}")
+
+    if args.per_query_out is not None:
+        from eval.run_benchmark import write_per_query_csv
+
+        hits_q2d = per_query_hits(convex_fuse(relevance_run, corroboration_run, 1.0), needles, args.k)
+        hits_corrob = per_query_hits(convex_fuse(relevance_run, corroboration_run, a_star), needles, args.k)
+        write_per_query_csv({"q2d": hits_q2d, "q2d_corroborate": hits_corrob}, args.per_query_out)
+        print(
+            f"wrote per-query {args.per_query_out} -> significance: "
+            f"python -m eval.significance --per-query-csv {args.per_query_out} --reference q2d"
+        )
 
 
 if __name__ == "__main__":

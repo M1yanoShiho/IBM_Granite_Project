@@ -50,8 +50,14 @@ python -m eval.tune_corroboration \
     --k 10 --top-n 20 --alpha-step "$ALPHA_STEP" "${EXTRA[@]}" \
     --index-type hnsw \
     --cache-dir /user/work/$USER/index_cache \
-    --out "results/corroboration_alpha_curve_${TAG}.csv"
+    --out "results/corroboration_alpha_curve_${TAG}.csv" \
+    --per-query-out "results/corroboration_perq_${TAG}.csv" \
+    --dump-runs "results/corroboration_runs_${TAG}.json"
 
 echo "=================== alpha curve (needle-found@10 vs alpha) ==================="
 cat "results/corroboration_alpha_curve_${TAG}.csv"
+echo "=================== significance: q2d_corroborate (alpha*) vs q2d (alpha=1) ==================="
+python -m eval.significance --per-query-csv "results/corroboration_perq_${TAG}.csv" --reference q2d
 echo "=================== DONE ==================="
+echo "(runs dumped to results/corroboration_runs_${TAG}.json -> re-analyse OFFLINE with"
+echo " python -m eval.tune_corroboration --from-runs results/corroboration_runs_${TAG}.json ...)"

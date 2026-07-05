@@ -4,7 +4,10 @@ from eval.tune_corroboration import (
     best_alpha,
     build_corroboration_runs,
     dedup_docs,
+    dump_runs,
+    load_runs,
     needle_found_at_k,
+    per_query_hits,
     sweep_corroboration,
 )
 from src.niah.types import NiahExample, NiahTask
@@ -119,3 +122,24 @@ def test_parse_args_defaults():
 
 def test_parse_args_max_queries():
     assert _parse_args(["--task", "x.json", "--max-queries", "100"]).max_queries == 100
+
+
+def test_per_query_hits_flags_each_designated_needle():
+    # Per-query 0/1 needle-found (the input to a paired significance test), vs the
+    # scalar mean that needle_found_at_k returns.
+    fused = {"q1": {"n1": 0.9, "d0": 0.5}, "q2": {"d0": 0.9, "n2": 0.1}}
+    needles = {"q1": "n1", "q2": "n2"}
+    assert per_query_hits(fused, needles, k=1) == {"q1": 1.0, "q2": 0.0}
+
+
+def test_dump_and_load_runs_round_trip(tmp_path):
+    # The extraction is the expensive step; dumping the two runs lets significance /
+    # re-sweeps run offline (--from-runs) without re-extracting.
+    rel = {"q1": {"n1": 0.9, "cf": 0.99}}
+    corr = {"q1": {"n1": 1.0, "cf": 0.0}}
+    needles = {"q1": "n1"}
+    path = tmp_path / "runs.json"
+
+    dump_runs(rel, corr, needles, path)
+
+    assert load_runs(path) == (rel, corr, needles)
