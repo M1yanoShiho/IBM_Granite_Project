@@ -1,0 +1,9 @@
+retriever,max_docs,n_docs,needle_found@10,mrr
+granite_dense,10000,54935,0.517,0.276
+granite_dense,100000,144920,0.500,0.270
+granite_dense,1000000,1044914,0.467,0.248
+granite_dense,5000000,5044914,0.423,0.224
+q2d_granite,10000,54935,0.590,0.334
+q2d_granite,100000,144920,0.587,0.327
+q2d_granite,1000000,1044914,0.533,0.292
+q2d_granite,5000000,5044914,0.497,0.266
