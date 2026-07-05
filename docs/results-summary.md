@@ -109,9 +109,85 @@ Significance on cover-EM (Δ = retriever − reference; EM and F1 are same-direc
 
 **Caveats (do not overclaim):** (a) granite vs gte is a *tie* (ns, p≈0.07 both sets), not a win — "Granite specifically wins" holds only on the harder FiQA *retrieval* set. (b) faithfulness is ~0.8–0.9 with little discrimination — a short correct answer's tokens are almost always in the context — so treat it as secondary, not a system-separating metric. (c) 500-query subset at ~1M docs, not the full 21M corpus (flat index; scale-to-21M with HNSW pending). (d) cover-EM can still over-credit an incidental gold mention; EM/F1 (now meaningful) are the stricter cross-checks and agree.
 
+## NIAH — rare-needle retrieval at scale (the re-anchored headline)
+
+Task: one **designated needle** per query (the smallest-doc_id gold that literally
+contains the answer) hidden among injected **counterfactual** (Source A: a ~1-token
+entity swap of the needle — relevant but factually wrong), **generative** (B) and
+**mined** (C) distractors, over the `dpr-w100` NQ corpus. Metric = **needle-found@k**
+(the designated needle in the top-k) + **MRR** of that needle. Frozen 300-query task
+(`results/niah_nq300_frozen.json`); the diagnostic sub-run is 100 queries. Significance =
+paired randomization on per-query needle-found. Construction + gate: `src/niah/`,
+`eval/build_niah_task.py`; methodology record in `docs/niah-task-definition.md`.
+
+### Table 4a — The bottleneck is ranking, not recall (diagnostic, n=100)
+
+| dense needle-found@100 | @10 | → decomposition (fraction of queries) |
+|---|---|---|
+| **0.87** | 0.43 | found in top-10 **0.43** / buried in pool ranks 11–100 **0.44** / unreachable (not in top-100) **0.13** |
+
+→ The needle is retrieved into the top-100 pool 87% of the time, but half of those are
+buried below rank 10. **Ranking failure (0.44) ≈ 3.4× the recall failure (0.13).**
+
+### Table 4b — What fixes it: query reformulation, not reranking (certified, n=300 frozen)
+
+| retriever | needle-found@10 | MRR | Δ vs dense (p) |
+|---|---|---|---|
+| **granite_dense** | 0.493 | 0.265 | — |
+| **q2d_granite** (Query2Doc) | **0.563** | **0.317** | **+0.070 (p=0.0002)** * |
+| hyde_granite (HyDE) | 0.553 | 0.284 | +0.060 (p=0.0054) * |
+
+Reranking null (n=100, same q2d/dense first stage): `granite_rerank` 0.47 (ns),
+`granite_listrank` 0.47 (MRR 0.216 < dense 0.222, ns), `q2d_granite_rerank` 0.48 /
+`hyde_granite_rerank` 0.48 (ns) — all below q2d-alone (0.50–0.51 at n=100). → **Both
+query-transforms significantly beat dense; every reranker (pointwise cross-encoder,
+listwise LLM, and reranking stacked on q2d) does not.**
+
+### Table 4c — Scale degradation (n=300 frozen; the headline figure) — `results/niah_scale_curve.csv`
+
+| background max_docs | granite_dense | q2d_granite | q2d edge |
+|---|---|---|---|
+| 10k  | 0.517 | 0.590 | +0.073 |
+| 100k | 0.500 | 0.587 | +0.087 |
+| 1M   | 0.467 | 0.533 | +0.066 |
+| 5M   | 0.423 | 0.497 | +0.074 |
+
+(Total corpus = background + ~45k always-kept golds → n_docs 55k / 145k / 1.04M / 5.04M.
+MRR in the CSV. fp32 single-node build ceiling ≈ 5M; 21M needs the IVFPQ compressed index.)
+
+### Findings (NIAH)
+
+12. **The bottleneck is ranking, not recall.** The needle is almost always retrieved
+    into the pool (R@100 = 0.87) but ~half the retrieved needles sit at ranks 11–100,
+    buried by the near-duplicate counterfactual distractors; ranking failure is ~3.4×
+    the recall failure (Table 4a).
+13. **Query reformulation is the only lever that helps; reranking does not.** At n=300,
+    Query2Doc **+0.070 (p=0.0002)** and HyDE +0.060 (p=0.0054) significantly beat dense,
+    while cross-encoder, listwise-LLM, and q2d+rerank stacks give no significant gain
+    (Table 4b). Mechanism: a Source-A counterfactual is *relevant* (on-topic,
+    answer-shaped, only the entity is wrong), so a relevance-based reranker cannot
+    separate it from the needle; a richer query representation lifts the true needle at
+    the retrieval stage, before the tie needs breaking.
+14. **Graceful degradation, scale-invariant raiser edge.** needle-found@10 falls ~9
+    points as the haystack grows 10k→5M (dense 0.517→0.423, q2d 0.590→0.497), and q2d's
+    advantage (~+0.075) holds at *every* scale (Table 4c) — the query-transform edge is
+    not a small-corpus artifact.
+
+**NIAH caveats (do not overclaim):** (a) single designated needle on a natural
+multi-gold corpus → other "relevant non-target" golds remain in the haystack; the clean
+fix is the deferred **synthetic-insert** variant. (b) Source-A counterfactuals are a
+naive `str.replace`, so they carry logical seams — an internal-consistency detector
+would exploit a *construction artifact* that would not generalise to fluent
+misinformation; the in-progress **Corroboration Reranker** deliberately uses the
+defensible *cross-source* signal instead. (c) the diagnostic decomposition is at n=100
+and the raiser/scale at n=300 (different runs); an earlier apparent "collapse" to 0.18
+was a stale-index **caching bug** (`_cache_key` omitted the corpus), since fixed — the
+n=300 numbers here are post-fix.
+
 ## Pending / not yet done
 
 - ANN scale demo (recall-vs-latency on a millions-doc corpus).
 - Failure-mode analysis write-up (per-query CSVs + `eval/failure_analysis.py` exist).
 - RAG evaluation: **DONE — Table 3** (concise prompt; NQ + TriviaQA; dense ≫ BM25 significant on both, granite ≈ gte). Remaining: scale to the full 21M corpus (needs HNSW in run_rag), and NIAH RAG-vs-long-context (still skeleton).
 - A more lexical dataset (ArguAna/Touché) if the failure analysis needs more BM25-favourable material.
+- **NIAH scale curve: DONE — Table 4c.** Remaining NIAH: (a) **Corroboration Reranker** α-curve (`eval/tune_corroboration.py`, `q2d_corroborate`) — does the cross-source signal beat q2d? *in flight (100q first-read)*; (b) **Astute** generation-stage measurement (`run_rag --pipeline astute` vs vanilla, against the counterfactual distractors) — built, unmeasured; (c) synthetic-insert task variant (deferred rigor upgrade); (d) IVFPQ run to 21M (recall-vs-compression).
