@@ -276,6 +276,20 @@ class CorroborationReranker:
             return None
         return self.llm.generate(_PARAMETRIC_PROMPT.format(question=query)).strip()
 
+    def score_docs(
+        self, query: str, docs: List[RetrievedChunk]
+    ) -> "tuple[List[float], List[float]]":
+        """Raw ``(relevance, corroboration)`` per doc — the two signals ``rerank`` blends.
+
+        Relevance is the first-stage score; corroboration is the cross-source
+        answer-vote count (:func:`~src.retrieval.corroboration.corroboration_scores`).
+        Exposed so the offline lambda-sweep (``eval.tune_corroboration``) can extract
+        answers ONCE and then sweep the blend weight as pure arithmetic.
+        """
+        answers = [self._extract_answer(query, d.text) for d in docs]
+        corr = corroboration_scores(answers, self._parametric_answer(query))
+        return [d.score for d in docs], corr
+
     def rerank(
         self, query: str, candidates: List[RetrievedChunk], top_k: int
     ) -> List[RetrievedChunk]:
@@ -284,9 +298,8 @@ class CorroborationReranker:
         if not candidates:
             return []
         window = candidates[: self.top_n]
-        answers = [self._extract_answer(query, c.text) for c in window]
-        corr = corroboration_scores(answers, self._parametric_answer(query))
-        rel_norm = minmax_normalize({i: c.score for i, c in enumerate(window)})
+        relevance, corr = self.score_docs(query, window)
+        rel_norm = minmax_normalize({i: relevance[i] for i in range(len(window))})
         cor_norm = minmax_normalize({i: corr[i] for i in range(len(window))})
         final = [
             self.alpha * rel_norm[i] + (1.0 - self.alpha) * cor_norm[i]

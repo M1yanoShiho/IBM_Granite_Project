@@ -68,3 +68,19 @@ def test_top_n_caps_extraction_and_keeps_tail_below():
 def test_empty_pool_returns_empty():
     rr = CorroborationReranker(FakeAnswerLLM({}), top_n=5)
     assert rr.rerank("q", [], top_k=3) == []
+
+
+def test_score_docs_returns_relevance_and_corroboration_aligned():
+    # The raw signals the reranker blends (and the lambda-sweep dumps once): relevance =
+    # first-stage scores; corroboration = cross-source answer votes over the docs.
+    docs = [
+        RetrievedChunk("a", "alpha passage", 0.9),
+        RetrievedChunk("b", "bravo passage", 0.5),
+    ]
+    llm = FakeAnswerLLM({"alpha passage": "Paris", "bravo passage": "Paris"})
+    rr = CorroborationReranker(llm, top_n=2, use_parametric=False)
+
+    relevance, corroboration = rr.score_docs("q", docs)
+
+    assert relevance == [0.9, 0.5]        # first-stage relevance, aligned to docs
+    assert corroboration == [1.0, 1.0]    # both answer Paris -> corroborate each other
