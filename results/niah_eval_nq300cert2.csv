@@ -1,0 +1,4 @@
+retriever,n_docs,needle_found@10,mrr
+granite_dense,244914,0.4933,0.2651
+q2d_granite,244914,0.5633,0.3171
+hyde_granite,244914,0.5533,0.2839
