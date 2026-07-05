@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import time
 from dataclasses import dataclass, field, replace
 from pathlib import Path
@@ -279,22 +280,48 @@ def write_per_query_csv(
             writer.writerow([qid] + [per_query[name].get(qid, "") for name in retrievers])
 
 
-def _cache_key(config: BenchmarkConfig, name: str) -> str:
+def _corpus_fingerprint(doc_ids: List[str], corpus_texts: List[str]) -> str:
+    """Short, stable, content-sensitive hash of the corpus (its ``(doc_id, text)``
+    set), for the index cache key.
+
+    Order-independent (sorted) so re-runs hit the cache, but changes whenever the
+    corpus does — a new/removed doc, or the SAME doc-id with different text (a rebuilt
+    NIAH task's regenerated distractor). NIAH reuses one dataset name (``"niah"``)
+    across very different corpora (query set, ``max_docs``, injected distractors), so
+    without this the key collides and a stale index is silently reused (the n=300
+    certification bug: an index built for the 100-query corpus scored the 300-query
+    one, cratering queries the stale index never held).
+    """
+    h = hashlib.sha1()
+    for did, text in sorted(zip(doc_ids, corpus_texts)):
+        h.update(did.encode("utf-8"))
+        h.update(b"\t")
+        h.update(text.encode("utf-8"))
+        h.update(b"\n")
+    return h.hexdigest()[:12]
+
+
+def _cache_key(config: BenchmarkConfig, name: str, corpus_fingerprint: str = "") -> str:
     """Cache-file stem for retriever ``name``'s dense index under ``config``.
 
     Folds the ablation params (chunk size/overlap, embedding model) into the key
     alongside dataset + retriever name, so indexes built for different configs do
     not collide — a chunk-size sweep with ``--cache-dir`` would otherwise reload a
-    stale index built at a different size.
+    stale index built at a different size. ``corpus_fingerprint`` (see
+    :func:`_corpus_fingerprint`) additionally keys on the corpus *content*, so a
+    stale index built over a different corpus with the same dataset name is never
+    reused; ``""`` (the default) preserves the historical key for callers that pass
+    no corpus (existing caches / reproducibility).
     """
     model_slug = (config.embedding_model_id or "default").replace("/", "-")
     # flat keeps the original key (existing caches / reproducibility); ANN types add
     # a suffix so a flat and an HNSW index for the same corpus never collide.
     index_suffix = "" if config.index_type == "flat" else f"__{config.index_type}"
+    fingerprint_suffix = f"__{corpus_fingerprint}" if corpus_fingerprint else ""
     return (
         f"{config.dataset}__{name}"
         f"__cs{config.chunk_size}_ov{config.chunk_overlap}__{model_slug}"
-        f"__{config.chunk_unit}{index_suffix}"
+        f"__{config.chunk_unit}{index_suffix}{fingerprint_suffix}"
     )
 
 
@@ -479,7 +506,9 @@ def _build_component(
             pq_nbits=config.pq_nbits,
         )
         if config.index_cache_dir is not None:
-            cache_path = config.index_cache_dir / _cache_key(config, name)
+            cache_path = config.index_cache_dir / _cache_key(
+                config, name, _corpus_fingerprint(doc_ids, corpus)
+            )
             index = _load_or_build_index(indexer, chunks, cache_path)
         else:
             index = indexer.build(chunks)
@@ -487,7 +516,9 @@ def _build_component(
     if name == "splade":
         encoder = SpladeEncoder()
         if config.index_cache_dir is not None:
-            cache_path = config.index_cache_dir / f"{config.dataset}__splade"
+            cache_path = config.index_cache_dir / (
+                f"{config.dataset}__splade__{_corpus_fingerprint(doc_ids, corpus)}"
+            )
             index = _load_or_build_sparse_index(encoder, corpus, doc_ids, cache_path)
         else:
             index = SparseIndex.build(encoder.encode(corpus), doc_ids, encoder.vocab_size)

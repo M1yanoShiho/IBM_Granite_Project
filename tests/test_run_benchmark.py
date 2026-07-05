@@ -25,6 +25,7 @@ from eval.run_benchmark import (
     _build_retrievers,
     _cache_key,
     _chunk_kwargs_for,
+    _corpus_fingerprint,
     _load_or_build_index,
     _parse_args,
     build_run,
@@ -597,6 +598,30 @@ def test_cache_key_distinguishes_chunk_and_model_configs() -> None:
     assert _cache_key(base, "st_dense") != key  # different retriever
 
 
+def test_corpus_fingerprint_is_content_sensitive_and_order_independent() -> None:
+    # The fingerprint must change whenever the corpus does (a new doc, or the SAME
+    # doc-id with different text — e.g. a rebuilt task's regenerated distractor), and
+    # be independent of doc ordering.
+    base = _corpus_fingerprint(["d1", "d2"], ["alpha", "beta"])
+    assert base == _corpus_fingerprint(["d2", "d1"], ["beta", "alpha"])          # order-independent
+    assert base != _corpus_fingerprint(["d1", "d2", "d3"], ["alpha", "beta", "g"])  # extra doc
+    assert base != _corpus_fingerprint(["d1", "d2"], ["alpha", "BETA"])          # same ids, new text
+
+
+def test_cache_key_folds_in_corpus_fingerprint() -> None:
+    # The NIAH cache bug: config.dataset is always "niah" while the corpus varies
+    # (query set / max_docs / injected distractors). Without the corpus in the key, a
+    # stale index built for a 100-query corpus is silently reused for a 300-query one.
+    base = BenchmarkConfig(dataset="niah")
+    assert (
+        _cache_key(base, "granite_dense", corpus_fingerprint="fp100")
+        != _cache_key(base, "granite_dense", corpus_fingerprint="fp300")
+    )
+    assert "fp100" in _cache_key(base, "granite_dense", corpus_fingerprint="fp100")
+    # default (no fingerprint) preserves the old key -> existing caches/tests unaffected
+    assert _cache_key(base, "granite_dense") == _cache_key(base, "granite_dense", corpus_fingerprint="")
+
+
 def test_build_retrievers_dense_uses_cache_path(monkeypatch, tmp_path) -> None:
     # With a cache dir set, the dense branch routes index construction through
     # _load_or_build_index, keyed by "<dataset>__<name>". Stub that helper so the
@@ -624,7 +649,12 @@ def test_build_retrievers_dense_uses_cache_path(monkeypatch, tmp_path) -> None:
 
     _build_retrievers(config, data)
 
-    assert captured["cache_path"] == tmp_path / "scifact__st_dense__cs512_ov50__default__word"
+    # The key now folds in the corpus fingerprint so a stale index built for a
+    # different corpus (same dataset name) is never reused (the NIAH n=300 bug).
+    fp = _corpus_fingerprint(["d1"], ["granite retrieval"])
+    assert captured["cache_path"] == (
+        tmp_path / f"scifact__st_dense__cs512_ov50__default__word__{fp}"
+    )
 
 
 def test_parse_args_cache_dir() -> None:
@@ -1127,10 +1157,12 @@ def test_build_retrievers_builds_convex_hybrid_granite_splade(monkeypatch) -> No
 
 def test_build_retrievers_splade_uses_sparse_index_cache(monkeypatch, tmp_path) -> None:
     # With a cache dir, the splade branch encodes once and persists the CSR index
-    # (keyed by dataset) so repeat runs skip re-encoding the corpus.
+    # (keyed by dataset AND corpus fingerprint, so a stale index over a different
+    # corpus is never reused) so repeat runs skip re-encoding the corpus.
     monkeypatch.setattr("eval.run_benchmark.SpladeEncoder", FakeSpladeEncoder)
+    corpus = {"d1": "granite retrieval", "d2": "banana cake"}
     data = BenchmarkData(
-        corpus={"d1": "granite retrieval", "d2": "banana cake"},
+        corpus=corpus,
         queries={"q1": "granite retrieval"},
         qrels={"q1": {"d1": 1}},
     )
@@ -1140,7 +1172,8 @@ def test_build_retrievers_splade_uses_sparse_index_cache(monkeypatch, tmp_path) 
 
     _build_retrievers(config, data)
 
-    assert (tmp_path / "scifact__splade.npz").exists()
+    fp = _corpus_fingerprint(list(corpus.keys()), list(corpus.values()))
+    assert (tmp_path / f"scifact__splade__{fp}.npz").exists()
 
 
 def test_build_retrievers_builds_strong_bm25() -> None:
