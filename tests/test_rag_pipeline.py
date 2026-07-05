@@ -91,6 +91,29 @@ def test_plain_pipeline_abstains_when_no_chunks_are_retrieved() -> None:
     assert result.abstain_reason == "no_retrieved_context"
 
 
+def test_is_unknown_answer_matches_declines_but_not_answers_containing_unknown() -> None:
+    # A real answer that merely contains the word "unknown" must NOT be read as the
+    # model declining; only a whole-answer "unknown" or a decline phrase does.
+    assert RAGPipeline._is_unknown_answer("The Unknown Soldier") is False
+    assert RAGPipeline._is_unknown_answer("Paris") is False
+    assert RAGPipeline._is_unknown_answer("unknown") is True
+    assert RAGPipeline._is_unknown_answer("I don't know.") is True
+    assert RAGPipeline._is_unknown_answer("The answer is not in the context.") is True
+
+
+def test_plain_pipeline_does_not_over_abstain_on_a_short_grounded_answer() -> None:
+    # A concise one-word answer whose entity IS in a realistic (long) chunk must be
+    # attributed and NOT abstained -- the Jaccard-vs-length over-abstention regression.
+    long_chunk = "Paris " + " ".join(f"token{i}" for i in range(60))
+    retriever = ScriptedRetriever({"q": [RetrievedChunk("d1", long_chunk, 0.9)]})
+    pipeline = RAGPipeline(retriever, AnswerLLM("Paris"), top_k=1)
+
+    result = pipeline.query("q")
+
+    assert result.abstained is False
+    assert result.citations and result.citations[0].source_chunk_id == "d1"
+
+
 def test_confidence_is_high_when_top_result_dominates() -> None:
     chunks = [RetrievedChunk("d1", "", 0.9), RetrievedChunk("d2", "", 0.1)]
 

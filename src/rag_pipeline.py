@@ -112,17 +112,24 @@ class RAGPipeline:
 
     @staticmethod
     def _is_unknown_answer(answer: str) -> bool:
-        normalized = answer.strip().lower()
-        unknown_markers = (
+        """True when the model DECLINED to answer (the prompt says "say you don't know").
+
+        Bare "unknown"/"n/a"/"none" must be the WHOLE answer -- as a substring it would
+        wrongly flag legitimate answers like "The Unknown Soldier". The multi-word
+        decline phrases stay substring matches (low false-positive risk).
+        """
+        normalized = answer.strip().lower().strip(".!?\"' ")
+        if normalized in ("unknown", "n/a", "none"):
+            return True
+        decline_phrases = (
             "i don't know",
             "i do not know",
             "don't know",
             "do not know",
             "not contained in the context",
             "not in the context",
-            "unknown",
         )
-        return any(marker in normalized for marker in unknown_markers)
+        return any(phrase in normalized for phrase in decline_phrases)
 
     def _build_result(
         self,

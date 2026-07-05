@@ -68,6 +68,16 @@ class TestAttributeAnswer:
         # No meaningful token overlap — nothing attributed
         assert result == []
 
+    def test_short_answer_attributed_against_a_long_chunk(self) -> None:
+        # Realistic RAG chunks are ~100-token passages; a one-word answer's Jaccard
+        # against a long chunk is ~1/len (below threshold) even when the chunk clearly
+        # contains it. Overlap-coefficient (containment) attributes it correctly.
+        long_chunk = "Paris " + " ".join(f"token{i}" for i in range(60))
+        result = attribute_answer("Paris", [_chunk("d1", long_chunk)])
+
+        assert len(result) == 1
+        assert result[0].source_chunk_id == "d1"
+
     def test_empty_answer(self) -> None:
         chunks = [_chunk("d1", "Paris is the capital of France.")]
         assert attribute_answer("", chunks) == []
