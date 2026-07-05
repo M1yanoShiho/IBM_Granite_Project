@@ -41,12 +41,16 @@ First stage (q2d_granite or granite_dense) returns a top-K pool. Rerank the top-
    string or NONE). N LLM calls/query.
 2. **Parametric vote (anchor)** — one no-passage elicitation → `a_0` (reuse Astute's
    ELICIT). One extra independent voter / tie-breaker.
-3. **Corroboration score** (pure, no LLM — see §4) — how many *other* sources support
-   `a_i`, by exact-match voting **and** entity-presence in other passages' text.
-4. **Additive-boost rerank** — `final_i = relevance_i + λ·corroboration_i`; relevance
-   is the base, corroboration a boost (λ=0 ⇒ plain first stage; λ tuned offline,
-   reusing `eval/tune_alpha.py`). Sort top-N by `final_i`, keep the rest of the pool
-   below. NONE-answer candidates get corroboration 0 (fall back to relevance).
+3. **Corroboration score** (pure, no LLM — see §4) — how many *other* sources actually
+   **answer** the query with `a_i` (extracted-answer agreement + parametric vote).
+4. **Normalise + convex blend** — min-max normalise `relevance` and `corroboration`
+   across the top-N to [0,1] (reuse `convex_fuse`, `src/retrieval/fusion.py`), then
+   `final_i = (1-λ)·rel_norm_i + λ·corrob_norm_i`. **This fixes a real scale bug:** raw
+   relevance is on an uncontrolled scale (dense cosine ~[.7,1], BM25 ~tens) and raw
+   corroboration is an integer count — adding them directly is meaningless and λ would
+   not transfer across retrievers. λ∈[0,1] is then a clean convex weight tuned offline
+   (`eval/tune_alpha.py`, same as the hybrid α); λ=0 ⇒ plain first stage. Reorder top-N
+   by `final_i`; the pool tail keeps its order below.
 
 The counterfactual `Y` appears in no other passage (it was swapped only into its own
 text) and is corroborated by nobody ⇒ its boost is 0 while a genuinely relevant needle
@@ -55,16 +59,25 @@ needle rises above its counterfactual twin.
 
 ## 4. Corroboration score (the crux — pure & unit-testable)
 
-`corroboration_scores(answers, texts, parametric) -> List[float]`:
+`corroboration_scores(answers, parametric) -> List[float]` (raw counts; normalisation
+happens at blend time, §3):
+- treat `a_i` as **NONE** if empty, a stopword, or `len(norm(a_i)) < 3` and non-numeric
+  — a failed/degenerate extraction ("the") must not corroborate anything.
 - `a_i == NONE` → `0.0`.
-- else `score_i = |{ j≠i : norm(a_j) == norm(a_i) }|            # exact-answer votes`
-  `           + |{ j≠i : norm(a_i) ⊆ norm(texts_j) }|          # entity-presence side-clues`
+- else `score_i = |{ j≠i : norm(a_j) == norm(a_i) }|            # other passages that ANSWER a_i`
   `           + (1 if parametric and norm(parametric)==norm(a_i) else 0)`
 - `norm` = lowercase, strip punctuation + leading articles.
 
-Pure function, no LLM ⇒ tested directly: a lone answer scores 0; an answer echoed by
-other passages/parametric scores high; a counterfactual entity present only in its own
-passage scores 0.
+**Base signal is extracted-answer agreement, NOT raw substring presence.** Passage j
+must itself *answer* with the entity to vote. Raw "entity appears in text_j" was
+rejected: it false-corroborates when an entity occurs elsewhere in an unrelated context
+— including the counterfactual's own wrong entity Y if some pool passage legitimately
+mentions Y — and when a short failed extraction matches everything. Nuanced side-clue
+support is handled properly, only where needed, by the entailment tie-breaker (§5).
+
+Pure function, no LLM ⇒ tested directly: a lone answer scores 0; an answer other
+passages/parametric also answer scores high; the counterfactual's Y (answered by no
+other passage) scores 0; a degenerate "the" is filtered to NONE.
 
 ## 5. Tie-break — the known failure mode (measure first)
 
@@ -77,13 +90,15 @@ a *subset*, not the norm — but it is exactly the hardest subset.
 **Do not over-engineer before measuring.** Mandatory diagnostics (§7): the **tie rate**
 and the **counterfactual-demotion rate**. Only if ties dominate, add:
 
-**Entailment tie-breaker (external, cost-bounded):** on a tie among answer-bearing
-candidates with *different* answers, ask Granite which answer the pool's collective
-context better supports. This leverages the counterfactual's **logical seam** — its
-un-swapped context (e.g. "the turn of the century") still entails the true `X` and
-contradicts its own swapped `Y` — but reads it as an **external** contradiction
-(other/own context vs the answer), NOT single-doc artifact detection. Applied only to
-ties, so cost stays bounded.
+**Entailment tie-breaker — fires ONLY on an answer-CONFLICTING tie.** The trigger is
+not "equal scores" but "equal scores between candidates with *different* extracted
+answers" (X vs Y) near a top-k boundary. A tie among same-answer (both X) candidates is
+ignored — either ordering puts the true entity up, so the expensive call is wasted.
+Only on an X-vs-Y tie, ask Granite which answer the pool's collective context better
+supports. This leverages the counterfactual's **logical seam** — its un-swapped context
+("the turn of the century") still entails the true `X` and contradicts its own swapped
+`Y` — but reads it as an **external** contradiction (context vs answer), NOT single-doc
+artifact detection. Cost stays bounded to the conflicting-tie subset.
 
 ## 6. Integration (minimal, follows existing patterns)
 
@@ -124,20 +139,30 @@ counterfactual robustness.
 The seam analysis exposes that Source-A counterfactuals carry obvious logical seams
 (naive `str.replace`). Independently of this method, an **LLM-rewrite** counterfactual
 (swap the entity AND smooth the surrounding context) is a stronger, more realistic
-adversary. Hardening it improves the whole task's defensibility **and** is the honest
-test of whether Corroboration Reranking's gain is real (external corroboration should
-survive seamless counterfactuals; a seam-detector would not). Recommended as a sibling
-task, gated separately.
+adversary.
+
+**Strictly a SEPARATE plan/PR, sequenced AFTER the core result — variable control.**
+Corroboration must first be shown to beat cross-encoder/listwise on the *stable,
+already-baselined* 300q frozen task. Changing the adversary and the method at once makes
+a score change un-attributable (better method vs weaker/changed test set). Only once the
+core win is banked do we harden Source-A, holding the method fixed.
+
+Intended narrative: (1) win on the standard counterfactual benchmark; (2) harden the
+adversary to seamless LLM-rewrite and re-measure. **This is the hypothesis to TEST, not
+a foregone conclusion** — the hoped result is "relevance rerankers collapse, Corroboration
+holds", but Corroboration may also degrade if it leaned on the seam more than expected.
+Report whatever happens; do not pre-write the mic-drop.
 
 ## 10. Risks & honest limitations
 
 - **Cost:** N answer-extractions/query → rerank only top-N; entailment tie-breaker only
-  on ties.
+  on the answer-*conflicting*-tie subset (§5).
 - **Coordinated misinformation:** if many passages share the *same wrong* answer,
   corroboration is fooled. The task's counterfactual is a lone outlier, so this holds
   here; note as a real-world limitation.
-- **Extraction quality:** 3B may mis-extract; 8B is more reliable but slower — an
-  8B-vs-3B point.
+- **Extraction quality:** 3B may mis-extract; the degenerate-answer guard (§4) drops
+  empty/stopword/too-short extractions so they don't spuriously corroborate. 8B is more
+  reliable but slower — an 8B-vs-3B point.
 - **Tie subset (§5):** the method's weakest region; measured, not hidden.
 - **Novelty is a combination/application** (§2), not a new primitive — frame as such.
 
