@@ -40,6 +40,7 @@ from src.retrieval.strong_bm25 import StrongBM25Retriever
 from src.retrieval.embedder import Embedder
 from src.retrieval.hybrid import ConvexHybridRetriever, HybridRetriever
 from src.retrieval.reranker import (
+    CorroborationReranker,
     DEFAULT_RERANKER_MODEL_ID,
     LLMListwiseReranker,
     Reranker,
@@ -560,6 +561,15 @@ LLM_RERANK_SPECS: Dict[str, str] = {
 }
 
 
+# Corroboration reranker: name -> first-stage retriever name. A
+# :class:`~src.retrieval.reranker.CorroborationReranker` reranks the first stage's pool
+# by cross-source answer corroboration (not relevance), to demote lone counterfactual
+# distractors. Reuses the injected LLM.
+CORROBORATION_SPECS: Dict[str, str] = {
+    "q2d_corroborate": "q2d_granite",
+}
+
+
 def retrievers_need_llm(names: List[str]) -> bool:
     """True if any named retriever needs a generator LLM — a HyDE/Query2Doc query
     transform, an LLM listwise reranker, or a cross-encoder rerank whose first stage
@@ -568,7 +578,7 @@ def retrievers_need_llm(names: List[str]) -> bool:
     its own model (N concurrent 3B loads OOM a single GPU — the failure mode when
     evaluating several transforms in one run_niah job)."""
     for name in names:
-        if name in HYDE_SPECS or name in LLM_RERANK_SPECS:
+        if name in HYDE_SPECS or name in LLM_RERANK_SPECS or name in CORROBORATION_SPECS:
             return True
         if name in RERANK_SPECS and RERANK_SPECS[name] in HYDE_SPECS:
             return True
@@ -666,6 +676,19 @@ def _build_retrievers(
             retrievers[name] = TwoStageRetriever(
                 first,
                 LLMListwiseReranker(client),
+                top_k=pool,
+                candidates=config.rerank_pool or pool,
+            )
+        elif name in CORROBORATION_SPECS:
+            first = _build_named(
+                CORROBORATION_SPECS[name], config, data, corpus, doc_ids, top_k, llm=llm
+            )
+            from src.llm_client import LLMClient
+
+            client = llm if llm is not None else LLMClient()
+            retrievers[name] = TwoStageRetriever(
+                first,
+                CorroborationReranker(client),
                 top_k=pool,
                 candidates=config.rerank_pool or pool,
             )

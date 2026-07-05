@@ -1384,3 +1384,42 @@ def test_build_retrievers_listrank_respects_rerank_pool(monkeypatch) -> None:
 def test_parse_args_rerank_pool() -> None:
     assert _parse_args([]).rerank_pool is None
     assert _parse_args(["--rerank-pool", "20"]).rerank_pool == 20
+
+
+def test_build_retrievers_builds_q2d_corroborate_reranker(monkeypatch) -> None:
+    # q2d_corroborate = q2d query-transform first stage + CorroborationReranker, as one
+    # TwoStageRetriever, reusing the injected LLM (no second model load).
+    from src.retrieval.query_transform import TransformingRetriever
+    from src.retrieval.reranker import CorroborationReranker, TwoStageRetriever
+
+    monkeypatch.setattr(
+        "sentence_transformers.SentenceTransformer", FakeSentenceTransformer
+    )
+
+    class InjectedLLM:
+        def generate(self, prompt):
+            return "granite retrieval passage"
+
+    injected = InjectedLLM()
+    data = BenchmarkData(
+        corpus={"d1": "granite retrieval", "d2": "banana cake"},
+        queries={"q1": "granite"},
+        qrels={"q1": {"d1": 1}},
+    )
+    config = BenchmarkConfig(retrievers=["q2d_corroborate"], k_values=[1])
+
+    retrievers = _build_retrievers(config, data, llm=injected)
+
+    rr = retrievers["q2d_corroborate"]
+    assert isinstance(rr, TwoStageRetriever)
+    assert isinstance(rr.reranker, CorroborationReranker)   # the corroboration reranker
+    assert isinstance(rr.retriever, TransformingRetriever)  # q2d first stage
+    assert rr.reranker.llm is injected                      # reuse, not a second load
+    assert rr.retrieve("granite")[0].doc_id == "d1"
+
+
+def test_retrievers_need_llm_flags_corroborate() -> None:
+    from eval.run_benchmark import retrievers_need_llm
+
+    assert retrievers_need_llm(["q2d_corroborate"])
+    assert not retrievers_need_llm(["granite_dense", "splade"])
