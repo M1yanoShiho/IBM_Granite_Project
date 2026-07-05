@@ -16,7 +16,18 @@ from dataclasses import dataclass
 from typing import List
 
 from src.retrieval.base import RetrievedChunk
-from src.text_utils import jaccard, split_sentences, tokenize
+from src.text_utils import split_sentences, tokenize
+
+
+def _overlap_coefficient(a_tokens: List[str], b_tokens: List[str]) -> float:
+    """Containment overlap: ``|A ∩ B| / min(|A|, |B|)`` over token *sets* (0 if either
+    is empty). Unlike Jaccard it does not shrink with the length gap, so a short answer
+    (e.g. the concise one-word "Paris") is still fully attributed to a long chunk that
+    contains it -- Jaccard would give ~1/len, below any useful threshold."""
+    a, b = set(a_tokens), set(b_tokens)
+    if not a or not b:
+        return 0.0
+    return len(a & b) / min(len(a), len(b))
 
 
 @dataclass
@@ -46,8 +57,8 @@ def attribute_answer(
     """Attribute parts of ``answer`` to the ``retrieved`` chunks that support them.
 
     The answer is split into sentence-level spans.  Each span is compared
-    against every retrieved chunk via token-overlap (Jaccard similarity after
-    lower-casing and stop-word removal).  A span is attributed to the chunk
+    against every retrieved chunk via the token overlap-coefficient (containment,
+    after lower-casing and stop-word removal).  A span is attributed to the chunk
     with the highest overlap, provided the score meets *token_overlap_threshold*.
 
     Parameters
@@ -87,7 +98,7 @@ def attribute_answer(
         best_idx = 0
         best_score = 0.0
         for i, chunk_tokens in enumerate(chunk_tokens_list):
-            score = jaccard(sent_tokens, chunk_tokens)
+            score = _overlap_coefficient(sent_tokens, chunk_tokens)
             if score > best_score:
                 best_score = score
                 best_idx = i

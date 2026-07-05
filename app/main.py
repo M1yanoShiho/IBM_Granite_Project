@@ -28,7 +28,6 @@ from __future__ import annotations
 import sys
 import time
 from pathlib import Path
-from typing import List
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -41,7 +40,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from src.llm_client import LLMClient  # noqa: E402
 from src.rag_app import build_rag_pipeline_from_text  # noqa: E402
-from src.retrieval.base import RetrievedChunk  # noqa: E402
+from src.rag_pipeline import RAGResult  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -59,14 +58,26 @@ def _get_llm():
 
 
 @st.cache_resource(show_spinner=False)
-def _get_pipeline(document_text: str, top_k: int):
+def _get_pipeline(
+    document_text: str,
+    top_k: int,
+    pipeline_type: str,
+    confidence_threshold: float,
+):
     """Build (and cache) a RAG pipeline over ``document_text``.
 
-    Keyed by the document text and ``top_k``: pasting a new document rebuilds the
-    index, the same document reuses it. The generative model is shared via
-    :func:`_get_llm`.
+    Keyed by document text, ``top_k`` and pipeline settings: pasting a new
+    document rebuilds the index, the same document reuses it. The generative
+    model is shared via :func:`_get_llm`.
     """
-    return build_rag_pipeline_from_text(document_text, _get_llm(), top_k=top_k)
+    return build_rag_pipeline_from_text(
+        document_text,
+        _get_llm(),
+        top_k=top_k,
+        pipeline_type=pipeline_type,
+        confidence_threshold=confidence_threshold,
+        fallback_top_k=max(top_k * 2, top_k),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -332,6 +343,22 @@ def _render_sidebar() -> None:
             help="How many retrieved chunks to pass to the generator as context.",
             key="top_k",
         )
+        st.selectbox(
+            "RAG pipeline",
+            options=["corrective", "plain", "astute"],
+            index=0,
+            help="Corrective reports retrieval confidence; Astute adds source-aware consolidation.",
+            key="pipeline_type",
+        )
+        st.slider(
+            "Confidence threshold",
+            min_value=0.0,
+            max_value=1.0,
+            value=0.5,
+            step=0.05,
+            help="Corrective mode marks low-confidence retrieval below this threshold.",
+            key="confidence_threshold",
+        )
         st.divider()
         st.checkbox(
             "📊 Show benchmark (real HPC)",
@@ -426,16 +453,53 @@ def _render_query_input() -> None:
     return run
 
 
-def _render_results(chunks: List[RetrievedChunk], answer: str, elapsed: float) -> None:
+def _render_results(result: RAGResult, elapsed: float) -> None:
     """Section 3: RAG results — answer + cited source chunks."""
+    chunks = result.retrieved_chunks
+    answer = result.answer
+
     st.divider()
     st.subheader("3. Results")
     st.caption(f"Retrieved {len(chunks)} chunks and generated an answer in "
                f"{elapsed:.1f}s.")
 
+    if result.abstained:
+        st.warning(f"System abstained: {result.abstain_reason}")
+    else:
+        st.success("System answered with attributed evidence.")
+
+    meta_cols = st.columns(2)
+    with meta_cols[0]:
+        if result.confidence is not None:
+            st.metric("Retrieval confidence", f"{result.confidence:.2f}")
+        else:
+            st.metric("Retrieval confidence", "n/a")
+    with meta_cols[1]:
+        st.metric(
+            "Corrective retrieval",
+            "used" if result.used_corrective_retrieval else "not used",
+        )
+
     # --- Answer ---
     st.markdown("### 💬 Answer")
     st.markdown(answer)
+
+    st.markdown("### Attributed citations")
+    if result.citations:
+        st.dataframe(
+            [
+                {
+                    "answer_span": c.answer_span,
+                    "source_chunk_id": c.source_chunk_id,
+                    "support_score": c.score,
+                }
+                for c in result.citations
+            ],
+            use_container_width=True,
+            hide_index=True,
+        )
+    else:
+        st.info("No answer spans could be attributed to retrieved chunks.")
 
     # --- Cited sources ---
     if not chunks:
@@ -533,6 +597,8 @@ def main() -> None:
         question = st.session_state.last_query
         document_text = st.session_state.get("document_text", "")
         top_k = st.session_state.get("top_k", 4)
+        pipeline_type = st.session_state.get("pipeline_type", "corrective")
+        confidence_threshold = st.session_state.get("confidence_threshold", 0.5)
 
         if not document_text.strip():
             st.warning("Please provide a document first — paste text above or click "
@@ -543,7 +609,12 @@ def main() -> None:
         try:
             with st.spinner("Indexing your document (first run downloads the Granite "
                             "embedding model)..."):
-                pipeline = _get_pipeline(document_text, top_k)
+                pipeline = _get_pipeline(
+                    document_text,
+                    top_k,
+                    pipeline_type,
+                    confidence_threshold,
+                )
             with st.spinner("Retrieving and generating with Granite..."):
                 result = pipeline.query(question)
         except Exception as exc:  # noqa: BLE001 - surface a friendly UI error
@@ -554,7 +625,7 @@ def main() -> None:
             )
             st.stop()
         elapsed = time.perf_counter() - t0
-        _render_results(result.retrieved_chunks, result.answer, elapsed)
+        _render_results(result, elapsed)
 
     # --- Evaluation charts (benchmark / ablation / RAG) ---------------- #
     _render_evaluation_section()

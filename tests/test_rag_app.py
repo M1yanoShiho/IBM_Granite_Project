@@ -12,7 +12,12 @@ from __future__ import annotations
 import pytest
 
 from src.rag_app import build_rag_pipeline_from_text
-from src.rag_pipeline import RAGResult
+from src.rag_pipeline import (
+    AstuteRAGPipeline,
+    CorrectiveRAGPipeline,
+    RAGPipeline,
+    RAGResult,
+)
 from src.retrieval.base import RetrievedChunk
 
 
@@ -78,3 +83,48 @@ def test_threads_top_k_into_the_pipeline() -> None:
     pipeline = build_rag_pipeline_from_text("granite retrieval", FakeLLM(), top_k=3)
 
     assert pipeline.top_k == 3
+
+
+def test_builder_defaults_to_corrective_pipeline() -> None:
+    pipeline = build_rag_pipeline_from_text("granite retrieval", FakeLLM(), top_k=2)
+
+    assert isinstance(pipeline, CorrectiveRAGPipeline)
+    assert pipeline.top_k == 2
+
+
+def test_builder_can_create_plain_pipeline() -> None:
+    pipeline = build_rag_pipeline_from_text(
+        "granite retrieval",
+        FakeLLM(),
+        top_k=2,
+        pipeline_type="plain",
+    )
+
+    assert isinstance(pipeline, RAGPipeline)
+    assert not isinstance(pipeline, CorrectiveRAGPipeline)
+
+
+def test_builder_can_create_astute_pipeline() -> None:
+    pipeline = build_rag_pipeline_from_text(
+        "granite retrieval",
+        FakeLLM(),
+        top_k=2,
+        pipeline_type="astute",
+    )
+
+    assert isinstance(pipeline, AstuteRAGPipeline)
+
+
+def test_builder_threads_corrective_parameters() -> None:
+    pipeline = build_rag_pipeline_from_text(
+        "granite retrieval",
+        FakeLLM(),
+        top_k=2,
+        pipeline_type="corrective",
+        confidence_threshold=0.25,
+        fallback_top_k=6,
+    )
+
+    assert isinstance(pipeline, CorrectiveRAGPipeline)
+    assert pipeline.confidence_threshold == 0.25
+    assert pipeline.fallback_top_k == 6

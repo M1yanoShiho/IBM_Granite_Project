@@ -79,6 +79,18 @@ def test_rag_result_stores_answer_and_chunks() -> None:
     assert [c.doc_id for c in result.retrieved_chunks] == ["c1", "c2"]
 
 
+def test_rag_result_defaults_citation_and_abstention_metadata() -> None:
+    chunks = [RetrievedChunk(doc_id="c1", text="Bristol is a city.", score=0.9)]
+
+    result = RAGResult(answer="Bristol", retrieved_chunks=chunks)
+
+    assert result.citations == []
+    assert result.abstained is False
+    assert result.confidence is None
+    assert result.abstain_reason is None
+    assert result.used_corrective_retrieval is False
+
+
 # --------------------------------------------------------------------------- #
 # NIAHConfig
 # --------------------------------------------------------------------------- #

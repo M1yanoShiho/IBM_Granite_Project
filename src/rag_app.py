@@ -13,8 +13,10 @@ without loading a real model.
 
 from __future__ import annotations
 
+from typing import Callable
+
 from src.llm_client import LLMClient
-from src.rag_pipeline import RAGPipeline
+from src.rag_pipeline import AstuteRAGPipeline, CorrectiveRAGPipeline, RAGPipeline
 from src.retrieval.factory import build_dense_retriever_from_text
 
 
@@ -26,6 +28,10 @@ def build_rag_pipeline_from_text(
     backend: str = "granite",
     embedding_model_id: str | None = None,
     doc_id: str = "document",
+    pipeline_type: str = "corrective",
+    query_rewriter: Callable[[str], str] | None = None,
+    confidence_threshold: float = 0.5,
+    fallback_top_k: int = 8,
 ) -> RAGPipeline:
     """Build a retrieve-then-generate ``RAGPipeline`` over a single document.
 
@@ -42,4 +48,17 @@ def build_rag_pipeline_from_text(
         backend=backend,
         embedding_model_id=embedding_model_id,
     )
-    return RAGPipeline(retriever, llm, top_k=top_k)
+    if pipeline_type == "plain":
+        return RAGPipeline(retriever, llm, top_k=top_k)
+    if pipeline_type == "corrective":
+        return CorrectiveRAGPipeline(
+            retriever,
+            llm,
+            top_k=top_k,
+            query_rewriter=query_rewriter,
+            confidence_threshold=confidence_threshold,
+            fallback_top_k=fallback_top_k,
+        )
+    if pipeline_type == "astute":
+        return AstuteRAGPipeline(retriever, llm, top_k=top_k)
+    raise ValueError("pipeline_type must be 'plain', 'corrective', or 'astute'")
