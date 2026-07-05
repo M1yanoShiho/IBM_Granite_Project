@@ -18,9 +18,11 @@ from __future__ import annotations
 
 import os
 import re
-from typing import List, Sequence
+from typing import List, Optional, Sequence
 
 from src.retrieval.base import RetrievedChunk, Retriever
+from src.retrieval.corroboration import corroboration_scores
+from src.retrieval.fusion import minmax_normalize
 
 DEFAULT_RERANKER_MODEL_ID = "ibm-granite/granite-embedding-reranker-english-r2"
 
@@ -212,3 +214,88 @@ class LLMListwiseReranker:
                 order.append(idx)
         order.extend(i for i in range(n) if i not in seen)
         return order
+
+
+_EXTRACT_PROMPT = (
+    "Using ONLY the passage below, answer the question with the shortest exact answer "
+    "(a name, place, date, or number). If the passage does not answer it, reply NONE.\n"
+    "Question: {question}\n"
+    "Passage: {passage}\n"
+    "Answer:"
+)
+_PARAMETRIC_PROMPT = (
+    "Answer the question with the shortest exact answer from your own knowledge. "
+    "If you are not sure, reply NONE.\n"
+    "Question: {question}\n"
+    "Answer:"
+)
+
+
+class CorroborationReranker:
+    """Rerank by cross-source answer corroboration instead of query relevance.
+
+    Extracts each candidate's answer with the LLM, scores how many OTHER candidates
+    (plus the model's own parametric answer) give the same answer
+    (:func:`~src.retrieval.corroboration.corroboration_scores`), then blends that --
+    min-max normalised -- with the min-max normalised first-stage relevance:
+    ``final = alpha * relevance + (1 - alpha) * corroboration`` (``alpha`` is the
+    relevance weight, like the hybrid's dense weight; ``alpha = 1`` -> plain first
+    stage). A lone counterfactual is relevant but uncorroborated, so it falls below the
+    corroborated needle -- the separation a relevance reranker cannot make.
+
+    Same ``rerank(query, candidates, top_k)`` contract as :class:`Reranker`, so
+    :class:`TwoStageRetriever` wraps it unchanged. Cost = ``top_n`` (+1 parametric) LLM
+    calls/query; only the first ``top_n`` candidates are re-scored, the rest keep their
+    first-stage order below. Design: 2026-07-05-corroboration-reranking-design.md.
+    """
+
+    def __init__(
+        self,
+        llm,
+        top_n: int = 20,
+        alpha: float = 0.5,
+        use_parametric: bool = True,
+        passage_chars: int = 600,
+    ) -> None:
+        if not 0.0 <= alpha <= 1.0:
+            raise ValueError(f"alpha must be in [0, 1]; got {alpha}.")
+        if top_n < 1:
+            raise ValueError("top_n must be at least 1.")
+        self.llm = llm
+        self.top_n = top_n
+        self.alpha = alpha
+        self.use_parametric = use_parametric
+        self.passage_chars = passage_chars
+
+    def _extract_answer(self, query: str, passage: str) -> str:
+        prompt = _EXTRACT_PROMPT.format(question=query, passage=passage[: self.passage_chars])
+        return self.llm.generate(prompt).strip()
+
+    def _parametric_answer(self, query: str) -> Optional[str]:
+        if not self.use_parametric:
+            return None
+        return self.llm.generate(_PARAMETRIC_PROMPT.format(question=query)).strip()
+
+    def rerank(
+        self, query: str, candidates: List[RetrievedChunk], top_k: int
+    ) -> List[RetrievedChunk]:
+        """Re-score the first ``top_n`` candidates by relevance+corroboration; the rest
+        keep their order below. Returns the top ``top_k`` chunks (blended score)."""
+        if not candidates:
+            return []
+        window = candidates[: self.top_n]
+        answers = [self._extract_answer(query, c.text) for c in window]
+        corr = corroboration_scores(answers, self._parametric_answer(query))
+        rel_norm = minmax_normalize({i: c.score for i, c in enumerate(window)})
+        cor_norm = minmax_normalize({i: corr[i] for i in range(len(window))})
+        final = [
+            self.alpha * rel_norm[i] + (1.0 - self.alpha) * cor_norm[i]
+            for i in range(len(window))
+        ]
+        # Stable sort: ties keep first-stage order (Python sort is stable under reverse).
+        order = sorted(range(len(window)), key=lambda i: final[i], reverse=True)
+        reranked = [
+            RetrievedChunk(window[i].doc_id, window[i].text, float(final[i]))
+            for i in order
+        ]
+        return (reranked + candidates[self.top_n :])[:top_k]
