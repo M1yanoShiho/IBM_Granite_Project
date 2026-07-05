@@ -9,7 +9,12 @@ family of methods, not a reimplementation.
 
 from __future__ import annotations
 
-from src.rag_pipeline import CorrectiveRAGPipeline, RAGResult
+from src.rag_pipeline import (
+    AstuteRAGPipeline,
+    CorrectiveRAGPipeline,
+    RAGPipeline,
+    RAGResult,
+)
 from src.retrieval.base import RetrievedChunk
 
 
@@ -28,6 +33,62 @@ class ScriptedRetriever:
 class EchoLLM:
     def generate(self, prompt: str) -> str:
         return "ANSWER"
+
+
+class AnswerLLM:
+    def __init__(self, answer: str) -> None:
+        self.answer = answer
+
+    def generate(self, prompt: str) -> str:
+        return self.answer
+
+
+class ScriptedLLM:
+    def __init__(self, outputs: list[str]) -> None:
+        self.outputs = outputs
+        self.prompts: list[str] = []
+
+    def generate(self, prompt: str) -> str:
+        self.prompts.append(prompt)
+        return self.outputs.pop(0)
+
+
+def test_plain_pipeline_returns_citations_for_supported_answer() -> None:
+    retriever = ScriptedRetriever(
+        {"q": [RetrievedChunk("d1", "Paris is the capital of France.", 0.9)]}
+    )
+    pipeline = RAGPipeline(
+        retriever, AnswerLLM("Paris is the capital of France."), top_k=1
+    )
+
+    result = pipeline.query("q")
+
+    assert result.abstained is False
+    assert result.citations
+    assert result.citations[0].source_chunk_id == "d1"
+
+
+def test_plain_pipeline_abstains_when_model_says_it_does_not_know() -> None:
+    retriever = ScriptedRetriever(
+        {"q": [RetrievedChunk("d1", "Paris is the capital of France.", 0.9)]}
+    )
+    pipeline = RAGPipeline(retriever, AnswerLLM("I don't know."), top_k=1)
+
+    result = pipeline.query("q")
+
+    assert result.abstained is True
+    assert result.abstain_reason == "model_reported_unknown"
+
+
+def test_plain_pipeline_abstains_when_no_chunks_are_retrieved() -> None:
+    retriever = ScriptedRetriever({"q": []})
+    pipeline = RAGPipeline(retriever, AnswerLLM("Some answer"), top_k=1)
+
+    result = pipeline.query("q")
+
+    assert result.retrieved_chunks == []
+    assert result.abstained is True
+    assert result.abstain_reason == "no_retrieved_context"
 
 
 def test_confidence_is_high_when_top_result_dominates() -> None:
@@ -114,3 +175,73 @@ def test_query_returns_ragresult_with_generated_answer() -> None:
 
     assert isinstance(result, RAGResult)
     assert result.answer == "ANSWER"
+
+
+def test_corrective_pipeline_marks_when_correction_was_used() -> None:
+    retriever = ScriptedRetriever(
+        {
+            "q": [RetrievedChunk("d1", "weak", 0.5), RetrievedChunk("d2", "tie", 0.5)],
+            "q REWRITTEN": [
+                RetrievedChunk("d9", "Paris is the capital of France.", 0.9)
+            ],
+        }
+    )
+    pipeline = CorrectiveRAGPipeline(
+        retriever,
+        AnswerLLM("Paris is the capital of France."),
+        top_k=1,
+        query_rewriter=lambda q: f"{q} REWRITTEN",
+        confidence_threshold=0.5,
+        fallback_top_k=1,
+    )
+
+    result = pipeline.query("q")
+
+    assert result.used_corrective_retrieval is True
+    assert result.confidence == 0.0
+    assert result.abstained is False
+
+
+def test_corrective_pipeline_abstains_on_low_confidence_without_rewriter() -> None:
+    retriever = ScriptedRetriever(
+        {
+            "q": [
+                RetrievedChunk("d1", "Paris is the capital of France.", 0.5),
+                RetrievedChunk("d2", "Paris is in Texas.", 0.5),
+            ]
+        }
+    )
+    pipeline = CorrectiveRAGPipeline(
+        retriever,
+        AnswerLLM("Paris is the capital of France."),
+        top_k=1,
+        query_rewriter=None,
+        confidence_threshold=0.5,
+    )
+
+    result = pipeline.query("q")
+
+    assert result.confidence == 0.0
+    assert result.abstained is True
+    assert result.abstain_reason == "low_retrieval_confidence"
+
+
+def test_astute_pipeline_returns_shared_rag_result_metadata() -> None:
+    retriever = ScriptedRetriever(
+        {"q": [RetrievedChunk("d1", "Paris is the capital of France.", 0.9)]}
+    )
+    llm = ScriptedLLM(
+        [
+            "Paris is the capital of France.",
+            "The reliable consolidated answer is Paris.",
+            "Paris is the capital of France.",
+        ]
+    )
+    pipeline = AstuteRAGPipeline(retriever, llm, top_k=1)
+
+    result = pipeline.query("q")
+
+    assert result.abstained is False
+    assert result.citations
+    assert result.citations[0].source_chunk_id == "d1"
+    assert result.used_corrective_retrieval is False

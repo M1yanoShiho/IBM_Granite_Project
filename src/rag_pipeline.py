@@ -20,9 +20,10 @@ See ``docs/interfaces.md`` (CONTRACT 4 — RAG I/O).
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Callable, List, Optional
 
+from src.explainability.citations import Citation, attribute_answer
 from src.llm_client import LLMClient
 from src.retrieval.base import RetrievedChunk, Retriever
 
@@ -52,10 +53,25 @@ class RAGResult:
         :class:`~src.retrieval.base.RetrievedChunk` objects (carrying
         ``doc_id``/``score``) so the result can feed both context-precision
         scoring and source citations.
+    citations:
+        Sentence-level source attributions for the generated answer.
+    abstained:
+        ``True`` when the pipeline declines to treat the answer as supported.
+    abstain_reason:
+        Machine-readable reason for an abstention, or ``None``.
+    confidence:
+        Optional retrieval-confidence signal, used by corrective variants.
+    used_corrective_retrieval:
+        ``True`` when a corrective re-retrieval branch was used.
     """
 
     answer: str
     retrieved_chunks: List[RetrievedChunk]
+    citations: List[Citation] = field(default_factory=list)
+    abstained: bool = False
+    abstain_reason: str | None = None
+    confidence: float | None = None
+    used_corrective_retrieval: bool = False
 
 
 class RAGPipeline:
@@ -94,6 +110,52 @@ class RAGPipeline:
         )
         return self.prompt_template.format(context=context, question=question)
 
+    @staticmethod
+    def _is_unknown_answer(answer: str) -> bool:
+        normalized = answer.strip().lower()
+        unknown_markers = (
+            "i don't know",
+            "i do not know",
+            "don't know",
+            "do not know",
+            "not contained in the context",
+            "not in the context",
+            "unknown",
+        )
+        return any(marker in normalized for marker in unknown_markers)
+
+    def _build_result(
+        self,
+        answer: str,
+        chunks: List[RetrievedChunk],
+        *,
+        confidence: float | None = None,
+        used_corrective_retrieval: bool = False,
+    ) -> RAGResult:
+        citations = attribute_answer(answer, chunks)
+        abstained = False
+        reason: str | None = None
+
+        if not chunks:
+            abstained = True
+            reason = "no_retrieved_context"
+        elif self._is_unknown_answer(answer):
+            abstained = True
+            reason = "model_reported_unknown"
+        elif not citations:
+            abstained = True
+            reason = "answer_not_attributed"
+
+        return RAGResult(
+            answer=answer,
+            retrieved_chunks=chunks,
+            citations=citations,
+            abstained=abstained,
+            abstain_reason=reason,
+            confidence=confidence,
+            used_corrective_retrieval=used_corrective_retrieval,
+        )
+
     def query(self, question: str) -> RAGResult:
         """Run the full retrieve-then-generate flow for a question.
 
@@ -118,7 +180,7 @@ class RAGPipeline:
         chunks = self.retriever.retrieve(question)[: self.top_k]
         prompt = self._build_prompt(question, chunks)
         answer = self.llm.generate(prompt)
-        return RAGResult(answer=answer, retrieved_chunks=chunks)
+        return self._build_result(answer, chunks)
 
 
 class CorrectiveRAGPipeline(RAGPipeline):
@@ -190,16 +252,29 @@ class CorrectiveRAGPipeline(RAGPipeline):
     def query(self, question: str) -> RAGResult:
         """Retrieve, and if the first pass is low-confidence, correct then generate."""
         chunks = self.retriever.retrieve(question)
-        if (
-            self.query_rewriter is not None
-            and self._confidence(chunks) < self.confidence_threshold
-        ):
+        confidence = self._confidence(chunks)
+        used_corrective_retrieval = False
+        low_confidence_without_rewriter = (
+            self.query_rewriter is None and confidence < self.confidence_threshold
+        )
+
+        if self.query_rewriter is not None and confidence < self.confidence_threshold:
             chunks = self.retriever.retrieve(self.query_rewriter(question))
             top = chunks[: self.fallback_top_k]
+            used_corrective_retrieval = True
         else:
             top = chunks[: self.top_k]
         answer = self.llm.generate(self._build_prompt(question, top))
-        return RAGResult(answer=answer, retrieved_chunks=top)
+        result = self._build_result(
+            answer,
+            top,
+            confidence=confidence,
+            used_corrective_retrieval=used_corrective_retrieval,
+        )
+        if low_confidence_without_rewriter and not result.abstained:
+            result.abstained = True
+            result.abstain_reason = "low_retrieval_confidence"
+        return result
 
 
 class AstuteRAGPipeline(RAGPipeline):
@@ -267,4 +342,4 @@ class AstuteRAGPipeline(RAGPipeline):
         answer = self.llm.generate(
             self.FINALIZE_PROMPT.format(consolidated=consolidated, question=question)
         )
-        return RAGResult(answer=answer, retrieved_chunks=chunks)
+        return self._build_result(answer, chunks)
