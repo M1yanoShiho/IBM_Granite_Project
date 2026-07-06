@@ -1,5 +1,31 @@
 """Tests for the offline gated dynamic-alpha corroboration analysis."""
-from eval.gate_corroboration import margin_signal, max_votes_signal
+import csv
+
+import pytest
+
+from eval.gate_corroboration import (
+    MARGIN_THRESHOLDS,
+    VOTE_TAUS,
+    CurveRow,
+    _parse_args,
+    evaluate_config,
+    flip_status,
+    flip_table,
+    gate_mask,
+    gated_fuse,
+    main,
+    margin_bucket,
+    margin_signal,
+    max_votes_signal,
+    select_on_dev,
+    split_queries,
+    sweep_gated,
+    vote_bucket,
+    write_dev_curves,
+    write_flip_table,
+)
+from eval.tune_corroboration import dump_runs
+from src.retrieval.fusion import fuse_one
 
 
 def test_max_votes_signal_takes_the_per_query_max():
@@ -21,12 +47,6 @@ def test_margin_signal_degenerate_cases_are_zero():
     # all-equal scores minmax to all-1.0 (margin 0); a single doc has no top2.
     rel = {"q1": {"a": 0.7, "b": 0.7}, "q2": {"a": 0.9}}
     assert margin_signal(rel) == {"q1": 0.0, "q2": 0.0}
-
-
-import pytest
-
-from eval.gate_corroboration import gate_mask, gated_fuse
-from src.retrieval.fusion import fuse_one
 
 
 def test_gate_mask_global_always_fires():
@@ -71,9 +91,6 @@ def test_gated_fuse_mixed_gate():
     assert fused["q2"] == rel["q2"]
 
 
-from eval.gate_corroboration import split_queries
-
-
 def test_split_queries_is_deterministic_disjoint_and_covers_all():
     qids = [f"q{i}" for i in range(300)]
     dev1, test1 = split_queries(qids, seed=0)
@@ -93,8 +110,6 @@ def test_split_queries_dev_fraction():
     dev, test = split_queries([f"q{i}" for i in range(10)], seed=0, dev_fraction=0.3)
     assert len(dev) == 3 and len(test) == 7
 
-
-from eval.gate_corroboration import evaluate_config
 
 # One fixable query: relevance ranks the counterfactual first; the needle holds a
 # 2-vote consensus. And one zero-consensus query: all votes 0.
@@ -118,14 +133,6 @@ def test_evaluate_config_votes_gate_fixes_only_the_consensus_query():
 def test_evaluate_config_restricts_to_the_given_qids():
     hits = evaluate_config(_REL, _COR, _NEEDLES, ["q1"], "global", None, 1.0, k=1)
     assert set(hits) == {"q1"}
-
-
-from eval.gate_corroboration import (
-    MARGIN_THRESHOLDS,
-    VOTE_TAUS,
-    CurveRow,
-    sweep_gated,
-)
 
 
 def _rows_by(rows, family, param=None):
@@ -162,9 +169,6 @@ def test_sweep_n_gated_counts_gated_queries():
     assert _rows_by(rows, "votes", 2.0)[0.5].n_gated == 1  # only q1 has votes >= 2
 
 
-from eval.gate_corroboration import select_on_dev
-
-
 def test_select_prefers_higher_score_then_larger_alpha_then_stricter_gate():
     rows = [
         CurveRow("votes", 1.0, 0.2, 0.8, 10),
@@ -193,9 +197,6 @@ def test_select_across_family_tie_prefers_global_then_votes():
     best, winner, best_gated = select_on_dev(rows)
     assert winner.family == "global"        # tie -> simpler wins
     assert best_gated.family == "votes"     # best GATED config still reported (spec 4)
-
-
-from eval.gate_corroboration import flip_status, flip_table, margin_bucket, vote_bucket
 
 
 def test_flip_status_four_way():
@@ -245,11 +246,6 @@ def test_flip_table_counts_one_fixed_one_broken_one_unchanged():
         ) == 3
 
 
-import csv
-
-from eval.gate_corroboration import _parse_args, write_dev_curves, write_flip_table
-
-
 def test_write_dev_curves_csv(tmp_path):
     rows = [CurveRow("global", None, 0.6, 0.58, 150), CurveRow("votes", 2.0, 0.5, 0.6, 80)]
     path = tmp_path / "curves.csv"
@@ -285,10 +281,6 @@ def test_parse_args_defaults_and_required_from_runs():
 def test_parse_args_requires_from_runs():
     with pytest.raises(SystemExit):
         _parse_args([])
-
-
-from eval.gate_corroboration import main
-from eval.tune_corroboration import dump_runs
 
 
 def _synthetic_dump(tmp_path):
