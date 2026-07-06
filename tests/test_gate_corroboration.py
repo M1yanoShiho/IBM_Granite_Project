@@ -13,6 +13,7 @@ from eval.gate_corroboration import (
     flip_table,
     gate_mask,
     gated_fuse,
+    kfold_folds,
     main,
     margin_bucket,
     margin_signal,
@@ -346,3 +347,25 @@ def test_reciprocal_rank_tie_break_matches_per_query_hits():
     fused = {"q": {"a": 1.0, "z": 1.0}}
     assert per_query_reciprocal_rank(fused, {"q": "z"}) == {"q": 0.5}
     assert per_query_hits(fused, {"q": "z"}, k=1) == {"q": 0.0}
+
+
+def test_kfold_folds_partitions_deterministically():
+    qids = [f"q{i}" for i in range(300)]
+    folds1 = kfold_folds(qids, 5, seed=0)
+    folds2 = kfold_folds(list(reversed(qids)), 5, seed=0)   # input order irrelevant
+    assert folds1 == folds2
+    assert [len(f) for f in folds1] == [60, 60, 60, 60, 60]
+    flat = [q for f in folds1 for q in f]
+    assert len(flat) == 300 and set(flat) == set(qids)      # disjoint (len) + union = all
+
+
+def test_kfold_folds_seed_changes_partition():
+    qids = [f"q{i}" for i in range(300)]
+    assert kfold_folds(qids, 5, 0) != kfold_folds(qids, 5, 1)
+
+
+def test_kfold_folds_uneven_sizes_are_near_equal():
+    folds = kfold_folds([f"q{i}" for i in range(10)], 3, seed=0)
+    assert sorted(len(f) for f in folds) == [3, 3, 4]
+    flat = [q for f in folds for q in f]
+    assert len(flat) == 10 and len(set(flat)) == 10

@@ -108,6 +108,19 @@ def split_queries(
     return ordered[:n_dev], ordered[n_dev:]
 
 
+def kfold_folds(qids: List[str], k: int, seed: int = 0) -> List[List[str]]:
+    """Partition ``qids`` into ``k`` near-equal disjoint folds, deterministically.
+
+    Sort first (so the partition depends only on the qid set + seed, not input
+    order), seeded-shuffle, then cut into ``k`` contiguous chunks with round-based
+    boundaries (sizes differ by at most 1). Union of the folds = all qids.
+    """
+    ordered = sorted(qids)
+    random.Random(seed).shuffle(ordered)
+    n = len(ordered)
+    return [ordered[round(f * n / k):round((f + 1) * n / k)] for f in range(k)]
+
+
 def evaluate_config(
     relevance_run: Run,
     corroboration_run: Run,
