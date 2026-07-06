@@ -79,6 +79,21 @@ def gated_fuse(
     return fused
 
 
+def per_query_reciprocal_rank(
+    fused_run: Run, needles: Dict[str, str]
+) -> Dict[str, float]:
+    """Per-query ``1/rank`` of the designated needle in ``fused_run`` (0.0 if the
+    needle is absent from the pool). Uses the SAME deterministic tie-break as
+    ``per_query_hits`` (score descending, then doc_id ascending) so needle-found@k
+    and MRR agree on the ranking of tied documents."""
+    out: Dict[str, float] = {}
+    for qid, needle in needles.items():
+        scores = fused_run.get(qid, {})
+        ranked = sorted(sorted(scores), key=lambda d: scores[d], reverse=True)
+        out[qid] = 1.0 / (ranked.index(needle) + 1) if needle in ranked else 0.0
+    return out
+
+
 def split_queries(
     qids: List[str], seed: int = 0, dev_fraction: float = 0.5
 ) -> Tuple[List[str], List[str]]:

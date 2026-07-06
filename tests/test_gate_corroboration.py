@@ -17,6 +17,7 @@ from eval.gate_corroboration import (
     margin_bucket,
     margin_signal,
     max_votes_signal,
+    per_query_reciprocal_rank,
     select_on_dev,
     split_queries,
     sweep_gated,
@@ -24,7 +25,7 @@ from eval.gate_corroboration import (
     write_dev_curves,
     write_flip_table,
 )
-from eval.tune_corroboration import dump_runs
+from eval.tune_corroboration import dump_runs, per_query_hits
 from src.retrieval.fusion import fuse_one
 
 
@@ -322,3 +323,26 @@ def test_main_end_to_end_writes_all_artifacts(tmp_path, capsys):
     printed = capsys.readouterr().out
     assert "winner" in printed and "eval.significance" in printed
     assert "--reference q2d" in printed and "--reference global_corroborate" in printed
+
+
+def test_reciprocal_rank_needle_first_is_one():
+    fused = {"q": {"n1": 0.9, "a": 0.5, "b": 0.1}}
+    assert per_query_reciprocal_rank(fused, {"q": "n1"}) == {"q": 1.0}
+
+
+def test_reciprocal_rank_needle_second_is_half():
+    fused = {"q": {"a": 0.9, "n1": 0.5}}
+    assert per_query_reciprocal_rank(fused, {"q": "n1"}) == {"q": 0.5}
+
+
+def test_reciprocal_rank_needle_absent_is_zero():
+    fused = {"q": {"a": 0.9, "b": 0.5}}          # needle not in the pool at all
+    assert per_query_reciprocal_rank(fused, {"q": "n1"}) == {"q": 0.0}
+
+
+def test_reciprocal_rank_tie_break_matches_per_query_hits():
+    # exact tie must resolve the SAME deterministic way both metrics see it
+    # (score desc, then doc_id asc): 'a' leads 'z', so needle 'z' is rank 2.
+    fused = {"q": {"a": 1.0, "z": 1.0}}
+    assert per_query_reciprocal_rank(fused, {"q": "z"}) == {"q": 0.5}
+    assert per_query_hits(fused, {"q": "z"}, k=1) == {"q": 0.0}
