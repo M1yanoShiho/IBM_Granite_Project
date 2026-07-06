@@ -173,6 +173,19 @@ MRR in the CSV. fp32 single-node build ceiling ≈ 5M; 21M needs the IVFPQ compr
     advantage (~+0.075) holds at *every* scale (Table 4c) — the query-transform edge is
     not a small-corpus artifact.
 
+15. **Corroboration Reranking (our novel method) is the first reranker that helps.** It ranks
+    the pool by cross-source answer *corroboration* — extract each candidate's answer with the
+    LLM, boost answers that other retrieved passages / the model's parametric knowledge agree
+    with — not query relevance; a lone counterfactual is corroborated by nobody. On top of q2d
+    it adds **+0.040 needle-found@10 (0.610 vs 0.570, blend α*=0.6, p=0.022)** at n=300 —
+    where every *relevance* reranker was null (finding 13). Combined **dense 0.49 → q2d 0.57 →
+    +corroboration 0.61**. α (relevance weight) tuned on the α-curve
+    (`results/corroboration_alpha_curve_nq300cert.csv`; α=1.0 = pure q2d consistency check;
+    α=0 pure corroboration = 0.50, < q2d ⇒ complementary, not standalone). **Caveats:** α is
+    tuned on the same 300q as the p-test (mild optimism, no dev split); the +0.04 replicates
+    across two independent extraction runs (+0.033 / +0.040 — 3B answer-extraction is
+    stochastic); cost ≈ 20 LLM extractions/query.
+
 **NIAH caveats (do not overclaim):** (a) single designated needle on a natural
 multi-gold corpus → other "relevant non-target" golds remain in the haystack; the clean
 fix is the deferred **synthetic-insert** variant. (b) Source-A counterfactuals are a
