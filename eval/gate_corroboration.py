@@ -21,7 +21,7 @@ from typing import Dict, List, NamedTuple, Optional, Tuple
 
 from eval.ir_metrics import Run
 from eval.tune_corroboration import per_query_hits
-from src.retrieval.fusion import fuse_one, minmax_normalize
+from src.retrieval.fusion import convex_fuse, fuse_one, minmax_normalize
 
 
 def max_votes_signal(corroboration_run: Run) -> Dict[str, float]:
@@ -199,3 +199,59 @@ def select_on_dev(
         key=lambda r: (r.score, -_FAMILY_ORDER[r.family], r.alpha),
     )
     return best, winner, best_gated
+
+
+_VOTE_BUCKETS = ["0", "1", "2", "3", "4+"]
+_MARGIN_BUCKETS = ["<0.05", "0.05-0.1", "0.1-0.2", ">=0.2"]
+_STATUSES = ["fixed", "broken", "unchanged_hit", "unchanged_miss"]
+
+
+def vote_bucket(votes: float) -> str:
+    return "4+" if votes >= 4 else str(int(votes))
+
+
+def margin_bucket(margin: float) -> str:
+    if margin < 0.05:
+        return "<0.05"
+    if margin < 0.1:
+        return "0.05-0.1"
+    if margin < 0.2:
+        return "0.1-0.2"
+    return ">=0.2"
+
+
+def flip_status(base_hit: float, blended_hit: float) -> str:
+    """fixed (miss->hit) / broken (hit->miss) / unchanged_hit / unchanged_miss."""
+    if blended_hit and not base_hit:
+        return "fixed"
+    if base_hit and not blended_hit:
+        return "broken"
+    return "unchanged_hit" if base_hit else "unchanged_miss"
+
+
+def flip_table(
+    relevance_run: Run,
+    corroboration_run: Run,
+    needles: Dict[str, str],
+    alpha: float,
+    k: int,
+) -> List[Dict[str, object]]:
+    """Descriptive flip analysis on the FULL query set at one alpha (no tuning):
+    who does the global blend fix/break, bucketed by each gate signal. The
+    evidence for/against gating's premise; goes in the report either way."""
+    votes = max_votes_signal(corroboration_run)
+    margins = margin_signal(relevance_run)
+    base = per_query_hits(relevance_run, needles, k)
+    blended = per_query_hits(convex_fuse(relevance_run, corroboration_run, alpha), needles, k)
+    statuses = {qid: flip_status(base[qid], blended[qid]) for qid in needles}
+    rows: List[Dict[str, object]] = []
+    for signal, sig_map, buckets, bucket_fn in (
+        ("max_votes", votes, _VOTE_BUCKETS, vote_bucket),
+        ("margin", margins, _MARGIN_BUCKETS, margin_bucket),
+    ):
+        counts = {b: {s: 0 for s in _STATUSES} for b in buckets}
+        for qid in needles:
+            counts[bucket_fn(sig_map[qid])][statuses[qid]] += 1
+        for b in buckets:
+            rows.append({"signal": signal, "bucket": b, **counts[b]})
+    return rows

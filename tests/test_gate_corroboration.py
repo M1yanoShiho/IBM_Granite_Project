@@ -193,3 +193,53 @@ def test_select_across_family_tie_prefers_global_then_votes():
     best, winner, best_gated = select_on_dev(rows)
     assert winner.family == "global"        # tie -> simpler wins
     assert best_gated.family == "votes"     # best GATED config still reported (spec 4)
+
+
+from eval.gate_corroboration import flip_status, flip_table, margin_bucket, vote_bucket
+
+
+def test_flip_status_four_way():
+    assert flip_status(0.0, 1.0) == "fixed"
+    assert flip_status(1.0, 0.0) == "broken"
+    assert flip_status(1.0, 1.0) == "unchanged_hit"
+    assert flip_status(0.0, 0.0) == "unchanged_miss"
+
+
+def test_vote_bucket_edges():
+    assert [vote_bucket(v) for v in (0.0, 1.0, 3.0, 4.0, 9.0)] == ["0", "1", "3", "4+", "4+"]
+
+
+def test_margin_bucket_edges():
+    assert [margin_bucket(m) for m in (0.0, 0.049, 0.05, 0.1, 0.19, 0.2, 0.9)] == [
+        "<0.05", "<0.05", "0.05-0.1", "0.1-0.2", "0.1-0.2", ">=0.2", ">=0.2",
+    ]
+
+
+def test_flip_table_counts_one_fixed_one_broken_one_unchanged():
+    # q1: blend fixes it (needle 2-vote consensus). q2: blend breaks it (needle on
+    # top by relevance, counterfactual holds the consensus). q3: unchanged miss
+    # (no consensus -> constant blend preserves order).
+    rel = {
+        "q1": {"cf1": 0.99, "n1": 0.5},
+        "q2": {"n2": 0.99, "cf2": 0.5},
+        "q3": {"cf3": 0.99, "n3": 0.5},
+    }
+    cor = {
+        "q1": {"cf1": 0.0, "n1": 2.0},
+        "q2": {"n2": 0.0, "cf2": 2.0},
+        "q3": {"cf3": 0.0, "n3": 0.0},
+    }
+    needles = {"q1": "n1", "q2": "n2", "q3": "n3"}
+
+    rows = flip_table(rel, cor, needles, alpha=0.2, k=1)
+
+    votes_rows = {r["bucket"]: r for r in rows if r["signal"] == "max_votes"}
+    assert votes_rows["2"]["fixed"] == 1 and votes_rows["2"]["broken"] == 1
+    assert votes_rows["0"]["unchanged_miss"] == 1
+    # every query lands in exactly one bucket per signal
+    for signal in ("max_votes", "margin"):
+        sig_rows = [r for r in rows if r["signal"] == signal]
+        assert sum(
+            r["fixed"] + r["broken"] + r["unchanged_hit"] + r["unchanged_miss"]
+            for r in sig_rows
+        ) == 3
