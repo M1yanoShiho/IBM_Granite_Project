@@ -427,3 +427,23 @@ def test_nested_cv_gate_recovers_needles_q2d_misses():
                                alpha_grid=[0.0, 0.2, 0.5, 1.0])
     assert sum(hits["q2d"].values()) == 0                    # counterfactual ranks first
     assert sum(hits["gated_corroborate"].values()) == 12     # all recovered out-of-fold
+
+
+def test_main_nested_cv_writes_cv_artifacts(tmp_path, capsys):
+    runs = _synthetic_dump(tmp_path)          # the 4-query dump helper
+
+    out = tmp_path / "out"
+    main(["--from-runs", str(runs), "--k", "1", "--folds", "2",
+          "--nested-cv", "--out-dir", str(out)])
+
+    hits_csv = out / "corroboration_nested_cv_per_query.csv"
+    mrr_csv = out / "corroboration_nested_cv_mrr.csv"
+    assert hits_csv.exists() and mrr_csv.exists()
+    with open(hits_csv, newline="") as f:
+        rows = list(csv.DictReader(f))
+    assert set(rows[0]) == {"qid", "q2d", "global_corroborate", "gated_corroborate"}
+    assert len(rows) == 4                      # all 4 queries scored out-of-fold
+
+    printed = capsys.readouterr().out
+    assert "nested-CV" in printed
+    assert str(mrr_csv) in printed and "--reference q2d" in printed

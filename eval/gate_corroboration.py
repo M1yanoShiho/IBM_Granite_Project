@@ -384,6 +384,11 @@ def _parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
                    help="Alpha for the descriptive flip table (default: the certified "
                         "alpha*=%(default)s).")
     p.add_argument("--out-dir", type=Path, default=Path("results"), dest="out_dir")
+    p.add_argument("--nested-cv", action="store_true", dest="nested_cv",
+                   help="Also run outer K-fold nested-CV (honest n=300 out-of-sample) "
+                        "+ MRR, from the same dump.")
+    p.add_argument("--folds", type=int, default=5,
+                   help="Nested-CV outer folds (default: %(default)s).")
     return p.parse_args(argv)
 
 
@@ -431,6 +436,27 @@ def main(argv: Optional[List[str]] = None) -> None:
     print(f"wrote {test_csv} -> significance:")
     print(f"  python -m eval.significance --per-query-csv {test_csv} --reference q2d")
     print(f"  python -m eval.significance --per-query-csv {test_csv} --reference global_corroborate")
+
+    if args.nested_cv:
+        hits_cv, rr_cv, fold_cfgs = nested_cv(
+            relevance_run, corroboration_run, needles,
+            args.k, args.seed, args.folds, _grid(args.alpha_step),
+        )
+        hits_csv = args.out_dir / "corroboration_nested_cv_per_query.csv"
+        mrr_csv = args.out_dir / "corroboration_nested_cv_mrr.csv"
+        write_per_query_csv(hits_cv, hits_csv)
+        write_per_query_csv(rr_cv, mrr_csv)
+        print(f"nested-CV: folds={args.folds} seed={args.seed} "
+              f"(fitting-free selection -> outer CV only, no inner loop)")
+        for i, cfg in enumerate(fold_cfgs):
+            print(f"  fold {i}: gated={cfg['gated_corroborate']} "
+                  f"global_alpha={cfg['global_corroborate'][2]}")
+        for arm in ("q2d", "global_corroborate", "gated_corroborate"):
+            print(f"  cv {arm}: needle_found@{args.k}={_mean(hits_cv[arm]):.4f} "
+                  f"MRR={_mean(rr_cv[arm]):.4f}")
+        print(f"wrote {hits_csv} and {mrr_csv} -> significance:")
+        print(f"  python -m eval.significance --per-query-csv {hits_csv} --reference q2d")
+        print(f"  python -m eval.significance --per-query-csv {mrr_csv} --reference q2d")
 
 
 if __name__ == "__main__":
