@@ -20,6 +20,7 @@ import random
 from typing import Dict, List, Optional, Tuple
 
 from eval.ir_metrics import Run
+from eval.tune_corroboration import per_query_hits
 from src.retrieval.fusion import fuse_one, minmax_normalize
 
 
@@ -87,3 +88,29 @@ def split_queries(
     random.Random(seed).shuffle(ordered)
     n_dev = round(len(ordered) * dev_fraction)
     return ordered[:n_dev], ordered[n_dev:]
+
+
+def evaluate_config(
+    relevance_run: Run,
+    corroboration_run: Run,
+    needles: Dict[str, str],
+    qids: List[str],
+    family: str,
+    param: Optional[float],
+    alpha: float,
+    k: int,
+) -> Dict[str, float]:
+    """Per-query needle-found hits for ONE (family, param, alpha) config, restricted
+    to ``qids`` (the dev or test half). The single definition of "score a config" --
+    the sweep, the selection, and the test arms all go through here."""
+    votes = max_votes_signal(corroboration_run)
+    margins = margin_signal(relevance_run)
+    mask = gate_mask(family, param, votes, margins)
+    rel = {q: relevance_run[q] for q in qids}
+    cor = {q: corroboration_run.get(q, {}) for q in qids}
+    nee = {q: needles[q] for q in qids}
+    return per_query_hits(gated_fuse(rel, cor, alpha, mask), nee, k)
+
+
+def _mean(hits: Dict[str, float]) -> float:
+    return sum(hits.values()) / len(hits) if hits else 0.0

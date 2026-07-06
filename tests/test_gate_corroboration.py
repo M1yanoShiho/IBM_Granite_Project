@@ -92,3 +92,29 @@ def test_split_queries_seed_changes_the_split():
 def test_split_queries_dev_fraction():
     dev, test = split_queries([f"q{i}" for i in range(10)], seed=0, dev_fraction=0.3)
     assert len(dev) == 3 and len(test) == 7
+
+
+from eval.gate_corroboration import evaluate_config
+
+# One fixable query: relevance ranks the counterfactual first; the needle holds a
+# 2-vote consensus. And one zero-consensus query: all votes 0.
+_REL = {"q1": {"cf1": 0.99, "n1": 0.5}, "q2": {"cf2": 0.99, "n2": 0.5}}
+_COR = {"q1": {"cf1": 0.0, "n1": 2.0}, "q2": {"cf2": 0.0, "n2": 0.0}}
+_NEEDLES = {"q1": "n1", "q2": "n2"}
+
+
+def test_evaluate_config_alpha_one_is_pure_first_stage():
+    hits = evaluate_config(_REL, _COR, _NEEDLES, ["q1", "q2"], "global", None, 1.0, k=1)
+    assert hits == {"q1": 0.0, "q2": 0.0}  # counterfactual on top -> both missed
+
+
+def test_evaluate_config_votes_gate_fixes_only_the_consensus_query():
+    # tau=2: q1 (max votes 2) blends -> needle wins at alpha=0.2; q2 (no consensus)
+    # stays pure relevance -> still missed.
+    hits = evaluate_config(_REL, _COR, _NEEDLES, ["q1", "q2"], "votes", 2.0, 0.2, k=1)
+    assert hits == {"q1": 1.0, "q2": 0.0}
+
+
+def test_evaluate_config_restricts_to_the_given_qids():
+    hits = evaluate_config(_REL, _COR, _NEEDLES, ["q1"], "global", None, 1.0, k=1)
+    assert set(hits) == {"q1"}
