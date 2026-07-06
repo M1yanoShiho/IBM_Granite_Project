@@ -143,3 +143,15 @@ def test_dump_and_load_runs_round_trip(tmp_path):
     dump_runs(rel, corr, needles, path)
 
     assert load_runs(path) == (rel, corr, needles)
+
+
+def test_per_query_hits_tiebreak_is_deterministic_by_doc_id():
+    # An exact score tie must resolve identically regardless of dict insertion order
+    # (it previously fell back to hash-seed-dependent order). Rule: score desc, doc_id asc.
+    a_first = {"q": {"a": 1.0, "z": 1.0}}
+    z_first = {"q": {"z": 1.0, "a": 1.0}}
+    # 'z' loses the tie to 'a' (smaller doc_id ranks first) -> needle 'z' missed at k=1
+    assert per_query_hits(a_first, {"q": "z"}, k=1) == {"q": 0.0}
+    assert per_query_hits(z_first, {"q": "z"}, k=1) == {"q": 0.0}
+    # 'a' wins the tie -> needle 'a' found
+    assert per_query_hits(a_first, {"q": "a"}, k=1) == {"q": 1.0}

@@ -77,7 +77,10 @@ def per_query_hits(fused: Run, needles: Dict[str, str], k: int) -> Dict[str, flo
     hits: Dict[str, float] = {}
     for qid, needle in needles.items():
         scores = fused.get(qid, {})
-        ranked = sorted(scores, key=lambda d: scores[d], reverse=True)
+        # Deterministic tie-break: score descending, then doc_id ascending, so an
+        # exact score tie no longer resolves by hash-seed-dependent dict order
+        # (needle-found@k must be reproducible across runs).
+        ranked = sorted(sorted(scores), key=lambda d: scores[d], reverse=True)
         hits[qid] = 1.0 if needle in ranked[:k] else 0.0
     return hits
 
