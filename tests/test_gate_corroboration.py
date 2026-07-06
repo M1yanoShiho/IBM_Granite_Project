@@ -243,3 +243,45 @@ def test_flip_table_counts_one_fixed_one_broken_one_unchanged():
             r["fixed"] + r["broken"] + r["unchanged_hit"] + r["unchanged_miss"]
             for r in sig_rows
         ) == 3
+
+
+import csv
+
+from eval.gate_corroboration import _parse_args, write_dev_curves, write_flip_table
+
+
+def test_write_dev_curves_csv(tmp_path):
+    rows = [CurveRow("global", None, 0.6, 0.58, 150), CurveRow("votes", 2.0, 0.5, 0.6, 80)]
+    path = tmp_path / "curves.csv"
+    write_dev_curves(rows, path, k=10)
+    with open(path, newline="") as f:
+        got = list(csv.reader(f))
+    assert got[0] == ["family", "param", "alpha", "needle_found@10", "n_gated"]
+    assert got[1] == ["global", "", "0.6", "0.58", "150"]  # global param is empty (spec 6)
+    assert got[2] == ["votes", "2.0", "0.5", "0.6", "80"]
+
+
+def test_write_flip_table_csv(tmp_path):
+    rows = [
+        {"signal": "max_votes", "bucket": "0", "fixed": 0, "broken": 1,
+         "unchanged_hit": 2, "unchanged_miss": 3},
+    ]
+    path = tmp_path / "flips.csv"
+    write_flip_table(rows, path)
+    with open(path, newline="") as f:
+        got = list(csv.reader(f))
+    assert got[0] == ["signal", "bucket", "fixed", "broken", "unchanged_hit", "unchanged_miss"]
+    assert got[1] == ["max_votes", "0", "0", "1", "2", "3"]
+
+
+def test_parse_args_defaults_and_required_from_runs():
+    args = _parse_args(["--from-runs", "results/runs.json"])
+    assert args.from_runs.name == "runs.json"
+    assert args.k == 10 and args.seed == 0
+    assert args.alpha_step == 0.1 and args.flip_alpha == 0.6
+    assert args.out_dir.name == "results"
+
+
+def test_parse_args_requires_from_runs():
+    with pytest.raises(SystemExit):
+        _parse_args([])

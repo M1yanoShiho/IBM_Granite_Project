@@ -15,8 +15,10 @@ weak-consensus region (votes gate tau=1 must therefore reproduce the global blen
 """
 from __future__ import annotations
 
+import argparse
+import csv
 import random
-
+from pathlib import Path
 from typing import Dict, List, NamedTuple, Optional, Tuple
 
 from eval.ir_metrics import Run
@@ -255,3 +257,41 @@ def flip_table(
         for b in buckets:
             rows.append({"signal": signal, "bucket": b, **counts[b]})
     return rows
+
+
+def write_dev_curves(rows: List[CurveRow], path: Path, k: int) -> None:
+    """The dev sensitivity surface CSV (spec 6): whole curves, no cherry-picking."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["family", "param", "alpha", f"needle_found@{k}", "n_gated"])
+        for r in rows:
+            param = "" if r.param is None else r.param
+            writer.writerow([r.family, param, r.alpha, round(r.score, 4), r.n_gated])
+
+
+def write_flip_table(rows: List[Dict[str, object]], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=["signal", "bucket", *_STATUSES])
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def _parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
+    p = argparse.ArgumentParser(
+        prog="python -m eval.gate_corroboration",
+        description="Offline gated dynamic-alpha analysis of the corroboration "
+        "reranker from a runs dump: dev/test re-certification of the global blend "
+        "+ gated-vs-global comparison + flip table. Pure arithmetic, no GPU.",
+    )
+    p.add_argument("--from-runs", type=Path, required=True, dest="from_runs",
+                   help="Runs dump JSON from eval.tune_corroboration --dump-runs.")
+    p.add_argument("--k", type=int, default=10, help="needle-found cut-off (default: %(default)s).")
+    p.add_argument("--seed", type=int, default=0, help="dev/test split seed (default: %(default)s).")
+    p.add_argument("--alpha-step", type=float, default=0.1, dest="alpha_step")
+    p.add_argument("--flip-alpha", type=float, default=0.6, dest="flip_alpha",
+                   help="Alpha for the descriptive flip table (default: the certified "
+                        "alpha*=%(default)s).")
+    p.add_argument("--out-dir", type=Path, default=Path("results"), dest="out_dir")
+    return p.parse_args(argv)
