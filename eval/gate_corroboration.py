@@ -121,6 +121,28 @@ def kfold_folds(qids: List[str], k: int, seed: int = 0) -> List[List[str]]:
     return [ordered[round(f * n / k):round((f + 1) * n / k)] for f in range(k)]
 
 
+def fuse_for_config(
+    relevance_run: Run,
+    corroboration_run: Run,
+    qids: List[str],
+    family: str,
+    param: Optional[float],
+    alpha: float,
+) -> Run:
+    """The gated fused run for ONE (family, param, alpha) config on a qid subset.
+
+    Signals over the full runs -> gate mask -> restrict to ``qids`` -> ``gated_fuse``.
+    Extracted so needle-found@k and MRR score the exact same fused ranking, and so
+    the sweep/selection/nested-CV paths share one definition of "fuse a config".
+    """
+    votes = max_votes_signal(corroboration_run)
+    margins = margin_signal(relevance_run)
+    mask = gate_mask(family, param, votes, margins)
+    rel = {q: relevance_run[q] for q in qids}
+    cor = {q: corroboration_run.get(q, {}) for q in qids}
+    return gated_fuse(rel, cor, alpha, mask)
+
+
 def evaluate_config(
     relevance_run: Run,
     corroboration_run: Run,
@@ -134,13 +156,9 @@ def evaluate_config(
     """Per-query needle-found hits for ONE (family, param, alpha) config, restricted
     to ``qids`` (the dev or test half). The single definition of "score a config" --
     the sweep, the selection, and the test arms all go through here."""
-    votes = max_votes_signal(corroboration_run)
-    margins = margin_signal(relevance_run)
-    mask = gate_mask(family, param, votes, margins)
-    rel = {q: relevance_run[q] for q in qids}
-    cor = {q: corroboration_run.get(q, {}) for q in qids}
+    fused = fuse_for_config(relevance_run, corroboration_run, qids, family, param, alpha)
     nee = {q: needles[q] for q in qids}
-    return per_query_hits(gated_fuse(rel, cor, alpha, mask), nee, k)
+    return per_query_hits(fused, nee, k)
 
 
 def _mean(hits: Dict[str, float]) -> float:

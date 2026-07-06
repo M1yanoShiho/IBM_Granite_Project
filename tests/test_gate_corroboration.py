@@ -11,6 +11,7 @@ from eval.gate_corroboration import (
     evaluate_config,
     flip_status,
     flip_table,
+    fuse_for_config,
     gate_mask,
     gated_fuse,
     kfold_folds,
@@ -369,3 +370,20 @@ def test_kfold_folds_uneven_sizes_are_near_equal():
     assert sorted(len(f) for f in folds) == [3, 3, 4]
     flat = [q for f in folds for q in f]
     assert len(flat) == 10 and len(set(flat)) == 10
+
+
+def test_fuse_for_config_equals_gated_fuse_on_masked_inputs():
+    rel = {"q1": {"cf": 0.99, "n1": 0.5}}
+    cor = {"q1": {"cf": 0.0, "n1": 2.0}}
+    fused = fuse_for_config(rel, cor, ["q1"], "global", None, 0.5)
+    mask = gate_mask("global", None, max_votes_signal(cor), margin_signal(rel))
+    assert fused == gated_fuse(rel, cor, 0.5, mask)
+
+
+def test_evaluate_config_unchanged_after_refactor():
+    # regression: same output as before the fuse_for_config extraction
+    rel = {"q1": {"cf1": 0.99, "n1": 0.5}, "q2": {"cf2": 0.99, "n2": 0.5}}
+    cor = {"q1": {"cf1": 0.0, "n1": 2.0}, "q2": {"cf2": 0.0, "n2": 0.0}}
+    needles = {"q1": "n1", "q2": "n2"}
+    hits = evaluate_config(rel, cor, needles, ["q1", "q2"], "votes", 2.0, 0.2, k=1)
+    assert hits == {"q1": 1.0, "q2": 0.0}
