@@ -15,10 +15,10 @@ weak-consensus region (votes gate tau=1 must therefore reproduce the global blen
 """
 from __future__ import annotations
 
-from typing import Dict
+from typing import Dict, Optional
 
 from eval.ir_metrics import Run
-from src.retrieval.fusion import minmax_normalize
+from src.retrieval.fusion import fuse_one, minmax_normalize
 
 
 def max_votes_signal(corroboration_run: Run) -> Dict[str, float]:
@@ -39,3 +39,35 @@ def margin_signal(relevance_run: Run) -> Dict[str, float]:
         norm = sorted(minmax_normalize(scores).values(), reverse=True)
         out[qid] = norm[0] - norm[1] if len(norm) >= 2 else 0.0
     return out
+
+
+def gate_mask(
+    family: str,
+    param: Optional[float],
+    votes: Dict[str, float],
+    margins: Dict[str, float],
+) -> Dict[str, bool]:
+    """Per-query blend/keep decision. ``global`` always blends; ``votes`` blends iff
+    ``max_votes >= param``; ``margin`` blends iff ``margin < param`` (blend only where
+    the first stage is unsure)."""
+    if family == "global":
+        return {qid: True for qid in votes}
+    if family == "votes":
+        return {qid: v >= param for qid, v in votes.items()}
+    if family == "margin":
+        return {qid: m < param for qid, m in margins.items()}
+    raise ValueError(f"unknown gate family: {family!r}")
+
+
+def gated_fuse(
+    relevance_run: Run, corroboration_run: Run, alpha: float, gate: Dict[str, bool]
+) -> Run:
+    """Blend gated-on queries with ``fuse_one``; gated-off queries keep their raw
+    first-stage scores (identical ranking to alpha=1 for that query)."""
+    fused: Run = {}
+    for qid, rel in relevance_run.items():
+        if gate.get(qid, False):
+            fused[qid] = fuse_one(rel, corroboration_run.get(qid, {}), alpha)
+        else:
+            fused[qid] = dict(rel)
+    return fused
