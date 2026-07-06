@@ -285,3 +285,48 @@ def test_parse_args_defaults_and_required_from_runs():
 def test_parse_args_requires_from_runs():
     with pytest.raises(SystemExit):
         _parse_args([])
+
+
+from eval.gate_corroboration import main
+from eval.tune_corroboration import dump_runs
+
+
+def _synthetic_dump(tmp_path):
+    """4 identical fixable queries (any 2/2 split behaves the same): the lone
+    counterfactual tops relevance; the needle holds a 2-vote consensus."""
+    rel, cor, needles = {}, {}, {}
+    for i in range(4):
+        qid = f"q{i}"
+        rel[qid] = {f"cf{i}": 0.99, f"n{i}": 0.5}
+        cor[qid] = {f"cf{i}": 0.0, f"n{i}": 2.0}
+        needles[qid] = f"n{i}"
+    path = tmp_path / "runs.json"
+    dump_runs(rel, cor, needles, path)
+    return path
+
+
+def test_main_end_to_end_writes_all_artifacts(tmp_path, capsys):
+    runs = _synthetic_dump(tmp_path)
+    out = tmp_path / "out"
+
+    main(["--from-runs", str(runs), "--k", "1", "--out-dir", str(out)])
+
+    # 1. all three artifacts exist
+    per_query = out / "corroboration_gate_test_per_query.csv"
+    assert (out / "corroboration_flip_table.csv").exists()
+    assert (out / "corroboration_gate_dev_curves.csv").exists()
+    assert per_query.exists()
+
+    # 2. test arms: q2d misses everywhere (cf on top); blend + gated blend fix it.
+    with open(per_query, newline="") as f:
+        rows = list(csv.DictReader(f))
+    assert set(rows[0]) == {"qid", "q2d", "global_corroborate", "gated_corroborate"}
+    assert len(rows) == 2  # the test half of 4 queries
+    assert all(r["q2d"] == "0.0" for r in rows)
+    assert all(r["global_corroborate"] == "1.0" for r in rows)
+    assert all(r["gated_corroborate"] == "1.0" for r in rows)
+
+    # 3. summary names the winner and prints both significance commands
+    printed = capsys.readouterr().out
+    assert "winner" in printed and "eval.significance" in printed
+    assert "--reference q2d" in printed and "--reference global_corroborate" in printed

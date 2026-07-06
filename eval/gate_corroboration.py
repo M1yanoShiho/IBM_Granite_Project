@@ -22,7 +22,8 @@ from pathlib import Path
 from typing import Dict, List, NamedTuple, Optional, Tuple
 
 from eval.ir_metrics import Run
-from eval.tune_corroboration import per_query_hits
+from eval.tune_alpha import _grid
+from eval.tune_corroboration import load_runs, per_query_hits
 from src.retrieval.fusion import convex_fuse, fuse_one, minmax_normalize
 
 
@@ -295,3 +296,53 @@ def _parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
                         "alpha*=%(default)s).")
     p.add_argument("--out-dir", type=Path, default=Path("results"), dest="out_dir")
     return p.parse_args(argv)
+
+
+def main(argv: Optional[List[str]] = None) -> None:
+    from eval.run_benchmark import write_per_query_csv  # lazy: run_benchmark is heavy
+
+    args = _parse_args(argv)
+    relevance_run, corroboration_run, needles = load_runs(args.from_runs)
+
+    # 1. Descriptive flip table on the FULL set (no tuning -- spec section 4).
+    flips = flip_table(relevance_run, corroboration_run, needles, args.flip_alpha, args.k)
+    write_flip_table(flips, args.out_dir / "corroboration_flip_table.csv")
+
+    # 2. Split, sweep on dev, select on dev.
+    dev_qids, test_qids = split_queries(list(needles), args.seed)
+    rows = sweep_gated(
+        relevance_run, corroboration_run, needles, dev_qids, _grid(args.alpha_step), args.k
+    )
+    write_dev_curves(rows, args.out_dir / "corroboration_gate_dev_curves.csv", args.k)
+    best, winner, best_gated = select_on_dev(rows)
+
+    # 3. Certify exactly three arms on the held-out test half (params frozen).
+    arms = {
+        "q2d": ("global", None, 1.0),
+        "global_corroborate": ("global", None, best["global"].alpha),
+        "gated_corroborate": (best_gated.family, best_gated.param, best_gated.alpha),
+    }
+    per_query = {
+        name: evaluate_config(
+            relevance_run, corroboration_run, needles, test_qids, fam, par, al, args.k
+        )
+        for name, (fam, par, al) in arms.items()
+    }
+    test_csv = args.out_dir / "corroboration_gate_test_per_query.csv"
+    write_per_query_csv(per_query, test_csv)
+
+    print(f"seed={args.seed}  dev={len(dev_qids)}  test={len(test_qids)}  k={args.k}")
+    for family, row in best.items():
+        print(f"  dev best [{family}]: param={row.param} alpha={row.alpha} "
+              f"needle_found@{args.k}={row.score:.4f} n_gated={row.n_gated}")
+    print(f"dev winner: {winner.family} (param={winner.param}, alpha={winner.alpha})")
+    for name, (fam, par, al) in arms.items():
+        print(f"  test {name}: needle_found@{args.k}={_mean(per_query[name]):.4f} "
+              f"(family={fam}, param={par}, alpha={al})")
+    print(f"wrote {test_csv} -> significance:")
+    print(f"  python -m eval.significance --per-query-csv {test_csv} --reference q2d")
+    print(f"  python -m eval.significance --per-query-csv {test_csv} --reference global_corroborate")
+
+
+if __name__ == "__main__":
+    main()
