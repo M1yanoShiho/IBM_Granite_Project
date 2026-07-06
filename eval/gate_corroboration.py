@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import random
 
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, NamedTuple, Optional, Tuple
 
 from eval.ir_metrics import Run
 from eval.tune_corroboration import per_query_hits
@@ -114,3 +114,51 @@ def evaluate_config(
 
 def _mean(hits: Dict[str, float]) -> float:
     return sum(hits.values()) / len(hits) if hits else 0.0
+
+
+# Gate grids (spec section 4). tau=1 reproduces the global blend (structural fact,
+# asserted in tests); the real hypothesis space is tau >= 2.
+VOTE_TAUS = [1.0, 2.0, 3.0, 4.0]
+MARGIN_THRESHOLDS = [0.02, 0.05, 0.10, 0.15, 0.20, 0.30]
+
+
+class CurveRow(NamedTuple):
+    """One point of the dev sensitivity surface."""
+
+    family: str
+    param: Optional[float]
+    alpha: float
+    score: float
+    n_gated: int
+
+
+def sweep_gated(
+    relevance_run: Run,
+    corroboration_run: Run,
+    needles: Dict[str, str],
+    qids: List[str],
+    alpha_grid: List[float],
+    k: int,
+) -> List[CurveRow]:
+    """Score every (family, param, alpha) config on ``qids`` (the dev half).
+
+    Pure arithmetic; publish the WHOLE surface (sensitivity artifact, no
+    cherry-picking), selection happens separately in :func:`select_on_dev`.
+    """
+    votes = max_votes_signal(corroboration_run)
+    margins = margin_signal(relevance_run)
+    rows: List[CurveRow] = []
+    for family, params in (
+        ("global", [None]),
+        ("votes", VOTE_TAUS),
+        ("margin", MARGIN_THRESHOLDS),
+    ):
+        for param in params:
+            mask = gate_mask(family, param, votes, margins)
+            n_gated = sum(1 for q in qids if mask.get(q, False))
+            for alpha in alpha_grid:
+                hits = evaluate_config(
+                    relevance_run, corroboration_run, needles, qids, family, param, alpha, k
+                )
+                rows.append(CurveRow(family, param, alpha, _mean(hits), n_gated))
+    return rows

@@ -118,3 +118,45 @@ def test_evaluate_config_votes_gate_fixes_only_the_consensus_query():
 def test_evaluate_config_restricts_to_the_given_qids():
     hits = evaluate_config(_REL, _COR, _NEEDLES, ["q1"], "global", None, 1.0, k=1)
     assert set(hits) == {"q1"}
+
+
+from eval.gate_corroboration import (
+    MARGIN_THRESHOLDS,
+    VOTE_TAUS,
+    CurveRow,
+    sweep_gated,
+)
+
+
+def _rows_by(rows, family, param=None):
+    return {r.alpha: r for r in rows if r.family == family and r.param == param}
+
+
+def test_sweep_covers_all_families_and_params():
+    rows = sweep_gated(_REL, _COR, _NEEDLES, ["q1", "q2"], [0.0, 0.5, 1.0], k=1)
+    families = {(r.family, r.param) for r in rows}
+    assert ("global", None) in families
+    assert all(("votes", t) in families for t in VOTE_TAUS)
+    assert all(("margin", m) in families for m in MARGIN_THRESHOLDS)
+    assert len(rows) == (1 + len(VOTE_TAUS) + len(MARGIN_THRESHOLDS)) * 3
+
+
+def test_sweep_votes_tau1_equals_global_blend():
+    # Zero-consensus queries have all-equal votes -> constant after minmax -> the
+    # global blend is order-preserving on them, so gating them off (tau=1) changes
+    # nothing: identical needle-found at every alpha (the spec's structural fact).
+    rows = sweep_gated(_REL, _COR, _NEEDLES, ["q1", "q2"], [0.0, 0.2, 0.5, 1.0], k=1)
+    global_curve = {a: r.score for a, r in _rows_by(rows, "global").items()}
+    tau1_curve = {a: r.score for a, r in _rows_by(rows, "votes", 1.0).items()}
+    assert tau1_curve == global_curve
+
+
+def test_sweep_alpha_one_scores_equal_pure_first_stage_everywhere():
+    rows = sweep_gated(_REL, _COR, _NEEDLES, ["q1", "q2"], [1.0], k=1)
+    assert {r.score for r in rows} == {0.0}  # every family at alpha=1 = q2d = both missed
+
+
+def test_sweep_n_gated_counts_gated_queries():
+    rows = sweep_gated(_REL, _COR, _NEEDLES, ["q1", "q2"], [0.5], k=1)
+    assert _rows_by(rows, "global")[0.5].n_gated == 2
+    assert _rows_by(rows, "votes", 2.0)[0.5].n_gated == 1  # only q1 has votes >= 2
