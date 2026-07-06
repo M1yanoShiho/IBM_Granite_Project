@@ -250,6 +250,49 @@ def select_on_dev(
     return best, winner, best_gated
 
 
+def nested_cv(
+    relevance_run: Run,
+    corroboration_run: Run,
+    needles: Dict[str, str],
+    k: int,
+    seed: int,
+    folds: int,
+    alpha_grid: List[float],
+) -> Tuple[Dict[str, Dict[str, float]], Dict[str, Dict[str, float]], List[Dict[str, tuple]]]:
+    """Outer K-fold, per-fold selection -> honest out-of-fold scores for the 3 arms.
+
+    For each outer fold: select the arms' configs on the OTHER folds (train) via
+    ``sweep_gated`` + ``select_on_dev`` (selection metric = needle-found@k), then apply
+    each selected config to the held-out fold, recording needle-found@k AND MRR. Every
+    query is thus scored by a config that never saw it. Returns
+    ``(hits_by_arm, rr_by_arm, per_fold_configs)`` -- the two score maps span all qids;
+    ``per_fold_configs[i]`` is fold i's ``{arm: (family, param, alpha)}`` (transparency:
+    stable selection vs fold-to-fold drift). No inner CV: the config is fitting-free, so
+    inner selection reduces to selecting on the training partition (see the design spec).
+    """
+    arms = ("q2d", "global_corroborate", "gated_corroborate")
+    hits_by_arm: Dict[str, Dict[str, float]] = {a: {} for a in arms}
+    rr_by_arm: Dict[str, Dict[str, float]] = {a: {} for a in arms}
+    per_fold_configs: List[Dict[str, tuple]] = []
+    fold_lists = kfold_folds(list(needles), folds, seed)
+    for i, test_qids in enumerate(fold_lists):
+        train_qids = [q for j, fold in enumerate(fold_lists) if j != i for q in fold]
+        rows = sweep_gated(relevance_run, corroboration_run, needles, train_qids, alpha_grid, k)
+        best, _winner, best_gated = select_on_dev(rows)
+        configs = {
+            "q2d": ("global", None, 1.0),
+            "global_corroborate": ("global", None, best["global"].alpha),
+            "gated_corroborate": (best_gated.family, best_gated.param, best_gated.alpha),
+        }
+        per_fold_configs.append(configs)
+        nee_test = {q: needles[q] for q in test_qids}
+        for name, (fam, par, al) in configs.items():
+            fused = fuse_for_config(relevance_run, corroboration_run, test_qids, fam, par, al)
+            hits_by_arm[name].update(per_query_hits(fused, nee_test, k))
+            rr_by_arm[name].update(per_query_reciprocal_rank(fused, nee_test))
+    return hits_by_arm, rr_by_arm, per_fold_configs
+
+
 _VOTE_BUCKETS = ["0", "1", "2", "3", "4+"]
 _MARGIN_BUCKETS = ["<0.05", "0.05-0.1", "0.1-0.2", ">=0.2"]
 _STATUSES = ["fixed", "broken", "unchanged_hit", "unchanged_miss"]

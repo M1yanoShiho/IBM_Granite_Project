@@ -19,6 +19,7 @@ from eval.gate_corroboration import (
     margin_bucket,
     margin_signal,
     max_votes_signal,
+    nested_cv,
     per_query_reciprocal_rank,
     select_on_dev,
     split_queries,
@@ -387,3 +388,42 @@ def test_evaluate_config_unchanged_after_refactor():
     needles = {"q1": "n1", "q2": "n2"}
     hits = evaluate_config(rel, cor, needles, ["q1", "q2"], "votes", 2.0, 0.2, k=1)
     assert hits == {"q1": 1.0, "q2": 0.0}
+
+
+def _gated_dump(n):
+    """n identical fixable queries: the lone counterfactual tops relevance, the
+    needle holds a 2-vote consensus (q2d misses all; a low-alpha blend recovers)."""
+    rel, cor, needles = {}, {}, {}
+    for i in range(n):
+        q = f"q{i}"
+        rel[q] = {f"cf{i}": 0.99, f"n{i}": 0.5}
+        cor[q] = {f"cf{i}": 0.0, f"n{i}": 2.0}
+        needles[q] = f"n{i}"
+    return rel, cor, needles
+
+
+def test_nested_cv_scores_every_query_out_of_fold():
+    rel, cor, needles = _gated_dump(12)
+    hits, rr, cfgs = nested_cv(rel, cor, needles, k=1, seed=0, folds=3,
+                               alpha_grid=[0.0, 0.2, 0.5, 1.0])
+    for arm in ("q2d", "global_corroborate", "gated_corroborate"):
+        assert set(hits[arm]) == set(needles)     # each query scored exactly once
+        assert set(rr[arm]) == set(needles)
+    assert len(cfgs) == 3                          # one selected-config set per fold
+
+
+def test_nested_cv_q2d_equals_pure_first_stage_over_all():
+    rel, cor, needles = _gated_dump(12)
+    hits, rr, cfgs = nested_cv(rel, cor, needles, k=1, seed=0, folds=3,
+                               alpha_grid=[0.0, 0.5, 1.0])
+    # q2d is (global, None, alpha=1.0) on every fold -> equals pure first stage
+    full = fuse_for_config(rel, cor, list(needles), "global", None, 1.0)
+    assert hits["q2d"] == per_query_hits(full, needles, k=1)
+
+
+def test_nested_cv_gate_recovers_needles_q2d_misses():
+    rel, cor, needles = _gated_dump(12)
+    hits, rr, cfgs = nested_cv(rel, cor, needles, k=1, seed=0, folds=3,
+                               alpha_grid=[0.0, 0.2, 0.5, 1.0])
+    assert sum(hits["q2d"].values()) == 0                    # counterfactual ranks first
+    assert sum(hits["gated_corroborate"].values()) == 12     # all recovered out-of-fold
