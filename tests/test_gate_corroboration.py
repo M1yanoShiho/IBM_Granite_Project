@@ -160,3 +160,36 @@ def test_sweep_n_gated_counts_gated_queries():
     rows = sweep_gated(_REL, _COR, _NEEDLES, ["q1", "q2"], [0.5], k=1)
     assert _rows_by(rows, "global")[0.5].n_gated == 2
     assert _rows_by(rows, "votes", 2.0)[0.5].n_gated == 1  # only q1 has votes >= 2
+
+
+from eval.gate_corroboration import select_on_dev
+
+
+def test_select_prefers_higher_score_then_larger_alpha_then_stricter_gate():
+    rows = [
+        CurveRow("votes", 1.0, 0.2, 0.8, 10),
+        CurveRow("votes", 1.0, 0.5, 0.8, 10),  # same score, larger alpha -> preferred
+        CurveRow("votes", 2.0, 0.5, 0.8, 5),   # same score+alpha, stricter tau -> preferred
+        CurveRow("votes", 3.0, 0.1, 0.7, 2),   # lower score -> ignored
+        CurveRow("global", None, 0.6, 0.75, 20),
+        CurveRow("margin", 0.05, 0.3, 0.8, 4),
+        CurveRow("margin", 0.10, 0.3, 0.8, 8),  # same score+alpha, smaller m stricter -> 0.05 wins
+    ]
+    best, winner, best_gated = select_on_dev(rows)
+    assert best["votes"] == CurveRow("votes", 2.0, 0.5, 0.8, 5)
+    assert best["margin"] == CurveRow("margin", 0.05, 0.3, 0.8, 4)
+    assert best["global"] == CurveRow("global", None, 0.6, 0.75, 20)
+    # Across families: 0.8 beats global's 0.75; votes beats margin on the family order.
+    assert winner == CurveRow("votes", 2.0, 0.5, 0.8, 5)
+    assert best_gated == CurveRow("votes", 2.0, 0.5, 0.8, 5)
+
+
+def test_select_across_family_tie_prefers_global_then_votes():
+    rows = [
+        CurveRow("global", None, 0.5, 0.8, 20),
+        CurveRow("votes", 2.0, 0.5, 0.8, 5),
+        CurveRow("margin", 0.05, 0.5, 0.8, 4),
+    ]
+    best, winner, best_gated = select_on_dev(rows)
+    assert winner.family == "global"        # tie -> simpler wins
+    assert best_gated.family == "votes"     # best GATED config still reported (spec 4)

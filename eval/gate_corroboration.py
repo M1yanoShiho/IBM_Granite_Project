@@ -162,3 +162,40 @@ def sweep_gated(
                 )
                 rows.append(CurveRow(family, param, alpha, _mean(hits), n_gated))
     return rows
+
+
+_FAMILY_ORDER = {"global": 0, "votes": 1, "margin": 2}  # ties -> simpler wins
+
+
+def _strictness(row: CurveRow) -> float:
+    """Larger = gate fires less often (spec tie-break: prefer the stricter gate)."""
+    if row.family == "votes":
+        return row.param
+    if row.family == "margin":
+        return -row.param
+    return 0.0
+
+
+def select_on_dev(
+    rows: List[CurveRow],
+) -> Tuple[Dict[str, CurveRow], CurveRow, CurveRow]:
+    """``(best_per_family, overall_winner, best_gated)`` under the spec tie-breaks.
+
+    Within a family: max score, ties to larger alpha (closer to pure relevance,
+    matching ``tune_corroboration.best_alpha``), then to the stricter gate. Across
+    families: max score, ties to the simpler family (global > votes > margin).
+    ``best_gated`` is the winner among the votes/margin families only -- always
+    certified on test so "gated vs global" is measured even when global wins dev.
+    """
+    best: Dict[str, CurveRow] = {}
+    for family in _FAMILY_ORDER:
+        candidates = [r for r in rows if r.family == family]
+        best[family] = max(candidates, key=lambda r: (r.score, r.alpha, _strictness(r)))
+    winner = max(
+        best.values(), key=lambda r: (r.score, -_FAMILY_ORDER[r.family], r.alpha)
+    )
+    best_gated = max(
+        (best["votes"], best["margin"]),
+        key=lambda r: (r.score, -_FAMILY_ORDER[r.family], r.alpha),
+    )
+    return best, winner, best_gated
