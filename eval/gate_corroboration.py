@@ -15,7 +15,9 @@ weak-consensus region (votes gate tau=1 must therefore reproduce the global blen
 """
 from __future__ import annotations
 
-from typing import Dict, Optional
+import random
+
+from typing import Dict, List, Optional, Tuple
 
 from eval.ir_metrics import Run
 from src.retrieval.fusion import fuse_one, minmax_normalize
@@ -71,3 +73,17 @@ def gated_fuse(
         else:
             fused[qid] = dict(rel)
     return fused
+
+
+def split_queries(
+    qids: List[str], seed: int = 0, dev_fraction: float = 0.5
+) -> Tuple[List[str], List[str]]:
+    """Deterministic dev/test split: sort, seeded shuffle, cut at ``dev_fraction``.
+
+    Sorting first makes the split a function of (qid set, seed) alone -- input
+    order (dict iteration, file order) cannot change who lands in test.
+    """
+    ordered = sorted(qids)
+    random.Random(seed).shuffle(ordered)
+    n_dev = round(len(ordered) * dev_fraction)
+    return ordered[:n_dev], ordered[n_dev:]

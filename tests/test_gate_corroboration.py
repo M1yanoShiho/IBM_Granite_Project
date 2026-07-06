@@ -69,3 +69,26 @@ def test_gated_fuse_mixed_gate():
     fused = gated_fuse(rel, cor, alpha=0.0, gate={"q1": True, "q2": False})
     assert fused["q1"] == fuse_one(rel["q1"], cor["q1"], 0.0)
     assert fused["q2"] == rel["q2"]
+
+
+from eval.gate_corroboration import split_queries
+
+
+def test_split_queries_is_deterministic_disjoint_and_covers_all():
+    qids = [f"q{i}" for i in range(300)]
+    dev1, test1 = split_queries(qids, seed=0)
+    dev2, test2 = split_queries(list(reversed(qids)), seed=0)  # input order irrelevant
+    assert (dev1, test1) == (dev2, test2)
+    assert len(dev1) == len(test1) == 150
+    assert set(dev1).isdisjoint(test1)
+    assert set(dev1) | set(test1) == set(qids)
+
+
+def test_split_queries_seed_changes_the_split():
+    qids = [f"q{i}" for i in range(300)]
+    assert split_queries(qids, seed=0) != split_queries(qids, seed=1)
+
+
+def test_split_queries_dev_fraction():
+    dev, test = split_queries([f"q{i}" for i in range(10)], seed=0, dev_fraction=0.3)
+    assert len(dev) == 3 and len(test) == 7
