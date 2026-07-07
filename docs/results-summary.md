@@ -195,7 +195,13 @@ MRR in the CSV. fp32 single-node build ceiling ≈ 5M; 21M needs the IVFPQ compr
     α settling ~0.6), so the simpler **global convex blend is the method** and gating is an
     explored-but-redundant refinement. Selection is stable (4/5 CV folds pick margin m=0.3, α=0.6);
     cost ≈ 20 LLM extractions/query. (`eval/gate_corroboration.py --nested-cv`;
-    `results/corroboration_nested_cv_per_query.csv` + `_mrr.csv`.)
+    `results/corroboration_nested_cv_per_query.csv` + `_mrr.csv`.) **A stronger 8B extractor
+    was tested and did NOT help:** re-extracting the corroboration signal with granite-4.1-8B
+    gives nested-CV **+0.013 (ns, p=0.45)** vs the 3B **+0.037**, with scattered fold-selection
+    (vs 3B's stable margin m=0.3, α=0.6). Tuned-on-test masked this (8B +0.030, p=0.034); only
+    the nested-CV exposed that the 8B effect does not generalise out-of-fold. So the **3B
+    reranker is the reported method — robust *and* efficient** (½ the params, ~⅓ the extraction
+    cost of 8B). (`results/nested_cv_8b/`.)
 
 **NIAH caveats (do not overclaim):** (a) single designated needle on a natural
 multi-gold corpus → other "relevant non-target" golds remain in the haystack; the clean
@@ -207,6 +213,31 @@ defensible *cross-source* signal instead. (c) the diagnostic decomposition is at
 and the raiser/scale at n=300 (different runs); an earlier apparent "collapse" to 0.18
 was a stale-index **caching bug** (`_cache_key` omitted the corpus), since fixed — the
 n=300 numbers here are post-fix.
+
+### End-to-end RAG answer quality (does better retrieval → better cited answers?)
+
+The retrieval findings above (12–15) are certified. These probe the *harder, downstream*
+question — whether the retrieval wins propagate to the generated, gold-matched answer.
+Honest, mixed-to-negative; reported in full.
+
+16. **Generation-stage source-aware consolidation (Astute) significantly HURTS answer
+    quality on NQ.** Replacing vanilla single-shot RAG with the Astute pipeline (elicit →
+    source-aware consolidate → finalise), same retriever/generator/prompt, drops cover-EM
+    **−0.08 (p=0.003)** and F1 **−0.058 (p=0.011)** at n=300, and craters faithfulness
+    (0.90 → 0.69). With no injected knowledge-conflict to resolve, the extra consolidation
+    steps drift from the retrieved evidence. An honest limitation of generation-stage
+    consolidation; its intended counterfactual-conflict use case (Astute *over the NIAH
+    haystack*) is not yet wired. (`run_rag --pipeline astute`; `scripts/run_astute_rag.slurm`.)
+
+17. **Retrieval gains do not (yet) translate to answer gains at top-k=4.** End-to-end RAG
+    cover-EM over the NIAH counterfactual haystack, one shared 8B generator, three retrievers
+    (`eval/run_niah_rag.py`): granite_dense 0.587 → q2d_granite 0.607 (**+0.020, p=0.47, ns**)
+    → q2d_corroborate 0.557 (**−0.030, p=0.26, ns**); F1 likewise ns. **None significant.** The
+    likely cause is a **window mismatch**: the retrieval wins were measured at needle-found@**10**,
+    but the generator sees only the top-**4**, so a needle rescued into ranks 5–10 never reaches
+    it. A **top-k=10 re-run** (aligning the RAG window with the retrieval metric) is pending; if
+    still null, the retrieval→generation gap is genuine and reportable as such.
+    (`scripts/run_niah_rag.slurm`.)
 
 ## Pending / not yet done
 
