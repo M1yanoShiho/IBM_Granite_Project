@@ -192,6 +192,22 @@ def test_load_niah_task_reconstructs_from_recipe(tmp_path) -> None:
     assert task.qrels["q1"] == {"d1": 1}
 
 
+def test_load_niah_task_carries_gold_answers(tmp_path) -> None:
+    out = tmp_path / "task.json"
+    write_task_json(_sample_task(), out, recipe=_RECIPE)
+
+    def fake_loader(name, split="test", max_queries=None, max_docs=None):
+        return BenchmarkData(
+            corpus={"d1": "Linda Davis won the 1994 award.", "bg1": "unrelated hay"},
+            queries={"q1": "who won the 1994 award?"},
+            qrels={"q1": {"d1": 1}},
+            answers={"q1": ["Linda Davis"]},
+        )
+
+    task = load_niah_task(out, loader=fake_loader)
+    assert task.answers == {"q1": ["Linda Davis"]}
+
+
 def test_load_niah_task_max_docs_override_drives_the_scale_sweep(tmp_path) -> None:
     out = tmp_path / "task.json"
     write_task_json(_sample_task(), out, recipe=_RECIPE)   # recipe max_docs = 10

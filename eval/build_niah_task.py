@@ -298,6 +298,7 @@ def load_niah_task(
         queries=data.queries,
         qrels=data.qrels,
         examples=examples,
+        answers=data.answers or {},
     )
 
 

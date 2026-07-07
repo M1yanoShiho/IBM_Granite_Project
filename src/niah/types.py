@@ -50,3 +50,7 @@ class NiahTask:
     queries: Dict[str, str]
     qrels: Dict[str, Dict[str, int]]
     examples: List[NiahExample] = field(default_factory=list)
+    # Gold free-text answers ``{query_id: [answer, ...]}`` from the source QA set,
+    # carried through for end-to-end RAG scoring (eval/run_niah_rag.py). Empty for
+    # retrieval-only sources. See 2026-07-07-niah-rag-bridge-design.md.
+    answers: Dict[str, List[str]] = field(default_factory=dict)
