@@ -173,18 +173,27 @@ MRR in the CSV. fp32 single-node build ceiling ≈ 5M; 21M needs the IVFPQ compr
     advantage (~+0.075) holds at *every* scale (Table 4c) — the query-transform edge is
     not a small-corpus artifact.
 
-15. **Corroboration Reranking (our novel method) is the first reranker that helps.** It ranks
-    the pool by cross-source answer *corroboration* — extract each candidate's answer with the
-    LLM, boost answers that other retrieved passages / the model's parametric knowledge agree
-    with — not query relevance; a lone counterfactual is corroborated by nobody. On top of q2d
-    it adds **+0.040 needle-found@10 (0.610 vs 0.570, blend α*=0.6, p=0.022)** at n=300 —
-    where every *relevance* reranker was null (finding 13). Combined **dense 0.49 → q2d 0.57 →
-    +corroboration 0.61**. α (relevance weight) tuned on the α-curve
-    (`results/corroboration_alpha_curve_nq300cert.csv`; α=1.0 = pure q2d consistency check;
-    α=0 pure corroboration = 0.50, < q2d ⇒ complementary, not standalone). **Caveats:** α is
-    tuned on the same 300q as the p-test (mild optimism, no dev split); the +0.04 replicates
-    across two independent extraction runs (+0.033 / +0.040 — 3B answer-extraction is
-    stochastic); cost ≈ 20 LLM extractions/query.
+15. **Corroboration Reranking (our novel method) significantly improves needle-found@10 under
+    rigorous cross-validation.** It ranks the pool by cross-source answer *corroboration* —
+    extract each candidate's answer with the LLM, boost answers that other retrieved passages /
+    the model's parametric knowledge agree with — not query relevance; a lone counterfactual is
+    corroborated by nobody, so it is demoted (the separation a *relevance* reranker cannot make —
+    every relevance reranker was null, finding 13). **Evaluation chain (reported in full for
+    honesty):** (i) an initial α-tuned fit gave +0.040 (0.610 vs q2d 0.570, α*=0.6, p=0.022) but
+    with α tuned on the same 300q as the p-test (optimistic); (ii) a clean 150/150 dev/test split
+    was under-powered — the un-gated blend fell to +0.013 (ns) and the gated variant was +0.040
+    but p=0.106 (n=150); (iii) the **pre-specified nested 5-fold cross-validation** (per-fold
+    selection, every query scored out-of-fold → honest n=300, no tuning-on-test) certifies it:
+    **global blend +0.037 (0.607 vs 0.570, p=0.036); gated +0.037 (p=0.026)** — both significant,
+    recovering the original effect size *without* the tuning caveat. Combined **dense 0.49 → q2d
+    0.57 → +corroboration 0.61**. **Honest scope:** the gain is **top-k-boundary-specific** —
+    needle-found@10 improves but **MRR is unchanged** (q2d 0.304 ≈ global 0.303 ≈ gated 0.301),
+    i.e. corroboration nudges borderline needles across the top-10 line rather than lifting them
+    toward rank 1; and the **per-query gate is not additive** under CV (global == gated == 0.607,
+    α settling ~0.6), so the simpler **global convex blend is the method** and gating is an
+    explored-but-redundant refinement. Selection is stable (4/5 CV folds pick margin m=0.3, α=0.6);
+    cost ≈ 20 LLM extractions/query. (`eval/gate_corroboration.py --nested-cv`;
+    `results/corroboration_nested_cv_per_query.csv` + `_mrr.csv`.)
 
 **NIAH caveats (do not overclaim):** (a) single designated needle on a natural
 multi-gold corpus → other "relevant non-target" golds remain in the haystack; the clean
@@ -203,4 +212,4 @@ n=300 numbers here are post-fix.
 - Failure-mode analysis write-up (per-query CSVs + `eval/failure_analysis.py` exist).
 - RAG evaluation: **DONE — Table 3** (concise prompt; NQ + TriviaQA; dense ≫ BM25 significant on both, granite ≈ gte). Remaining: scale to the full 21M corpus (needs HNSW in run_rag), and NIAH RAG-vs-long-context (still skeleton).
 - A more lexical dataset (ArguAna/Touché) if the failure analysis needs more BM25-favourable material.
-- **NIAH scale curve: DONE — Table 4c.** Remaining NIAH: (a) **Corroboration Reranker** α-curve (`eval/tune_corroboration.py`, `q2d_corroborate`) — does the cross-source signal beat q2d? *in flight (100q first-read)*; (b) **Astute** generation-stage measurement (`run_rag --pipeline astute` vs vanilla, against the counterfactual distractors) — built, unmeasured; (c) synthetic-insert task variant (deferred rigor upgrade); (d) IVFPQ run to 21M (recall-vs-compression).
+- **NIAH scale curve: DONE — Table 4c.** Remaining NIAH: (a) **Corroboration Reranker** — **DONE & certified** via nested-CV (finding 15: +0.037 needle-found@10 over q2d, p≈0.03, honest n=300 out-of-fold); MRR-significance run is a formality (flat, expected ns); (b) **Astute** generation-stage measurement (`run_rag --pipeline astute` vs vanilla) — built; job submitted (switch GPU to `gpu:3g.40gb:1`, the only rtx_3090 node was draining); (c) synthetic-insert task variant (deferred rigor upgrade); (d) IVFPQ run to 21M (recall-vs-compression).
