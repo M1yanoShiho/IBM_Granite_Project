@@ -24,7 +24,12 @@
 #SBATCH --account=coms039904
 #SBATCH --partition=gpu
 #SBATCH --qos=normal
-#SBATCH --gres=gpu:rtx_3090:1           # 24GB, fits 8B bf16
+# GPU: 8B bf16 needs ~18-20GB. BluePebble's ONLY rtx_3090 (bp1-gpu030) is frequently
+# drained for maintenance, so default to the A100 40GB MIG slice (bp1-gpu035) which has
+# plentiful VRAM and more availability. Fallbacks: gpu:V100:1 (ONLY if 32GB), or drop to
+# 3B (GRANITE_MODEL_ID=...granite-4.1-3b) on gpu:rtx_2080:1 (11GB) for instant scheduling
+# -- the vanilla-vs-astute DELTA is valid at any model as long as both arms share it.
+#SBATCH --gres=gpu:3g.40gb:1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=64G
 #SBATCH --time=18:00:00                  # astute = several generations/query; give headroom
