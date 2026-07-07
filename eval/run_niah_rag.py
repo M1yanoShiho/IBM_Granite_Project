@@ -51,3 +51,56 @@ def _parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
                    help="Per-metric per-query CSV prefix (one column per retriever).")
     p.add_argument("--predictions-out", type=Path, default=None, dest="predictions_out")
     return p.parse_args(argv)
+
+
+def run_niah_rag(
+    task: NiahTask,
+    retrievers: List[str],
+    llm,
+    top_k: int,
+    out: Path,
+    per_query_out: Path,
+    predictions_out: Optional[Path] = None,
+    run_fn: Optional[Callable] = None,
+) -> None:
+    """Drive ``run_rag.run`` once per retriever over the SAME NIAH ``BenchmarkData`` and
+    the SAME ``llm`` (shared -> no duplicate model loads). ``append`` accumulates all arms
+    into one per-metric per-query CSV (column per retriever) for paired significance.
+    ``run_fn`` is injected in tests; production uses ``eval.run_rag.run``."""
+    from eval.run_rag import RAGEvalConfig
+
+    if run_fn is None:
+        from eval.run_rag import run as run_fn
+
+    data = niah_to_benchmark_data(task)
+    for name in retrievers:
+        config = RAGEvalConfig(
+            dataset="niah",
+            retriever=name,
+            top_k=top_k,
+            results_path=out,
+            append=True,
+            per_query_out=per_query_out,
+            predictions_out=predictions_out,
+        )
+        run_fn(config, data=data, llm=llm)
+
+
+def main(argv: Optional[List[str]] = None) -> None:
+    from eval.build_niah_task import load_niah_task
+    from src.llm_client import LLMClient
+
+    args = _parse_args(argv)
+    task = load_niah_task(args.task, max_docs=args.max_docs)
+    llm = LLMClient()  # one client: q2d transform + corroboration reranking + generation
+    run_niah_rag(
+        task, args.retrievers, llm, args.top_k, args.out,
+        args.per_query_out, args.predictions_out,
+    )
+    cover = f"{args.per_query_out}_answer_cover.csv"
+    print(f"wrote {cover} -> significance:")
+    print(f"  python -m eval.significance --per-query-csv {cover} --reference granite_dense")
+
+
+if __name__ == "__main__":
+    main()

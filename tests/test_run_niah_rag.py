@@ -1,7 +1,7 @@
 """Tests for the NIAH -> run_rag bridge (pure/injectable parts)."""
 import pytest
 
-from eval.run_niah_rag import _parse_args, niah_to_benchmark_data
+from eval.run_niah_rag import _parse_args, niah_to_benchmark_data, run_niah_rag
 from src.niah.types import NiahTask
 
 
@@ -35,3 +35,23 @@ def test_parse_args_defaults():
     assert args.retrievers == ["granite_dense", "q2d_granite", "q2d_corroborate"]
     assert args.top_k == 4
     assert args.max_docs is None
+
+
+def test_run_niah_rag_drives_run_per_retriever_with_shared_data_and_llm(tmp_path):
+    task = _task_with_answers()
+    llm = object()                         # sentinel: the ONE shared client
+    calls = []
+
+    def fake_run(config, data=None, llm=None, **kwargs):
+        calls.append((config.retriever, config.append, data, llm))
+
+    run_niah_rag(
+        task, ["granite_dense", "q2d_granite", "q2d_corroborate"], llm,
+        top_k=4, out=tmp_path / "agg.csv", per_query_out=tmp_path / "cmp",
+        run_fn=fake_run,
+    )
+
+    assert [c[0] for c in calls] == ["granite_dense", "q2d_granite", "q2d_corroborate"]
+    assert all(c[1] is True for c in calls)                 # append -> one accumulated table
+    assert all(c[2].answers == task.answers for c in calls)  # same NIAH data each arm
+    assert all(c[3] is llm for c in calls)                   # ONE shared llm (OOM-safe)
