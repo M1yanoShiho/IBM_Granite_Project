@@ -187,7 +187,9 @@ MRR in the CSV. fp32 single-node build ceiling ≈ 5M; 21M needs the IVFPQ compr
     **global blend +0.037 (0.607 vs 0.570, p=0.036); gated +0.037 (p=0.026)** — both significant,
     recovering the original effect size *without* the tuning caveat. Combined **dense 0.49 → q2d
     0.57 → +corroboration 0.61**. **Honest scope:** the gain is **top-k-boundary-specific** —
-    needle-found@10 improves but **MRR is unchanged** (q2d 0.304 ≈ global 0.303 ≈ gated 0.301),
+    needle-found@10 improves but **MRR is unchanged** (out-of-fold MRR q2d 0.304 / global 0.303 /
+    gated 0.301; paired test vs q2d: global −0.001, p=0.94; gated −0.002, p=0.81 — the
+    pre-registered expected null, confirmed),
     i.e. corroboration nudges borderline needles across the top-10 line rather than lifting them
     toward rank 1; and the **per-query gate is not additive** under CV (global == gated == 0.607,
     α settling ~0.6), so the simpler **global convex blend is the method** and gating is an
@@ -212,4 +214,4 @@ n=300 numbers here are post-fix.
 - Failure-mode analysis write-up (per-query CSVs + `eval/failure_analysis.py` exist).
 - RAG evaluation: **DONE — Table 3** (concise prompt; NQ + TriviaQA; dense ≫ BM25 significant on both, granite ≈ gte). Remaining: scale to the full 21M corpus (needs HNSW in run_rag), and NIAH RAG-vs-long-context (still skeleton).
 - A more lexical dataset (ArguAna/Touché) if the failure analysis needs more BM25-favourable material.
-- **NIAH scale curve: DONE — Table 4c.** Remaining NIAH: (a) **Corroboration Reranker** — **DONE & certified** via nested-CV (finding 15: +0.037 needle-found@10 over q2d, p≈0.03, honest n=300 out-of-fold); MRR-significance run is a formality (flat, expected ns); (b) **Astute** generation-stage measurement (`run_rag --pipeline astute` vs vanilla) — built; job submitted (switch GPU to `gpu:3g.40gb:1`, the only rtx_3090 node was draining); (c) synthetic-insert task variant (deferred rigor upgrade); (d) IVFPQ run to 21M (recall-vs-compression).
+- **NIAH scale curve: DONE — Table 4c.** Remaining NIAH: (a) **Corroboration Reranker** — **DONE & certified** via nested-CV (finding 15: +0.037 needle-found@10 over q2d, p≈0.03, honest n=300 out-of-fold); MRR-significance measured flat as pre-registered (global p=0.94 / gated p=0.81 vs q2d, n=300 out-of-fold); (b) **Astute** generation-stage measurement (`run_rag --pipeline astute` vs vanilla) — built; job submitted (switch GPU to `gpu:3g.40gb:1`, the only rtx_3090 node was draining); (c) synthetic-insert task variant (deferred rigor upgrade); (d) IVFPQ run to 21M (recall-vs-compression).
