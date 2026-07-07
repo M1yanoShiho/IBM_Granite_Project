@@ -218,7 +218,9 @@ n=300 numbers here are post-fix.
 
 The retrieval findings above (12–15) are certified. These probe the *harder, downstream*
 question — whether the retrieval wins propagate to the generated, gold-matched answer.
-Honest, mixed-to-negative; reported in full.
+Result: they DO — significantly on answer F1 — once the generator's context window matches
+the retrieval cutoff (finding 17); but generation-stage *consolidation* (Astute) hurts
+(finding 16). Reported in full, including the metric and window nuances.
 
 16. **Generation-stage source-aware consolidation (Astute) significantly HURTS answer
     quality on NQ.** Replacing vanilla single-shot RAG with the Astute pipeline (elicit →
@@ -229,15 +231,24 @@ Honest, mixed-to-negative; reported in full.
     consolidation; its intended counterfactual-conflict use case (Astute *over the NIAH
     haystack*) is not yet wired. (`run_rag --pipeline astute`; `scripts/run_astute_rag.slurm`.)
 
-17. **Retrieval gains do not (yet) translate to answer gains at top-k=4.** End-to-end RAG
-    cover-EM over the NIAH counterfactual haystack, one shared 8B generator, three retrievers
-    (`eval/run_niah_rag.py`): granite_dense 0.587 → q2d_granite 0.607 (**+0.020, p=0.47, ns**)
-    → q2d_corroborate 0.557 (**−0.030, p=0.26, ns**); F1 likewise ns. **None significant.** The
-    likely cause is a **window mismatch**: the retrieval wins were measured at needle-found@**10**,
-    but the generator sees only the top-**4**, so a needle rescued into ranks 5–10 never reaches
-    it. A **top-k=10 re-run** (aligning the RAG window with the retrieval metric) is pending; if
-    still null, the retrieval→generation gap is genuine and reportable as such.
-    (`scripts/run_niah_rag.slurm`.)
+17. **Retrieval gains translate to significantly better answer F1 once the RAG context window
+    matches the retrieval cutoff.** End-to-end RAG over the NIAH counterfactual haystack (one
+    shared 8B generator, three retrievers, `eval/run_niah_rag.py`), at two context sizes k
+    (passages shown to the generator):
+    - **k=4:** cover-EM dense 0.587 → q2d 0.607 (+0.020, ns) → q2d_corroborate 0.557
+      (**−0.030**, ns). The retrieval wins (measured at needle-found@**10**) don't reach a
+      4-passage window, and corroboration's reshuffle even hurt the top-4.
+    - **k=10** (window aligned with the @10 metric): cover-EM dense 0.617 → q2d 0.657
+      (+0.040, p=0.10) → corroborate 0.637 (+0.020, ns) — directional; **F1: q2d +0.043
+      (p=0.017\*), corroborate +0.045 (p=0.013\*) — significant for both.**
+    Two honest points: (i) the effect is **window-dependent** — corroboration flips from
+    hurting (−0.030 at k=4) to helping (+0.045 F1 at k=10), because the rank-5–10 needles it
+    rescues only reach a top-10 generator; (ii) significance is on **F1** (token-level); the
+    pre-registered **cover-EM (binary) is directional but underpowered** (q2d +0.040, p=0.10).
+    The k=4-vs-k=10 contrast itself quantifies why a boundary-specific retrieval gain needs a
+    matched generator window. On natural NQ (no counterfactuals, k=4), q2d gives a consistent
+    directional cover-EM gain (+0.033, p=0.16, ns) — same window ceiling.
+    (`scripts/run_niah_rag.slurm`, tags nq300 / nq300k10; `scripts/run_rag_q2d.slurm`.)
 
 ## Pending / not yet done
 
