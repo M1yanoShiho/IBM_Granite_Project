@@ -7,8 +7,11 @@
 # Reuses the run_rag prefetch (8B generator + Granite dense embedder + dpr-w100 NQ). Submit
 # from the project root AFTER `git pull`:
 #   mkdir -p logs results && sbatch scripts/run_niah_rag.slurm
-#   # a smaller/faster first read (q2d_corroborate is ~20 extractions/query):
-#   sbatch scripts/run_niah_rag.slurm nq300 results/niah_nq300_frozen.json
+#   # args: [TAG] [TASK] [TOP_K] (q2d_corroborate is ~20 extractions/query -> slow arm).
+#   # Re-run with the generator seeing the top-10 (aligns the RAG window with the
+#   # needle-found@10 metric the retrievers were tuned on) -- use a DISTINCT tag so the
+#   # outputs do not clobber the top-4 run:
+#   sbatch scripts/run_niah_rag.slurm nq300k10 results/niah_nq300_frozen.json 10
 #SBATCH --job-name=granite-niah-rag
 #SBATCH --account=coms039904
 #SBATCH --partition=gpu
@@ -24,6 +27,7 @@
 set -euo pipefail
 TAG="${1:-nq300}"
 TASK="${2:-results/niah_nq300_frozen.json}"
+TOPK="${3:-4}"       # RAG context size; use 10 to align the generator window with needle-found@10
 
 module load languages/python/3.12.3
 export HF_HOME=/user/work/$USER/hf_cache HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1
@@ -38,7 +42,7 @@ python -c "import torch; print('CUDA:', torch.cuda.is_available(), '| torch', to
 python -m eval.run_niah_rag \
     --task "$TASK" \
     --retrievers granite_dense q2d_granite q2d_corroborate \
-    --top-k 4 \
+    --top-k "$TOPK" \
     --out "results/rag_niah_${TAG}_agg.csv" \
     --per-query-out "results/rag_niah_${TAG}_cmp" \
     --predictions-out "results/rag_niah_${TAG}_pred"
