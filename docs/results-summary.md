@@ -203,6 +203,47 @@ MRR in the CSV. fp32 single-node build ceiling ≈ 5M; 21M needs the IVFPQ compr
     reranker is the reported method — robust *and* efficient** (½ the params, ~⅓ the extraction
     cost of 8B). (`results/nested_cv_8b/`.)
 
+### Table 4d — Corroboration combination rule + α/ε sensitivity (certified 245k dump, n=300 frozen)
+
+Offline replay from the frozen corroboration runs dump (`eval/compare_rules.py --from-runs`,
+pure arithmetic — no GPU, no re-extraction). Rules: `q2d` = pure first stage (α=1); `blend`
+= convex α=0.6 (the certified method); `cascade` = corroboration-primary, relevance-tiebreak
+(the α=0 extreme, but relevance — not doc_id — orders equal-vote docs); `lexicographic` =
+min-max relevance quantised to ε-bands is primary, corroboration secondary (ε=0.1).
+Significance = paired randomization on per-query needle-found@10 / reciprocal-rank.
+
+| rule | needle-found@10 | Δ vs q2d (p) | Δ vs blend (p) | MRR | MRR Δ vs q2d (p) |
+|---|---|---|---|---|---|
+| q2d (α=1) | 0.570 | — | −0.040 (0.022)* | 0.3037 | — |
+| **blend (α=0.6)** | **0.610** | **+0.040 (0.022)\*** | — | 0.3037 | −0.000 (0.997) ns |
+| cascade | 0.590 | +0.020 (0.37) ns | −0.020 (0.069) | 0.2790 | −0.025 (0.12) ns; **−0.025 vs blend (0.0016)\*** |
+| lexicographic (ε=0.1) | 0.580 | +0.010 (0.38) ns | −0.030 (0.064) | 0.3061 | +0.002 (0.0495)* |
+
+α-curve (`results/compare_rules_nq300cert_alpha_curve.csv`): found@10 concave, peak **0.610 @
+α=0.6**, broad plateau 0.60–0.61 across α∈[0.55,0.70]; **pure corroboration (α=0) = 0.517 — the
+single worst point, below q2d (0.570)**. MRR point-peak 0.3145 @ α=0.8, but that +0.011 vs q2d
+is **ns (p=0.13)**. ε-curve (`_eps_curve.csv`): lexicographic found@10 = 0.577–0.590 at *every*
+ε — below blend's 0.610 throughout.
+
+18. **The soft convex blend is the corroboration reranker's best combination rule; α=0.6 is
+    robust; MRR-flatness is intrinsic, not a fusion artifact.** Offline comparison of three ways
+    to combine the relevance + corroboration signals on the certified n=300 dump
+    (`eval/compare_rules.py`): (a) **only the convex blend at α=0.6 significantly beats q2d on
+    needle-found@10 (+0.040, p=0.022)** — reproducing finding 15's certified point — while the
+    hard **cascade (+0.020) and lexicographic tie-break (+0.010) miss significance and both trail
+    the blend** (p=0.069 / 0.064). (b) **α=0.6 sits on a broad plateau** (found@10 0.60–0.61 across
+    α∈[0.55,0.70] → the weight is not overfit), and **pure corroboration (α=0) is the worst point
+    on the whole curve (0.517, below q2d)** — the empirical case for keeping dense relevance as the
+    backbone (cf. finding 4, dense carries the quality). (c) **MRR-flatness (finding 15) is now
+    stress-tested across the entire rule/weight space and holds**: the blend is exactly flat
+    (p=0.997), **cascade significantly *harms* MRR** (−0.025 vs blend, p=0.0016 — coarse
+    vote-primary sorting scrambles the well-ordered head), lexicographic's +0.002 is
+    borderline-and-negligible (p=0.0495), and the highest-MRR blend point (α=0.8) gives only
+    +0.011, **ns (p=0.13)**. → the corroboration gain is genuinely **top-10-boundary-specific**,
+    confirmed *not* an artifact of additive fusion; the reported method stays the **global convex
+    blend at α=0.6**. (`results/compare_rules_nq300cert_per_query_{hits,mrr}.csv` +
+    `_{alpha,eps}_curve.csv`.)
+
 **NIAH caveats (do not overclaim):** (a) single designated needle on a natural
 multi-gold corpus → other "relevant non-target" golds remain in the haystack; the clean
 fix is the deferred **synthetic-insert** variant. (b) Source-A counterfactuals are a
@@ -257,3 +298,5 @@ the retrieval cutoff (finding 17); but generation-stage *consolidation* (Astute)
 - RAG evaluation: **DONE — Table 3** (concise prompt; NQ + TriviaQA; dense ≫ BM25 significant on both, granite ≈ gte). Remaining: scale to the full 21M corpus (needs HNSW in run_rag), and NIAH RAG-vs-long-context (still skeleton).
 - A more lexical dataset (ArguAna/Touché) if the failure analysis needs more BM25-favourable material.
 - **NIAH scale curve: DONE — Table 4c.** Remaining NIAH: (a) **Corroboration Reranker** — **DONE & certified** via nested-CV (finding 15: +0.037 needle-found@10 over q2d, p≈0.03, honest n=300 out-of-fold); MRR-significance measured flat as pre-registered (global p=0.94 / gated p=0.81 vs q2d, n=300 out-of-fold); (b) **Astute** generation-stage measurement (`run_rag --pipeline astute` vs vanilla) — built; job submitted (switch GPU to `gpu:3g.40gb:1`, the only rtx_3090 node was draining); (c) synthetic-insert task variant (deferred rigor upgrade); (d) IVFPQ run to 21M (recall-vs-compression).
+- **Corroboration combination-rule + α/ε sensitivity: DONE — Table 4d / finding 18** (`eval/compare_rules.py`, offline on the certified n=300 dump; blend > cascade/lexicographic, α=0.6 on a broad plateau, MRR-flatness confirmed across the whole rule/weight space).
+- **Per-scale corroboration — does α\*≈0.6 and the gain hold 10k→5M: IN PROGRESS** (Experiment C; `scripts/run_corroboration_scale.slurm` extracts q2d→corroboration per corpus size, re-analysed offline by `eval/compare_rules.py --from-runs`; fast first-read running, full 10k/100k/1M/5M grid to follow).
