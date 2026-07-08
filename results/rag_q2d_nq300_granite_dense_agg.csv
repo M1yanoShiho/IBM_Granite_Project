@@ -1,0 +1,2 @@
+retriever,answer_em,answer_f1,answer_cover,context_precision,faithfulness
+granite_dense,0.376667,0.52574,0.576667,0.3375,0.902809
