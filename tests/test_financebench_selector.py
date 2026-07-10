@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
-from eval.financebench_selector import chunk_text, finance_utility_grade, token_coverage
+from eval.financebench_selector import (
+    chunk_text,
+    finance_utility_grade,
+    token_coverage,
+    top_k_score_indices,
+)
 
 
 def test_token_coverage_ignores_layout_and_case() -> None:
@@ -71,3 +76,11 @@ def test_finance_grade_distinguishes_same_report_noise_and_wrong_period() -> Non
     assert finance_utility_grade(
         **common, candidate_doc="report-b-2025", candidate_company="B"
     ) == (0, "wrong_entity")
+
+
+def test_top_k_score_indices_returns_deterministic_descending_order() -> None:
+    assert top_k_score_indices([0.2, 0.9, 0.4, 0.9], k=3) == [1, 3, 2]
+
+
+def test_top_k_score_indices_handles_short_input() -> None:
+    assert top_k_score_indices([0.1, 0.8], k=20) == [1, 0]

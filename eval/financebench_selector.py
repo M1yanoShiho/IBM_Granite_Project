@@ -33,6 +33,27 @@ def chunk_text(text: str, *, size: int = 600, overlap: int = 100) -> list[str]:
     return [text[start : start + size].strip() for start in range(0, len(text), step) if text[start : start + size].strip()]
 
 
+def top_k_score_indices(scores: Sequence[float], *, k: int) -> list[int]:
+    """Return deterministic descending top-k indices without sorting every row."""
+
+    import numpy as np
+
+    if k < 1:
+        raise ValueError("k must be positive")
+    values = np.asarray(scores)
+    if values.ndim != 1:
+        raise ValueError("scores must be one-dimensional")
+    if not len(values):
+        return []
+    keep = min(k, len(values))
+    threshold = np.partition(values, len(values) - keep)[len(values) - keep]
+    above = np.flatnonzero(values > threshold)
+    tied = np.flatnonzero(values == threshold)[: keep - len(above)]
+    selected = np.concatenate((above, tied))
+    order = np.lexsort((selected, -values[selected]))
+    return selected[order].tolist()
+
+
 def finance_utility_grade(
     *,
     candidate_id: str,
@@ -214,7 +235,9 @@ def rank_financebench_pool(
         scores = document_vectors @ query_vectors[row_index]
         official_ids = {str(value) for value in row["official_candidate_ids"]}
         candidates: list[dict[str, object]] = []
-        for candidate_raw, score in zip(corpus, scores):
+        for candidate_index in top_k_score_indices(scores, k=20):
+            candidate_raw = corpus[candidate_index]
+            score = scores[candidate_index]
             candidate = dict(candidate_raw)
             grade, harm_type = finance_utility_grade(
                 candidate_id=str(candidate["candidate_id"]),
@@ -234,7 +257,7 @@ def rank_financebench_pool(
                 }
             )
             candidates.append(candidate)
-        ranked = rank_candidates(candidates, "relevance_score")[:20]
+        ranked = rank_candidates(candidates, "relevance_score")
         for rank, candidate in enumerate(ranked, start=1):
             candidate["original_rank"] = rank
         output = {key: value for key, value in row.items() if key != "official_candidate_ids"}
@@ -258,7 +281,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     rank.add_argument("--out", type=Path, required=True)
     rank.add_argument("--embedding-model", required=True)
     rank.add_argument("--device", default="cuda:0")
-    rank.add_argument("--batch-size", type=int, default=256)
+    rank.add_argument("--batch-size", type=int, default=16)
     expand = subparsers.add_parser("expand-reports")
     expand.add_argument("--base-pool", type=Path, required=True)
     expand.add_argument("--document-info", type=Path, required=True)
