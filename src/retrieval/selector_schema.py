@@ -56,6 +56,9 @@ class LabelSchema:
     utility_grade_maximum: int
     label_confidence_minimum: float
     label_confidence_maximum: float
+    required_identifier_fields: tuple[str, ...]
+    optional_identifier_fields: tuple[str, ...]
+    harm_type_allowed_values: tuple[str, ...] | None
 
 
 @dataclass(frozen=True)
@@ -94,9 +97,25 @@ def _load_json(path: str | Path) -> dict[str, object]:
     return loaded
 
 
+def _matches_exact_json_value(actual: object, expected: object) -> bool:
+    if type(actual) is not type(expected):
+        return False
+    if isinstance(expected, list):
+        return len(actual) == len(expected) and all(
+            _matches_exact_json_value(item, expected_item)
+            for item, expected_item in zip(actual, expected)
+        )
+    if isinstance(expected, dict):
+        return actual.keys() == expected.keys() and all(
+            _matches_exact_json_value(actual[key], expected_value)
+            for key, expected_value in expected.items()
+        )
+    return actual == expected
+
+
 def _exact_value(data: Mapping[str, object], field: str, expected: object) -> object:
     actual = data.get(field)
-    if actual != expected:
+    if not _matches_exact_json_value(actual, expected):
         raise ValueError(f"{field} must be {expected!r}; got {actual!r}")
     return actual
 
@@ -139,7 +158,7 @@ def _allowed_values(
     if not isinstance(definition, dict):
         raise ValueError(f"label schema field {field} must be an object")
     values = definition.get("allowed_values")
-    if values != expected:
+    if not _matches_exact_json_value(values, expected):
         raise ValueError(f"label schema {field}.allowed_values must be {expected!r}; got {values!r}")
     return tuple(expected)
 
@@ -150,31 +169,52 @@ def _numeric_bounds(
     definition = fields.get(field)
     if not isinstance(definition, dict):
         raise ValueError(f"label schema field {field} must be an object")
-    if definition.get("type") != expected_type:
+    if not _matches_exact_json_value(definition.get("type"), expected_type):
         raise ValueError(f"label schema {field}.type must be {expected_type!r}")
-    if definition.get("minimum") != minimum or definition.get("maximum") != maximum:
+    if not _matches_exact_json_value(definition.get("minimum"), minimum) or not _matches_exact_json_value(
+        definition.get("maximum"), maximum
+    ):
         raise ValueError(f"label schema {field} bounds must be [{minimum!r}, {maximum!r}]")
     return minimum, maximum
+
+
+def _exact_field_declaration(
+    fields: Mapping[str, object], field: str, expected: dict[str, object]
+) -> None:
+    definition = fields.get(field)
+    if not _matches_exact_json_value(definition, expected):
+        raise ValueError(f"label schema {field} declaration must be {expected!r}; got {definition!r}")
 
 
 def load_label_schema(path: str | Path | None = None) -> LabelSchema:
     """Load and validate the canonical selector label schema."""
 
     data = _load_json(path or _DEFAULT_SELECTOR_DIR / "label_schema.json")
-    if data.get("schema_version") != "1.0":
+    if not _matches_exact_json_value(data.get("schema_version"), "1.0"):
         raise ValueError("label schema schema_version must be '1.0'")
     fields = data.get("fields")
     if not isinstance(fields, dict):
         raise ValueError("label schema fields must be an object")
     utility_minimum, utility_maximum = _numeric_bounds(fields, "utility_grade", "integer", 0, 4)
     confidence_minimum, confidence_maximum = _numeric_bounds(fields, "label_confidence", "float", 0.0, 1.0)
+    required_identifier_fields = ("query_id", "candidate_id", "source_parent_id")
+    optional_identifier_fields = ("answer_cluster_id", "required_fact_set_id")
+    for field in required_identifier_fields:
+        _exact_field_declaration(fields, field, {"type": "string", "required": True})
+    for field in optional_identifier_fields:
+        _exact_field_declaration(fields, field, {"type": "string", "required": False, "nullable": True})
+    _exact_field_declaration(
+        fields,
+        "harm_type",
+        {"type": "string", "required": False, "nullable": True, "allowed_values": None},
+    )
     derived_flags = data.get("derived_flags")
     expected_derived_flags = {
         "is_harmful": "utility_grade == 0",
         "is_direct_support": "utility_grade == 4",
         "is_required_support": "utility_grade >= 3",
     }
-    if derived_flags != expected_derived_flags:
+    if not _matches_exact_json_value(derived_flags, expected_derived_flags):
         raise ValueError("label schema derived_flags must define the canonical utility-grade rules")
     return LabelSchema(
         schema_version="1.0",
@@ -193,6 +233,9 @@ def load_label_schema(path: str | Path | None = None) -> LabelSchema:
         utility_grade_maximum=utility_maximum,  # type: ignore[arg-type]
         label_confidence_minimum=confidence_minimum,  # type: ignore[arg-type]
         label_confidence_maximum=confidence_maximum,  # type: ignore[arg-type]
+        required_identifier_fields=required_identifier_fields,
+        optional_identifier_fields=optional_identifier_fields,
+        harm_type_allowed_values=None,
     )
 
 
@@ -245,6 +288,9 @@ def validate_label_record(record: Mapping[str, object]) -> LabelRecord:
     harm_type = record.get("harm_type")
     if harm_type is not None and not isinstance(harm_type, str):
         raise ValueError("harm_type must be a string or null")
+    if harm_type is not None and schema.harm_type_allowed_values is not None:
+        if harm_type not in schema.harm_type_allowed_values:
+            raise ValueError(f"harm_type must be one of {schema.harm_type_allowed_values!r}; got {harm_type!r}")
     is_harmful = _required_bool(record, "is_harmful")
     is_direct_support = _required_bool(record, "is_direct_support")
     is_required_support = _required_bool(record, "is_required_support")

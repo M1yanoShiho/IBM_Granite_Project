@@ -17,7 +17,7 @@
     "label_provenance": {"allowed_values": ["official", "human", "deterministic_rule", "independent_teacher"]},
     "utility_grade": {"type": "integer", "minimum": 0, "maximum": 4},
     "label_confidence": {"type": "float", "minimum": 0.0, "maximum": 1.0},
-    "harm_type": {"type": "string", "required": false, "nullable": true}
+    "harm_type": {"type": "string", "required": false, "nullable": true, "allowed_values": null}
   },
   "derived_flags": {
     "is_harmful": "utility_grade == 0",

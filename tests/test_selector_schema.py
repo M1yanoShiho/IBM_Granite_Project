@@ -41,6 +41,16 @@ def valid_label_record() -> dict[str, object]:
     }
 
 
+def manifest_copy(tmp_path: Path, manifest_name: str) -> tuple[dict[str, object], Path]:
+    source = Path(__file__).resolve().parents[1] / "data" / "selector" / manifest_name
+    manifest = json.loads(source.read_text(encoding="utf-8"))
+    return manifest, tmp_path / manifest_name
+
+
+def write_manifest(path: Path, manifest: dict[str, object]) -> None:
+    path.write_text(json.dumps(manifest), encoding="utf-8")
+
+
 def test_default_manifests_load_outside_repository(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.chdir(tmp_path)
 
@@ -84,6 +94,24 @@ def test_protocol_is_immutable() -> None:
         protocol.branch = "other"  # type: ignore[misc]
 
 
+@pytest.mark.parametrize(
+    ("field", "invalid_value"),
+    [
+        ("candidate_pool_size", 20.0),
+        ("utility_grades", [False, 1, 2, 3, 4]),
+    ],
+)
+def test_protocol_rejects_equal_values_with_wrong_json_types(
+    tmp_path: Path, field: str, invalid_value: object
+) -> None:
+    manifest, path = manifest_copy(tmp_path, "protocol_manifest.json")
+    manifest[field] = invalid_value
+    write_manifest(path, manifest)
+
+    with pytest.raises(ValueError, match=field):
+        load_protocol(path)
+
+
 def test_valid_complete_label_record_is_normalized_to_immutable_record() -> None:
     record = validate_label_record(valid_label_record())
 
@@ -104,6 +132,28 @@ def test_optional_identifiers_accept_null() -> None:
 
     assert record.answer_cluster_id is None
     assert record.required_fact_set_id is None
+
+
+@pytest.mark.parametrize(
+    ("utility_grade", "flags"),
+    [
+        (0, {"is_harmful": True, "is_direct_support": False, "is_required_support": False}),
+        (3, {"is_harmful": False, "is_direct_support": False, "is_required_support": True}),
+    ],
+)
+def test_derived_flags_accept_utility_grade_boundaries(
+    utility_grade: int, flags: dict[str, bool]
+) -> None:
+    raw = valid_label_record()
+    raw["utility_grade"] = utility_grade
+    raw.update(flags)
+
+    record = validate_label_record(raw)
+
+    assert record.utility_grade == utility_grade
+    assert record.is_harmful is flags["is_harmful"]
+    assert record.is_direct_support is flags["is_direct_support"]
+    assert record.is_required_support is flags["is_required_support"]
 
 
 @pytest.mark.parametrize(
@@ -194,6 +244,54 @@ def test_label_schema_defines_all_required_allowed_values() -> None:
     assert schema.label_confidence_maximum == 1.0
 
 
+@pytest.mark.parametrize(
+    ("field", "attribute", "invalid_value"),
+    [
+        ("query_id", "type", "integer"),
+        ("candidate_id", "required", False),
+        ("source_parent_id", "nullable", True),
+        ("answer_cluster_id", "nullable", False),
+        ("required_fact_set_id", "required", True),
+        ("harm_type", "allowed_values", ["unsupported"]),
+    ],
+)
+def test_label_schema_rejects_malformed_identifier_or_harm_type_declarations(
+    tmp_path: Path, field: str, attribute: str, invalid_value: object
+) -> None:
+    manifest, path = manifest_copy(tmp_path, "label_schema.json")
+    fields = manifest["fields"]
+    assert isinstance(fields, dict)
+    definition = fields[field]
+    assert isinstance(definition, dict)
+    definition[attribute] = invalid_value
+    write_manifest(path, manifest)
+
+    with pytest.raises(ValueError, match=field):
+        load_label_schema(path)
+
+
+@pytest.mark.parametrize(
+    ("field", "attribute", "invalid_value"),
+    [
+        ("utility_grade", "minimum", False),
+        ("label_confidence", "minimum", 0),
+    ],
+)
+def test_label_schema_rejects_equal_bounds_with_wrong_json_types(
+    tmp_path: Path, field: str, attribute: str, invalid_value: object
+) -> None:
+    manifest, path = manifest_copy(tmp_path, "label_schema.json")
+    fields = manifest["fields"]
+    assert isinstance(fields, dict)
+    definition = fields[field]
+    assert isinstance(definition, dict)
+    definition[attribute] = invalid_value
+    write_manifest(path, manifest)
+
+    with pytest.raises(ValueError, match=field):
+        load_label_schema(path)
+
+
 @pytest.mark.parametrize("manifest_name", ["protocol_manifest.json", "label_schema.json"])
 def test_manifests_contain_no_placeholder_or_todo_fields(manifest_name: str) -> None:
     path = Path(__file__).resolve().parents[1] / "data" / "selector" / manifest_name
@@ -203,6 +301,7 @@ def test_manifests_contain_no_placeholder_or_todo_fields(manifest_name: str) -> 
         if isinstance(value, dict):
             for key, nested_value in value.items():
                 assert "todo" not in key.lower()
+                assert "placeholder" not in key.lower()
                 assert_no_placeholders(nested_value)
         elif isinstance(value, list):
             for nested_value in value:
