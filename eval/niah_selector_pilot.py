@@ -511,7 +511,6 @@ def _fit_ranker(
     model = lgb.LGBMRanker(
         objective="lambdarank",
         metric="ndcg",
-        eval_at=[10],
         label_gain=list(LABEL_GAINS),
         n_estimators=600,
         learning_rate=0.03,
@@ -531,6 +530,7 @@ def _fit_ranker(
         group=train_sizes,
         eval_set=[(x_dev, y_dev)],
         eval_group=[dev_sizes],
+        eval_at=[10],
         callbacks=[lgb.early_stopping(40, verbose=False)],
     )
     return model
@@ -538,14 +538,21 @@ def _fit_ranker(
 
 def _predict_groups(model, groups: Mapping[str, list[dict[str, object]]], features, key: str) -> None:
     import numpy as np
+    import warnings
 
-    for rows in groups.values():
-        x = np.asarray(
-            [[float(row[feature]) for feature in features] for row in rows], dtype=np.float32
-        )
+    ordered = [(qid, groups[qid]) for qid in sorted(groups)]
+    x = np.asarray(
+        [[float(row[feature]) for feature in features] for _, rows in ordered for row in rows],
+        dtype=np.float32,
+    )
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message="X does not have valid feature names")
         predictions = model.predict(x, num_iteration=model.best_iteration_)
-        for row, prediction in zip(rows, predictions):
+    offset = 0
+    for _, rows in ordered:
+        for row, prediction in zip(rows, predictions[offset : offset + len(rows)]):
             row[key] = float(prediction)
+        offset += len(rows)
 
 
 def _query_metric_vector(
@@ -643,17 +650,21 @@ def train_and_evaluate(*, feature_cache: Path, out_dir: Path) -> None:
             model.booster_.save_model(str(out_dir / f"{name}_seed{seed}.txt"))
             models[name].append(model)
         for split in ("dev", "test"):
+            temporary_keys = []
+            for seed, model in zip(seeds, models[name]):
+                temporary_key = f"__{name}_seed_{seed}"
+                _predict_groups(
+                    model,
+                    all_groups[split],
+                    features,
+                    temporary_key,
+                )
+                temporary_keys.append(temporary_key)
             for rows in all_groups[split].values():
-                predictions = []
-                for model in models[name]:
-                    x = np.asarray(
-                        [[float(row[feature]) for feature in features] for row in rows],
-                        dtype=np.float32,
+                for row in rows:
+                    row[f"ml_{name}_score"] = float(
+                        np.mean([float(row.pop(key)) for key in temporary_keys])
                     )
-                    predictions.append(model.predict(x, num_iteration=model.best_iteration_))
-                averaged = np.mean(np.stack(predictions), axis=0)
-                for row, prediction in zip(rows, averaged):
-                    row[f"ml_{name}_score"] = float(prediction)
 
     x_train, y_train_grade, _, train_order = _flatten_training(
         all_groups["train"], CORE_FEATURES
