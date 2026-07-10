@@ -1,0 +1,90 @@
+{
+  "interpretation": "Only candidates passing literal alias filtering and Granite passage-only answerability validation enter ranking.",
+  "original_template_after_semantic_validation": {
+    "by_split": {
+      "dev": {
+        "candidate_total": 45392,
+        "counterfactual": 258,
+        "generative_non_answer": 5,
+        "queries": 300
+      },
+      "test": {
+        "candidate_total": 45379,
+        "counterfactual": 260,
+        "generative_non_answer": 2,
+        "queries": 300
+      },
+      "train": {
+        "candidate_total": 75656,
+        "counterfactual": 437,
+        "generative_non_answer": 7,
+        "queries": 500
+      }
+    },
+    "rows": 1100,
+    "sha256": "c8c6a317dd6e59800306f850adfc960544acbd932bad3732d765124613c9ec52",
+    "source_counts": {
+      "counterfactual": 955,
+      "dpr": 165458,
+      "generative_non_answer": 14
+    }
+  },
+  "raw_generation": {
+    "by_split": {
+      "dev": {
+        "candidate_total": 45478,
+        "counterfactual": 258,
+        "generative_non_answer": 91,
+        "queries": 300
+      },
+      "test": {
+        "candidate_total": 45485,
+        "counterfactual": 260,
+        "generative_non_answer": 108,
+        "queries": 300
+      },
+      "train": {
+        "candidate_total": 75816,
+        "counterfactual": 437,
+        "generative_non_answer": 167,
+        "queries": 500
+      }
+    },
+    "rows": 1100,
+    "sha256": "a6b952ef04dcee6892ce33b8dae25793098279a0dfacaecd233edef72476e23e",
+    "source_counts": {
+      "counterfactual": 955,
+      "dpr": 165458,
+      "generative_non_answer": 366
+    }
+  },
+  "v2_research_note_after_semantic_validation": {
+    "by_split": {
+      "dev": {
+        "candidate_total": 45485,
+        "counterfactual": 258,
+        "generative_non_answer": 98,
+        "queries": 300
+      },
+      "test": {
+        "candidate_total": 45542,
+        "counterfactual": 260,
+        "generative_non_answer": 165,
+        "queries": 300
+      },
+      "train": {
+        "candidate_total": 75822,
+        "counterfactual": 437,
+        "generative_non_answer": 173,
+        "queries": 500
+      }
+    },
+    "rows": 1100,
+    "sha256": "3127fcf37a8155f4f1b03affb7429cbdd74a8906293c089df637408788f9da50",
+    "source_counts": {
+      "counterfactual": 955,
+      "dpr": 165458,
+      "generative_non_answer": 436
+    }
+  }
+}

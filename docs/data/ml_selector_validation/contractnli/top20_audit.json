@@ -1,0 +1,86 @@
+{
+  "artifact": "/scratch/fl25387/IBM_Granite_Project/results/ml_selector/contractnli/ranked_top20.jsonl",
+  "artifact_sha256": "c55086751a930e7e55060e4d6524af4f4f3a038ddc0e82cc19463343c4a9749a",
+  "audit": {
+    "candidate_count": 206142,
+    "candidate_count_max": 20,
+    "candidate_count_min": 13,
+    "counterfactual_entry_rate_when_generated": 0.0,
+    "harmful_query_exposure_rate": 0.0,
+    "non_answer_entry_rate_when_generated": 0.0,
+    "query_count": 10319,
+    "required_evidence_recall_at_pool": 0.5682721193914139,
+    "source_counts": {
+      "contractnli_clause": 206142
+    },
+    "splits": {
+      "dev": {
+        "candidate_count": 20740,
+        "candidate_count_max": 20,
+        "candidate_count_min": 20,
+        "counterfactual_entry_rate_when_generated": 0.0,
+        "harmful_query_exposure_rate": 0.0,
+        "non_answer_entry_rate_when_generated": 0.0,
+        "query_count": 1037,
+        "required_evidence_recall_at_pool": 0.5544840887174542,
+        "source_counts": {
+          "contractnli_clause": 20740
+        },
+        "utility_grade_counts": {
+          "0": 0,
+          "1": 19877,
+          "2": 0,
+          "3": 616,
+          "4": 247
+        }
+      },
+      "test": {
+        "candidate_count": 41701,
+        "candidate_count_max": 20,
+        "candidate_count_min": 13,
+        "counterfactual_entry_rate_when_generated": 0.0,
+        "harmful_query_exposure_rate": 0.0,
+        "non_answer_entry_rate_when_generated": 0.0,
+        "query_count": 2091,
+        "required_evidence_recall_at_pool": 0.539454806312769,
+        "source_counts": {
+          "contractnli_clause": 41701
+        },
+        "utility_grade_counts": {
+          "0": 0,
+          "1": 39999,
+          "2": 0,
+          "3": 1216,
+          "4": 486
+        }
+      },
+      "train": {
+        "candidate_count": 143701,
+        "candidate_count_max": 20,
+        "candidate_count_min": 18,
+        "counterfactual_entry_rate_when_generated": 0.0,
+        "harmful_query_exposure_rate": 0.0,
+        "non_answer_entry_rate_when_generated": 0.0,
+        "query_count": 7191,
+        "required_evidence_recall_at_pool": 0.5786399666249479,
+        "source_counts": {
+          "contractnli_clause": 143701
+        },
+        "utility_grade_counts": {
+          "0": 0,
+          "1": 137539,
+          "2": 0,
+          "3": 4188,
+          "4": 1974
+        }
+      }
+    },
+    "utility_grade_counts": {
+      "0": 0,
+      "1": 197415,
+      "2": 0,
+      "3": 6020,
+      "4": 2707
+    }
+  }
+}

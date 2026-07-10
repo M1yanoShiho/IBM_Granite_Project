@@ -1,67 +1,51 @@
 # ML Evidence Selector 实验执行 Tracker
 
 **分支：** `week5_MLSelector`
-**计划：** `docs/ml-selector-experiment-plan.md`
-**当前状态：** M0–M1 完成；M2 五级证据标签生成与审计进行中
 
-| Run ID | 阶段 | 任务 | 数据 | 关键产出 | 通过检查 | 优先级 | 状态 |
-|---|---|---|---|---|---|---|---|
-| P001 | M0 | 冻结标签 schema、主比较、指标和 Gate | 全部 | `protocol_manifest.json` | 独立审查通过；41 项测试通过 | MUST | DONE |
-| D001 | M1 | 建立 dataset manifest 和许可记录 | 全部 | `dataset_manifest.json` | 官方数据双运行逐字节一致 | MUST | DONE |
-| D002 | M1 | 建立父页面和 synthetic-family split | 新 NIAH | `split_manifest.json` | 2000/300/300；父页面/family 零交叉 | MUST | DONE |
-| D003 | M1 | 验证官方 contract split | ContractNLI | contract split | 423/61/123 合同零交叉 | MUST | DONE |
-| D004 | M1 | 建立 company nested 5-fold | FinanceBench | company folds | 5 折各 30 题，公司零交叉 | MUST | DONE |
-| D005 | M1 | 准备 official 与 adapted 两套协议 | RAMDocs | RAMDocs / RAMDocs-20 manifest | official 就绪；adapted 待挖负例 | MUST | DONE |
-| L001 | M2 | 实现多维标签 schema | 全部 | `label_schema.json` | 独立审查通过；严格类型校验 | MUST | DONE |
-| L002 | M2 | 派生五级 utility 和 harmful flag | 全部 | labeled candidates | 映射规则可复现 | MUST | TODO |
-| L003 | M2 | 标注和复核至少 80 个 query group | 分层样本 | `label_audit.csv` | weighted kappa ≥ 0.70 | MUST | TODO |
-| C001 | M3 | 生成训练和开发 top-20 | 新 NIAH | candidate cache | 父文档去重正确 | MUST | TODO |
-| C002 | M3 | 生成 sealed NIAH top-20 | 新 NIAH test | sealed cache | 协议冻结后运行 | MUST | TODO |
-| C003 | M3 | 合同内部生成 top-20 span | ContractNLI | candidate cache | 不跨合同检索 | MUST | TODO |
-| C004 | M3 | company-fold 财报候选 | FinanceBench | candidate cache | test company 未参与训练 | MUST | TODO |
-| C005 | M3 | 保留官方候选并补足至 20 | RAMDocs | official/adapted caches | 两套结果分开 | MUST | TODO |
-| F001 | M3 | 生成 QA 结构化抽取缓存 | NIAH、Finance、RAMDocs | QA features | prompt/hash 固定 | MUST | TODO |
-| F002 | M3 | 生成 NLI stance 缓存 | ContractNLI | NLI features | entail/contradict/unknown | MUST | TODO |
-| F003 | M3 | 生成 support/conflict/condition 特征 | 全部 | Full features | 标签来源独立 | MUST | TODO |
-| F004 | M3 | 检查候选、token budget 和 tie-break | 全部 | fairness audit | 各方法完全一致 | MUST | TODO |
-| B001 | M4 | 复现旧 q2d 和 fixed 结果 | 旧 NIAH 300 | legacy metrics | 仅作 replication | MUST | TODO |
-| B002 | M4 | mixed-dev 选择 `alpha*` | dev only | alpha curve | test 未参与选择 | MUST | TODO |
-| B003 | M4 | source-deduplicated fixed baseline | dev/test | diagnostic metrics | source_parent 生效 | MUST | TODO |
-| B004 | M4 | Oracle@20 | 全部 | headroom table | top-20 上限明确 | MUST | TODO |
-| S001 | M5 | shuffled-label negative control | mixed train/dev | negative-control metrics | 接近随机排序 | MUST | TODO |
-| S002 | M5 | feature-to-dataset probe | mixed features | leakage report | 域指纹可解释 | MUST | TODO |
-| S003 | M5 | support-score-only baseline | mixed dev | diagnostic metrics | 隔离 judge 贡献 | MUST | TODO |
-| M001 | M5 | Logistic/linear ranker sanity | mixed train/dev | sanity model | 流程可复现 | MUST | TODO |
-| M002 | M6 | 训练 LightGBM Core | mixed train/dev | Core model | 3 seeds | MUST | TODO |
-| M003 | M6 | 训练 LightGBM Full | mixed train/dev | Full model | 3 seeds | MUST | TODO |
-| E001 | M7 | Legacy replication | 旧 NIAH 300 | legacy result | 不作盲测结论 | MUST | TODO |
-| E002 | M7 | Blind controlled test | sealed NIAH | main result | Gate 1 | MUST | TODO |
-| E003 | M7 | 合同证据测试 | ContractNLI test | evidence/NLI result | contract cluster stats | MUST | TODO |
-| E004 | M7 | 财报 OOF 测试 | FinanceBench | company-level OOF | company cluster stats | MUST | TODO |
-| E005 | M7 | 官方冲突诊断 | RAMDocs official | top-3 result | 与 adapted 分开 | MUST | TODO |
-| E006 | M7 | 外部 20→10 测试 | Adapted RAMDocs-20 | main external result | Gate 2 | MUST | TODO |
-| G001 | M7 | NQ+Finance→Contract | LODO | generalisation result | 目标域未参与训练 | MUST | TODO |
-| G002 | M7 | NQ+Contract→Finance | LODO | generalisation result | 目标公司未参与训练 | MUST | TODO |
-| G003 | M7 | 全部非 RAMDocs→RAMDocs | LODO | generalisation result | RAMDocs 零接触 | MUST | TODO |
-| A001 | M7 | relevance/rank/corroboration 消融 | 全部 | ablation table | 固定候选 | MUST | TODO |
-| A002 | M7 | parametric vote/source-dedup 消融 | 全部 | ablation table | 投票来源明确 | MUST | TODO |
-| A003 | M7 | support/conflict/metadata 消融 | 全部 | ablation table | Full 贡献明确 | MUST | TODO |
-| A004 | M7 | metadata-free/missingness-masked | 全部 | leakage ablation | 域指纹受控 | MUST | TODO |
-| A005 | M7 | 三级 vs 五级标签 | 全部 | label ablation | 标签粒度价值明确 | MUST | TODO |
-| R001 | M8 | Blind NIAH RAG | sealed NIAH | Answer F1 | Gate 3 | MUST | TODO |
-| R002 | M8 | FinanceBench RAG | FinanceBench OOF | numeric accuracy/citation | Gate 3 | MUST | TODO |
-| R003 | M8 | RAMDocs RAG | official/adapted | strict EM | Gate 3 | MUST | TODO |
-| I001 | M9 | 注册 `q2d_ml_selector_core/full` | 项目代码 | retriever arms | top-20 重排、tail 保序 | MUST | TODO |
-| I002 | M9 | 离线与在线排序一致性 | 固定 fixtures | integration tests | 排名逐 query 一致 | MUST | TODO |
-| V001 | M9 | 生成主表和五张核心图 | 最终结果 | report assets | 数字可追溯 | MUST | TODO |
-| X001 | 后续 | set-aware evidence selection | 待定 | extension | Gate 1–2 后评估 | LATER | BLOCKED |
-| X002 | 后续 | Granite selector 微调 | 待定 | extension | 轻量模型达到上限后评估 | LATER | BLOCKED |
+**计划：** `docs/ml-selector-experiment-plan.md`
+
+**当前状态：** 验证实验已按 Gate 1 停止规则收束；会议报告与可追溯结果已生成
+
+## 执行记录
+
+| 阶段 | 实际完成内容 | 产出 | 状态 |
+|---|---|---|---|
+| M0 协议 | 冻结五级 utility、top-20→10、公平条件、指标和 Gate | `data/selector/protocol_manifest.json` | DONE |
+| M1 数据 | 固定 NIAH 父页面 split、ContractNLI 官方 split、FinanceBench company fold 和 RAMDocs 协议 | `data/selector/split_manifest.json` | DONE |
+| M2 标签 | NIAH、RAMDocs、FinanceBench、ContractNLI 确定性标签映射；80 组模型辅助审计 | `docs/data/ml_selector_validation/pilot/label_audit_summary.json` | PARTIAL：人工双标待完成 |
+| M3 候选 | NIAH、RAMDocs、ContractNLI、FinanceBench 固定候选池和 hash 审计 | 各数据集 `top20_audit.json` | DONE |
+| M3 特征 | NIAH、RAMDocs、FinanceBench QA 投票与 Granite reliability 特征 | 各数据集 feature cache audit | DONE |
+| M4 基线 | Q2D、fixed 0.6/0.4、alpha*、source dedup、support-only、Oracle@20 | per-query metrics | DONE |
+| M5–M6 模型 | NIAH train/dev 上训练 Logistic、Core、Full，3 seeds；shuffled-label 负控 | frozen LightGBM models | DONE |
+| M7 盲测 | sealed NIAH 300、RAMDocs 500、FinanceBench 150、ContractNLI test 诊断 | `docs/data/ml_selector_validation/` | DONE |
+| M7 消融 | relevance-only、Full、Full-no-relevance、support-only、shuffled labels、feature importance | `feature_importance.json` + figures | DONE |
+| M8 RAG | Gate 1 未通过后停止完整答案生成实验 | 无 | STOPPED BY PROTOCOL |
+| M9 接入 | 未注册生产 retriever arm，避免把未通过方法并入团队主线 | 无 | DEFERRED |
+| 报告 | 三张结果图、会议版 HTML、原始 JSON 快照 | `docs/ml_selector_validation_results.html` | DONE |
 
 ## Gate 记录
 
-| Gate | 条件 | 状态 | 证据文件 | 结论 |
-|---|---|---|---|---|
-| Gate 0 | 无 split/feature 泄漏，weighted kappa ≥ 0.70 | TODO |  |  |
-| Gate 1 | sealed NIAH：NDCG +0.02、Harmful -0.02、Recall 非劣 | TODO |  |  |
-| Gate 2 | 三个真实/外部域至少两个正向，LODO 至少两域为正 | TODO |  |  |
-| Gate 3 | 至少两个答案主指标改善，所有域通过非劣检验 | TODO |  |  |
+| Gate | 条件 | 状态 | 结论 |
+|---|---|---|---|
+| Gate 0 | 无 split / feature leakage；人工 weighted kappa ≥ 0.70 | **未完成** | 自动泄漏检查通过；两名人工标注者仍待完成。双 Granite 与 canonical label 的 kappa 为 0.005–0.080 |
+| Gate 1 | sealed NIAH：NDCG +0.02、Harmful -0.02、Recall 非劣 | **FAIL** | NDCG +0.0206、Recall +0.0368；Harmful 增加 0.0017 |
+| Gate 2 | 至少两个真实/外部域正向，且 Recall 非劣 | **FAIL** | RAMDocs 仅 NDCG 改善；Finance 改善不显著且 harmful 变差；ContractNLI 迁移失败 |
+| Gate 3 | 至少两个答案主指标改善 | **NOT RUN** | 按 Gate 1 停止规则不运行完整 RAG |
+
+## 最终判断
+
+实验支持两个结论：
+
+1. 相关性和证据可靠性会在误导、冲突、版本错误环境中脱钩。
+2. 当前 ML selector 能提高排序质量和正确证据保留率，尚未稳定降低误导证据进入 context 的比例。
+
+下一轮先完成人工标签审计，加入实体、时间、条件和冲突特征，并把 harmful penalty 纳入训练目标。Granite 微调、完整 RAG 和系统接入保持 deferred。
+
+## 主要产出
+
+- [会议版结果报告](ml_selector_validation_results.html)
+- [完整实验计划](ml-selector-experiment-plan.md)
+- [NIAH 原始结果](data/ml_selector_validation/pilot/results.json)
+- [RAMDocs 原始结果](data/ml_selector_validation/ramdocs/results.json)
+- [FinanceBench 原始结果](data/ml_selector_validation/financebench/results.json)
+- [ContractNLI 原始结果](data/ml_selector_validation/contractnli/results.json)

@@ -98,20 +98,18 @@ def plot_niah_tradeoff(metrics: Mapping[str, Mapping[str, float]], *, out: Path)
     import matplotlib.pyplot as plt
 
     display = {
-        "q2d": "Q2D",
+        "q2d": "Q2D / ML relevance",
         "fixed_0.6": "Fixed",
-        "ml_relevance_rank": "ML relevance",
         "ml_core": "ML Core",
         "ml_full": "ML Full",
         "ml_full_no_relevance": "ML no relevance",
         "oracle_at_20": "Oracle@20",
     }
     offsets = {
-        "q2d": (-46, -18),
-        "fixed_0.6": (6, 8),
-        "ml_relevance_rank": (8, -18),
-        "ml_core": (8, 2),
-        "ml_full": (8, 14),
+        "q2d": (10, -20),
+        "fixed_0.6": (-6, -23),
+        "ml_core": (8, 1),
+        "ml_full": (8, 16),
         "ml_full_no_relevance": (8, 6),
         "oracle_at_20": (6, 7),
     }
@@ -187,7 +185,8 @@ def main(argv: Sequence[str] | None = None) -> None:
         "RAMDocs": _external_metrics(ramdocs),
     }
     if finance_path.is_file():
-        datasets["Finance"] = _external_metrics(_load(finance_path))
+        finance = _load(finance_path)
+        datasets["Finance*"] = finance["metrics"]["retrieval_success_top20_to_10"]
     plot_main_comparison(datasets, out=args.out_dir / "main_comparison.png")
     plot_niah_tradeoff(
         pilot["metrics"]["test"], out=args.out_dir / "niah_tradeoff.png"
