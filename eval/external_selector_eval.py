@@ -204,7 +204,9 @@ def main(argv: Sequence[str] | None = None) -> None:
     parser.add_argument("--feature-cache", type=Path, required=True)
     parser.add_argument("--model-dir", type=Path, required=True)
     parser.add_argument("--training-result", type=Path, required=True)
-    parser.add_argument("--dataset", choices=("ramdocs", "financebench"), required=True)
+    parser.add_argument(
+        "--dataset", choices=("ramdocs", "financebench", "contractnli"), required=True
+    )
     parser.add_argument("--out-dir", type=Path, required=True)
     args = parser.parse_args(argv)
     evaluate_external(
