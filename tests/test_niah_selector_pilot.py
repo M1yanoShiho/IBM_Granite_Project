@@ -16,6 +16,7 @@ from eval.niah_selector_pilot import (
     non_answer_passes_validator,
     parse_reliability_judgment,
     rank_candidates,
+    relabel_niah_rows,
     replace_non_answer_candidate,
     selector_metrics,
     utility_grade,
@@ -80,10 +81,29 @@ def test_staged_feature_materialization_preserves_answer_cache() -> None:
 def test_utility_grade_maps_official_and_synthetic_sources() -> None:
     assert utility_grade(source="dpr", relevance=2) == 4
     assert utility_grade(source="dpr", relevance=1) == 3
-    assert utility_grade(source="dpr", relevance=0) == 1
-    assert utility_grade(source="dpr", relevance=-1) == 2
+    assert utility_grade(source="dpr", relevance=0) == 2
+    assert utility_grade(source="dpr", relevance=-1) == 1
     assert utility_grade(source="counterfactual", relevance=None) == 0
     assert utility_grade(source="generative_non_answer", relevance=None) == 2
+
+
+def test_relabel_niah_rows_repairs_existing_cached_labels() -> None:
+    rows = [
+        {
+            "query_id": "q",
+            "candidates": [
+                {"source": "dpr", "dpr_relevance": 0, "utility_grade": 1},
+                {"source": "dpr", "dpr_relevance": -1, "utility_grade": 2},
+                {"source": "counterfactual", "dpr_relevance": None, "utility_grade": 4},
+            ],
+        }
+    ]
+    repaired = relabel_niah_rows(rows)
+    assert [candidate["utility_grade"] for candidate in repaired[0]["candidates"]] == [
+        2,
+        1,
+        0,
+    ]
 
 
 def test_minmax_handles_constant_values_without_nan() -> None:

@@ -109,10 +109,33 @@ def utility_grade(*, source: str, relevance: int | None) -> int:
         return 2
     if source != "dpr":
         raise ValueError(f"Unknown candidate source {source!r}")
-    mapping = {2: 4, 1: 3, 0: 1, -1: 2}
+    mapping = {2: 4, 1: 3, 0: 2, -1: 1}
     if relevance not in mapping:
         raise ValueError(f"Unsupported DPR relevance {relevance!r}")
     return mapping[relevance]
+
+
+def relabel_niah_rows(
+    rows: Sequence[Mapping[str, object]],
+) -> list[dict[str, object]]:
+    """Apply the official DPR relevance definitions to any cached NIAH artifact."""
+
+    output: list[dict[str, object]] = []
+    for row in rows:
+        item = {key: value for key, value in row.items() if key != "candidates"}
+        candidates = []
+        for candidate_raw in row["candidates"]:
+            candidate = dict(candidate_raw)
+            source = str(candidate["source"])
+            relevance_raw = candidate.get("dpr_relevance")
+            relevance = int(relevance_raw) if relevance_raw is not None else None
+            candidate["utility_grade"] = utility_grade(
+                source=source, relevance=relevance
+            )
+            candidates.append(candidate)
+        item["candidates"] = candidates
+        output.append(item)
+    return output
 
 
 def minmax(values: Sequence[float]) -> list[float]:
@@ -1264,6 +1287,9 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     judge_reliability.add_argument("--model-id", required=True)
     judge_reliability.add_argument("--device", default="cuda:0")
     judge_reliability.add_argument("--batch-size", type=int, default=32)
+    relabel = subparsers.add_parser("relabel")
+    relabel.add_argument("--input", type=Path, required=True)
+    relabel.add_argument("--out", type=Path, required=True)
     train = subparsers.add_parser("train")
     train.add_argument("--feature-cache", type=Path, required=True)
     train.add_argument("--out-dir", type=Path, required=True)
@@ -1332,6 +1358,8 @@ def main(argv: Sequence[str] | None = None) -> None:
             device=args.device,
             batch_size=args.batch_size,
         )
+    elif args.command == "relabel":
+        _write_jsonl(args.out, relabel_niah_rows(_read_jsonl(args.input)))
     elif args.command == "train":
         train_and_evaluate(feature_cache=args.feature_cache, out_dir=args.out_dir)
 
