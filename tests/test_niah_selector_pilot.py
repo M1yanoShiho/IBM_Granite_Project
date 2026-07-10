@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 
 from eval.niah_selector_pilot import (
+    PASSAGE_CHARS,
     RELIABILITY_PROMPT,
     add_group_features,
     holm_adjust,
@@ -16,6 +17,10 @@ from eval.niah_selector_pilot import (
     selector_metrics,
     utility_grade,
 )
+
+
+def test_pilot_matches_existing_corroboration_passage_budget() -> None:
+    assert PASSAGE_CHARS == 600
 
 
 def test_utility_grade_maps_official_and_synthetic_sources() -> None:

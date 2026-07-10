@@ -15,6 +15,8 @@ from src.retrieval.corroboration import is_valid_answer, normalize_answer
 
 
 LABEL_GAINS = (0, 1, 3, 7, 15)
+PASSAGE_CHARS = 600
+VALIDATION_PASSAGE_CHARS = 900
 CORE_FEATURES = (
     "relevance_score",
     "relevance_normalized",
@@ -511,7 +513,8 @@ def validate_generated_non_answers(
                 continue
             prompts.append(
                 EXTRACT_PROMPT.format(
-                    question=row["question"], passage=str(candidate["text"])[:900]
+                    question=row["question"],
+                    passage=str(candidate["text"])[:VALIDATION_PASSAGE_CHARS],
                 )
             )
             positions.append((row_index, str(candidate["candidate_id"])))
@@ -566,7 +569,9 @@ def regenerate_and_validate_non_answers(
     )
     validator_outputs = generator.generate(
         [
-            EXTRACT_PROMPT.format(question=row["question"], passage=passage[:900])
+            EXTRACT_PROMPT.format(
+                question=row["question"], passage=passage[:VALIDATION_PASSAGE_CHARS]
+            )
             for row, passage in zip(rows, passages)
         ],
         batch_size=batch_size,
@@ -647,7 +652,7 @@ def extract_pilot_features(
         for candidate_index, candidate in enumerate(row["candidates"]):
             prompts.append(
                 EXTRACT_PROMPT.format(
-                    question=row["question"], passage=str(candidate["text"])[:900]
+                    question=row["question"], passage=str(candidate["text"])[:PASSAGE_CHARS]
                 )
             )
             positions.append((row_index, candidate_index))
@@ -659,7 +664,7 @@ def extract_pilot_features(
         reliability_prompts.append(
             RELIABILITY_PROMPT.format(
                 question=row["question"],
-                passage=str(candidate["text"])[:900],
+                passage=str(candidate["text"])[:PASSAGE_CHARS],
                 candidate_answer=answer,
             )
         )
@@ -1003,6 +1008,7 @@ def train_and_evaluate(*, feature_cache: Path, out_dir: Path) -> None:
             "candidate_pool": "DPR per-query hard pool reranked by Query2Doc + Granite",
             "top_n": 20,
             "context_k": 10,
+            "passage_chars": PASSAGE_CHARS,
             "fixed_alpha": 0.6,
             "alpha_star": alpha_star,
             "seeds": list(seeds),
