@@ -2,13 +2,13 @@
 
 **分支：** `week5_MLSelector`
 **计划：** `docs/ml-selector-experiment-plan.md`
-**当前状态：** M0 协议冻结已通过独立审查；M1 数据审计与无泄漏划分进行中
+**当前状态：** M0–M1 完成；M2 五级证据标签生成与审计进行中
 
 | Run ID | 阶段 | 任务 | 数据 | 关键产出 | 通过检查 | 优先级 | 状态 |
 |---|---|---|---|---|---|---|---|
 | P001 | M0 | 冻结标签 schema、主比较、指标和 Gate | 全部 | `protocol_manifest.json` | 独立审查通过；41 项测试通过 | MUST | DONE |
 | D001 | M1 | 建立 dataset manifest 和许可记录 | 全部 | `dataset_manifest.json` | 官方数据双运行逐字节一致 | MUST | DONE |
-| D002 | M1 | 建立父页面和 synthetic-family split | 新 NIAH | `split_manifest.json` | 父页面/family 无交叉 | MUST | TODO |
+| D002 | M1 | 建立父页面和 synthetic-family split | 新 NIAH | `split_manifest.json` | 2000/300/300；父页面/family 零交叉 | MUST | DONE |
 | D003 | M1 | 验证官方 contract split | ContractNLI | contract split | 423/61/123 合同零交叉 | MUST | DONE |
 | D004 | M1 | 建立 company nested 5-fold | FinanceBench | company folds | 5 折各 30 题，公司零交叉 | MUST | DONE |
 | D005 | M1 | 准备 official 与 adapted 两套协议 | RAMDocs | RAMDocs / RAMDocs-20 manifest | official 就绪；adapted 待挖负例 | MUST | DONE |
