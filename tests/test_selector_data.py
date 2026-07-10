@@ -181,6 +181,7 @@ def test_loaders_return_immutable_metadata_only_records_and_audits(tmp_path: Pat
     assert ramdocs_audit.document_count == 6
     assert ramdocs_audit.min_documents_per_query == 3
     assert ramdocs_audit.max_documents_per_query == 3
+    assert ramdocs_audit.examples_without_wrong_answers == 0
     assert ramdocs_audit.document_type_counts == {
         "correct": 2,
         "misinfo": 2,
@@ -285,6 +286,9 @@ def test_cli_writes_exact_deterministic_manifest_shape(tmp_path: Path) -> None:
             "status": "ready",
         },
     }
+    assert dataset["datasets"]["ramdocs"]["audit"][
+        "examples_without_wrong_answers"
+    ] == 0
 
 
 def test_financebench_nested_folds_prevent_company_leakage(tmp_path: Path) -> None:
@@ -512,6 +516,45 @@ def test_ramdocs_rejects_invalid_official_document_type(tmp_path: Path) -> None:
     _write_jsonl(path, [example])
 
     with pytest.raises(ValueError, match=r"documents\[0\]\.type.*counterfactual.*correct"):
+        load_ramdocs(path)
+
+
+def test_ramdocs_accepts_and_audits_empty_wrong_answers(tmp_path: Path) -> None:
+    path = tmp_path / "RAMDocs_test.jsonl"
+    example = _ramdocs_example(0)
+    example["wrong_answers"] = []
+    example["documents"] = [
+        document
+        for document in example["documents"]  # type: ignore[union-attr]
+        if document["type"] != "misinfo"
+    ]
+    _write_jsonl(path, [example])
+
+    records, audit = load_ramdocs(path)
+
+    assert len(records) == 1
+    assert audit.examples_without_wrong_answers == 1
+    assert audit.document_type_counts["misinfo"] == 0
+
+
+@pytest.mark.parametrize("value", [pytest.param(None, id="missing"), "not-a-list"])
+def test_ramdocs_rejects_missing_or_wrong_type_wrong_answers(
+    tmp_path: Path, value: object
+) -> None:
+    path = tmp_path / "RAMDocs_test.jsonl"
+    example = _ramdocs_example(0)
+    if value is None:
+        del example["wrong_answers"]
+    else:
+        example["wrong_answers"] = value
+    _write_jsonl(path, [example])
+
+    expected = (
+        "missing required field 'wrong_answers'"
+        if value is None
+        else "wrong_answers must be a list"
+    )
+    with pytest.raises(ValueError, match=expected):
         load_ramdocs(path)
 
 

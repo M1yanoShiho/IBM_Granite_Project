@@ -111,6 +111,7 @@ class RAMDocsAudit:
     document_count: int
     min_documents_per_query: int
     max_documents_per_query: int
+    examples_without_wrong_answers: int
     document_type_count_items: tuple[tuple[str, int], ...]
 
     @property
@@ -648,6 +649,7 @@ def load_ramdocs(
     records: list[RAMDocsRecord] = []
     type_counts = {document_type: 0 for document_type in _RAMDOCS_TYPES}
     document_counts: list[int] = []
+    examples_without_wrong_answers = 0
     for line_index, row in enumerate(rows):
         context = f"{path} line {line_index + 1}"
         _non_empty_string(
@@ -658,16 +660,23 @@ def load_ramdocs(
             f"{context}.documents",
             non_empty=True,
         )
-        for answer_field in ("gold_answers", "wrong_answers"):
-            answers = _list(
-                _required(row, answer_field, context),
-                f"{context}.{answer_field}",
-                non_empty=True,
-            )
+        gold_answers = _list(
+            _required(row, "gold_answers", context),
+            f"{context}.gold_answers",
+            non_empty=True,
+        )
+        wrong_answers = _list(
+            _required(row, "wrong_answers", context),
+            f"{context}.wrong_answers",
+        )
+        if not wrong_answers:
+            examples_without_wrong_answers += 1
+        for answer_field, answers in (
+            ("gold_answers", gold_answers),
+            ("wrong_answers", wrong_answers),
+        ):
             for answer_index, answer in enumerate(answers):
-                _non_empty_string(
-                    answer, f"{context}.{answer_field}[{answer_index}]"
-                )
+                _non_empty_string(answer, f"{context}.{answer_field}[{answer_index}]")
         query_id = f"ramdocs-{line_index:06d}"
         normalized_documents: list[RAMDocsDocumentRecord] = []
         for document_index, raw_document in enumerate(documents):
@@ -712,6 +721,7 @@ def load_ramdocs(
         document_count=sum(document_counts),
         min_documents_per_query=min(document_counts, default=0),
         max_documents_per_query=max(document_counts, default=0),
+        examples_without_wrong_answers=examples_without_wrong_answers,
         document_type_count_items=tuple(
             (document_type, type_counts[document_type])
             for document_type in _RAMDOCS_TYPES

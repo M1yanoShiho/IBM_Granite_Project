@@ -59,6 +59,7 @@ def _ramdocs_audit(audit: RAMDocsAudit) -> dict[str, object]:
         "document_count": audit.document_count,
         "document_type_counts": audit.document_type_counts,
         "example_count": audit.example_count,
+        "examples_without_wrong_answers": audit.examples_without_wrong_answers,
         "max_documents_per_query": audit.max_documents_per_query,
         "min_documents_per_query": audit.min_documents_per_query,
     }
