@@ -7,6 +7,7 @@ import math
 from eval.niah_selector_pilot import (
     add_group_features,
     minmax,
+    parse_reliability_judgment,
     rank_candidates,
     selector_metrics,
     utility_grade,
@@ -95,3 +96,34 @@ def test_selector_metrics_measure_quality_harm_and_required_recall() -> None:
     assert metrics["harmful_rate@2"] == 0.25
     assert metrics["direct_support_precision@2"] == 0.25
     assert math.isclose(metrics["required_evidence_recall@2"], 0.75)
+
+
+def test_parse_reliability_judgment_accepts_fenced_json_and_normalizes_scores() -> None:
+    parsed = parse_reliability_judgment(
+        "```json\n"
+        '{"direct_support": 2, "condition_coverage": 1, "evidence_sufficiency": 0}'
+        "\n```"
+    )
+
+    assert parsed == {
+        "judge_direct_support": 1.0,
+        "judge_condition_coverage": 0.5,
+        "judge_evidence_sufficiency": 0.0,
+        "judge_parse_failure": 0.0,
+    }
+
+
+def test_parse_reliability_judgment_fails_closed_on_invalid_output() -> None:
+    assert parse_reliability_judgment("This passage looks useful.") == {
+        "judge_direct_support": 0.0,
+        "judge_condition_coverage": 0.0,
+        "judge_evidence_sufficiency": 0.0,
+        "judge_parse_failure": 1.0,
+    }
+
+
+def test_parse_reliability_judgment_rejects_out_of_range_scores() -> None:
+    parsed = parse_reliability_judgment(
+        '{"direct_support": 3, "condition_coverage": 1, "evidence_sufficiency": 2}'
+    )
+    assert parsed["judge_parse_failure"] == 1.0

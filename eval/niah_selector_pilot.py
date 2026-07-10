@@ -29,6 +29,10 @@ FULL_FEATURES = CORE_FEATURES + (
     "source_dedup_vote_count",
     "dominant_answer_agreement",
     "answer_length",
+    "judge_direct_support",
+    "judge_condition_coverage",
+    "judge_evidence_sufficiency",
+    "judge_parse_failure",
 )
 
 Q2D_PROMPT = (
@@ -62,6 +66,15 @@ PARAMETRIC_PROMPT = (
     "Answer with the shortest exact answer from your own knowledge. If unsure, reply "
     "NONE.\nQuestion: {question}\nAnswer:"
 )
+RELIABILITY_PROMPT = (
+    "Assess whether the passage itself is usable evidence for the question. Do not "
+    "reward topical similarity or fluent writing. Score each field with an integer "
+    "from 0 to 2: direct_support (0 none, 1 partial, 2 direct), condition_coverage "
+    "(0 misses or violates stated conditions, 1 partial or no explicit condition, "
+    "2 covers all stated conditions), and evidence_sufficiency (0 unusable, 1 needs "
+    "other evidence, 2 sufficient by itself). Return only a JSON object with exactly "
+    "these three keys.\nQuestion: {question}\nPassage: {passage}\nJSON:"
+)
 
 
 def utility_grade(*, source: str, relevance: int | None) -> int:
@@ -86,6 +99,39 @@ def minmax(values: Sequence[float]) -> list[float]:
     if high == low:
         return [0.0] * len(values)
     return [(value - low) / (high - low) for value in values]
+
+
+def parse_reliability_judgment(value: str) -> dict[str, float]:
+    """Parse the frozen Granite judge schema and fail closed on malformed output."""
+
+    failure = {
+        "judge_direct_support": 0.0,
+        "judge_condition_coverage": 0.0,
+        "judge_evidence_sufficiency": 0.0,
+        "judge_parse_failure": 1.0,
+    }
+    match = re.search(r"\{[^{}]*\}", value, flags=re.S)
+    if not match:
+        return failure
+    try:
+        payload = json.loads(match.group(0))
+    except json.JSONDecodeError:
+        return failure
+    expected = ("direct_support", "condition_coverage", "evidence_sufficiency")
+    if set(payload) != set(expected):
+        return failure
+    scores: list[int] = []
+    for key in expected:
+        score = payload[key]
+        if isinstance(score, bool) or not isinstance(score, int) or score not in (0, 1, 2):
+            return failure
+        scores.append(score)
+    return {
+        "judge_direct_support": scores[0] / 2.0,
+        "judge_condition_coverage": scores[1] / 2.0,
+        "judge_evidence_sufficiency": scores[2] / 2.0,
+        "judge_parse_failure": 0.0,
+    }
 
 
 def rank_candidates(rows: Sequence[Mapping[str, object]], score_key: str) -> list[dict[str, object]]:
@@ -421,6 +467,17 @@ def extract_pilot_features(
             )
             positions.append((row_index, candidate_index))
     extracted = generator.generate(prompts, batch_size=batch_size, max_new_tokens=32)
+    reliability = generator.generate(
+        [
+            RELIABILITY_PROMPT.format(
+                question=row["question"], passage=str(candidate["text"])[:900]
+            )
+            for row in rows
+            for candidate in row["candidates"]
+        ],
+        batch_size=batch_size,
+        max_new_tokens=64,
+    )
     parametric = generator.generate(
         [PARAMETRIC_PROMPT.format(question=row["question"]) for row in rows],
         batch_size=batch_size,
@@ -429,8 +486,13 @@ def extract_pilot_features(
     mutable_candidates = [
         [dict(candidate) for candidate in row["candidates"]] for row in rows
     ]
-    for answer, (row_index, candidate_index) in zip(extracted, positions):
-        mutable_candidates[row_index][candidate_index]["extracted_answer"] = answer
+    for answer, judgment, (row_index, candidate_index) in zip(
+        extracted, reliability, positions
+    ):
+        candidate = mutable_candidates[row_index][candidate_index]
+        candidate["extracted_answer"] = answer
+        candidate["reliability_judgment"] = judgment
+        candidate.update(parse_reliability_judgment(judgment))
     output_rows: list[dict[str, object]] = []
     for index, row in enumerate(rows):
         output = {key: value for key, value in row.items() if key != "candidates"}
