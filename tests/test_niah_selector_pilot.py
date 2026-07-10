@@ -10,6 +10,7 @@ from eval.niah_selector_pilot import (
     non_answer_passes_validator,
     parse_reliability_judgment,
     rank_candidates,
+    replace_non_answer_candidate,
     selector_metrics,
     utility_grade,
 )
@@ -149,3 +150,42 @@ def test_non_answer_validator_also_rejects_literal_gold_aliases() -> None:
         aliases=["ancient Roman Senate"],
         validator_output="NONE",
     )
+
+
+def test_replace_non_answer_candidate_removes_old_copy_and_keeps_valid_replacement() -> None:
+    row = {
+        "query_id": "q1",
+        "answers": ["Ernest Hemingway"],
+        "candidates": [
+            {"candidate_id": "d1", "source": "dpr"},
+            {"candidate_id": "q1__non_answer", "source": "generative_non_answer"},
+        ],
+    }
+    replaced = replace_non_answer_candidate(
+        row,
+        passage="The question requires checking a reliable publication record.",
+        validator_output="NONE",
+    )
+
+    assert [candidate["source"] for candidate in replaced["candidates"]] == [
+        "dpr",
+        "generative_non_answer",
+    ]
+    assert replaced["non_answer_valid"] is True
+    assert replaced["candidates"][-1]["utility_grade"] == 2
+
+
+def test_replace_non_answer_candidate_drops_answer_leaking_replacement() -> None:
+    row = {
+        "query_id": "q1",
+        "answers": ["Ernest Hemingway"],
+        "candidates": [{"candidate_id": "d1", "source": "dpr"}],
+    }
+    replaced = replace_non_answer_candidate(
+        row,
+        passage="The author was Ernest Hemingway.",
+        validator_output="Ernest Hemingway",
+    )
+
+    assert [candidate["source"] for candidate in replaced["candidates"]] == ["dpr"]
+    assert replaced["non_answer_valid"] is False

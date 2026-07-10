@@ -48,14 +48,18 @@ SEALED_WRONG_ENTITY_PROMPT = (
     "of the same type. Give only that different entity.\nOriginal: {answer}\nSubstitute:"
 )
 NON_ANSWER_PROMPT = (
-    "Write a short fluent passage on the question's topic that shares key terms but "
-    "does not state or imply the answer. Output only the passage.\n"
-    "Question: {question}\nReference style:\n{needle}\nPassage:"
+    "Write two short, fluent sentences about how someone should research the topic "
+    "in the question. Refer to the subject only in general terms. Do not give or imply "
+    "the answer. Do not include names, dates, numbers, places, titles, organizations, "
+    "quoted phrases, or causal facts that could answer the question.\n"
+    "Question: {question}\nNon-answering research note:"
 )
 SEALED_NON_ANSWER_PROMPT = (
-    "Produce a concise background paragraph related to the query. Discuss adjacent "
-    "facts and omit the requested answer. Return only the paragraph.\n"
-    "Query: {question}\nStyle sample:\n{needle}\nBackground:"
+    "Draft two concise sentences explaining that the query needs source verification "
+    "and what kind of record should be consulted. Keep the subject generic. Exclude "
+    "every concrete person, date, number, location, work title, institution, and factual "
+    "conclusion that might resolve the query.\n"
+    "Query: {question}\nVerification note:"
 )
 EXTRACT_PROMPT = (
     "Using only the passage, answer the question with the shortest exact answer. "
@@ -324,6 +328,43 @@ def non_answer_passes_validator(
     return not is_valid_answer(validator_output)
 
 
+def replace_non_answer_candidate(
+    row: Mapping[str, object], *, passage: str, validator_output: str
+) -> dict[str, object]:
+    """Replace any old synthetic non-answer with one independently validated copy."""
+
+    item = dict(row)
+    candidates = [
+        dict(candidate)
+        for candidate in row["candidates"]
+        if candidate["source"] != "generative_non_answer"
+    ]
+    valid = non_answer_passes_validator(
+        passage,
+        aliases=[str(alias) for alias in row["answers"]],
+        validator_output=validator_output,
+    )
+    if valid:
+        candidates.append(
+            {
+                "candidate_id": f"{row['query_id']}__non_answer",
+                "text": passage.strip(),
+                "title": "synthetic research note",
+                "source_parent_id": f"synthetic:{row['query_id']}",
+                "source": "generative_non_answer",
+                "dpr_relevance": None,
+                "dpr_rank": len(candidates) + 1,
+                "utility_grade": 2,
+            }
+        )
+    item["non_answer_generation_prompt_version"] = "v2_research_note"
+    item["non_answer_validation_applied"] = True
+    item["non_answer_validator_output"] = validator_output
+    item["non_answer_valid"] = valid
+    item["candidates"] = candidates
+    return item
+
+
 def generate_pilot_material(
     *, base_pool: Path, out: Path, model_id: str, device: str, batch_size: int
 ) -> None:
@@ -457,6 +498,40 @@ def validate_generated_non_answers(
         )
         item["candidates"] = candidates
         validated.append(item)
+    _write_jsonl(out, validated)
+
+
+def regenerate_and_validate_non_answers(
+    *, generated_pool: Path, out: Path, model_id: str, device: str, batch_size: int
+) -> None:
+    """Generate conservative topical non-answers and retain only unanswerable passages."""
+
+    rows = _read_jsonl(generated_pool)
+    generator = GraniteBatchGenerator(model_id, device=device)
+    passages = generator.generate(
+        [
+            (
+                SEALED_NON_ANSWER_PROMPT if row["split"] == "test" else NON_ANSWER_PROMPT
+            ).format(question=row["question"])
+            for row in rows
+        ],
+        batch_size=batch_size,
+        max_new_tokens=96,
+    )
+    validator_outputs = generator.generate(
+        [
+            EXTRACT_PROMPT.format(question=row["question"], passage=passage[:900])
+            for row, passage in zip(rows, passages)
+        ],
+        batch_size=batch_size,
+        max_new_tokens=32,
+    )
+    validated = [
+        replace_non_answer_candidate(
+            row, passage=passage, validator_output=validator_output
+        )
+        for row, passage, validator_output in zip(rows, passages, validator_outputs)
+    ]
     _write_jsonl(out, validated)
 
 
@@ -989,6 +1064,12 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     validate.add_argument("--model-id", required=True)
     validate.add_argument("--device", default="cuda:0")
     validate.add_argument("--batch-size", type=int, default=32)
+    regenerate = subparsers.add_parser("regenerate-non-answers")
+    regenerate.add_argument("--generated-pool", type=Path, required=True)
+    regenerate.add_argument("--out", type=Path, required=True)
+    regenerate.add_argument("--model-id", required=True)
+    regenerate.add_argument("--device", default="cuda:0")
+    regenerate.add_argument("--batch-size", type=int, default=32)
     rank = subparsers.add_parser("rank")
     rank.add_argument("--generated-pool", type=Path, required=True)
     rank.add_argument("--out", type=Path, required=True)
@@ -1023,6 +1104,14 @@ def main(argv: Sequence[str] | None = None) -> None:
         )
     elif args.command == "validate-non-answers":
         validate_generated_non_answers(
+            generated_pool=args.generated_pool,
+            out=args.out,
+            model_id=args.model_id,
+            device=args.device,
+            batch_size=args.batch_size,
+        )
+    elif args.command == "regenerate-non-answers":
+        regenerate_and_validate_non_answers(
             generated_pool=args.generated_pool,
             out=args.out,
             model_id=args.model_id,
