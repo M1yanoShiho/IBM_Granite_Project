@@ -8,6 +8,7 @@ from eval.niah_selector_pilot import (
     PASSAGE_CHARS,
     RELIABILITY_PROMPT,
     add_group_features,
+    attach_diagnostic_scores,
     holm_adjust,
     minmax,
     materialize_answer_rows,
@@ -23,6 +24,21 @@ from eval.niah_selector_pilot import (
 
 def test_pilot_matches_existing_corroboration_passage_budget() -> None:
     assert PASSAGE_CHARS == 600
+
+
+def test_diagnostic_scores_include_oracle_and_support_only() -> None:
+    groups = {
+        "q": [
+            {
+                "utility_grade": 4,
+                "judge_direct_support": 1.0,
+                "judge_evidence_sufficiency": 0.5,
+            }
+        ]
+    }
+    attach_diagnostic_scores(groups)
+    assert groups["q"][0]["oracle_score"] == 4.0
+    assert groups["q"][0]["support_only_score"] == 0.75
 
 
 def test_staged_feature_materialization_preserves_answer_cache() -> None:

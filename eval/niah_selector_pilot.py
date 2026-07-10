@@ -816,6 +816,18 @@ def _attach_blend_scores(
             )
 
 
+def attach_diagnostic_scores(groups: Mapping[str, list[dict[str, object]]]) -> None:
+    """Attach label-oracle and semantic-judge-only diagnostic scores."""
+
+    for rows in groups.values():
+        for row in rows:
+            row["oracle_score"] = float(row["utility_grade"])
+            row["support_only_score"] = (
+                float(row["judge_direct_support"])
+                + float(row["judge_evidence_sufficiency"])
+            ) / 2.0
+
+
 def _flatten_training(
     groups: Mapping[str, Sequence[Mapping[str, object]]], features: Sequence[str]
 ):
@@ -960,6 +972,7 @@ def train_and_evaluate(*, feature_cache: Path, out_dir: Path) -> None:
     all_groups = _groups_by_split(_read_jsonl(feature_cache))
     for groups in all_groups.values():
         _attach_blend_scores(groups, alpha=0.6)
+        attach_diagnostic_scores(groups)
 
     alpha_grid = [index / 20 for index in range(21)]
     alpha_scores: list[tuple[float, float]] = []
@@ -1039,10 +1052,12 @@ def train_and_evaluate(*, feature_cache: Path, out_dir: Path) -> None:
         "fixed_0.6": "fixed_score",
         "alpha_star": "alpha_star_score",
         "source_dedup_fixed": "source_dedup_fixed_score",
+        "support_only": "support_only_score",
         "logistic": "logistic_score",
         "ml_core": "ml_core_score",
         "ml_full": "ml_full_score",
         "shuffled_label": "shuffled_label_score",
+        "oracle_at_20": "oracle_score",
     }
     metrics = {
         split: {

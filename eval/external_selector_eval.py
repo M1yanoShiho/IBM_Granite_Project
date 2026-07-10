@@ -14,6 +14,7 @@ from eval.niah_selector_pilot import (
     _attach_blend_scores,
     _paired_bootstrap,
     _query_metric_vector,
+    attach_diagnostic_scores,
     holm_adjust,
     minmax,
     rank_candidates,
@@ -99,6 +100,7 @@ def evaluate_external(
     training = json.loads(training_result.read_text(encoding="utf-8"))
     alpha_star = float(training["protocol"]["alpha_star"])
     _attach_blend_scores(groups, alpha=0.6)
+    attach_diagnostic_scores(groups)
     for candidates in groups.values():
         votes = minmax([float(row["exact_vote_count"]) for row in candidates])
         for index, row in enumerate(candidates):
@@ -124,8 +126,10 @@ def evaluate_external(
         "fixed_0.6": "fixed_score",
         "alpha_star": "alpha_star_score",
         "source_dedup_fixed": "source_dedup_fixed_score",
+        "support_only": "support_only_score",
         "ml_core": "ml_core_score",
         "ml_full": "ml_full_score",
+        "oracle_at_20": "oracle_score",
     }
     subsets: dict[str, tuple[dict[str, list[dict[str, object]]], int]] = {
         "adapted_top20_to_10": (groups, 10)
