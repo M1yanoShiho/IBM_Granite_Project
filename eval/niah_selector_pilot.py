@@ -647,56 +647,143 @@ def extract_pilot_features(
     rows = _read_jsonl(ranked_pool)
     generator = GraniteBatchGenerator(model_id, device=device)
     prompts: list[str] = []
-    positions: list[tuple[int, int]] = []
-    for row_index, row in enumerate(rows):
-        for candidate_index, candidate in enumerate(row["candidates"]):
+    for row in rows:
+        for candidate in row["candidates"]:
             prompts.append(
                 EXTRACT_PROMPT.format(
                     question=row["question"], passage=str(candidate["text"])[:PASSAGE_CHARS]
                 )
             )
-            positions.append((row_index, candidate_index))
     extracted = generator.generate(prompts, batch_size=batch_size, max_new_tokens=32)
+    parametric = generator.generate(
+        [PARAMETRIC_PROMPT.format(question=row["question"]) for row in rows],
+        batch_size=batch_size,
+        max_new_tokens=32,
+    )
+    answer_rows = materialize_answer_rows(rows, extracted=extracted, parametric=parametric)
     reliability_prompts = []
-    for answer, (row_index, candidate_index) in zip(extracted, positions):
-        row = rows[row_index]
-        candidate = row["candidates"][candidate_index]
-        reliability_prompts.append(
-            RELIABILITY_PROMPT.format(
-                question=row["question"],
-                passage=str(candidate["text"])[:PASSAGE_CHARS],
-                candidate_answer=answer,
+    for row in answer_rows:
+        for candidate in row["candidates"]:
+            reliability_prompts.append(
+                RELIABILITY_PROMPT.format(
+                    question=row["question"],
+                    passage=str(candidate["text"])[:PASSAGE_CHARS],
+                    candidate_answer=candidate["extracted_answer"],
+                )
             )
-        )
     reliability = generator.generate(
         reliability_prompts,
         batch_size=batch_size,
         max_new_tokens=64,
+    )
+    _write_jsonl(out, materialize_reliability_rows(answer_rows, judgments=reliability))
+
+
+def materialize_answer_rows(
+    rows: Sequence[Mapping[str, object]],
+    *,
+    extracted: Sequence[str],
+    parametric: Sequence[str],
+) -> list[dict[str, object]]:
+    """Attach cached candidate and parametric answers with strict length checks."""
+
+    expected_candidates = sum(len(row["candidates"]) for row in rows)
+    if len(extracted) != expected_candidates:
+        raise ValueError(
+            f"received {len(extracted)} candidate answers; expected {expected_candidates}"
+        )
+    if len(parametric) != len(rows):
+        raise ValueError(f"received {len(parametric)} parametric answers; expected {len(rows)}")
+    answer_index = 0
+    output: list[dict[str, object]] = []
+    for row_index, row in enumerate(rows):
+        item = {key: value for key, value in row.items() if key != "candidates"}
+        candidates = []
+        for candidate_raw in row["candidates"]:
+            candidate = dict(candidate_raw)
+            candidate["extracted_answer"] = extracted[answer_index]
+            answer_index += 1
+            candidates.append(candidate)
+        item["parametric_answer"] = parametric[row_index]
+        item["candidates"] = candidates
+        output.append(item)
+    return output
+
+
+def materialize_reliability_rows(
+    rows: Sequence[Mapping[str, object]], *, judgments: Sequence[str]
+) -> list[dict[str, object]]:
+    """Attach reliability judgments and derive final shared group features."""
+
+    expected = sum(len(row["candidates"]) for row in rows)
+    if len(judgments) != expected:
+        raise ValueError(f"received {len(judgments)} judgments; expected {expected}")
+    judgment_index = 0
+    output_rows: list[dict[str, object]] = []
+    for row in rows:
+        item = {key: value for key, value in row.items() if key != "candidates"}
+        candidates = []
+        for candidate_raw in row["candidates"]:
+            candidate = dict(candidate_raw)
+            judgment = judgments[judgment_index]
+            judgment_index += 1
+            candidate["reliability_judgment"] = judgment
+            candidate.update(parse_reliability_judgment(judgment))
+            candidates.append(candidate)
+        item["candidates"] = add_group_features(
+            candidates, parametric_answer=str(row["parametric_answer"])
+        )
+        output_rows.append(item)
+    return output_rows
+
+
+def extract_pilot_answers(
+    *, ranked_pool: Path, out: Path, model_id: str, device: str, batch_size: int
+) -> None:
+    """Persist candidate and parametric answers as a restartable first stage."""
+
+    rows = _read_jsonl(ranked_pool)
+    generator = GraniteBatchGenerator(model_id, device=device)
+    extracted = generator.generate(
+        [
+            EXTRACT_PROMPT.format(
+                question=row["question"], passage=str(candidate["text"])[:PASSAGE_CHARS]
+            )
+            for row in rows
+            for candidate in row["candidates"]
+        ],
+        batch_size=batch_size,
+        max_new_tokens=32,
     )
     parametric = generator.generate(
         [PARAMETRIC_PROMPT.format(question=row["question"]) for row in rows],
         batch_size=batch_size,
         max_new_tokens=32,
     )
-    mutable_candidates = [
-        [dict(candidate) for candidate in row["candidates"]] for row in rows
-    ]
-    for answer, judgment, (row_index, candidate_index) in zip(
-        extracted, reliability, positions
-    ):
-        candidate = mutable_candidates[row_index][candidate_index]
-        candidate["extracted_answer"] = answer
-        candidate["reliability_judgment"] = judgment
-        candidate.update(parse_reliability_judgment(judgment))
-    output_rows: list[dict[str, object]] = []
-    for index, row in enumerate(rows):
-        output = {key: value for key, value in row.items() if key != "candidates"}
-        output["parametric_answer"] = parametric[index]
-        output["candidates"] = add_group_features(
-            mutable_candidates[index], parametric_answer=parametric[index]
-        )
-        output_rows.append(output)
-    _write_jsonl(out, output_rows)
+    _write_jsonl(out, materialize_answer_rows(rows, extracted=extracted, parametric=parametric))
+
+
+def judge_pilot_reliability(
+    *, answer_cache: Path, out: Path, model_id: str, device: str, batch_size: int
+) -> None:
+    """Resume from answer cache and persist final reliability-aware features."""
+
+    rows = _read_jsonl(answer_cache)
+    generator = GraniteBatchGenerator(model_id, device=device)
+    judgments = generator.generate(
+        [
+            RELIABILITY_PROMPT.format(
+                question=row["question"],
+                passage=str(candidate["text"])[:PASSAGE_CHARS],
+                candidate_answer=candidate["extracted_answer"],
+            )
+            for row in rows
+            for candidate in row["candidates"]
+        ],
+        batch_size=batch_size,
+        max_new_tokens=64,
+    )
+    _write_jsonl(out, materialize_reliability_rows(rows, judgments=judgments))
 
 
 def _groups_by_split(rows: Sequence[Mapping[str, object]]) -> dict[str, dict[str, list[dict[str, object]]]]:
@@ -1150,6 +1237,18 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     extract.add_argument("--model-id", required=True)
     extract.add_argument("--device", default="cuda:0")
     extract.add_argument("--batch-size", type=int, default=32)
+    extract_answers = subparsers.add_parser("extract-answers")
+    extract_answers.add_argument("--ranked-pool", type=Path, required=True)
+    extract_answers.add_argument("--out", type=Path, required=True)
+    extract_answers.add_argument("--model-id", required=True)
+    extract_answers.add_argument("--device", default="cuda:0")
+    extract_answers.add_argument("--batch-size", type=int, default=32)
+    judge_reliability = subparsers.add_parser("judge-reliability")
+    judge_reliability.add_argument("--answer-cache", type=Path, required=True)
+    judge_reliability.add_argument("--out", type=Path, required=True)
+    judge_reliability.add_argument("--model-id", required=True)
+    judge_reliability.add_argument("--device", default="cuda:0")
+    judge_reliability.add_argument("--batch-size", type=int, default=32)
     train = subparsers.add_parser("train")
     train.add_argument("--feature-cache", type=Path, required=True)
     train.add_argument("--out-dir", type=Path, required=True)
@@ -1197,6 +1296,22 @@ def main(argv: Sequence[str] | None = None) -> None:
     elif args.command == "extract":
         extract_pilot_features(
             ranked_pool=args.ranked_pool,
+            out=args.out,
+            model_id=args.model_id,
+            device=args.device,
+            batch_size=args.batch_size,
+        )
+    elif args.command == "extract-answers":
+        extract_pilot_answers(
+            ranked_pool=args.ranked_pool,
+            out=args.out,
+            model_id=args.model_id,
+            device=args.device,
+            batch_size=args.batch_size,
+        )
+    elif args.command == "judge-reliability":
+        judge_pilot_reliability(
+            answer_cache=args.answer_cache,
             out=args.out,
             model_id=args.model_id,
             device=args.device,

@@ -10,6 +10,8 @@ from eval.niah_selector_pilot import (
     add_group_features,
     holm_adjust,
     minmax,
+    materialize_answer_rows,
+    materialize_reliability_rows,
     non_answer_passes_validator,
     parse_reliability_judgment,
     rank_candidates,
@@ -21,6 +23,42 @@ from eval.niah_selector_pilot import (
 
 def test_pilot_matches_existing_corroboration_passage_budget() -> None:
     assert PASSAGE_CHARS == 600
+
+
+def test_staged_feature_materialization_preserves_answer_cache() -> None:
+    rows = [
+        {
+            "query_id": "q1",
+            "candidates": [
+                {
+                    "candidate_id": "a",
+                    "source_parent_id": "p1",
+                    "relevance_score": 0.9,
+                    "original_rank": 1,
+                },
+                {
+                    "candidate_id": "b",
+                    "source_parent_id": "p2",
+                    "relevance_score": 0.8,
+                    "original_rank": 2,
+                },
+            ],
+        }
+    ]
+    answers = materialize_answer_rows(rows, extracted=["answer", "NONE"], parametric=["answer"])
+    assert answers[0]["candidates"][0]["extracted_answer"] == "answer"
+    assert answers[0]["parametric_answer"] == "answer"
+
+    final = materialize_reliability_rows(
+        answers,
+        judgments=[
+            '{"direct_support": 2, "condition_coverage": 1, "evidence_sufficiency": 2}',
+            '{"direct_support": 0, "condition_coverage": 1, "evidence_sufficiency": 0}',
+        ],
+    )
+    assert final[0]["candidates"][0]["judge_direct_support"] == 1.0
+    assert final[0]["candidates"][1]["judge_direct_support"] == 0.0
+    assert final[0]["candidates"][0]["parametric_agreement"] == 1.0
 
 
 def test_utility_grade_maps_official_and_synthetic_sources() -> None:
