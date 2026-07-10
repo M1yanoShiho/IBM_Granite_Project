@@ -310,6 +310,20 @@ def _clean_entity(value: str) -> str:
     return first_line.strip(" \t\"'`.*:-")
 
 
+def non_answer_passes_validator(
+    text: str, *, aliases: Sequence[str], validator_output: str
+) -> bool:
+    """Keep a synthetic non-answer only when literal and semantic checks agree."""
+
+    if not text.strip():
+        return False
+    if any(
+        alias.strip().casefold() in text.casefold() for alias in aliases if alias.strip()
+    ):
+        return False
+    return not is_valid_answer(validator_output)
+
+
 def generate_pilot_material(
     *, base_pool: Path, out: Path, model_id: str, device: str, batch_size: int
 ) -> None:
@@ -394,6 +408,56 @@ def generate_pilot_material(
         item["candidates"] = candidates
         enriched.append(item)
     _write_jsonl(out, enriched)
+
+
+def validate_generated_non_answers(
+    *, generated_pool: Path, out: Path, model_id: str, device: str, batch_size: int
+) -> None:
+    """Remove synthetic passages that Granite can answer despite literal filtering."""
+
+    rows = _read_jsonl(generated_pool)
+    prompts: list[str] = []
+    positions: list[tuple[int, str]] = []
+    for row_index, row in enumerate(rows):
+        for candidate in row["candidates"]:
+            if candidate["source"] != "generative_non_answer":
+                continue
+            prompts.append(
+                EXTRACT_PROMPT.format(
+                    question=row["question"], passage=str(candidate["text"])[:900]
+                )
+            )
+            positions.append((row_index, str(candidate["candidate_id"])))
+    generator = GraniteBatchGenerator(model_id, device=device)
+    judgments = generator.generate(prompts, batch_size=batch_size, max_new_tokens=32)
+    judgment_by_position = dict(zip(positions, judgments))
+    validated: list[dict[str, object]] = []
+    for row_index, row in enumerate(rows):
+        item = dict(row)
+        candidates: list[dict[str, object]] = []
+        validator_output = None
+        for candidate_raw in row["candidates"]:
+            candidate = dict(candidate_raw)
+            if candidate["source"] != "generative_non_answer":
+                candidates.append(candidate)
+                continue
+            validator_output = judgment_by_position[
+                (row_index, str(candidate["candidate_id"]))
+            ]
+            if non_answer_passes_validator(
+                str(candidate["text"]),
+                aliases=[str(alias) for alias in row["answers"]],
+                validator_output=validator_output,
+            ):
+                candidates.append(candidate)
+        item["non_answer_validation_applied"] = True
+        item["non_answer_validator_output"] = validator_output
+        item["non_answer_valid"] = any(
+            candidate["source"] == "generative_non_answer" for candidate in candidates
+        )
+        item["candidates"] = candidates
+        validated.append(item)
+    _write_jsonl(out, validated)
 
 
 def rank_pilot_pool(
@@ -919,6 +983,12 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     generate.add_argument("--model-id", required=True)
     generate.add_argument("--device", default="cuda:0")
     generate.add_argument("--batch-size", type=int, default=16)
+    validate = subparsers.add_parser("validate-non-answers")
+    validate.add_argument("--generated-pool", type=Path, required=True)
+    validate.add_argument("--out", type=Path, required=True)
+    validate.add_argument("--model-id", required=True)
+    validate.add_argument("--device", default="cuda:0")
+    validate.add_argument("--batch-size", type=int, default=32)
     rank = subparsers.add_parser("rank")
     rank.add_argument("--generated-pool", type=Path, required=True)
     rank.add_argument("--out", type=Path, required=True)
@@ -946,6 +1016,14 @@ def main(argv: Sequence[str] | None = None) -> None:
     elif args.command == "generate":
         generate_pilot_material(
             base_pool=args.base_pool,
+            out=args.out,
+            model_id=args.model_id,
+            device=args.device,
+            batch_size=args.batch_size,
+        )
+    elif args.command == "validate-non-answers":
+        validate_generated_non_answers(
+            generated_pool=args.generated_pool,
             out=args.out,
             model_id=args.model_id,
             device=args.device,

@@ -7,6 +7,7 @@ import math
 from eval.niah_selector_pilot import (
     add_group_features,
     minmax,
+    non_answer_passes_validator,
     parse_reliability_judgment,
     rank_candidates,
     selector_metrics,
@@ -127,3 +128,24 @@ def test_parse_reliability_judgment_rejects_out_of_range_scores() -> None:
         '{"direct_support": 3, "condition_coverage": 1, "evidence_sufficiency": 2}'
     )
     assert parsed["judge_parse_failure"] == 1.0
+
+
+def test_non_answer_validator_rejects_paraphrased_answers_found_by_granite() -> None:
+    assert non_answer_passes_validator(
+        "The topic concerns the history of legislative chambers.",
+        aliases=["ancient Roman Senate"],
+        validator_output="NONE",
+    )
+    assert not non_answer_passes_validator(
+        "It was inspired by the ancient Roman model.",
+        aliases=["ancient Roman Senate"],
+        validator_output="ancient Roman model",
+    )
+
+
+def test_non_answer_validator_also_rejects_literal_gold_aliases() -> None:
+    assert not non_answer_passes_validator(
+        "The answer is the Ancient Roman Senate.",
+        aliases=["ancient Roman Senate"],
+        validator_output="NONE",
+    )
