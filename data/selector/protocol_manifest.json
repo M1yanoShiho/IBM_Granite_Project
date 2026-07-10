@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "branch": "week5_MLSelector",
+  "first_stage": "q2d_granite",
+  "candidate_pool_size": 20,
+  "generator_context_size": 10,
+  "max_tokens_per_candidate": 384,
+  "total_evidence_token_budget": 4096,
+  "corroboration_relevance_alpha": 0.6,
+  "random_seeds": [13, 42, 73],
+  "primary_selector_metric": "ndcg@10",
+  "harmful_rate_improvement_gate": -0.02,
+  "ndcg_improvement_gate": 0.02,
+  "required_evidence_non_inferiority_margin": -0.01,
+  "deterministic_tie_break": ["first_stage_rank", "doc_id_ascending"],
+  "utility_grades": [0, 1, 2, 3, 4],
+  "label_gains": [0, 1, 3, 7, 15],
+  "legacy_nq_300_role": "legacy_replication",
+  "sealed_niah_role": "confirmatory_test",
+  "ramdocs_official_context_size": 3,
+  "ramdocs_adapted_candidate_pool_size": 20,
+  "ramdocs_adapted_context_size": 10
+}

@@ -38,6 +38,8 @@ data/needles/*
 *.parquet
 *.feather
 *.json
+!data/selector/protocol_manifest.json
+!data/selector/label_schema.json
 *.jsonl
 *.txt
 !requirements.txt
