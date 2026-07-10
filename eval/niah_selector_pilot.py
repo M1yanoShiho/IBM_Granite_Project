@@ -80,17 +80,21 @@ RELIABILITY_PROMPT = (
     "these three keys.\n\n"
     "Example 1\nQuestion: Who wrote The Old Man and the Sea?\n"
     "Passage: Ernest Hemingway wrote The Old Man and the Sea.\n"
+    "Candidate answer extracted from this passage: Ernest Hemingway\n"
     'JSON: {{"direct_support": 2, "condition_coverage": 1, '
     '"evidence_sufficiency": 2}}\n\n'
     "Example 2\nQuestion: Who wrote The Old Man and the Sea?\n"
     "Passage: To research the novel's authorship, consult catalogues and publication records.\n"
+    "Candidate answer extracted from this passage: NONE\n"
     'JSON: {{"direct_support": 0, "condition_coverage": 1, '
     '"evidence_sufficiency": 0}}\n\n'
     "Example 3\nQuestion: Does the United Kingdom policy after 2025 allow the action?\n"
     "Passage: A United States policy from 2022 allowed the action.\n"
+    "Candidate answer extracted from this passage: allowed\n"
     'JSON: {{"direct_support": 0, "condition_coverage": 0, '
     '"evidence_sufficiency": 0}}\n\n'
-    "Question: {question}\nPassage: {passage}\nJSON:"
+    "Question: {question}\nPassage: {passage}\n"
+    "Candidate answer extracted from this passage: {candidate_answer}\nJSON:"
 )
 
 
@@ -648,14 +652,19 @@ def extract_pilot_features(
             )
             positions.append((row_index, candidate_index))
     extracted = generator.generate(prompts, batch_size=batch_size, max_new_tokens=32)
-    reliability = generator.generate(
-        [
+    reliability_prompts = []
+    for answer, (row_index, candidate_index) in zip(extracted, positions):
+        row = rows[row_index]
+        candidate = row["candidates"][candidate_index]
+        reliability_prompts.append(
             RELIABILITY_PROMPT.format(
-                question=row["question"], passage=str(candidate["text"])[:900]
+                question=row["question"],
+                passage=str(candidate["text"])[:900],
+                candidate_answer=answer,
             )
-            for row in rows
-            for candidate in row["candidates"]
-        ],
+        )
+    reliability = generator.generate(
+        reliability_prompts,
         batch_size=batch_size,
         max_new_tokens=64,
     )

@@ -150,6 +150,12 @@ def test_reliability_prompt_contains_non_answer_and_condition_mismatch_examples(
     assert "consult catalogues" in RELIABILITY_PROMPT
     assert '"direct_support": 0' in RELIABILITY_PROMPT
     assert "United States policy from 2022" in RELIABILITY_PROMPT
+    rendered = RELIABILITY_PROMPT.format(
+        question="Who wrote the novel?",
+        passage="The passage is background only.",
+        candidate_answer="NONE",
+    )
+    assert "Candidate answer extracted from this passage: NONE" in rendered
 
 
 def test_non_answer_validator_rejects_paraphrased_answers_found_by_granite() -> None:
