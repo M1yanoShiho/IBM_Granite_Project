@@ -442,6 +442,322 @@ def extract_pilot_features(
     _write_jsonl(out, output_rows)
 
 
+def _groups_by_split(rows: Sequence[Mapping[str, object]]) -> dict[str, dict[str, list[dict[str, object]]]]:
+    output: dict[str, dict[str, list[dict[str, object]]]] = {
+        "train": {},
+        "dev": {},
+        "test": {},
+    }
+    for row in rows:
+        output[str(row["split"])][str(row["query_id"])] = [
+            dict(candidate) for candidate in row["candidates"]
+        ]
+    return output
+
+
+def _attach_blend_scores(
+    groups: Mapping[str, list[dict[str, object]]], *, alpha: float
+) -> None:
+    for rows in groups.values():
+        correlation = minmax([float(row["exact_vote_count"]) for row in rows])
+        source_correlation = minmax(
+            [float(row["source_dedup_vote_count"]) for row in rows]
+        )
+        for index, row in enumerate(rows):
+            relevance = float(row["relevance_normalized"])
+            row["q2d_score"] = float(row["relevance_score"])
+            row["fixed_score"] = alpha * relevance + (1.0 - alpha) * correlation[index]
+            row["source_dedup_fixed_score"] = (
+                alpha * relevance + (1.0 - alpha) * source_correlation[index]
+            )
+
+
+def _flatten_training(
+    groups: Mapping[str, Sequence[Mapping[str, object]]], features: Sequence[str]
+):
+    import numpy as np
+
+    ordered = [(qid, groups[qid]) for qid in sorted(groups)]
+    x = np.asarray(
+        [[float(row[feature]) for feature in features] for _, rows in ordered for row in rows],
+        dtype=np.float32,
+    )
+    y = np.asarray(
+        [int(row["utility_grade"]) for _, rows in ordered for row in rows], dtype=np.int32
+    )
+    group = [len(rows) for _, rows in ordered]
+    return x, y, group, ordered
+
+
+def _fit_ranker(
+    train_groups: Mapping[str, Sequence[Mapping[str, object]]],
+    dev_groups: Mapping[str, Sequence[Mapping[str, object]]],
+    *,
+    features: Sequence[str],
+    seed: int,
+    shuffled_labels: bool = False,
+):
+    import lightgbm as lgb
+    import numpy as np
+
+    x_train, y_train, train_sizes, _ = _flatten_training(train_groups, features)
+    x_dev, y_dev, dev_sizes, _ = _flatten_training(dev_groups, features)
+    if shuffled_labels:
+        rng = np.random.default_rng(seed)
+        offset = 0
+        for size in train_sizes:
+            rng.shuffle(y_train[offset : offset + size])
+            offset += size
+    model = lgb.LGBMRanker(
+        objective="lambdarank",
+        metric="ndcg",
+        eval_at=[10],
+        label_gain=list(LABEL_GAINS),
+        n_estimators=600,
+        learning_rate=0.03,
+        num_leaves=15,
+        max_depth=5,
+        min_child_samples=20,
+        feature_fraction=0.9,
+        reg_lambda=1.0,
+        random_state=seed,
+        deterministic=True,
+        force_col_wise=True,
+        verbosity=-1,
+    )
+    model.fit(
+        x_train,
+        y_train,
+        group=train_sizes,
+        eval_set=[(x_dev, y_dev)],
+        eval_group=[dev_sizes],
+        callbacks=[lgb.early_stopping(40, verbose=False)],
+    )
+    return model
+
+
+def _predict_groups(model, groups: Mapping[str, list[dict[str, object]]], features, key: str) -> None:
+    import numpy as np
+
+    for rows in groups.values():
+        x = np.asarray(
+            [[float(row[feature]) for feature in features] for row in rows], dtype=np.float32
+        )
+        predictions = model.predict(x, num_iteration=model.best_iteration_)
+        for row, prediction in zip(rows, predictions):
+            row[key] = float(prediction)
+
+
+def _query_metric_vector(
+    groups: Mapping[str, Sequence[Mapping[str, object]]], *, score_key: str, k: int
+) -> dict[str, dict[str, float]]:
+    output: dict[str, dict[str, float]] = {}
+    for qid, rows in groups.items():
+        ranked = rank_candidates(rows, score_key)
+        selected = ranked[:k]
+        grades = [int(row["utility_grade"]) for row in selected]
+        ideal = sorted((int(row["utility_grade"]) for row in rows), reverse=True)[:k]
+        required_total = sum(int(row["utility_grade"]) >= 3 for row in rows)
+        output[qid] = {
+            "ndcg": _dcg(grades) / _dcg(ideal) if _dcg(ideal) else 0.0,
+            "required_recall": (
+                sum(int(row["utility_grade"]) >= 3 for row in selected) / required_total
+                if required_total
+                else 1.0
+            ),
+            "harmful_rate": sum(int(row["utility_grade"]) == 0 for row in selected)
+            / max(1, len(selected)),
+        }
+    return output
+
+
+def _paired_bootstrap(
+    reference: Mapping[str, Mapping[str, float]],
+    method: Mapping[str, Mapping[str, float]],
+    *,
+    metric: str,
+    improvement_sign: float,
+    seed: int = 42,
+    samples: int = 5000,
+) -> dict[str, float]:
+    import numpy as np
+
+    qids = sorted(set(reference).intersection(method))
+    delta = np.asarray(
+        [improvement_sign * (method[qid][metric] - reference[qid][metric]) for qid in qids]
+    )
+    rng = np.random.default_rng(seed)
+    boot = np.empty(samples, dtype=float)
+    for index in range(samples):
+        boot[index] = delta[rng.integers(0, len(delta), len(delta))].mean()
+    return {
+        "delta": float(delta.mean()),
+        "ci_low": float(np.quantile(boot, 0.025)),
+        "ci_high": float(np.quantile(boot, 0.975)),
+        "p_two_sided": float(
+            min(1.0, 2.0 * min((boot <= 0).mean(), (boot >= 0).mean()))
+        ),
+    }
+
+
+def train_and_evaluate(*, feature_cache: Path, out_dir: Path) -> None:
+    """Train Core/Full LambdaRank models and run the sealed controlled test once."""
+
+    import numpy as np
+    from sklearn.linear_model import LogisticRegression
+
+    all_groups = _groups_by_split(_read_jsonl(feature_cache))
+    for groups in all_groups.values():
+        _attach_blend_scores(groups, alpha=0.6)
+
+    alpha_grid = [index / 20 for index in range(21)]
+    alpha_scores: list[tuple[float, float]] = []
+    for alpha in alpha_grid:
+        for rows in all_groups["dev"].values():
+            corr = minmax([float(row["exact_vote_count"]) for row in rows])
+            for index, row in enumerate(rows):
+                row["alpha_tune_score"] = alpha * float(row["relevance_normalized"]) + (
+                    1.0 - alpha
+                ) * corr[index]
+        score = selector_metrics(all_groups["dev"], score_key="alpha_tune_score", k=10)[
+            "ndcg@10"
+        ]
+        alpha_scores.append((alpha, score))
+    alpha_star = max(alpha_scores, key=lambda pair: (pair[1], pair[0]))[0]
+    for split_groups in all_groups.values():
+        for rows in split_groups.values():
+            corr = minmax([float(row["exact_vote_count"]) for row in rows])
+            for index, row in enumerate(rows):
+                row["alpha_star_score"] = alpha_star * float(row["relevance_normalized"]) + (
+                    1.0 - alpha_star
+                ) * corr[index]
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    seeds = (13, 42, 73)
+    models: dict[str, list[object]] = {"core": [], "full": []}
+    for name, features in (("core", CORE_FEATURES), ("full", FULL_FEATURES)):
+        for seed in seeds:
+            model = _fit_ranker(
+                all_groups["train"], all_groups["dev"], features=features, seed=seed
+            )
+            model.booster_.save_model(str(out_dir / f"{name}_seed{seed}.txt"))
+            models[name].append(model)
+        for split in ("dev", "test"):
+            for rows in all_groups[split].values():
+                predictions = []
+                for model in models[name]:
+                    x = np.asarray(
+                        [[float(row[feature]) for feature in features] for row in rows],
+                        dtype=np.float32,
+                    )
+                    predictions.append(model.predict(x, num_iteration=model.best_iteration_))
+                averaged = np.mean(np.stack(predictions), axis=0)
+                for row, prediction in zip(rows, averaged):
+                    row[f"ml_{name}_score"] = float(prediction)
+
+    x_train, y_train_grade, _, train_order = _flatten_training(
+        all_groups["train"], CORE_FEATURES
+    )
+    y_train = (y_train_grade >= 3).astype(int)
+    logistic = LogisticRegression(max_iter=1000, class_weight="balanced", random_state=42)
+    logistic.fit(x_train, y_train)
+    for split in ("dev", "test"):
+        for rows in all_groups[split].values():
+            x = np.asarray(
+                [[float(row[feature]) for feature in CORE_FEATURES] for row in rows],
+                dtype=np.float32,
+            )
+            for row, score in zip(rows, logistic.predict_proba(x)[:, 1]):
+                row["logistic_score"] = float(score)
+
+    shuffled = _fit_ranker(
+        all_groups["train"],
+        all_groups["dev"],
+        features=FULL_FEATURES,
+        seed=42,
+        shuffled_labels=True,
+    )
+    _predict_groups(shuffled, all_groups["test"], FULL_FEATURES, "shuffled_label_score")
+
+    methods = {
+        "q2d": "q2d_score",
+        "fixed_0.6": "fixed_score",
+        "alpha_star": "alpha_star_score",
+        "source_dedup_fixed": "source_dedup_fixed_score",
+        "logistic": "logistic_score",
+        "ml_core": "ml_core_score",
+        "ml_full": "ml_full_score",
+        "shuffled_label": "shuffled_label_score",
+    }
+    metrics = {
+        split: {
+            method: selector_metrics(all_groups[split], score_key=score_key, k=10)
+            for method, score_key in methods.items()
+            if all(score_key in row for rows in all_groups[split].values() for row in rows)
+        }
+        for split in ("dev", "test")
+    }
+    fixed_vector = _query_metric_vector(
+        all_groups["test"], score_key="fixed_score", k=10
+    )
+    full_vector = _query_metric_vector(
+        all_groups["test"], score_key="ml_full_score", k=10
+    )
+    statistics = {
+        "ndcg_improvement": _paired_bootstrap(
+            fixed_vector, full_vector, metric="ndcg", improvement_sign=1.0
+        ),
+        "harmful_rate_reduction": _paired_bootstrap(
+            fixed_vector, full_vector, metric="harmful_rate", improvement_sign=-1.0
+        ),
+        "required_recall_change": _paired_bootstrap(
+            fixed_vector, full_vector, metric="required_recall", improvement_sign=1.0
+        ),
+    }
+    gate1 = {
+        "ndcg_delta_at_least_0.02": statistics["ndcg_improvement"]["delta"] >= 0.02,
+        "harmful_reduction_at_least_0.02": statistics["harmful_rate_reduction"]["delta"]
+        >= 0.02,
+        "ndcg_ci_lower_above_zero": statistics["ndcg_improvement"]["ci_low"] > 0,
+        "harmful_ci_lower_above_zero": statistics["harmful_rate_reduction"]["ci_low"] > 0,
+        "required_recall_noninferior": statistics["required_recall_change"]["ci_low"]
+        > -0.01,
+    }
+    gate1["passed"] = all(gate1.values())
+    result = {
+        "protocol": {
+            "candidate_pool": "DPR per-query hard pool reranked by Query2Doc + Granite",
+            "top_n": 20,
+            "context_k": 10,
+            "fixed_alpha": 0.6,
+            "alpha_star": alpha_star,
+            "seeds": list(seeds),
+            "core_features": list(CORE_FEATURES),
+            "full_features": list(FULL_FEATURES),
+        },
+        "metrics": metrics,
+        "statistics": statistics,
+        "gate1": gate1,
+    }
+    (out_dir / "results.json").write_text(
+        json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    with (out_dir / "test_predictions.csv").open("w", newline="", encoding="utf-8") as stream:
+        fieldnames = ["query_id", "candidate_id", "utility_grade", *methods]
+        writer = csv.DictWriter(stream, fieldnames=fieldnames)
+        writer.writeheader()
+        for qid in sorted(all_groups["test"]):
+            for row in all_groups["test"][qid]:
+                writer.writerow(
+                    {
+                        "query_id": qid,
+                        "candidate_id": row["candidate_id"],
+                        "utility_grade": row["utility_grade"],
+                        **{method: row[score_key] for method, score_key in methods.items()},
+                    }
+                )
+
+
 def prepare_dpr_pool(*, split_manifest: Path, dataset_id: str, out: Path) -> None:
     """Materialize the 1,100-query DPR candidate pools used by the pilot."""
 
@@ -542,6 +858,9 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     extract.add_argument("--model-id", required=True)
     extract.add_argument("--device", default="cuda:0")
     extract.add_argument("--batch-size", type=int, default=32)
+    train = subparsers.add_parser("train")
+    train.add_argument("--feature-cache", type=Path, required=True)
+    train.add_argument("--out-dir", type=Path, required=True)
     return parser.parse_args(argv)
 
 
@@ -575,6 +894,8 @@ def main(argv: Sequence[str] | None = None) -> None:
             device=args.device,
             batch_size=args.batch_size,
         )
+    elif args.command == "train":
+        train_and_evaluate(feature_cache=args.feature_cache, out_dir=args.out_dir)
 
 
 if __name__ == "__main__":
