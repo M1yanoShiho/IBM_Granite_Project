@@ -7,11 +7,11 @@
 | Run ID | 阶段 | 任务 | 数据 | 关键产出 | 通过检查 | 优先级 | 状态 |
 |---|---|---|---|---|---|---|---|
 | P001 | M0 | 冻结标签 schema、主比较、指标和 Gate | 全部 | `protocol_manifest.json` | 独立审查通过；41 项测试通过 | MUST | DONE |
-| D001 | M1 | 建立 dataset manifest 和许可记录 | 全部 | `dataset_manifest.json` | 字段与官方说明一致 | MUST | TODO |
+| D001 | M1 | 建立 dataset manifest 和许可记录 | 全部 | `dataset_manifest.json` | 官方数据双运行逐字节一致 | MUST | DONE |
 | D002 | M1 | 建立父页面和 synthetic-family split | 新 NIAH | `split_manifest.json` | 父页面/family 无交叉 | MUST | TODO |
-| D003 | M1 | 验证官方 contract split | ContractNLI | contract split | contract 无交叉 | MUST | TODO |
-| D004 | M1 | 建立 company nested 5-fold | FinanceBench | company folds | company 无交叉 | MUST | TODO |
-| D005 | M1 | 准备 official 与 adapted 两套协议 | RAMDocs | RAMDocs / RAMDocs-20 manifest | 不使用测试标签挖负例 | MUST | TODO |
+| D003 | M1 | 验证官方 contract split | ContractNLI | contract split | 423/61/123 合同零交叉 | MUST | DONE |
+| D004 | M1 | 建立 company nested 5-fold | FinanceBench | company folds | 5 折各 30 题，公司零交叉 | MUST | DONE |
+| D005 | M1 | 准备 official 与 adapted 两套协议 | RAMDocs | RAMDocs / RAMDocs-20 manifest | official 就绪；adapted 待挖负例 | MUST | DONE |
 | L001 | M2 | 实现多维标签 schema | 全部 | `label_schema.json` | 独立审查通过；严格类型校验 | MUST | DONE |
 | L002 | M2 | 派生五级 utility 和 harmful flag | 全部 | labeled candidates | 映射规则可复现 | MUST | TODO |
 | L003 | M2 | 标注和复核至少 80 个 query group | 分层样本 | `label_audit.csv` | weighted kappa ≥ 0.70 | MUST | TODO |

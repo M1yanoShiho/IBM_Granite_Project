@@ -40,6 +40,8 @@ data/needles/*
 *.json
 !data/selector/protocol_manifest.json
 !data/selector/label_schema.json
+!data/selector/dataset_manifest.json
+!data/selector/split_manifest.json
 *.jsonl
 *.txt
 !requirements.txt
