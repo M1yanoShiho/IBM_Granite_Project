@@ -43,6 +43,18 @@ def selection_diagnostics(
     }
 
 
+def required_evidence_subset(
+    groups: Mapping[str, Sequence[Mapping[str, object]]],
+) -> dict[str, Sequence[Mapping[str, object]]]:
+    """Keep groups where candidate generation made selection possible."""
+
+    return {
+        query_id: rows
+        for query_id, rows in groups.items()
+        if any(int(row["utility_grade"]) >= 3 for row in rows)
+    }
+
+
 def _read_jsonl(path: Path) -> list[dict[str, object]]:
     with path.open(encoding="utf-8") as stream:
         return [json.loads(line) for line in stream if line.strip()]
@@ -143,6 +155,11 @@ def evaluate_external(
                 for query_id, candidates in groups.items()
             },
             3,
+        )
+    if dataset == "financebench":
+        subsets["retrieval_success_top20_to_10"] = (
+            required_evidence_subset(groups),
+            10,
         )
     metrics: dict[str, object] = {}
     for subset_name, (subset_groups, k) in subsets.items():

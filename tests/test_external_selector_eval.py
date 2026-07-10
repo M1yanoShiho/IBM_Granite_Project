@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from eval.external_selector_eval import selection_diagnostics
+from eval.external_selector_eval import required_evidence_subset, selection_diagnostics
 
 
 def test_selection_diagnostics_separates_coverage_harm_and_strict_success() -> None:
@@ -36,3 +36,11 @@ def test_selection_diagnostics_handles_empty_groups() -> None:
         "harmful_query_exposure@10": 0.0,
         "strict_selection_success@10": 0.0,
     }
+
+
+def test_required_evidence_subset_removes_retrieval_failures() -> None:
+    groups = {
+        "hit": [{"utility_grade": 3}],
+        "miss": [{"utility_grade": 2}, {"utility_grade": 0}],
+    }
+    assert required_evidence_subset(groups) == {"hit": [{"utility_grade": 3}]}
