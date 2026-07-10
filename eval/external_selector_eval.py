@@ -55,6 +55,32 @@ def required_evidence_subset(
     }
 
 
+def comparison_statistics(
+    groups: Mapping[str, Sequence[Mapping[str, object]]], *, k: int
+) -> dict[str, dict[str, float]]:
+    """Compare Full with fixed on one explicitly named evaluation subset."""
+
+    fixed_vector = _query_metric_vector(groups, score_key="fixed_score", k=k)
+    full_vector = _query_metric_vector(groups, score_key="ml_full_score", k=k)
+    statistics = {
+        "ndcg_improvement": _paired_bootstrap(
+            fixed_vector, full_vector, metric="ndcg", improvement_sign=1.0
+        ),
+        "harmful_rate_reduction": _paired_bootstrap(
+            fixed_vector, full_vector, metric="harmful_rate", improvement_sign=-1.0
+        ),
+        "required_recall_change": _paired_bootstrap(
+            fixed_vector, full_vector, metric="required_recall", improvement_sign=1.0
+        ),
+    }
+    adjusted = holm_adjust(
+        {name: values["p_two_sided"] for name, values in statistics.items()}
+    )
+    for name, value in adjusted.items():
+        statistics[name]["holm_adjusted_p"] = value
+    return statistics
+
+
 def _read_jsonl(path: Path) -> list[dict[str, object]]:
     with path.open(encoding="utf-8") as stream:
         return [json.loads(line) for line in stream if line.strip()]
@@ -170,30 +196,18 @@ def evaluate_external(
             }
             for method, score_key in methods.items()
         }
-    fixed_vector = _query_metric_vector(groups, score_key="fixed_score", k=10)
-    full_vector = _query_metric_vector(groups, score_key="ml_full_score", k=10)
-    statistics = {
-        "ndcg_improvement": _paired_bootstrap(
-            fixed_vector, full_vector, metric="ndcg", improvement_sign=1.0
-        ),
-        "harmful_rate_reduction": _paired_bootstrap(
-            fixed_vector, full_vector, metric="harmful_rate", improvement_sign=-1.0
-        ),
-        "required_recall_change": _paired_bootstrap(
-            fixed_vector, full_vector, metric="required_recall", improvement_sign=1.0
-        ),
+    statistics_by_subset = {
+        subset_name: comparison_statistics(subset_groups, k=k)
+        for subset_name, (subset_groups, k) in subsets.items()
     }
-    adjusted = holm_adjust(
-        {name: values["p_two_sided"] for name, values in statistics.items()}
-    )
-    for name, value in adjusted.items():
-        statistics[name]["holm_adjusted_p"] = value
+    statistics = statistics_by_subset["adapted_top20_to_10"]
     result = {
         "dataset": dataset,
         "training_domain": "controlled_niah_only",
         "protocol": {"candidate_pool": 20, "context_k": 10, "alpha_star": alpha_star},
         "metrics": metrics,
         "statistics_full_vs_fixed": statistics,
+        "statistics_full_vs_fixed_by_subset": statistics_by_subset,
     }
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "results.json").write_text(

@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
-from eval.external_selector_eval import required_evidence_subset, selection_diagnostics
+from eval.external_selector_eval import (
+    comparison_statistics,
+    required_evidence_subset,
+    selection_diagnostics,
+)
 
 
 def test_selection_diagnostics_separates_coverage_harm_and_strict_success() -> None:
@@ -44,3 +48,14 @@ def test_required_evidence_subset_removes_retrieval_failures() -> None:
         "miss": [{"utility_grade": 2}, {"utility_grade": 0}],
     }
     assert required_evidence_subset(groups) == {"hit": [{"utility_grade": 3}]}
+
+
+def test_comparison_statistics_is_zero_for_identical_rankings() -> None:
+    groups = {
+        "q": [
+            {"candidate_id": "a", "utility_grade": 4, "fixed_score": 1, "ml_full_score": 1},
+            {"candidate_id": "b", "utility_grade": 0, "fixed_score": 0, "ml_full_score": 0},
+        ]
+    }
+    result = comparison_statistics(groups, k=1)
+    assert all(values["delta"] == 0.0 for values in result.values())
