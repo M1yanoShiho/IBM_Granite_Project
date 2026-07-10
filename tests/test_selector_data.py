@@ -158,7 +158,17 @@ def test_loaders_return_immutable_metadata_only_records_and_audits(tmp_path: Pat
         root / "RAMDocs/RAMDocs_test.jsonl"
     )
 
-    assert finance_audit == finance_audit.__class__(10, 10, 10, 10, 3)
+    assert finance_audit == finance_audit.__class__(
+        question_count=10,
+        company_count=10,
+        document_count=10,
+        document_row_count=10,
+        unique_document_count=10,
+        duplicate_document_name_count=0,
+        metadata_conflict_count=0,
+        evidence_count=10,
+        pdf_count=3,
+    )
     assert contract_audit.split("train").document_count == 1
     assert contract_audit.split("train").hypothesis_count == 2
     assert contract_audit.split("train").annotation_choice_counts == {
@@ -241,9 +251,13 @@ def test_cli_writes_exact_deterministic_manifest_shape(tmp_path: Path) -> None:
     assert dataset["datasets"]["financebench"]["audit"] == {
         "company_count": 10,
         "document_count": 10,
+        "document_row_count": 10,
+        "duplicate_document_name_count": 0,
         "evidence_count": 10,
+        "metadata_conflict_count": 0,
         "pdf_count": 3,
         "question_count": 10,
+        "unique_document_count": 10,
     }
     assert set(splits) == {"schema_version", "seed", "datasets"}
     assert splits["schema_version"] == "1.0"
@@ -360,6 +374,75 @@ def test_financebench_rejects_duplicate_official_id(tmp_path: Path) -> None:
         stream.write(json.dumps(duplicate) + "\n")
 
     with pytest.raises(ValueError, match=r"duplicate financebench_id.*0"):
+        load_financebench(question_path, document_path, pdf_dir)
+
+
+def test_financebench_accepts_and_audits_official_style_period_conflict(
+    tmp_path: Path,
+) -> None:
+    root = _official_layout(tmp_path / "raw")
+    question_path, document_path, pdf_dir = _finance_paths(root)
+    duplicate = {
+        "doc_name": "Company-0_2025_10K",
+        "company": "Company-0",
+        "doc_type": "10K",
+        "doc_period": 2024,
+        "doc_link": "https://example.test/0.pdf",
+    }
+    with document_path.open("a", encoding="utf-8") as stream:
+        stream.write(json.dumps(duplicate) + "\n")
+
+    _, audit = load_financebench(question_path, document_path, pdf_dir)
+
+    assert audit.document_count == 10
+    assert audit.document_row_count == 11
+    assert audit.unique_document_count == 10
+    assert audit.duplicate_document_name_count == 1
+    assert audit.metadata_conflict_count == 1
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("company", "Different Company"),
+        ("doc_link", "https://example.test/different.pdf"),
+    ],
+)
+def test_financebench_rejects_duplicate_document_identity_conflict(
+    tmp_path: Path, field: str, value: str
+) -> None:
+    root = _official_layout(tmp_path / "raw")
+    question_path, document_path, pdf_dir = _finance_paths(root)
+    duplicate = {
+        "doc_name": "Company-0_2025_10K",
+        "company": "Company-0",
+        "doc_type": "10K",
+        "doc_period": 2025,
+        "doc_link": "https://example.test/0.pdf",
+    }
+    duplicate[field] = value
+    with document_path.open("a", encoding="utf-8") as stream:
+        stream.write(json.dumps(duplicate) + "\n")
+
+    with pytest.raises(
+        ValueError,
+        match=rf"duplicate doc_name.*Company-0_2025_10K.*conflicting {field}",
+    ):
+        load_financebench(question_path, document_path, pdf_dir)
+
+
+def test_financebench_rejects_question_with_missing_document_metadata(
+    tmp_path: Path,
+) -> None:
+    root = _official_layout(tmp_path / "raw")
+    question_path, document_path, pdf_dir = _finance_paths(root)
+    metadata_rows = [json.loads(line) for line in document_path.read_text().splitlines()]
+    _write_jsonl(document_path, metadata_rows[1:])
+
+    with pytest.raises(
+        ValueError,
+        match=r"question doc_name.*Company-0_2025_10K.*missing from document metadata",
+    ):
         load_financebench(question_path, document_path, pdf_dir)
 
 

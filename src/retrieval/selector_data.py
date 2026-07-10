@@ -31,6 +31,10 @@ class FinanceBenchAudit:
     question_count: int
     company_count: int
     document_count: int
+    document_row_count: int
+    unique_document_count: int
+    duplicate_document_name_count: int
+    metadata_conflict_count: int
     evidence_count: int
     pdf_count: int
 
@@ -301,16 +305,54 @@ def load_financebench(
         raise ValueError(message) from exc
 
     document_rows = _load_jsonl(Path(document_information_path))
-    document_names: list[str] = []
+    document_metadata: dict[str, tuple[str, str, dict[str, object]]] = {}
+    duplicate_document_names: set[str] = set()
+    metadata_conflicts: set[str] = set()
     for index, row in enumerate(document_rows, start=1):
         context = f"{document_information_path} line {index}"
-        document_names.append(
-            _non_empty_string(
-                _required(row, "doc_name", context), f"{context}.doc_name"
-            )
+        doc_name = _non_empty_string(
+            _required(row, "doc_name", context), f"{context}.doc_name"
         )
-        _non_empty_string(_required(row, "company", context), f"{context}.company")
-    validate_unique_ids(document_names, id_kind="document")
+        company = _non_empty_string(
+            _required(row, "company", context), f"{context}.company"
+        )
+        doc_link = _non_empty_string(
+            _required(row, "doc_link", context), f"{context}.doc_link"
+        )
+        previous = document_metadata.get(doc_name)
+        if previous is None:
+            document_metadata[doc_name] = (company, doc_link, row)
+            continue
+
+        duplicate_document_names.add(doc_name)
+        previous_company, previous_link, previous_row = previous
+        for field, previous_value, current_value in (
+            ("company", previous_company, company),
+            ("doc_link", previous_link, doc_link),
+        ):
+            if current_value != previous_value:
+                raise ValueError(
+                    f"duplicate doc_name {doc_name!r} has conflicting {field}: "
+                    f"{previous_value!r} != {current_value!r}"
+                )
+        identity_fields = {"doc_name", "company", "doc_link"}
+        previous_details = {
+            key: value for key, value in previous_row.items() if key not in identity_fields
+        }
+        current_details = {
+            key: value for key, value in row.items() if key not in identity_fields
+        }
+        if current_details != previous_details:
+            metadata_conflicts.add(doc_name)
+
+    missing_document_names = sorted(
+        {record.doc_name for record in records} - set(document_metadata)
+    )
+    if missing_document_names:
+        raise ValueError(
+            f"question doc_name {missing_document_names[0]!r} is missing from "
+            "document metadata"
+        )
 
     pdf_path = Path(pdf_dir)
     if not pdf_path.is_dir():
@@ -323,7 +365,11 @@ def load_financebench(
     audit = FinanceBenchAudit(
         question_count=len(records),
         company_count=len({record.company for record in records}),
-        document_count=len(document_rows),
+        document_count=len(document_metadata),
+        document_row_count=len(document_rows),
+        unique_document_count=len(document_metadata),
+        duplicate_document_name_count=len(duplicate_document_names),
+        metadata_conflict_count=len(metadata_conflicts),
         evidence_count=sum(record.evidence_count for record in records),
         pdf_count=pdf_count,
     )
