@@ -77,7 +77,20 @@ RELIABILITY_PROMPT = (
     "(0 misses or violates stated conditions, 1 partial or no explicit condition, "
     "2 covers all stated conditions), and evidence_sufficiency (0 unusable, 1 needs "
     "other evidence, 2 sufficient by itself). Return only a JSON object with exactly "
-    "these three keys.\nQuestion: {question}\nPassage: {passage}\nJSON:"
+    "these three keys.\n\n"
+    "Example 1\nQuestion: Who wrote The Old Man and the Sea?\n"
+    "Passage: Ernest Hemingway wrote The Old Man and the Sea.\n"
+    'JSON: {{"direct_support": 2, "condition_coverage": 1, '
+    '"evidence_sufficiency": 2}}\n\n'
+    "Example 2\nQuestion: Who wrote The Old Man and the Sea?\n"
+    "Passage: To research the novel's authorship, consult catalogues and publication records.\n"
+    'JSON: {{"direct_support": 0, "condition_coverage": 1, '
+    '"evidence_sufficiency": 0}}\n\n'
+    "Example 3\nQuestion: Does the United Kingdom policy after 2025 allow the action?\n"
+    "Passage: A United States policy from 2022 allowed the action.\n"
+    'JSON: {{"direct_support": 0, "condition_coverage": 0, '
+    '"evidence_sufficiency": 0}}\n\n'
+    "Question: {question}\nPassage: {passage}\nJSON:"
 )
 
 

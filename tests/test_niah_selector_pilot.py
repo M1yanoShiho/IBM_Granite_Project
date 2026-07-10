@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 
 from eval.niah_selector_pilot import (
+    RELIABILITY_PROMPT,
     add_group_features,
     holm_adjust,
     minmax,
@@ -143,6 +144,12 @@ def test_parse_reliability_judgment_rejects_out_of_range_scores() -> None:
         '{"direct_support": 3, "condition_coverage": 1, "evidence_sufficiency": 2}'
     )
     assert parsed["judge_parse_failure"] == 1.0
+
+
+def test_reliability_prompt_contains_non_answer_and_condition_mismatch_examples() -> None:
+    assert "consult catalogues" in RELIABILITY_PROMPT
+    assert '"direct_support": 0' in RELIABILITY_PROMPT
+    assert "United States policy from 2022" in RELIABILITY_PROMPT
 
 
 def test_non_answer_validator_rejects_paraphrased_answers_found_by_granite() -> None:
