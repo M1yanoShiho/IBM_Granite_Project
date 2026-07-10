@@ -216,7 +216,9 @@ def selector_metrics(
 ) -> dict[str, float]:
     ndcgs: list[float] = []
     required_recalls: list[float] = []
-    harmful = direct = selected_count = 0
+    direct_mrr: list[float] = []
+    conflict_exposures: list[float] = []
+    harmful = direct = noise = selected_count = 0
     for rows in groups.values():
         ranked = rank_candidates(rows, score_key)
         selected = ranked[:k]
@@ -229,6 +231,15 @@ def selector_metrics(
         required_recalls.append(required_selected / required_total if required_total else 1.0)
         harmful += sum(int(row["utility_grade"]) == 0 for row in selected)
         direct += sum(int(row["utility_grade"]) == 4 for row in selected)
+        noise += sum(int(row["utility_grade"]) == 1 for row in selected)
+        first_direct = next(
+            (rank for rank, row in enumerate(selected, start=1) if int(row["utility_grade"]) == 4),
+            None,
+        )
+        direct_mrr.append(1.0 / first_direct if first_direct else 0.0)
+        conflict_exposures.append(
+            float(any(grade == 0 for grade in grades) and any(grade >= 3 for grade in grades))
+        )
         selected_count += len(selected)
     return {
         f"ndcg@{k}": sum(ndcgs) / len(ndcgs) if ndcgs else 0.0,
@@ -237,7 +248,25 @@ def selector_metrics(
         ),
         f"harmful_rate@{k}": harmful / selected_count if selected_count else 0.0,
         f"direct_support_precision@{k}": direct / selected_count if selected_count else 0.0,
+        f"noise_rate@{k}": noise / selected_count if selected_count else 0.0,
+        "mrr_direct_support": sum(direct_mrr) / len(direct_mrr) if direct_mrr else 0.0,
+        f"conflict_exposure@{k}": (
+            sum(conflict_exposures) / len(conflict_exposures) if conflict_exposures else 0.0
+        ),
     }
+
+
+def holm_adjust(p_values: Mapping[str, float]) -> dict[str, float]:
+    """Return Holm-adjusted p-values while preserving the input key order."""
+
+    ranked = sorted(p_values.items(), key=lambda pair: (pair[1], pair[0]))
+    adjusted_ranked: dict[str, float] = {}
+    running = 0.0
+    total = len(ranked)
+    for rank, (name, value) in enumerate(ranked):
+        running = max(running, min(1.0, (total - rank) * float(value)))
+        adjusted_ranked[name] = running
+    return {name: adjusted_ranked[name] for name in p_values}
 
 
 def _read_jsonl(path: Path) -> list[dict[str, object]]:
@@ -926,12 +955,23 @@ def train_and_evaluate(*, feature_cache: Path, out_dir: Path) -> None:
             fixed_vector, full_vector, metric="required_recall", improvement_sign=1.0
         ),
     }
+    adjusted = holm_adjust(
+        {name: values["p_two_sided"] for name, values in statistics.items()}
+    )
+    for name, value in adjusted.items():
+        statistics[name]["holm_adjusted_p"] = value
     gate1 = {
         "ndcg_delta_at_least_0.02": statistics["ndcg_improvement"]["delta"] >= 0.02,
         "harmful_reduction_at_least_0.02": statistics["harmful_rate_reduction"]["delta"]
         >= 0.02,
         "ndcg_ci_lower_above_zero": statistics["ndcg_improvement"]["ci_low"] > 0,
         "harmful_ci_lower_above_zero": statistics["harmful_rate_reduction"]["ci_low"] > 0,
+        "ndcg_holm_p_below_0.05": statistics["ndcg_improvement"]["holm_adjusted_p"]
+        < 0.05,
+        "harmful_holm_p_below_0.05": statistics["harmful_rate_reduction"][
+            "holm_adjusted_p"
+        ]
+        < 0.05,
         "required_recall_noninferior": statistics["required_recall_change"]["ci_low"]
         > -0.01,
     }

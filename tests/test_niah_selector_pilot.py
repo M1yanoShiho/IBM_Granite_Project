@@ -6,6 +6,7 @@ import math
 
 from eval.niah_selector_pilot import (
     add_group_features,
+    holm_adjust,
     minmax,
     non_answer_passes_validator,
     parse_reliability_judgment,
@@ -97,7 +98,20 @@ def test_selector_metrics_measure_quality_harm_and_required_recall() -> None:
     assert 0.0 <= metrics["ndcg@2"] <= 1.0
     assert metrics["harmful_rate@2"] == 0.25
     assert metrics["direct_support_precision@2"] == 0.25
+    assert metrics["noise_rate@2"] == 0.25
+    assert metrics["mrr_direct_support"] == 0.5
+    assert metrics["conflict_exposure@2"] == 0.5
     assert math.isclose(metrics["required_evidence_recall@2"], 0.75)
+
+
+def test_holm_adjust_is_monotonic_in_ranked_p_values() -> None:
+    adjusted = holm_adjust({"ndcg": 0.01, "harmful": 0.03, "recall": 0.2})
+    assert adjusted == {"ndcg": 0.03, "harmful": 0.06, "recall": 0.2}
+
+
+def test_holm_adjust_caps_values_at_one() -> None:
+    adjusted = holm_adjust({"a": 0.8, "b": 0.9})
+    assert adjusted == {"a": 1.0, "b": 1.0}
 
 
 def test_parse_reliability_judgment_accepts_fenced_json_and_normalizes_scores() -> None:
