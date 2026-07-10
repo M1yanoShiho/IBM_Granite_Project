@@ -105,7 +105,7 @@ def _ramdocs_example(index: int) -> dict[str, object]:
 
 def _official_layout(root: Path) -> Path:
     finance_dir = root / "financebench"
-    questions = [_finance_question(i, f"Company-{i}") for i in range(6)]
+    questions = [_finance_question(i, f"Company-{i}") for i in range(10)]
     documents = [
         {
             "doc_name": question["doc_name"],
@@ -158,7 +158,7 @@ def test_loaders_return_immutable_metadata_only_records_and_audits(tmp_path: Pat
         root / "RAMDocs/RAMDocs_test.jsonl"
     )
 
-    assert finance_audit == finance_audit.__class__(6, 6, 6, 6, 3)
+    assert finance_audit == finance_audit.__class__(10, 10, 10, 10, 3)
     assert contract_audit.split("train").document_count == 1
     assert contract_audit.split("train").hypothesis_count == 2
     assert contract_audit.split("train").annotation_choice_counts == {
@@ -239,11 +239,11 @@ def test_cli_writes_exact_deterministic_manifest_shape(tmp_path: Path) -> None:
         assert all(set(raw_file) == {"path", "sha256"} for raw_file in metadata["raw_files"])
         assert all(not Path(raw_file["path"]).is_absolute() for raw_file in metadata["raw_files"])
     assert dataset["datasets"]["financebench"]["audit"] == {
-        "company_count": 6,
-        "document_count": 6,
-        "evidence_count": 6,
+        "company_count": 10,
+        "document_count": 10,
+        "evidence_count": 10,
         "pdf_count": 3,
-        "question_count": 6,
+        "question_count": 10,
     }
     assert set(splits) == {"schema_version", "seed", "datasets"}
     assert splits["schema_version"] == "1.0"
@@ -285,6 +285,7 @@ def test_financebench_nested_folds_prevent_company_leakage(tmp_path: Path) -> No
         assert len(outer["inner_folds"]) == 5
         outer_train = set(outer["train_companies"])
         for inner in outer["inner_folds"]:
+            assert inner["validation_companies"]
             assert set(inner["train_companies"]).isdisjoint(
                 inner["validation_companies"]
             )
@@ -311,6 +312,44 @@ def test_financebench_greedy_folds_balance_uneven_company_sizes() -> None:
 
     assert max(outer_sizes) - min(outer_sizes) <= max(sizes)
     assert folds == build_financebench_nested_folds(records, seed=42)
+
+
+def test_financebench_rejects_outer_training_partition_too_small_for_inner_folds() -> None:
+    records = tuple(
+        FinanceBenchRecord(
+            financebench_id=f"q-{company}",
+            company=f"company-{company}",
+            doc_name=f"doc-{company}",
+            evidence_count=1,
+        )
+        for company in range(6)
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=r"outer fold .* leaves 4 training companies.*at least 5",
+    ):
+        build_financebench_nested_folds(records, seed=42, n_folds=5)
+
+
+def test_financebench_minimum_valid_company_count_fills_every_inner_fold() -> None:
+    records = tuple(
+        FinanceBenchRecord(
+            financebench_id=f"q-{company}",
+            company=f"company-{company}",
+            doc_name=f"doc-{company}",
+            evidence_count=1,
+        )
+        for company in range(7)
+    )
+
+    folds = build_financebench_nested_folds(records, seed=42, n_folds=5)
+
+    assert all(
+        inner["validation_companies"]
+        for outer in folds
+        for inner in outer["inner_folds"]
+    )
 
 
 def test_financebench_rejects_duplicate_official_id(tmp_path: Path) -> None:
@@ -365,6 +404,21 @@ def test_contractnli_rejects_out_of_range_evidence_span(tmp_path: Path) -> None:
     _write_json(path, payload)
 
     with pytest.raises(ValueError, match=r"span index 2.*out of range"):
+        load_contractnli(_contract_root(root))
+
+
+def test_contractnli_rejects_second_annotation_set(tmp_path: Path) -> None:
+    root = _official_layout(tmp_path / "raw")
+    path = _contract_root(root) / "train.json"
+    payload = _contract_payload("train", 1)
+    annotation_sets = payload["documents"][0]["annotation_sets"]  # type: ignore[index]
+    annotation_sets.append(annotation_sets[0])  # type: ignore[union-attr]
+    _write_json(path, payload)
+
+    with pytest.raises(
+        ValueError,
+        match=r"annotation_sets must contain exactly one annotation set; got 2",
+    ):
         load_contractnli(_contract_root(root))
 
 
@@ -469,6 +523,76 @@ def test_niah_grouping_fails_clearly_when_there_are_too_few_groups() -> None:
         assign_niah_grouped_splits(
             records, targets={"train": 1, "dev": 1, "test": 1}, seed=42
         )
+
+
+def _niah_records_for_component_sizes(sizes: list[int]) -> tuple[NIAHMetadataRecord, ...]:
+    records: list[NIAHMetadataRecord] = []
+    query_index = 0
+    for component_index, size in enumerate(sizes):
+        for _ in range(size):
+            records.append(
+                NIAHMetadataRecord(
+                    query_id=f"q-{query_index:05d}",
+                    parent_page_id=f"parent-{component_index}",
+                    synthetic_family_id=f"family-{component_index}",
+                )
+            )
+            query_index += 1
+    return tuple(records)
+
+
+def test_niah_exact_fallback_scales_to_intended_2600_records() -> None:
+    records = _niah_records_for_component_sizes([1500, 400, 300, 200] + [1] * 200)
+
+    splits = assign_niah_grouped_splits(
+        records,
+        targets={"train": 2000, "dev": 300, "test": 300},
+        seed=42,
+    )
+
+    assert {split: len(query_ids) for split, query_ids in splits.items()} == {
+        "train": 2000,
+        "dev": 300,
+        "test": 300,
+    }
+    assert splits == assign_niah_grouped_splits(
+        records,
+        targets={"train": 2000, "dev": 300, "test": 300},
+        seed=42,
+    )
+
+
+def test_niah_exact_fallback_handles_more_than_100_adversarial_components() -> None:
+    records = _niah_records_for_component_sizes(
+        [1500, 800, 700, 400, 300] + [1] * 101
+    )
+
+    splits = assign_niah_grouped_splits(
+        records,
+        targets={"train": 334, "dev": 2334, "test": 1133},
+        seed=42,
+    )
+
+    assert {split: len(query_ids) for split, query_ids in splits.items()} == {
+        "train": 334,
+        "dev": 2334,
+        "test": 1133,
+    }
+    assert splits == assign_niah_grouped_splits(
+        records,
+        targets={"train": 334, "dev": 2334, "test": 1133},
+        seed=42,
+    )
+    query_split = {
+        query_id: split for split, query_ids in splits.items() for query_id in query_ids
+    }
+    offset = 0
+    for size in [1500, 800, 700, 400, 300]:
+        component_splits = {
+            query_split[f"q-{index:05d}"] for index in range(offset, offset + size)
+        }
+        assert len(component_splits) == 1
+        offset += size
 
 
 def test_generic_validators_reject_duplicates_and_cross_split_leakage() -> None:

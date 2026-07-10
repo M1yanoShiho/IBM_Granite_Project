@@ -398,6 +398,11 @@ def build_financebench_nested_folds(
     for outer_index, outer_test_list in enumerate(outer_company_folds):
         outer_test = set(outer_test_list)
         outer_train = all_companies - outer_test
+        if len(outer_train) < n_folds:
+            raise ValueError(
+                f"outer fold {outer_index} leaves {len(outer_train)} training companies; "
+                f"at least {n_folds} are required for non-empty inner validation folds"
+            )
         outer_train_records = [
             record for record in records if record.company in outer_train
         ]
@@ -407,6 +412,10 @@ def build_financebench_nested_folds(
             seed=seed,
             namespace=f"outer-{outer_index}-inner",
         )
+        if any(not companies for companies in inner_company_folds):
+            raise RuntimeError(
+                f"outer fold {outer_index} produced an empty inner validation fold"
+            )
         inner_folds: list[dict[str, object]] = []
         for inner_index, validation_list in enumerate(inner_company_folds):
             validation = set(validation_list)
@@ -490,6 +499,11 @@ def load_contractnli(
                 f"{context}.annotation_sets",
                 non_empty=True,
             )
+            if len(annotation_sets) != 1:
+                raise ValueError(
+                    f"{context}.annotation_sets must contain exactly one annotation set; "
+                    f"got {len(annotation_sets)}"
+                )
             first_set = _object(annotation_sets[0], f"{context}.annotation_sets[0]")
             annotations = _object(
                 _required(first_set, "annotations", f"{context}.annotation_sets[0]"),
@@ -753,44 +767,101 @@ def _exact_component_assignment(
     targets: Mapping[str, int],
     seed: int,
 ) -> list[int] | None:
-    if len(components) > 100:
-        return None
-    initial = tuple(targets[name] for name in split_names)
-    failed: set[tuple[int, tuple[int, ...]]] = set()
+    unit_indices = [index for index, component in enumerate(components) if len(component) == 1]
+    non_units = [
+        (index, component)
+        for index, component in enumerate(components)
+        if len(component) > 1
+    ]
 
-    def search(index: int, remaining: tuple[int, ...]) -> list[int] | None:
-        state = (index, remaining)
-        if state in failed:
-            return None
-        if index == len(components):
-            return [] if not any(remaining) else None
-        size = len(components[index])
-        candidates = [
-            split_index
-            for split_index, capacity in enumerate(remaining)
-            if capacity >= size
-        ]
-        candidates.sort(
+    # Track the two smallest capacities. The third split's usage is implied by the
+    # processed total, bounding the intended 2000/300/300 state space at 301**2.
+    tracked = sorted(
+        range(len(split_names)), key=lambda index: (targets[split_names[index]], index)
+    )[:2]
+    spill = next(index for index in range(len(split_names)) if index not in tracked)
+    states: dict[tuple[int, int], None] = {(0, 0): None}
+    parent_layers: list[
+        dict[tuple[int, int], tuple[tuple[int, int], int]]
+    ] = []
+    processed = 0
+
+    for component_index, component in non_units:
+        size = len(component)
+        next_states: dict[tuple[int, int], tuple[tuple[int, int], int]] = {}
+        candidate_splits = sorted(
+            range(len(split_names)),
             key=lambda split_index: (
-                -(remaining[split_index] / targets[split_names[split_index]]),
-                _stable_hash(seed, "niah-exact", index, split_names[split_index]),
+                _stable_hash(
+                    seed,
+                    "niah-exact",
+                    component_index,
+                    split_names[split_index],
+                ),
                 split_index,
-            )
+            ),
         )
-        tried_capacities: set[int] = set()
-        for split_index in candidates:
-            if remaining[split_index] in tried_capacities:
-                continue
-            tried_capacities.add(remaining[split_index])
-            updated = list(remaining)
-            updated[split_index] -= size
-            suffix = search(index + 1, tuple(updated))
-            if suffix is not None:
-                return [split_index, *suffix]
-        failed.add(state)
+        for state in states:
+            for split_index in candidate_splits:
+                updated = list(state)
+                if split_index in tracked:
+                    tracked_index = tracked.index(split_index)
+                    updated[tracked_index] += size
+                new_state = (updated[0], updated[1])
+                if any(
+                    new_state[index] > targets[split_names[tracked[index]]]
+                    for index in range(2)
+                ):
+                    continue
+                spill_used = processed + size - sum(new_state)
+                if spill_used < 0 or spill_used > targets[split_names[spill]]:
+                    continue
+                next_states.setdefault(new_state, (state, split_index))
+        if not next_states:
+            return None
+        parent_layers.append(next_states)
+        states = {state: None for state in next_states}
+        processed += size
+
+    final_state = min(
+        states,
+        key=lambda state: (
+            _stable_hash(seed, "niah-exact-final", state[0], state[1]),
+            state,
+        ),
+    )
+    assignments = [-1] * len(components)
+    state = final_state
+    for layer_index in range(len(non_units) - 1, -1, -1):
+        previous, split_index = parent_layers[layer_index][state]
+        assignments[non_units[layer_index][0]] = split_index
+        state = previous
+
+    used = [0] * len(split_names)
+    for component_index, split_index in enumerate(assignments):
+        if split_index >= 0:
+            used[split_index] += len(components[component_index])
+    remaining = [targets[name] - used[index] for index, name in enumerate(split_names)]
+    if sum(remaining) != len(unit_indices) or any(value < 0 for value in remaining):
         return None
 
-    return search(0, initial)
+    for component_index in unit_indices:
+        candidates = [index for index, capacity in enumerate(remaining) if capacity]
+        if not candidates:
+            return None
+        split_index = min(
+            candidates,
+            key=lambda index: (
+                -(remaining[index] / targets[split_names[index]]),
+                _stable_hash(
+                    seed, "niah-exact-unit", component_index, split_names[index]
+                ),
+                index,
+            ),
+        )
+        assignments[component_index] = split_index
+        remaining[split_index] -= 1
+    return assignments if not any(remaining) else None
 
 
 def assign_niah_grouped_splits(
