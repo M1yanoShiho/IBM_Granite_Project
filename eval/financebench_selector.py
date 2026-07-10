@@ -136,6 +136,8 @@ def expand_financebench_report_corpus(
         metadata.setdefault(doc_name, row)
     target_docs = sorted({str(row["target_doc"]) for row in payload["queries"]})
     corpus = [dict(candidate) for candidate in payload["corpus"]]
+    for candidate in corpus:
+        candidate.setdefault("corpus_source", "official_evidence_snippet")
     for doc_name in target_docs:
         if doc_name not in metadata:
             raise ValueError(f"missing document metadata for {doc_name!r}")
