@@ -2,17 +2,17 @@
 
 **分支：** `week5_MLSelector`
 **计划：** `docs/ml-selector-experiment-plan.md`
-**当前状态：** 计划已修订，实验尚未开始
+**当前状态：** M0 协议冻结已通过独立审查；M1 数据审计与无泄漏划分进行中
 
 | Run ID | 阶段 | 任务 | 数据 | 关键产出 | 通过检查 | 优先级 | 状态 |
 |---|---|---|---|---|---|---|---|
-| P001 | M0 | 冻结标签 schema、主比较、指标和 Gate | 全部 | `protocol_manifest.json` | 团队确认 | MUST | TODO |
+| P001 | M0 | 冻结标签 schema、主比较、指标和 Gate | 全部 | `protocol_manifest.json` | 独立审查通过；41 项测试通过 | MUST | DONE |
 | D001 | M1 | 建立 dataset manifest 和许可记录 | 全部 | `dataset_manifest.json` | 字段与官方说明一致 | MUST | TODO |
 | D002 | M1 | 建立父页面和 synthetic-family split | 新 NIAH | `split_manifest.json` | 父页面/family 无交叉 | MUST | TODO |
 | D003 | M1 | 验证官方 contract split | ContractNLI | contract split | contract 无交叉 | MUST | TODO |
 | D004 | M1 | 建立 company nested 5-fold | FinanceBench | company folds | company 无交叉 | MUST | TODO |
 | D005 | M1 | 准备 official 与 adapted 两套协议 | RAMDocs | RAMDocs / RAMDocs-20 manifest | 不使用测试标签挖负例 | MUST | TODO |
-| L001 | M2 | 实现多维标签 schema | 全部 | `label_schema.json` | 字段含义固定 | MUST | TODO |
+| L001 | M2 | 实现多维标签 schema | 全部 | `label_schema.json` | 独立审查通过；严格类型校验 | MUST | DONE |
 | L002 | M2 | 派生五级 utility 和 harmful flag | 全部 | labeled candidates | 映射规则可复现 | MUST | TODO |
 | L003 | M2 | 标注和复核至少 80 个 query group | 分层样本 | `label_audit.csv` | weighted kappa ≥ 0.70 | MUST | TODO |
 | C001 | M3 | 生成训练和开发 top-20 | 新 NIAH | candidate cache | 父文档去重正确 | MUST | TODO |
