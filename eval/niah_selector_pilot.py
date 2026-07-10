@@ -31,6 +31,38 @@ FULL_FEATURES = CORE_FEATURES + (
     "answer_length",
 )
 
+Q2D_PROMPT = (
+    "Write a short, factual passage that answers the question.\n"
+    "Question: {question}\nPassage:"
+)
+WRONG_ENTITY_PROMPT = (
+    "Return one different but same-type plausible replacement for the answer below. "
+    "Output only the replacement entity.\nAnswer: {answer}\nReplacement:"
+)
+SEALED_WRONG_ENTITY_PROMPT = (
+    "For a factual robustness test, substitute the answer with one plausible entity "
+    "of the same type. Give only that different entity.\nOriginal: {answer}\nSubstitute:"
+)
+NON_ANSWER_PROMPT = (
+    "Write a short fluent passage on the question's topic that shares key terms but "
+    "does not state or imply the answer. Output only the passage.\n"
+    "Question: {question}\nReference style:\n{needle}\nPassage:"
+)
+SEALED_NON_ANSWER_PROMPT = (
+    "Produce a concise background paragraph related to the query. Discuss adjacent "
+    "facts and omit the requested answer. Return only the paragraph.\n"
+    "Query: {question}\nStyle sample:\n{needle}\nBackground:"
+)
+EXTRACT_PROMPT = (
+    "Using only the passage, answer the question with the shortest exact answer. "
+    "If the passage cannot answer it, reply NONE.\n"
+    "Question: {question}\nPassage: {passage}\nAnswer:"
+)
+PARAMETRIC_PROMPT = (
+    "Answer with the shortest exact answer from your own knowledge. If unsure, reply "
+    "NONE.\nQuestion: {question}\nAnswer:"
+)
+
 
 def utility_grade(*, source: str, relevance: int | None) -> int:
     """Map controlled-NIAH provenance to the canonical five-level utility label."""
@@ -170,6 +202,246 @@ def _write_jsonl(path: Path, rows: Iterable[Mapping[str, object]]) -> None:
             stream.write(json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n")
 
 
+class GraniteBatchGenerator:
+    """Small deterministic batched wrapper used for all cached Granite calls."""
+
+    def __init__(self, model_id: str, *, device: str = "cuda") -> None:
+        import torch
+        from transformers import AutoModelForCausalLM, AutoTokenizer
+
+        self.torch = torch
+        self.tokenizer = AutoTokenizer.from_pretrained(model_id, local_files_only=True)
+        if self.tokenizer.pad_token_id is None:
+            self.tokenizer.pad_token = self.tokenizer.eos_token
+        self.tokenizer.padding_side = "left"
+        self.model = AutoModelForCausalLM.from_pretrained(
+            model_id,
+            local_files_only=True,
+            dtype=torch.float16 if device.startswith("cuda") else "auto",
+            device_map=device,
+        )
+        self.model.eval()
+
+    def generate(
+        self, prompts: Sequence[str], *, batch_size: int, max_new_tokens: int
+    ) -> list[str]:
+        outputs: list[str] = []
+        for start in range(0, len(prompts), batch_size):
+            batch_prompts = prompts[start : start + batch_size]
+            rendered = [
+                self.tokenizer.apply_chat_template(
+                    [{"role": "user", "content": prompt}],
+                    tokenize=False,
+                    add_generation_prompt=True,
+                )
+                for prompt in batch_prompts
+            ]
+            encoded = self.tokenizer(
+                rendered, return_tensors="pt", padding=True, truncation=True, max_length=1024
+            ).to(self.model.device)
+            with self.torch.inference_mode():
+                generated = self.model.generate(
+                    **encoded,
+                    max_new_tokens=max_new_tokens,
+                    do_sample=False,
+                    pad_token_id=self.tokenizer.pad_token_id,
+                )
+            for index in range(len(batch_prompts)):
+                new_tokens = generated[index, encoded["input_ids"].shape[1] :]
+                outputs.append(
+                    self.tokenizer.decode(new_tokens, skip_special_tokens=True).strip()
+                )
+        return outputs
+
+
+def _surface_alias(needle: str, aliases: Sequence[str]) -> str | None:
+    matches = [alias for alias in aliases if alias and re.search(re.escape(alias), needle, re.I)]
+    return max(matches, key=len) if matches else None
+
+
+def _clean_entity(value: str) -> str:
+    first_line = value.strip().splitlines()[0] if value.strip() else ""
+    return first_line.strip(" \t\"'`.*:-")
+
+
+def generate_pilot_material(
+    *, base_pool: Path, out: Path, model_id: str, device: str, batch_size: int
+) -> None:
+    """Cache Query2Doc expansions and two controlled distractors per query."""
+
+    rows = _read_jsonl(base_pool)
+    generator = GraniteBatchGenerator(model_id, device=device)
+    q2d_outputs = generator.generate(
+        [Q2D_PROMPT.format(question=row["question"]) for row in rows],
+        batch_size=batch_size,
+        max_new_tokens=96,
+    )
+    aliases: list[str | None] = []
+    needles: list[dict[str, object]] = []
+    for row in rows:
+        by_id = {candidate["candidate_id"]: candidate for candidate in row["candidates"]}
+        needle = by_id[str(row["needle_doc_id"])]
+        needles.append(needle)
+        aliases.append(_surface_alias(str(needle["text"]), row["answers"]))
+    wrong_prompts = [
+        (
+            SEALED_WRONG_ENTITY_PROMPT if row["split"] == "test" else WRONG_ENTITY_PROMPT
+        ).format(answer=alias or row["answers"][0])
+        for row, alias in zip(rows, aliases)
+    ]
+    wrong_outputs = generator.generate(
+        wrong_prompts, batch_size=batch_size, max_new_tokens=24
+    )
+    non_answer_prompts = [
+        (SEALED_NON_ANSWER_PROMPT if row["split"] == "test" else NON_ANSWER_PROMPT).format(
+            question=row["question"], needle=str(needle["text"])[:700]
+        )
+        for row, needle in zip(rows, needles)
+    ]
+    non_answers = generator.generate(
+        non_answer_prompts, batch_size=batch_size, max_new_tokens=128
+    )
+
+    enriched: list[dict[str, object]] = []
+    for row, q2d, alias, wrong_raw, non_answer, needle in zip(
+        rows, q2d_outputs, aliases, wrong_outputs, non_answers, needles
+    ):
+        item = dict(row)
+        candidates = [dict(candidate) for candidate in row["candidates"]]
+        wrong = _clean_entity(wrong_raw)
+        counterfactual = None
+        if alias and wrong and normalize_answer(wrong) != normalize_answer(alias):
+            replaced = re.sub(re.escape(alias), wrong, str(needle["text"]), flags=re.I)
+            if replaced != needle["text"]:
+                counterfactual = {
+                    "candidate_id": f"{row['query_id']}__counterfactual",
+                    "text": replaced,
+                    "title": needle["title"],
+                    "source_parent_id": needle["source_parent_id"],
+                    "source": "counterfactual",
+                    "dpr_relevance": None,
+                    "dpr_rank": len(candidates) + 1,
+                    "utility_grade": 0,
+                }
+                candidates.append(counterfactual)
+        non_answer_valid = bool(non_answer.strip()) and not any(
+            alias_value.strip().casefold() in non_answer.casefold()
+            for alias_value in row["answers"]
+            if alias_value.strip()
+        )
+        if non_answer_valid:
+            candidates.append(
+                {
+                    "candidate_id": f"{row['query_id']}__non_answer",
+                    "text": non_answer.strip(),
+                    "title": "synthetic topical background",
+                    "source_parent_id": f"synthetic:{row['query_id']}",
+                    "source": "generative_non_answer",
+                    "dpr_relevance": None,
+                    "dpr_rank": len(candidates) + 1,
+                    "utility_grade": 2,
+                }
+            )
+        item["query2doc"] = f"{row['question']} {q2d.strip()}".strip()
+        item["counterfactual_valid"] = counterfactual is not None
+        item["non_answer_valid"] = non_answer_valid
+        item["candidates"] = candidates
+        enriched.append(item)
+    _write_jsonl(out, enriched)
+
+
+def rank_pilot_pool(
+    *, generated_pool: Path, out: Path, embedding_model: str, device: str, batch_size: int
+) -> None:
+    """Use Query2Doc + Granite embeddings to freeze one top-20 pool per query."""
+
+    import numpy as np
+    from sentence_transformers import SentenceTransformer
+
+    rows = _read_jsonl(generated_pool)
+    texts_by_id: dict[str, str] = {}
+    for row in rows:
+        for candidate in row["candidates"]:
+            candidate_id = str(candidate["candidate_id"])
+            text = str(candidate["text"])
+            if candidate_id in texts_by_id and texts_by_id[candidate_id] != text:
+                raise ValueError(f"Candidate ID {candidate_id} has inconsistent text")
+            texts_by_id[candidate_id] = text
+    candidate_ids = sorted(texts_by_id)
+    model = SentenceTransformer(embedding_model, device=device)
+    doc_vectors = model.encode(
+        [texts_by_id[candidate_id] for candidate_id in candidate_ids],
+        batch_size=batch_size,
+        convert_to_numpy=True,
+        normalize_embeddings=True,
+        show_progress_bar=True,
+    )
+    query_vectors = model.encode(
+        [str(row["query2doc"]) for row in rows],
+        batch_size=batch_size,
+        convert_to_numpy=True,
+        normalize_embeddings=True,
+        show_progress_bar=True,
+    )
+    vector_by_id = {candidate_id: doc_vectors[index] for index, candidate_id in enumerate(candidate_ids)}
+    ranked_rows: list[dict[str, object]] = []
+    for row_index, row in enumerate(rows):
+        scored: list[dict[str, object]] = []
+        for candidate in row["candidates"]:
+            item = dict(candidate)
+            item["relevance_score"] = float(
+                np.dot(query_vectors[row_index], vector_by_id[str(candidate["candidate_id"])] )
+            )
+            item["original_rank"] = int(candidate["dpr_rank"])
+            scored.append(item)
+        ranked = rank_candidates(scored, "relevance_score")[:20]
+        for rank, candidate in enumerate(ranked, start=1):
+            candidate["original_rank"] = rank
+        output = {key: value for key, value in row.items() if key != "candidates"}
+        output["candidates"] = ranked
+        ranked_rows.append(output)
+    _write_jsonl(out, ranked_rows)
+
+
+def extract_pilot_features(
+    *, ranked_pool: Path, out: Path, model_id: str, device: str, batch_size: int
+) -> None:
+    """Extract candidate answers once and derive the shared selector feature cache."""
+
+    rows = _read_jsonl(ranked_pool)
+    generator = GraniteBatchGenerator(model_id, device=device)
+    prompts: list[str] = []
+    positions: list[tuple[int, int]] = []
+    for row_index, row in enumerate(rows):
+        for candidate_index, candidate in enumerate(row["candidates"]):
+            prompts.append(
+                EXTRACT_PROMPT.format(
+                    question=row["question"], passage=str(candidate["text"])[:900]
+                )
+            )
+            positions.append((row_index, candidate_index))
+    extracted = generator.generate(prompts, batch_size=batch_size, max_new_tokens=32)
+    parametric = generator.generate(
+        [PARAMETRIC_PROMPT.format(question=row["question"]) for row in rows],
+        batch_size=batch_size,
+        max_new_tokens=32,
+    )
+    mutable_candidates = [
+        [dict(candidate) for candidate in row["candidates"]] for row in rows
+    ]
+    for answer, (row_index, candidate_index) in zip(extracted, positions):
+        mutable_candidates[row_index][candidate_index]["extracted_answer"] = answer
+    output_rows: list[dict[str, object]] = []
+    for index, row in enumerate(rows):
+        output = {key: value for key, value in row.items() if key != "candidates"}
+        output["parametric_answer"] = parametric[index]
+        output["candidates"] = add_group_features(
+            mutable_candidates[index], parametric_answer=parametric[index]
+        )
+        output_rows.append(output)
+    _write_jsonl(out, output_rows)
+
+
 def prepare_dpr_pool(*, split_manifest: Path, dataset_id: str, out: Path) -> None:
     """Materialize the 1,100-query DPR candidate pools used by the pilot."""
 
@@ -252,6 +524,24 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     prepare.add_argument("--split-manifest", type=Path, required=True)
     prepare.add_argument("--dataset-id", default="dpr-w100/natural-questions/dev")
     prepare.add_argument("--out", type=Path, required=True)
+    generate = subparsers.add_parser("generate")
+    generate.add_argument("--base-pool", type=Path, required=True)
+    generate.add_argument("--out", type=Path, required=True)
+    generate.add_argument("--model-id", required=True)
+    generate.add_argument("--device", default="cuda:0")
+    generate.add_argument("--batch-size", type=int, default=16)
+    rank = subparsers.add_parser("rank")
+    rank.add_argument("--generated-pool", type=Path, required=True)
+    rank.add_argument("--out", type=Path, required=True)
+    rank.add_argument("--embedding-model", default="ibm-granite/granite-embedding-english-r2")
+    rank.add_argument("--device", default="cuda:0")
+    rank.add_argument("--batch-size", type=int, default=256)
+    extract = subparsers.add_parser("extract")
+    extract.add_argument("--ranked-pool", type=Path, required=True)
+    extract.add_argument("--out", type=Path, required=True)
+    extract.add_argument("--model-id", required=True)
+    extract.add_argument("--device", default="cuda:0")
+    extract.add_argument("--batch-size", type=int, default=32)
     return parser.parse_args(argv)
 
 
@@ -260,6 +550,30 @@ def main(argv: Sequence[str] | None = None) -> None:
     if args.command == "prepare":
         prepare_dpr_pool(
             split_manifest=args.split_manifest, dataset_id=args.dataset_id, out=args.out
+        )
+    elif args.command == "generate":
+        generate_pilot_material(
+            base_pool=args.base_pool,
+            out=args.out,
+            model_id=args.model_id,
+            device=args.device,
+            batch_size=args.batch_size,
+        )
+    elif args.command == "rank":
+        rank_pilot_pool(
+            generated_pool=args.generated_pool,
+            out=args.out,
+            embedding_model=args.embedding_model,
+            device=args.device,
+            batch_size=args.batch_size,
+        )
+    elif args.command == "extract":
+        extract_pilot_features(
+            ranked_pool=args.ranked_pool,
+            out=args.out,
+            model_id=args.model_id,
+            device=args.device,
+            batch_size=args.batch_size,
         )
 
 
