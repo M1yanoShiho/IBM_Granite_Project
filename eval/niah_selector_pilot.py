@@ -36,6 +36,10 @@ FULL_FEATURES = CORE_FEATURES + (
     "judge_evidence_sufficiency",
     "judge_parse_failure",
 )
+RELEVANCE_RANK_FEATURES = CORE_FEATURES[:4]
+FULL_NO_RELEVANCE_FEATURES = tuple(
+    feature for feature in FULL_FEATURES if feature not in RELEVANCE_RANK_FEATURES
+)
 
 Q2D_PROMPT = (
     "Write a short, factual passage that answers the question.\n"
@@ -1021,8 +1025,14 @@ def train_and_evaluate(*, feature_cache: Path, out_dir: Path) -> None:
 
     out_dir.mkdir(parents=True, exist_ok=True)
     seeds = (13, 42, 73)
-    models: dict[str, list[object]] = {"core": [], "full": []}
-    for name, features in (("core", CORE_FEATURES), ("full", FULL_FEATURES)):
+    model_features = {
+        "relevance_rank": RELEVANCE_RANK_FEATURES,
+        "core": CORE_FEATURES,
+        "full": FULL_FEATURES,
+        "full_no_relevance": FULL_NO_RELEVANCE_FEATURES,
+    }
+    models: dict[str, list[object]] = {name: [] for name in model_features}
+    for name, features in model_features.items():
         for seed in seeds:
             model = _fit_ranker(
                 all_groups["train"], all_groups["dev"], features=features, seed=seed
@@ -1077,8 +1087,10 @@ def train_and_evaluate(*, feature_cache: Path, out_dir: Path) -> None:
         "source_dedup_fixed": "source_dedup_fixed_score",
         "support_only": "support_only_score",
         "logistic": "logistic_score",
+        "ml_relevance_rank": "ml_relevance_rank_score",
         "ml_core": "ml_core_score",
         "ml_full": "ml_full_score",
+        "ml_full_no_relevance": "ml_full_no_relevance_score",
         "shuffled_label": "shuffled_label_score",
         "oracle_at_20": "oracle_score",
     }
@@ -1139,6 +1151,8 @@ def train_and_evaluate(*, feature_cache: Path, out_dir: Path) -> None:
             "seeds": list(seeds),
             "core_features": list(CORE_FEATURES),
             "full_features": list(FULL_FEATURES),
+            "relevance_rank_features": list(RELEVANCE_RANK_FEATURES),
+            "full_no_relevance_features": list(FULL_NO_RELEVANCE_FEATURES),
         },
         "metrics": metrics,
         "statistics": statistics,

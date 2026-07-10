@@ -5,6 +5,9 @@ from __future__ import annotations
 import math
 
 from eval.niah_selector_pilot import (
+    FULL_NO_RELEVANCE_FEATURES,
+    FULL_FEATURES,
+    RELEVANCE_RANK_FEATURES,
     PASSAGE_CHARS,
     RELIABILITY_PROMPT,
     add_group_features,
@@ -25,6 +28,13 @@ from eval.niah_selector_pilot import (
 
 def test_pilot_matches_existing_corroboration_passage_budget() -> None:
     assert PASSAGE_CHARS == 600
+
+
+def test_ablation_feature_sets_partition_full_features() -> None:
+    assert set(RELEVANCE_RANK_FEATURES).isdisjoint(FULL_NO_RELEVANCE_FEATURES)
+    assert set(RELEVANCE_RANK_FEATURES) | set(FULL_NO_RELEVANCE_FEATURES) == set(
+        FULL_FEATURES
+    )
 
 
 def test_diagnostic_scores_include_oracle_and_support_only() -> None:
