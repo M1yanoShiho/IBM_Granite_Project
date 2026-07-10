@@ -6,6 +6,7 @@ import argparse
 import json
 from pathlib import Path
 import re
+import subprocess
 from typing import Iterable, Mapping, Sequence
 
 from eval.niah_selector_pilot import GraniteBatchGenerator, Q2D_PROMPT, rank_candidates
@@ -19,6 +20,17 @@ def token_coverage(reference: str, candidate: str) -> float:
         return 0.0
     candidate_tokens = set(re.findall(r"[a-z0-9]+", candidate.casefold()))
     return len(reference_tokens.intersection(candidate_tokens)) / len(reference_tokens)
+
+
+def chunk_text(text: str, *, size: int = 600, overlap: int = 100) -> list[str]:
+    """Split extracted PDF text into deterministic overlapping character windows."""
+
+    if size < 1:
+        raise ValueError("size must be positive")
+    if overlap < 0 or overlap >= size:
+        raise ValueError("overlap must satisfy 0 <= overlap < size")
+    step = size - overlap
+    return [text[start : start + size].strip() for start in range(0, len(text), step) if text[start : start + size].strip()]
 
 
 def finance_utility_grade(
@@ -80,6 +92,7 @@ def prepare_financebench_evidence_corpus(
                     "candidate_company": str(row["company"]),
                     "evidence_page_num": int(evidence["evidence_page_num"]),
                     "origin_query_id": query_id,
+                    "corpus_source": "official_evidence_snippet",
                 }
             )
     output: list[dict[str, object]] = []
@@ -104,6 +117,65 @@ def prepare_financebench_evidence_corpus(
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(
         json.dumps({"corpus": corpus, "queries": output}, ensure_ascii=False, sort_keys=True)
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def expand_financebench_report_corpus(
+    *, base_pool: Path, document_info: Path, pdf_dir: Path, out: Path
+) -> None:
+    """Add 600-character chunks from the 84 reports referenced by open questions."""
+
+    payload = json.loads(base_pool.read_text(encoding="utf-8"))
+    metadata: dict[str, dict[str, object]] = {}
+    for row in _read_jsonl(document_info):
+        doc_name = str(row["doc_name"])
+        if doc_name in metadata and metadata[doc_name]["company"] != row["company"]:
+            raise ValueError(f"conflicting company metadata for {doc_name!r}")
+        metadata.setdefault(doc_name, row)
+    target_docs = sorted({str(row["target_doc"]) for row in payload["queries"]})
+    corpus = [dict(candidate) for candidate in payload["corpus"]]
+    for doc_name in target_docs:
+        if doc_name not in metadata:
+            raise ValueError(f"missing document metadata for {doc_name!r}")
+        pdf_path = pdf_dir / f"{doc_name}.pdf"
+        if not pdf_path.is_file():
+            raise ValueError(f"missing FinanceBench PDF {pdf_path}")
+        completed = subprocess.run(
+            ["pdftotext", "-layout", str(pdf_path), "-"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        pages = completed.stdout.split("\f")
+        for page_index, page in enumerate(pages):
+            for chunk_index, chunk in enumerate(chunk_text(page)):
+                if len(chunk) < 20:
+                    continue
+                corpus.append(
+                    {
+                        "candidate_id": (
+                            f"finance-doc__{doc_name}__page__{page_index:04d}"
+                            f"__chunk__{chunk_index:03d}"
+                        ),
+                        "text": chunk,
+                        "title": doc_name,
+                        "source_parent_id": f"finance-report:{doc_name}",
+                        "candidate_doc": doc_name,
+                        "candidate_company": str(metadata[doc_name]["company"]),
+                        "evidence_page_num": page_index,
+                        "origin_query_id": None,
+                        "corpus_source": "official_report_chunk",
+                    }
+                )
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(
+        json.dumps(
+            {"corpus": corpus, "queries": payload["queries"]},
+            ensure_ascii=False,
+            sort_keys=True,
+        )
         + "\n",
         encoding="utf-8",
     )
@@ -153,7 +225,7 @@ def rank_financebench_pool(
             )
             candidate.update(
                 {
-                    "source": "financebench_official_evidence_corpus",
+                    "source": candidate.get("corpus_source", "financebench_evidence"),
                     "utility_grade": grade,
                     "harm_type": harm_type,
                     "relevance_score": float(score),
@@ -185,6 +257,11 @@ def main(argv: Sequence[str] | None = None) -> None:
     rank.add_argument("--embedding-model", required=True)
     rank.add_argument("--device", default="cuda:0")
     rank.add_argument("--batch-size", type=int, default=256)
+    expand = subparsers.add_parser("expand-reports")
+    expand.add_argument("--base-pool", type=Path, required=True)
+    expand.add_argument("--document-info", type=Path, required=True)
+    expand.add_argument("--pdf-dir", type=Path, required=True)
+    expand.add_argument("--out", type=Path, required=True)
     args = parser.parse_args(argv)
     if args.command == "prepare":
         prepare_financebench_evidence_corpus(
@@ -194,13 +271,20 @@ def main(argv: Sequence[str] | None = None) -> None:
             device=args.device,
             batch_size=args.batch_size,
         )
-    else:
+    elif args.command == "rank":
         rank_financebench_pool(
             base_pool=args.base_pool,
             out=args.out,
             embedding_model=args.embedding_model,
             device=args.device,
             batch_size=args.batch_size,
+        )
+    else:
+        expand_financebench_report_corpus(
+            base_pool=args.base_pool,
+            document_info=args.document_info,
+            pdf_dir=args.pdf_dir,
+            out=args.out,
         )
 
 

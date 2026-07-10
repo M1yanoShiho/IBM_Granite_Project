@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from eval.financebench_selector import finance_utility_grade, token_coverage
+from eval.financebench_selector import chunk_text, finance_utility_grade, token_coverage
 
 
 def test_token_coverage_ignores_layout_and_case() -> None:
@@ -11,6 +11,21 @@ def test_token_coverage_ignores_layout_and_case() -> None:
 
 def test_token_coverage_returns_zero_for_empty_reference() -> None:
     assert token_coverage("", "anything") == 0.0
+
+
+def test_chunk_text_enforces_size_and_overlap() -> None:
+    text = "abcdefghijklmnopqrstuvwxyz"
+    chunks = chunk_text(text, size=10, overlap=3)
+    assert chunks == ["abcdefghij", "hijklmnopq", "opqrstuvwx", "vwxyz"]
+
+
+def test_chunk_text_rejects_invalid_overlap() -> None:
+    try:
+        chunk_text("text", size=10, overlap=10)
+    except ValueError as exc:
+        assert "overlap" in str(exc)
+    else:
+        raise AssertionError("overlap must be smaller than size")
 
 
 def test_finance_grade_prioritizes_official_pages() -> None:
