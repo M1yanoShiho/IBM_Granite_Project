@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import json
 from pathlib import Path
 from typing import Dict
 
@@ -22,22 +23,56 @@ from src.niah.hardness_gate import hit_at_k, mean_recall, reciprocal_rank
 from src.niah.types import NiahTask
 
 
-def evaluate_retriever_on_task(retriever, task: NiahTask, k: int) -> Dict[str, Dict[str, float]]:
-    """Per-query needle-found@k and reciprocal-rank of each DESIGNATED needle.
+def evaluate_retriever_on_task(retriever, task: NiahTask, k: int) -> Dict[str, Dict]:
+    """Per-query needle-found@k, reciprocal-rank, and the FULL doc-level run.
 
-    Deduplicates the retriever's chunks to a doc-level best-first ranking, then
-    scores the single designated needle per query (queries without one are skipped).
-    Returns ``{"needle_found": {qid: 0/1}, "mrr": {qid: 1/rank}}``.
+    Deduplicates the retriever's chunks to a doc-level best-first ranking (a doc's
+    duplicate chunks collapse to its best = first-seen score), then scores the single
+    designated needle per query (queries without one are skipped). Returns
+    ``{"needle_found": {qid: 0/1}, "mrr": {qid: 1/rank}, "run": {qid: {doc_id: score}}}``
+    -- the run is what ``--dump-runs`` persists (WS-0 item 2) so the burial /
+    migration / cascade / oracle analyses (WS-2/3/4/5) replay offline.
     """
     hits: Dict[str, float] = {}
     rrs: Dict[str, float] = {}
+    runs: Dict[str, Dict[str, float]] = {}
     for ex in task.examples:
         if ex.needle_id is None:
             continue
-        ranked = list(dict.fromkeys(c.doc_id for c in retriever.retrieve(ex.query)))
+        doc_scores: Dict[str, float] = {}
+        for c in retriever.retrieve(ex.query):
+            if c.doc_id not in doc_scores:
+                doc_scores[c.doc_id] = float(c.score)
+        ranked = list(doc_scores)
         hits[ex.query_id] = hit_at_k(ranked, ex.needle_id, k)
         rrs[ex.query_id] = reciprocal_rank(ranked, ex.needle_id)
-    return {"needle_found": hits, "mrr": rrs}
+        runs[ex.query_id] = doc_scores
+    return {"needle_found": hits, "mrr": rrs, "run": runs}
+
+
+def _dump_path(base: Path, retriever_name: str) -> Path:
+    """``results/x.json`` + ``granite_dense`` -> ``results/x_granite_dense.json``."""
+    return base.with_name(f"{base.stem}_{retriever_name}{base.suffix}")
+
+
+def dump_niah_run(
+    run: Dict[str, Dict[str, float]],
+    needles: Dict[str, str],
+    retriever_name: str,
+    k: int,
+    path: Path,
+) -> None:
+    """Persist one retriever's full doc-level ranking + needles as a self-contained
+    JSON (rank order = dict insertion order; scores keep top1-top2 margins for WS-4)."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {"retriever": retriever_name, "k": k, "needles": needles, "run": run}
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+
+def load_niah_run(path: Path) -> Dict:
+    """Load a :func:`dump_niah_run` payload (``retriever`` / ``k`` / ``needles`` / ``run``)."""
+    return json.loads(Path(path).read_text(encoding="utf-8"))
 
 
 def _parse_args(argv=None) -> argparse.Namespace:
@@ -60,6 +95,12 @@ def _parse_args(argv=None) -> argparse.Namespace:
     p.add_argument("--out", type=Path, default=Path("results/niah_eval.csv"))
     p.add_argument("--per-query-out", type=Path, default=None, dest="per_query_out")
     p.add_argument("--cache-dir", type=Path, default=None, dest="cache_dir")
+    p.add_argument(
+        "--dump-runs", type=Path, default=None, dest="dump_runs",
+        help="Dump each retriever's FULL doc-level ranking (run + needles) to "
+             "<stem>_<retriever><suffix> JSON — the WS-0 raw material for the offline "
+             "burial/migration/cascade/oracle analyses (WS-2/3/4/5).",
+    )
     return p.parse_args(argv)
 
 
@@ -99,6 +140,7 @@ def main(argv=None) -> None:
     rows = []
     per_query: Dict[str, Dict[str, float]] = {}
     n_docs = len(task.corpus)
+    needles = {ex.query_id: ex.needle_id for ex in task.examples if ex.needle_id is not None}
     for name in args.retrievers:
         scored = evaluate_retriever_on_task(retrievers[name], task, args.k)
         nf = mean_recall(scored["needle_found"])
@@ -109,6 +151,10 @@ def main(argv=None) -> None:
         )
         per_query[name] = scored["needle_found"]
         print(f"{name}: needle_found@{args.k}={nf:.3f} MRR={mrr:.3f} (n_docs={n_docs})")
+        if args.dump_runs is not None:
+            dump_path = _dump_path(args.dump_runs, name)
+            dump_niah_run(scored["run"], needles, name, args.k, dump_path)
+            print(f"dumped {name} run to {dump_path} (offline WS-2/3/4/5 raw material)")
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     with open(args.out, "w", newline="", encoding="utf-8") as f:

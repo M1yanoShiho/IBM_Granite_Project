@@ -1,22 +1,33 @@
 """Tests for eval/run_niah.py — the NIAH needle-found evaluation core."""
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from src.niah.types import NiahExample, NiahTask
 from src.retrieval.base import RetrievedChunk
-from eval.run_niah import evaluate_retriever_on_task, main as run_niah_main
+from eval.run_niah import (
+    evaluate_retriever_on_task,
+    load_niah_run,
+    main as run_niah_main,
+)
 from eval.run_benchmark import retrievers_need_llm
 
 
 class _MultiRetriever:
-    """Returns a per-query ranked list of doc ids (best-first) as RetrievedChunks."""
+    """Returns a per-query ranked list of doc ids (best-first) as RetrievedChunks.
+
+    Entries may be plain doc ids (score defaults to 1.0) or ``(doc_id, score)``."""
 
     def __init__(self, by_query):
         self._by = by_query
 
     def retrieve(self, query):
-        return [RetrievedChunk(doc_id=i, text="", score=1.0) for i in self._by[query]]
+        chunks = []
+        for item in self._by[query]:
+            doc_id, score = item if isinstance(item, tuple) else (item, 1.0)
+            chunks.append(RetrievedChunk(doc_id=doc_id, text="", score=score))
+        return chunks
 
 
 def _task(examples):
@@ -56,6 +67,51 @@ def test_evaluate_skips_queries_without_designated_needle() -> None:
     task = _task([NiahExample(query_id="q1", query="a", needle_ids=[], needle_id=None)])
     retriever = _MultiRetriever({"a": ["d0"]})
     assert evaluate_retriever_on_task(retriever, task, k=10)["needle_found"] == {}
+
+
+def test_evaluate_collects_doc_level_run_with_best_scores() -> None:
+    # WS-0 item 2: the FULL ranking (doc_id -> score) survives, not just hit@k --
+    # WS-2/3/4/5 (burial, migration, margin cascade, oracle) all consume it. A doc's
+    # duplicate chunks collapse to its best (first-seen) score.
+    task = _task([NiahExample(query_id="q1", query="a", needle_ids=["n1"], needle_id="n1")])
+    retriever = _MultiRetriever({"a": [("d0", 0.9), ("d0", 0.4), ("n1", 0.7)]})
+
+    out = evaluate_retriever_on_task(retriever, task, k=10)
+
+    assert out["run"] == {"q1": {"d0": 0.9, "n1": 0.7}}
+
+
+def test_run_niah_dump_runs_writes_one_loadable_file_per_retriever(monkeypatch, tmp_path) -> None:
+    # --dump-runs <path> fans out to <stem>_<retriever><suffix>, one self-contained
+    # JSON per retriever: {"retriever", "k", "needles", "run"} -- the WS-0 dump.
+    def fake_build_retrievers(config, data, llm=None):
+        return {
+            "granite_dense": _MultiRetriever({"a": [("cf", 0.99), ("n1", 0.5)]}),
+            "q2d_granite": _MultiRetriever({"a": [("n1", 0.8), ("cf", 0.6)]}),
+        }
+
+    task = _task([NiahExample(query_id="q1", query="a", needle_ids=["n1"], needle_id="n1")])
+    monkeypatch.setattr("eval.build_niah_task.load_niah_task", lambda *a, **k: task)
+    monkeypatch.setattr("eval.run_benchmark._build_retrievers", fake_build_retrievers)
+    monkeypatch.setattr(
+        "eval.run_benchmark.retrievers_need_llm", lambda names: False
+    )
+
+    dump_base = tmp_path / "nq300_runs.json"
+    run_niah_main([
+        "--task", str(tmp_path / "t.json"),
+        "--retrievers", "granite_dense", "q2d_granite",
+        "--out", str(tmp_path / "o.csv"),
+        "--dump-runs", str(dump_base),
+    ])
+
+    dense = load_niah_run(tmp_path / "nq300_runs_granite_dense.json")
+    q2d = load_niah_run(tmp_path / "nq300_runs_q2d_granite.json")
+    assert dense["retriever"] == "granite_dense"
+    assert dense["run"] == {"q1": {"cf": 0.99, "n1": 0.5}}
+    assert dense["needles"] == {"q1": "n1"}
+    assert dense["k"] == 10
+    assert q2d["run"]["q1"] == {"n1": 0.8, "cf": 0.6}
 
 
 def test_retrievers_need_llm_flags_transforms_and_llm_rerankers() -> None:
