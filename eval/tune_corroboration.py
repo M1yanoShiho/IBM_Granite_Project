@@ -45,29 +45,41 @@ def dedup_docs(chunks: List[RetrievedChunk], top_n: int) -> List[RetrievedChunk]
 
 def build_corroboration_runs(
     task, retriever, reranker, top_n: int, max_queries: Optional[int] = None
-) -> Tuple[Run, Run, Dict[str, str]]:
-    """Extract answers ONCE per query; return ``(relevance_run, corroboration_run, needles)``.
+) -> Tuple[Run, Run, Dict[str, str], Dict[str, Dict[str, str]], Dict[str, Optional[str]]]:
+    """Extract answers ONCE per query; return
+    ``(relevance_run, corroboration_run, needles, answers_run, parametric_answers)``.
 
     ``reranker`` needs a ``score_docs(query, docs) -> (relevance, corroboration)`` method
-    (:class:`~src.retrieval.reranker.CorroborationReranker`). ``needles`` maps qid -> the
-    designated needle doc_id; examples without a designated needle are skipped.
-    ``max_queries`` caps the number of scored queries (in task-example order) so a fast
-    first-read on a subset finishes within the wall clock -- the extraction is the cost.
+    (:class:`~src.retrieval.reranker.CorroborationReranker`). When it also offers
+    ``score_docs_with_answers`` (WS-0), the raw extracted answer strings and the
+    parametric answer are captured per query -- otherwise those two maps stay empty.
+    ``needles`` maps qid -> the designated needle doc_id; examples without a designated
+    needle are skipped. ``max_queries`` caps the number of scored queries (in
+    task-example order) so a fast first-read on a subset finishes within the wall clock
+    -- the extraction is the cost.
     """
     relevance_run: Run = {}
     corroboration_run: Run = {}
     needles: Dict[str, str] = {}
+    answers_run: Dict[str, Dict[str, str]] = {}
+    parametric_answers: Dict[str, Optional[str]] = {}
+    richer = getattr(reranker, "score_docs_with_answers", None)
     for ex in task.examples:
         if ex.needle_id is None:
             continue
         if max_queries is not None and len(needles) >= max_queries:
             break
         docs = dedup_docs(retriever.retrieve(ex.query), top_n)
-        relevance, corroboration = reranker.score_docs(ex.query, docs)
+        if callable(richer):
+            relevance, corroboration, answers, parametric = richer(ex.query, docs)
+            answers_run[ex.query_id] = {docs[i].doc_id: answers[i] for i in range(len(docs))}
+            parametric_answers[ex.query_id] = parametric
+        else:
+            relevance, corroboration = reranker.score_docs(ex.query, docs)
         relevance_run[ex.query_id] = {docs[i].doc_id: relevance[i] for i in range(len(docs))}
         corroboration_run[ex.query_id] = {docs[i].doc_id: corroboration[i] for i in range(len(docs))}
         needles[ex.query_id] = ex.needle_id
-    return relevance_run, corroboration_run, needles
+    return relevance_run, corroboration_run, needles, answers_run, parametric_answers
 
 
 def per_query_hits(fused: Run, needles: Dict[str, str], k: int) -> Dict[str, float]:
@@ -92,28 +104,52 @@ def needle_found_at_k(fused: Run, needles: Dict[str, str], k: int) -> float:
 
 
 def dump_runs(
-    relevance_run: Run, corroboration_run: Run, needles: Dict[str, str], path: Path
+    relevance_run: Run,
+    corroboration_run: Run,
+    needles: Dict[str, str],
+    path: Path,
+    answers_run: Optional[Dict[str, Dict[str, str]]] = None,
+    parametric_answers: Optional[Dict[str, Optional[str]]] = None,
 ) -> None:
     """Persist the two runs + needles as JSON, so significance / re-sweeps run OFFLINE
-    (``--from-runs``) without re-extracting -- the extraction is the expensive step."""
+    (``--from-runs``) without re-extracting -- the extraction is the expensive step.
+
+    ``answers_run`` / ``parametric_answers`` (WS-0 item 1) additionally persist the raw
+    extracted answer strings so vote-matching changes (WS-7) replay offline too; old
+    positional calls keep writing the original three-key format unchanged."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps(
-            {
-                "relevance_run": relevance_run,
-                "corroboration_run": corroboration_run,
-                "needles": needles,
-            }
-        ),
-        encoding="utf-8",
-    )
+    payload = {
+        "relevance_run": relevance_run,
+        "corroboration_run": corroboration_run,
+        "needles": needles,
+    }
+    if answers_run is not None:
+        payload["answers_run"] = answers_run
+    if parametric_answers is not None:
+        payload["parametric_answers"] = parametric_answers
+    path.write_text(json.dumps(payload), encoding="utf-8")
 
 
 def load_runs(path: Path) -> Tuple[Run, Run, Dict[str, str]]:
     """Load ``(relevance_run, corroboration_run, needles)`` dumped by :func:`dump_runs`."""
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
     return payload["relevance_run"], payload["corroboration_run"], payload["needles"]
+
+
+def load_runs_with_answers(
+    path: Path,
+) -> Tuple[Run, Run, Dict[str, str], Optional[Dict[str, Dict[str, str]]], Optional[Dict[str, Optional[str]]]]:
+    """:func:`load_runs` plus the raw answer maps; ``None`` for each map a pre-WS-0
+    dump did not record (so WS-7's step-0 can tell "not recorded" from "no answers")."""
+    payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    return (
+        payload["relevance_run"],
+        payload["corroboration_run"],
+        payload["needles"],
+        payload.get("answers_run"),
+        payload.get("parametric_answers"),
+    )
 
 
 def sweep_corroboration(
@@ -214,11 +250,14 @@ def main(argv: Optional[List[str]] = None) -> None:
         corpus = list(data.corpus.values())
         retriever = _build_named(args.first_stage, config, data, corpus, doc_ids, args.k, llm=llm)
         reranker = CorroborationReranker(llm, top_n=args.top_n, use_parametric=args.use_parametric)
-        relevance_run, corroboration_run, needles = build_corroboration_runs(
-            task, retriever, reranker, args.top_n, max_queries=args.max_queries
+        relevance_run, corroboration_run, needles, answers_run, parametric_answers = (
+            build_corroboration_runs(task, retriever, reranker, args.top_n, max_queries=args.max_queries)
         )
         if args.dump_runs is not None:
-            dump_runs(relevance_run, corroboration_run, needles, args.dump_runs)
+            dump_runs(
+                relevance_run, corroboration_run, needles, args.dump_runs,
+                answers_run=answers_run, parametric_answers=parametric_answers,
+            )
             print(f"dumped runs to {args.dump_runs} (re-analyse offline with --from-runs)")
 
     curve = sweep_corroboration(relevance_run, corroboration_run, needles, _grid(args.alpha_step), args.k)

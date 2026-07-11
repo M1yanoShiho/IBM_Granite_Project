@@ -276,6 +276,20 @@ class CorroborationReranker:
             return None
         return self.llm.generate(_PARAMETRIC_PROMPT.format(question=query)).strip()
 
+    def score_docs_with_answers(
+        self, query: str, docs: List[RetrievedChunk]
+    ) -> "tuple[List[float], List[float], List[str], Optional[str]]":
+        """``(relevance, corroboration, raw answers, parametric answer)`` per doc.
+
+        The raw extracted strings (pre-normalisation) and the parametric answer are
+        what the WS-0 runs dump persists, so vote-matching changes (WS-7) can be
+        re-simulated offline without re-running the extraction LLM.
+        """
+        answers = [self._extract_answer(query, d.text) for d in docs]
+        parametric = self._parametric_answer(query)
+        corr = corroboration_scores(answers, parametric)
+        return [d.score for d in docs], corr, answers, parametric
+
     def score_docs(
         self, query: str, docs: List[RetrievedChunk]
     ) -> "tuple[List[float], List[float]]":
@@ -286,9 +300,8 @@ class CorroborationReranker:
         Exposed so the offline lambda-sweep (``eval.tune_corroboration``) can extract
         answers ONCE and then sweep the blend weight as pure arithmetic.
         """
-        answers = [self._extract_answer(query, d.text) for d in docs]
-        corr = corroboration_scores(answers, self._parametric_answer(query))
-        return [d.score for d in docs], corr
+        relevance, corr, _, _ = self.score_docs_with_answers(query, docs)
+        return relevance, corr
 
     def rerank(
         self, query: str, candidates: List[RetrievedChunk], top_k: int

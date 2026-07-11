@@ -84,3 +84,35 @@ def test_score_docs_returns_relevance_and_corroboration_aligned():
 
     assert relevance == [0.9, 0.5]        # first-stage relevance, aligned to docs
     assert corroboration == [1.0, 1.0]    # both answer Paris -> corroborate each other
+
+
+def test_score_docs_with_answers_exposes_raw_strings_and_parametric():
+    # WS-0 item 1: the raw extracted answer strings (and the parametric answer) must
+    # survive to the dump so voting-logic changes (WS-7) replay offline forever.
+    docs = [
+        RetrievedChunk("a", "alpha passage", 0.9),
+        RetrievedChunk("b", "bravo passage", 0.5),
+    ]
+    llm = FakeAnswerLLM(
+        {"alpha passage": "Paris", "bravo passage": "the Paris"}, parametric="Paris"
+    )
+    rr = CorroborationReranker(llm, top_n=2, use_parametric=True)
+
+    relevance, corroboration, answers, parametric = rr.score_docs_with_answers("q", docs)
+
+    assert relevance == [0.9, 0.5]
+    assert answers == ["Paris", "the Paris"]   # RAW strings, pre-normalisation
+    assert parametric == "Paris"
+    # votes: each other's (normalised) Paris + the parametric voter
+    assert corroboration == [2.0, 2.0]
+
+
+def test_score_docs_with_answers_parametric_none_when_disabled():
+    docs = [RetrievedChunk("a", "alpha passage", 0.9)]
+    llm = FakeAnswerLLM({"alpha passage": "Paris"}, parametric="Paris")
+    rr = CorroborationReranker(llm, top_n=1, use_parametric=False)
+
+    _, _, answers, parametric = rr.score_docs_with_answers("q", docs)
+
+    assert answers == ["Paris"]
+    assert parametric is None
