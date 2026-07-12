@@ -20,6 +20,7 @@ import os
 import re
 from typing import List, Optional, Sequence
 
+from src.prompts.retrieval import EXTRACT_PROMPT, LISTWISE_RANK_PROMPT, PARAMETRIC_PROMPT
 from src.retrieval.base import RetrievedChunk, Retriever
 from src.retrieval.corroboration import corroboration_scores
 from src.retrieval.fusion import minmax_normalize
@@ -187,12 +188,8 @@ class LLMListwiseReranker:
         listing = "\n".join(
             f"[{i + 1}] {doc.text[: self.passage_chars]}" for i, doc in enumerate(docs)
         )
-        prompt = (
-            f"Rank the {len(docs)} passages below by their relevance to the query, "
-            "most relevant first.\n"
-            f"Query: {query}\n\n"
-            f"{listing}\n\n"
-            "Answer with only the ranking as identifiers, e.g. 3 > 1 > 2."
+        prompt = LISTWISE_RANK_PROMPT.format(
+            n=len(docs), query=query, listing=listing
         )
         return self._parse_permutation(self.llm.generate(prompt), len(docs))
 
@@ -214,21 +211,6 @@ class LLMListwiseReranker:
                 order.append(idx)
         order.extend(i for i in range(n) if i not in seen)
         return order
-
-
-_EXTRACT_PROMPT = (
-    "Using ONLY the passage below, answer the question with the shortest exact answer "
-    "(a name, place, date, or number). If the passage does not answer it, reply NONE.\n"
-    "Question: {question}\n"
-    "Passage: {passage}\n"
-    "Answer:"
-)
-_PARAMETRIC_PROMPT = (
-    "Answer the question with the shortest exact answer from your own knowledge. "
-    "If you are not sure, reply NONE.\n"
-    "Question: {question}\n"
-    "Answer:"
-)
 
 
 class CorroborationReranker:
@@ -268,13 +250,13 @@ class CorroborationReranker:
         self.passage_chars = passage_chars
 
     def _extract_answer(self, query: str, passage: str) -> str:
-        prompt = _EXTRACT_PROMPT.format(question=query, passage=passage[: self.passage_chars])
+        prompt = EXTRACT_PROMPT.format(question=query, passage=passage[: self.passage_chars])
         return self.llm.generate(prompt).strip()
 
     def _parametric_answer(self, query: str) -> Optional[str]:
         if not self.use_parametric:
             return None
-        return self.llm.generate(_PARAMETRIC_PROMPT.format(question=query)).strip()
+        return self.llm.generate(PARAMETRIC_PROMPT.format(question=query)).strip()
 
     def score_docs(
         self, query: str, docs: List[RetrievedChunk]

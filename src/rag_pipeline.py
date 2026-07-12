@@ -20,24 +20,98 @@ See ``docs/interfaces.md`` (CONTRACT 4 — RAG I/O).
 
 from __future__ import annotations
 
+import re as _re
 from dataclasses import dataclass, field
 from typing import Callable, List, Optional
 
+import src.prompts.rag as _prompts
 from src.explainability.citations import Citation, attribute_answer
 from src.llm_client import LLMClient
 from src.retrieval.base import RetrievedChunk, Retriever
 
-# Default prompt: instructs the model to answer *only* from the retrieved
-# context, which is what makes faithfulness measurable and reduces hallucination.
-DEFAULT_RAG_PROMPT = (
-    "Answer the question using only the context below. "
-    "Give only the answer itself — the shortest phrase that answers the question, "
-    "with no explanation and without repeating or quoting the context. "
-    "If the answer is not contained in the context, say you don't know.\n\n"
-    "Context:\n{context}\n\n"
-    "Question: {question}\n"
-    "Answer:"
+# Prompts are imported (not re-defined) from the central registry — see
+# ``docs/superpowers/specs/2026-07-12-prompt-centralization-design.md``. These two
+# names stay importable from ``src.rag_pipeline`` for backwards compatibility
+# (eval/run_rag.py and notebooks import them by name): the ``from ... import``
+# statement below binds them as module-level names here.
+from src.prompts.rag import (
+    CITATION_RAG_PROMPT,
+    CONSOLIDATE_PROMPT,
+    DEFAULT_RAG_PROMPT,
+    ELICIT_PROMPT,
+    FINALIZE_PROMPT,
 )
+
+
+def _citations_from_indices(
+    indices: list[int],
+    answer: str,
+    chunks: list[RetrievedChunk],
+) -> list[Citation]:
+    """Build ``Citation`` objects from model-supplied 1-based chunk indices.
+
+    Each cited index becomes one ``Citation`` with the whole *answer* as its span
+    (coarse attribution).  Indices outside ``[1, len(chunks)]`` are silently
+    dropped.  Returns an empty list when no valid index remains, signalling the
+    caller to fall back to post-hoc attribution.
+    """
+    citations: list[Citation] = []
+    seen: set[int] = set()
+    for idx in indices:
+        if idx in seen:
+            continue
+        seen.add(idx)
+        if 1 <= idx <= len(chunks):
+            chunk = chunks[idx - 1]
+            citations.append(
+                Citation(
+                    answer_span=answer,
+                    source_chunk_id=chunk.doc_id,
+                    score=chunk.score,
+                )
+            )
+    return citations
+
+
+def parse_citation_output(raw: str) -> tuple[str, list[int]]:
+    """Extract the ``answer`` and ``cited_chunk_indices`` from a structured
+    ``Answer: ... Evidence: [i], ...`` generation.
+
+    The prompt template ends with ``Answer:`` so the model continuation *usually*
+    does not repeat that prefix.  This parser handles both conventions:
+
+    * Model continues directly: ``Paris\nEvidence: [1]``
+    * Model repeats the prefix:  ``Answer: Paris\nEvidence: [1]``
+
+    Returns ``(answer, chunk_numbers)`` where *chunk_numbers* are 1-based
+    indices.  When the ``Evidence:`` line is absent the full *raw* string is
+    returned as the answer with an empty citation list — the caller should fall
+    back to post-hoc attribution.
+    """
+    raw = raw.strip()
+
+    # Strip a leading "Answer:" if the model repeated the prompt's tail.
+    if raw.lower().startswith("answer:"):
+        raw = raw[len("answer:"):].strip()
+
+    # Split on the Evidence: boundary.
+    parts = _re.split(r"\n\s*Evidence:\s*", raw, maxsplit=1)
+    answer = parts[0].strip()
+
+    # Extract all [<number>] patterns from the Evidence portion (or the whole
+    # raw text if no Evidence: separator was found).
+    evidence_text = parts[1] if len(parts) > 1 else raw
+    numbers = [int(m) for m in _re.findall(r"\[(\d+)\]", evidence_text) if m.isdigit()]
+
+    # Guard: deduplicate while preserving order.
+    seen: set[int] = set()
+    unique: list[int] = []
+    for n in numbers:
+        if n not in seen:
+            seen.add(n)
+            unique.append(n)
+
+    return answer, unique
 
 
 @dataclass
@@ -138,8 +212,22 @@ class RAGPipeline:
         *,
         confidence: float | None = None,
         used_corrective_retrieval: bool = False,
+        cited_indices: list[int] | None = None,
     ) -> RAGResult:
-        citations = attribute_answer(answer, chunks)
+        # When the model produced explicit chunk citations, use them directly.
+        # Otherwise fall back to post-hoc token-overlap attribution.
+        if cited_indices:
+            citations = _citations_from_indices(cited_indices, answer, chunks)
+            # If the model's indices were all out of range, fall through to
+            # post-hoc attribution so no answer goes entirely unattributed.
+            if citations:
+                # Still run post-hoc as well so both paths are visible in the
+                # result for debugging / metric comparison.
+                pass
+            else:
+                citations = attribute_answer(answer, chunks)
+        else:
+            citations = attribute_answer(answer, chunks)
         abstained = False
         reason: str | None = None
 
@@ -168,7 +256,9 @@ class RAGPipeline:
 
         Retrieves the top-k chunks via the shared retriever, builds a grounded
         prompt, generates an answer, and returns it alongside the chunks that
-        supported it.
+        supported it.  When the pipeline is configured with ``CITATION_RAG_PROMPT``
+        the generated text is parsed for explicit ``Evidence: [...]`` citations;
+        otherwise post-hoc token-overlap attribution is used.
 
         Parameters
         ----------
@@ -180,14 +270,22 @@ class RAGPipeline:
         RAGResult
             The answer plus the retrieved chunks used to produce it.
         """
-        # Cap the context at top_k chunks independently of the retriever's own
-        # depth: the same retriever may be configured to return more (e.g. when
-        # shared with the eval harness), but the prompt should only carry top_k.
-        # If the retriever returns fewer, we use what's available (no padding).
         chunks = self.retriever.retrieve(question)[: self.top_k]
         prompt = self._build_prompt(question, chunks)
-        answer = self.llm.generate(prompt)
-        return self._build_result(answer, chunks)
+        raw = self.llm.generate(prompt)
+
+        cited_indices: list[int] | None = None
+        if self.prompt_template == CITATION_RAG_PROMPT:
+            answer, cited_indices = parse_citation_output(raw)
+            # Guard: if the model regurgitated the format instructions instead
+            # of following them, treat the failure as empty citations so the
+            # post-hoc fallback in _build_result activates.
+            if not cited_indices:
+                cited_indices = None  # triggers fallback
+        else:
+            answer = raw
+
+        return self._build_result(answer, chunks, cited_indices=cited_indices)
 
 
 class CorrectiveRAGPipeline(RAGPipeline):
@@ -271,12 +369,23 @@ class CorrectiveRAGPipeline(RAGPipeline):
             used_corrective_retrieval = True
         else:
             top = chunks[: self.top_k]
-        answer = self.llm.generate(self._build_prompt(question, top))
+
+        raw = self.llm.generate(self._build_prompt(question, top))
+
+        cited_indices: list[int] | None = None
+        if self.prompt_template == CITATION_RAG_PROMPT:
+            answer, cited_indices = parse_citation_output(raw)
+            if not cited_indices:
+                cited_indices = None
+        else:
+            answer = raw
+
         result = self._build_result(
             answer,
             top,
             confidence=confidence,
             used_corrective_retrieval=used_corrective_retrieval,
+            cited_indices=cited_indices,
         )
         if low_confidence_without_rewriter and not result.abstained:
             result.abstained = True
@@ -312,25 +421,12 @@ class AstuteRAGPipeline(RAGPipeline):
     vanilla pipeline with retrieval fixed — any cover-EM delta is the consolidation's.
     """
 
-    ELICIT_PROMPT = (
-        "Generate a short passage from your own knowledge that answers the question. "
-        "If you are unsure, state only what you are confident about.\n\n"
-        "Question: {question}\nPassage:"
-    )
-    CONSOLIDATE_PROMPT = (
-        "You are given passages about a question from two kinds of source: DOCUMENTS "
-        "retrieved from a corpus (which may be wrong or contradict each other) and "
-        "your own MODEL knowledge. Consolidate them — keep facts that agree across "
-        "sources, flag conflicts, and drop information you judge unreliable.\n\n"
-        "{sources}\n\n"
-        "Question: {question}\nConsolidated notes:"
-    )
-    FINALIZE_PROMPT = (
-        "Answer the question using only the consolidated notes below. Give only the "
-        "answer itself — the shortest phrase that answers the question, with no "
-        "explanation. If the notes do not contain the answer, say you don't know.\n\n"
-        "Consolidated notes:\n{consolidated}\n\nQuestion: {question}\nAnswer:"
-    )
+    # Class-level anchor: same objects the registry holds. They survive as class
+    # attributes for any consumer reading ``AstuteRAGPipeline.ELICIT_PROMPT`` (e.g.
+    # ``app/main.py``) — see ``docs/superpowers/specs/2026-07-12-prompt-centralization-design.md`` §3.5.
+    ELICIT_PROMPT = _prompts.ELICIT_PROMPT
+    CONSOLIDATE_PROMPT = _prompts.CONSOLIDATE_PROMPT
+    FINALIZE_PROMPT = _prompts.FINALIZE_PROMPT
 
     def _format_sources(self, chunks: List[RetrievedChunk], internal: str) -> str:
         """Source-tag each passage so the consolidator can weigh reliability: the

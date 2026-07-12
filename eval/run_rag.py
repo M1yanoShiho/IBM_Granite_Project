@@ -83,6 +83,7 @@ class RAGEvalConfig:
     per_query_out: Optional[Path] = None
     predictions_out: Optional[Path] = None
     pipeline: str = "vanilla"
+    citation_prompt: bool = False
 
 
 def run(
@@ -126,30 +127,37 @@ def run(
 
     if config.pipeline == "corrective":
         from src.rag_pipeline import CorrectiveRAGPipeline
+        from src.prompts import CITATION_RAG_PROMPT
         from src.retrieval.query_transform import HyDETransform
 
-        # Only the pipeline varies vs the vanilla run (same retriever/generator/
-        # prompt), so the cover-EM delta isolates the adaptive re-retrieval loop.
+        prompt = CITATION_RAG_PROMPT if config.citation_prompt else None
         pipeline = CorrectiveRAGPipeline(
             retriever=retriever,
             llm=llm,
             top_k=config.top_k,
             query_rewriter=HyDETransform(llm),
+            **({"prompt_template": prompt} if prompt else {}),
         )
     elif config.pipeline == "astute":
         from src.rag_pipeline import AstuteRAGPipeline
 
-        # Same retriever/generator/prompt as vanilla; only the generation flow adds
-        # elicit -> source-aware consolidate -> finalise, so the cover-EM delta
-        # isolates the consolidation's effect on counterfactual-distractor robustness.
         pipeline = AstuteRAGPipeline(retriever=retriever, llm=llm, top_k=config.top_k)
     else:
-        pipeline = RAGPipeline(retriever=retriever, llm=llm, top_k=config.top_k)
+        from src.prompts import CITATION_RAG_PROMPT
+
+        prompt = CITATION_RAG_PROMPT if config.citation_prompt else None
+        pipeline = RAGPipeline(
+            retriever=retriever,
+            llm=llm,
+            top_k=config.top_k,
+            **({"prompt_template": prompt} if prompt else {}),
+        )
 
     predictions: Dict[str, str] = {}
     references: Dict[str, List[str]] = {}
     contexts: Dict[str, List[str]] = {}
     retrieved_doc_ids: Dict[str, List[str]] = {}
+    cited_doc_ids: Dict[str, List[str]] = {}
 
     for qid, question in data.queries.items():
         if qid not in data.answers:
@@ -159,15 +167,23 @@ def run(
         references[qid] = data.answers[qid]
         contexts[qid] = [chunk.text for chunk in result.retrieved_chunks]
         retrieved_doc_ids[qid] = [chunk.doc_id for chunk in result.retrieved_chunks]
+        # Collect model-cited doc_ids from the result's citation list.
+        cids = [c.source_chunk_id for c in result.citations]
+        if cids:
+            cited_doc_ids[qid] = cids
 
     metrics = evaluate_rag(
-        predictions, references, contexts, retrieved_doc_ids, data.qrels, judge=judge
+        predictions, references, contexts, retrieved_doc_ids, data.qrels,
+        judge=judge,
+        cited_doc_ids=cited_doc_ids if config.citation_prompt else None,
     )
 
     _write_results(config, metrics)
     if config.per_query_out is not None:
         per_query = score_rag_per_query(
-            predictions, references, contexts, retrieved_doc_ids, data.qrels, judge=judge
+            predictions, references, contexts, retrieved_doc_ids, data.qrels,
+            judge=judge,
+            cited_doc_ids=cited_doc_ids if config.citation_prompt else None,
         )
         _write_per_query(config.per_query_out, config.retriever, per_query)
     if config.predictions_out is not None:
@@ -305,6 +321,11 @@ def _parse_args(argv: Optional[List[str]] = None) -> RAGEvalConfig:
                         "'corrective' confidence-gated re-retrieval with a rewritten "
                         "query, or 'astute' source-aware internal/external "
                         "consolidation (elicit -> consolidate -> finalise).")
+    parser.add_argument("--citation-prompt", action="store_true",
+                        default=defaults.citation_prompt,
+                        dest="citation_prompt",
+                        help="Use CITATION_RAG_PROMPT (structured Answer + Evidence "
+                        "output) instead of DEFAULT_RAG_PROMPT.")
     args = parser.parse_args(argv)
     return RAGEvalConfig(
         dataset=args.dataset,
@@ -317,6 +338,7 @@ def _parse_args(argv: Optional[List[str]] = None) -> RAGEvalConfig:
         per_query_out=args.per_query_out,
         predictions_out=args.predictions_out,
         pipeline=args.pipeline,
+        citation_prompt=args.citation_prompt,
     )
 
 

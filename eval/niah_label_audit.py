@@ -12,22 +12,13 @@ import re
 from typing import Mapping, Sequence
 
 from eval.niah_selector_pilot import GraniteBatchGenerator
+from src.prompts.judge import LABEL_AUDIT_PROMPT_A, LABEL_AUDIT_PROMPT_B
 
 
-PROMPT_A = (
-    "Audit this passage against the question and reference answer. Assign one utility "
-    "grade: 4 directly and correctly supports the full answer; 3 correct necessary "
-    "partial support; 2 topical and plausible but does not answer; 1 unrelated noise; "
-    "0 contradicts or supports a wrong answer. Return only GRADE: X.\n"
-    "Question: {question}\nReference answer: {answers}\nPassage: {passage}\n"
-)
-PROMPT_B = (
-    "For an evidence-selection audit, score whether the text is safe and useful for "
-    "answering the query. Use exactly one label: 4 complete valid evidence, 3 required "
-    "partial evidence, 2 relevant non-answer, 1 irrelevant, 0 misleading or conflicting. "
-    "Reply with the single digit.\nQuery: {question}\nGold answer(s): {answers}\n"
-    "Candidate evidence: {passage}\n"
-)
+# Backwards-compat aliases for any external caller that imported the old uppercase
+# names. The canonical names live in ``src.prompts.judge``.
+PROMPT_A = LABEL_AUDIT_PROMPT_A
+PROMPT_B = LABEL_AUDIT_PROMPT_B
 
 
 def parse_grade(value: str) -> int | None:

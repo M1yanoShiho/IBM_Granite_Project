@@ -11,6 +11,14 @@ from pathlib import Path
 import re
 from typing import Iterable, Mapping, Sequence
 
+from src.prompts.judge import RELIABILITY_PROMPT
+from src.prompts.niah import (
+    NON_ANSWER_PROMPT,
+    NON_ANSWER_PROMPT_SEALED,
+    WRONG_ENTITY_PROMPT,
+    WRONG_ENTITY_PROMPT_SEALED,
+)
+from src.prompts.retrieval import EXTRACT_PROMPT, HYDE_PROMPT, PARAMETRIC_PROMPT
 from src.retrieval.corroboration import is_valid_answer, normalize_answer
 
 
@@ -41,67 +49,19 @@ FULL_NO_RELEVANCE_FEATURES = tuple(
     feature for feature in FULL_FEATURES if feature not in RELEVANCE_RANK_FEATURES
 )
 
-Q2D_PROMPT = (
-    "Write a short, factual passage that answers the question.\n"
-    "Question: {question}\nPassage:"
-)
-WRONG_ENTITY_PROMPT = (
-    "Return one different but same-type plausible replacement for the answer below. "
-    "Output only the replacement entity.\nAnswer: {answer}\nReplacement:"
-)
-SEALED_WRONG_ENTITY_PROMPT = (
-    "For a factual robustness test, substitute the answer with one plausible entity "
-    "of the same type. Give only that different entity.\nOriginal: {answer}\nSubstitute:"
-)
-NON_ANSWER_PROMPT = (
-    "Write two short, fluent sentences about how someone should research the topic "
-    "in the question. Refer to the subject only in general terms. Do not give or imply "
-    "the answer. Do not include names, dates, numbers, places, titles, organizations, "
-    "quoted phrases, or causal facts that could answer the question.\n"
-    "Question: {question}\nNon-answering research note:"
-)
-SEALED_NON_ANSWER_PROMPT = (
-    "Draft two concise sentences explaining that the query needs source verification "
-    "and what kind of record should be consulted. Keep the subject generic. Exclude "
-    "every concrete person, date, number, location, work title, institution, and factual "
-    "conclusion that might resolve the query.\n"
-    "Query: {question}\nVerification note:"
-)
-EXTRACT_PROMPT = (
-    "Using only the passage, answer the question with the shortest exact answer. "
-    "If the passage cannot answer it, reply NONE.\n"
-    "Question: {question}\nPassage: {passage}\nAnswer:"
-)
-PARAMETRIC_PROMPT = (
-    "Answer with the shortest exact answer from your own knowledge. If unsure, reply "
-    "NONE.\nQuestion: {question}\nAnswer:"
-)
-RELIABILITY_PROMPT = (
-    "Assess whether the passage itself is usable evidence for the question. Do not "
-    "reward topical similarity or fluent writing. Score each field with an integer "
-    "from 0 to 2: direct_support (0 none, 1 partial, 2 direct), condition_coverage "
-    "(0 misses or violates stated conditions, 1 partial or no explicit condition, "
-    "2 covers all stated conditions), and evidence_sufficiency (0 unusable, 1 needs "
-    "other evidence, 2 sufficient by itself). Return only a JSON object with exactly "
-    "these three keys.\n\n"
-    "Example 1\nQuestion: Who wrote The Old Man and the Sea?\n"
-    "Passage: Ernest Hemingway wrote The Old Man and the Sea.\n"
-    "Candidate answer extracted from this passage: Ernest Hemingway\n"
-    'JSON: {{"direct_support": 2, "condition_coverage": 1, '
-    '"evidence_sufficiency": 2}}\n\n'
-    "Example 2\nQuestion: Who wrote The Old Man and the Sea?\n"
-    "Passage: To research the novel's authorship, consult catalogues and publication records.\n"
-    "Candidate answer extracted from this passage: NONE\n"
-    'JSON: {{"direct_support": 0, "condition_coverage": 1, '
-    '"evidence_sufficiency": 0}}\n\n'
-    "Example 3\nQuestion: Does the United Kingdom policy after 2025 allow the action?\n"
-    "Passage: A United States policy from 2022 allowed the action.\n"
-    "Candidate answer extracted from this passage: allowed\n"
-    'JSON: {{"direct_support": 0, "condition_coverage": 0, '
-    '"evidence_sufficiency": 0}}\n\n'
-    "Question: {question}\nPassage: {passage}\n"
-    "Candidate answer extracted from this passage: {candidate_answer}\nJSON:"
-)
+# Backwards-compat alias: the project's two identical HyDE-style prompts (formerly
+# ``HYDE_PROMPT`` in src/retrieval and ``Q2D_PROMPT`` in eval/niah_selector_pilot)
+# are now a single canonical ``HYDE_PROMPT`` in ``src.prompts.retrieval``. The alias
+# shares identity (``Q2D_PROMPT is HYDE_PROMPT``) so they can never drift apart.
+# External call sites in eval/ramdocs_selector.py and eval/financebench_selector.py
+# still import ``Q2D_PROMPT`` from here — keep it exported.
+Q2D_PROMPT = HYDE_PROMPT
+
+# Backwards-compat aliases for the old uppercase ``SEALED_*`` names. Kept until the
+# two internal call sites below are migrated to the new names (preferable for
+# clarity) — the canonical names are ``*_SEALED`` in ``src.prompts.niah``.
+SEALED_WRONG_ENTITY_PROMPT = WRONG_ENTITY_PROMPT_SEALED
+SEALED_NON_ANSWER_PROMPT = NON_ANSWER_PROMPT_SEALED
 
 
 def utility_grade(*, source: str, relevance: int | None) -> int:

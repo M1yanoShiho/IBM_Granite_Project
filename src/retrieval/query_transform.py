@@ -22,13 +22,8 @@ from __future__ import annotations
 
 from typing import Callable, List
 
+from src.prompts.retrieval import HYDE_PROMPT
 from src.retrieval.base import RetrievedChunk, Retriever
-
-HYDE_PROMPT = (
-    "Write a short, factual passage that answers the question.\n"
-    "Question: {question}\n"
-    "Passage:"
-)
 
 
 class HyDETransform:

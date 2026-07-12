@@ -119,6 +119,29 @@ context_precision, faithfulness}`(EM/F1/cover-EM = 答案正确率,context_preci
 `Optional[Dict[str, List[str]]]`——**每题一组可接受答案**(列表,NQ 多别名;检索-only
 集如 SciFact 为 `None`),见 Q5。
 
+### 4b — Prompt Registry (新增,2026-07-12)
+
+所有 prompt 模板的**唯一权威位置**:`src/prompts/`
+([`__init__.py`](../src/prompts/__init__.py) 暴露 `PROMPT_REGISTRY` + re-export)。
+按 LLM-call 阶段分 4 个子文件:`rag.py` / `retrieval.py` / `niah.py` / `judge.py`,
+共 **18 条 prompt + 1 个向后兼容别名 `Q2D_PROMPT = HYDE_PROMPT`**。
+
+约定:
+- 新增 prompt = 加一个常量 + 一条 `PROMPT_REGISTRY` 条目,key 形如 `"<phase>.<purpose>"`
+  (lowercase, dot-separated)。`tests/test_prompts_registry.py` 自动校验 key 形状/non-empty/placeholder。
+- **禁止**在 `src/` 或 `eval/` 的其他文件里再定义 prompt 字符串常量 —— `tests/test_prompts_registry.py`
+  不会捕获新加的散落常量,但 review 时应拒绝。
+- `*_SEALED` 变体是**独立的常量**(非参数化的同一模板),用于 train/test split 构造期
+  的 prompt 措辞隔离,严禁合并。
+- 重构消除了 4 组实证重复(HyDE≡Q2D、WRONG_ENTITY、EXTRACT、PARAMETRIC),
+  src 措辞为权威,eval 旧措辞实验需在 `docs/results-summary.md` 标 legacy。
+- **已修复的脆弱性**(`is` → `==` 身份比较):`src/rag_pipeline.py` 第 ~278/376 行
+  原用 `if self.prompt_template is CITATION_RAG_PROMPT:` 切换 citation 路径;`is`
+  依赖 Python 长 str intern 行为,文本相等但独立构造的对象(如从 JSON/YAML 加载)
+  会静默降级到 DEFAULT 路径。Prompt 集中化后已改为 `==`,避免此陷阱。
+- 设计 spec:[`docs/superpowers/specs/2026-07-12-prompt-centralization-design.md`](superpowers/specs/2026-07-12-prompt-centralization-design.md) ·
+  实施计划:[`docs/superpowers/plans/2026-07-12-prompt-centralization.md`](superpowers/plans/2026-07-12-prompt-centralization.md)。
+
 ---
 
 ## 契约 5 — 向量索引搜索接口（P4 dense ↔ P5 indexer）

@@ -13,12 +13,7 @@ from __future__ import annotations
 
 from typing import Dict
 
-_ANSWERABILITY_PROMPT = (
-    "Does the passage directly answer the question? Reply ONLY 'YES' or 'NO'.\n"
-    "Question: {query}\n"
-    "Passage: {passage}\n"
-    "Answer:"
-)
+from src.prompts.niah import ANSWERABILITY_PROMPT
 
 
 def passes_margin(cand_score: float, positive_score: float, margin: float) -> bool:
@@ -28,7 +23,7 @@ def passes_margin(cand_score: float, positive_score: float, margin: float) -> bo
 
 def answers_query(passage: str, query: str, judge) -> bool:
     """True if ``judge`` (any ``generate``-able) says the passage answers the query."""
-    verdict = judge.generate(_ANSWERABILITY_PROMPT.format(query=query, passage=passage))
+    verdict = judge.generate(ANSWERABILITY_PROMPT.format(query=query, passage=passage))
     return verdict.strip().upper().startswith("YES")
 
 

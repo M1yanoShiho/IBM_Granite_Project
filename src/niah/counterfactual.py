@@ -11,13 +11,7 @@ Faithfulness-QA / WikiContradict.
 """
 from __future__ import annotations
 
-_WRONG_ENTITY_PROMPT = (
-    "Replace the following answer with a DIFFERENT but same-type, equally plausible "
-    "entity (same category: person/place/date/number/organisation). "
-    "Reply with ONLY the replacement, nothing else.\n"
-    "Answer: {answer}\n"
-    "Replacement:"
-)
+from src.prompts.niah import WRONG_ENTITY_PROMPT
 
 
 def swap_entity(text: str, old: str, new: str) -> str:
@@ -27,7 +21,7 @@ def swap_entity(text: str, old: str, new: str) -> str:
 
 def propose_wrong_entity(answer: str, llm) -> str:
     """Ask ``llm`` for a type-consistent but different entity than ``answer``."""
-    reply = llm.generate(_WRONG_ENTITY_PROMPT.format(answer=answer)).strip()
+    reply = llm.generate(WRONG_ENTITY_PROMPT.format(answer=answer)).strip()
     if not reply:
         raise ValueError("LLM returned an empty replacement entity.")
     if reply.lower() == answer.strip().lower():
