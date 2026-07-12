@@ -230,6 +230,50 @@ def score_faithfulness(answer: str, context: str) -> float:
     return covered / len(answer_tokens)
 
 
+def score_citation_precision(
+    cited_doc_ids: Sequence[str],
+    qrels: Mapping[str, int],
+) -> float:
+    """Fraction of cited documents that are judged relevant.
+
+    Returns ``0.0`` when nothing was cited.
+    """
+    if not cited_doc_ids:
+        return 0.0
+    relevant = {doc_id for doc_id, rel in qrels.items() if rel > 0}
+    hits = sum(1 for doc_id in cited_doc_ids if doc_id in relevant)
+    return hits / len(cited_doc_ids)
+
+
+def score_citation_recall(
+    cited_doc_ids: Sequence[str],
+    qrels: Mapping[str, int],
+) -> float:
+    """Fraction of qrels-relevant documents that were cited by the model.
+
+    Returns ``0.0`` when qrels has no relevant documents.
+    """
+    relevant = {doc_id for doc_id, rel in qrels.items() if rel > 0}
+    if not relevant:
+        return 0.0
+    cited = set(cited_doc_ids)
+    hits = sum(1 for doc_id in relevant if doc_id in cited)
+    return hits / len(relevant)
+
+
+def score_citation_f1(
+    cited_doc_ids: Sequence[str],
+    qrels: Mapping[str, int],
+) -> float:
+    """Harmonic mean of :func:`score_citation_precision` and
+    :func:`score_citation_recall`."""
+    precision = score_citation_precision(cited_doc_ids, qrels)
+    recall = score_citation_recall(cited_doc_ids, qrels)
+    if precision + recall == 0.0:
+        return 0.0
+    return 2.0 * precision * recall / (precision + recall)
+
+
 METRIC_NAMES = (
     "answer_em",
     "answer_f1",
@@ -246,6 +290,7 @@ def score_rag_per_query(
     retrieved_doc_ids: Dict[str, Sequence[str]],
     qrels: Dict[str, Mapping[str, int]],
     judge=None,
+    cited_doc_ids: Dict[str, Sequence[str]] | None = None,
 ) -> Dict[str, Dict[str, float]]:
     """Per-question metric dict ``{qid: {metric: value}}``.
 
@@ -256,6 +301,8 @@ def score_rag_per_query(
     ``judge`` (optional): when supplied, each question also gets an
     ``answer_claims`` entry (:func:`score_answer_claims`); omitted otherwise, so the
     default keys are unchanged.
+
+    ``cited_doc_ids`` (optional): when supplied, citation metrics are added per query.
     """
     per_query: Dict[str, Dict[str, float]] = {}
     for qid in set(predictions) & set(references):
@@ -272,6 +319,12 @@ def score_rag_per_query(
         }
         if judge is not None:
             scores["answer_claims"] = score_answer_claims(pred, ref, judge=judge)
+        if cited_doc_ids is not None and qid in cited_doc_ids:
+            cids = cited_doc_ids[qid]
+            qrel = qrels.get(qid, {})
+            scores["citation_precision"] = score_citation_precision(cids, qrel)
+            scores["citation_recall"] = score_citation_recall(cids, qrel)
+            scores["citation_f1"] = score_citation_f1(cids, qrel)
         per_query[qid] = scores
     return per_query
 
@@ -283,6 +336,7 @@ def evaluate_rag(
     retrieved_doc_ids: Dict[str, Sequence[str]],
     qrels: Dict[str, Mapping[str, int]],
     judge=None,
+    cited_doc_ids: Dict[str, Sequence[str]] | None = None,
 ) -> Dict[str, float]:
     """Compute the mean RAG metric suite over a set of answered questions.
 
@@ -301,21 +355,32 @@ def evaluate_rag(
     qrels:
         ``{question_id: {doc_id: relevance}}`` — the benchmark relevance
         judgments (for context precision).
+    cited_doc_ids:
+        Optional ``{question_id: [doc_id, ...]}`` — the documents the model
+        explicitly cited. When supplied, citation precision/recall/F1 are added.
 
     Returns
     -------
     dict
-        ``{answer_em, answer_f1, context_precision, faithfulness}`` averaged over
-        every question present in both ``predictions`` and ``references``.
+        ``{answer_em, answer_f1, context_precision, faithfulness, ...}``
+        averaged over every question present in both ``predictions`` and
+        ``references``.
     """
     per_query = score_rag_per_query(
-        predictions, references, contexts, retrieved_doc_ids, qrels, judge=judge
+        predictions, references, contexts, retrieved_doc_ids, qrels,
+        judge=judge, cited_doc_ids=cited_doc_ids,
     )
-    names = METRIC_NAMES + (("answer_claims",) if judge is not None else ())
+    base = list(METRIC_NAMES)
+    if judge is not None:
+        base.append("answer_claims")
+    if cited_doc_ids is not None:
+        base.extend(["citation_precision", "citation_recall", "citation_f1"])
+    names = tuple(base)
     if not per_query:
         return {metric: 0.0 for metric in names}
     n = len(per_query)
-    return {
-        metric: round(sum(q[metric] for q in per_query.values()) / n, 6)
-        for metric in names
-    }
+    result = {}
+    for metric in names:
+        total = sum(q.get(metric, 0.0) for q in per_query.values())
+        result[metric] = round(total / n, 6)
+    return result
