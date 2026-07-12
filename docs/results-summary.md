@@ -4,6 +4,11 @@ A running log of the **numbers and findings** from the retrieval evaluation, kep
 so they can be cited when writing the report. This file is **data, not prose** —
 write the report in your own words from these tables (Bristol: own-work rule).
 
+> **ML Selector handover:** The completed V1 selector experiment is an exploratory
+> diagnostic, not a final benchmark result. FinanceBench was already used in V1 and
+> is now `EXPOSED_DIAGNOSTIC_ONLY`. The canonical V1 record, compact evidence links,
+> V2 plan and V2 run tracker start at [ML Evidence Selector handover](ml-selector/README.md).
+
 Raw data on the HPC — the per-run aggregate CSVs (`results/<dataset>_fair.csv` /
 `_convex.csv` / `_splade.csv`), per-query CSVs (`results/<dataset>_per_query.csv` and
 the `_convex_` / `_splade_` variants), and the α-curves
