@@ -1,11 +1,13 @@
 # Embedder Hard-Negative Fine-Tuning (WS-14) — design spec
 
-- Date: 2026-07-08
+- Date: 2026-07-08; literature-strengthened 2026-07-13 (see §12).
 - Owner: TBD (WS-14); spec author P6 (Weikai)
-- Status: design approved (brainstorm 2026-07-08); pending spec review → writing-plans.
+- Status: **formally committed as the one pre-freeze bet** (team decision 2026-07-13) —
+  this does NOT lift the WS-5 gate (§9). Committing means: real owner priority + this
+  spec is the reference doc; execution still runs WS-0 → WS-5 → (only then) WS-14.
 - Context: the representation-level attack on the NIAH ranking bottleneck. Sibling of the
   **query-stage** lever (q2d) and the **rank-stage** lever (Corroboration Reranking) — this
-  is the **first-stage / representation** lever. Explicitly STRETCH / high-risk; gated on
+  is the **first-stage / representation** lever. Still STRETCH / high-risk; gated on
   WS-5. Related: [[progress-2026-07-05]], the corroboration spec (2026-07-05), work plan
   WS-5/WS-8/WS-14.
 
@@ -28,6 +30,23 @@ The two levers already certified attack this indirectly:
 
 Neither fixes the **root cause: doc-space collinearity of near-duplicates.** That is what
 representation fine-tuning attacks directly.
+
+**Why no inference-time query-relevance signal can fix this (the query-blindness
+argument, added 2026-07-13 — see §12 for the literature check that produced it):** the
+Source-A counterfactual swaps the **answer-bearing entity**, which by construction never
+appears in the *query*. Every signal in the current stack — BM25 term overlap, dense
+cosine, ColBERT-style token MaxSim, cross-encoder / listwise-LLM joint encoding — is some
+function `f(query, passage)`. None of them can access the one token that distinguishes
+needle from counterfactual, because that token is absent from one of the two arguments.
+This is a generalisation of finding 13 ("dense vectors are collinear") to *any* query-side
+representation, coarse or fine-grained, and it is why q2d (enriches the query) and
+corroboration (a passage-vs-external-knowledge signal, not query-vs-passage) are the only
+two levers that have worked so far — **q2d works around the blindness, corroboration steps
+outside it entirely.** Representation fine-tuning is the only remaining lever that attacks
+the blindness at its source: it does not add a new `f(query, passage)` signal, it reshapes
+the passage embedding space so that entity identity becomes part of what "relevance" means,
+learned at training time from *passage-vs-passage* contrast (positive vs. hard negative),
+not read off the query at inference time.
 
 ## 2. Goal & novelty (honest)
 
@@ -75,6 +94,14 @@ in-batch negatives.
   - **Popularity-controlled substitution (stretch):** same-type Wikidata entity drawn from
     a popularity band — teaches the model to prefer the *contextually correct* entity over
     the merely *popular* one (Longpre: models are popularity-biased).
+  - **False-negative guard (added 2026-07-13, from NV-Retriever, arXiv:2407.15831 —
+    verified: NVIDIA, positive-aware hard-negative mining, #1 MTEB Retrieval July 2024):**
+    a same-type entity sampled from the dataset's answer set can, by chance, itself be a
+    *correct* answer to a different query sharing the same passage pool (a false negative
+    that would actively teach the wrong lesson). Before accepting a sampled substitute,
+    check it is not within a small margin of the anchor's positive-relevance score for any
+    query in the batch (NV-Retriever's positive-aware anchor filter) — cheap, and removes a
+    failure mode the MVP substitution rule does not otherwise catch.
 - **Positives / augmentation:** the needle; **alias substitution is a *correct* paraphrase
   → optional positive augmentation, NEVER a negative** (this was the one correction to the
   brainstorm — "alias/popularity" is not a single negative source).
@@ -172,3 +199,61 @@ finding about the ranking bottleneck.
 - Query2Doc — Wang et al., 2023 (the query-stage lever this complements).
 - sentence-transformers MultipleNegativesRankingLoss (hard-negative contrastive training).
 - Dense passage retrieval / hard-negative mining (DPR; the standard training recipe).
+- NV-Retriever — Moreira et al., arXiv:2407.15831, 2024 (positive-aware false-negative
+  removal for mined hard negatives; §4 false-negative guard). Verified via abs-page fetch
+  2026-07-13.
+- EASE — Nishikawa et al., NAACL 2022, arXiv:2205.04260 (entity-aware contrastive sentence
+  embeddings). **Mechanism note (verified via abs-page fetch 2026-07-13 — do not overstate):**
+  EASE's contrastive signal is sentence-vs-*linked-entity* (Wikipedia entity-linking
+  supervision) for general STS/clustering, not passage-vs-hard-negative for retrieval
+  ranking. It is adjacent inspiration for "make entity identity part of the embedding
+  objective," not a drop-in loss — the substitution-as-hard-negative mechanism this spec
+  actually uses is Longpre's, not EASE's. Cite as related framing only.
+
+## 12. Why not an inference-time fix instead? (literature check, 2026-07-13)
+
+A parallel question — since fine-tuning is expensive and risky, is there a cheaper
+retrieval-stage trick that reaches the same result without retraining? — got a supervised
+literature pass before committing to this spec. Verdict: no, for a structural reason (the
+query-blindness argument in §1), and one candidate is worth an ablation baseline before
+GPU is spent on FT:
+
+- **[Simple Entity-Centric Questions Challenge Dense Retrievers](https://arxiv.org/abs/2109.08535)**
+  (Sciavolino et al., EMNLP 2021, verified) — the classical result that dense retrievers
+  lose to BM25 on entity-centric queries. **Different mechanism from ours:** their failure
+  is *recall* — rare entities under-represented at training time — not *ranking* between
+  two well-represented, near-identical candidates. Cite as the closest classical analogue,
+  not as evidence for our exact pathology.
+- **[Poisoning Retrieval Corpora by Injecting Adversarial Passages](https://arxiv.org/abs/2310.19156)**
+  (Zhong et al., 2023, verified) — attacker duplicates a real document and perturbs
+  individual tokens to fool the retriever; a full sweep of SOTA dense retrievers is
+  successfully attacked. Independent confirmation that the "near-duplicate, few-token-edit"
+  attack surface is general, not an artifact of our task construction.
+- **[GRADA](https://arxiv.org/abs/2505.07546)** (Graph-based Reranking against Adversarial
+  Documents Attack, EMNLP 2025, mechanism verified via full-text fetch) — the most relevant
+  inference-time defense found. Builds a document-similarity graph over the retrieved pool
+  and PageRank-propagates scores so documents *isolated* from the benign cluster sink
+  (`w_ij = max(sim(i,j) - α·[sim(i,q)+sim(j,q)], 0)`, then iterative propagation). Reports
+  up to 80% attack-success-rate reduction against PoisonedRAG / prompt-injection attacks.
+  **Considered and provisionally rejected as a substitute for FT:** GRADA's whole mechanism
+  depends on the adversarial passage looking *isolated* in passage-similarity space. Our
+  Source-A counterfactual is the needle's own text with one token changed — by construction
+  it is *maximally* similar to genuine on-topic content, i.e. the opposite of isolated. The
+  prediction is GRADA fails on exactly our pathology while working on the corpus-poisoning
+  attacks it was built for. **Not yet tested.** Because it is a free offline ablation (no
+  GPU, no LLM calls — reuses WS-0's dumped rankings + existing dense vectors, PageRank is a
+  few lines), it is worth running *before* committing GPU to fine-tuning: either it confirms
+  the query-blindness argument with a concrete negative result (strengthens §2's novelty
+  claim — "we tried the obvious cheap alternative, it fails for a principled reason"), or it
+  surprises us and changes the plan. Suggested as a WS-14 pre-flight task, not a blocker.
+- Hybrid dense+BM25 and ColBERT-style multi-vector matching were also checked and are
+  **not expected to help** for the same query-blindness reason (§1) — both are still
+  functions of `(query, passage)`. This retroactively explains why the project's own convex
+  hybrid results (mainline, 2026-06-30) never dented this specific pathology: it was never
+  the right tool for it, not a tuning failure.
+
+**Net effect on this spec:** the case for representation fine-tuning as the one remaining
+lever is stronger post-literature-check than it was on 2026-07-08 — it is not "one option
+among several equally-plausible ones," it is the only mechanism class (passage-vs-passage
+training-time contrast) that isn't structurally blind to the discriminator. This does not
+relax §9's gating — WS-5 still runs first.
