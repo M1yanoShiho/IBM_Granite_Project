@@ -4,6 +4,7 @@ from pydantic import BaseModel, ConfigDict, Field, FiniteFloat, model_validator
 
 NonEmpty = Annotated[str, Field(min_length=1)]
 PositiveRank = Annotated[int, Field(ge=1)]
+PositiveLimit = Annotated[int, Field(ge=1)]
 
 
 class FrozenModel(BaseModel):
@@ -101,4 +102,56 @@ class GenerationResult(FrozenModel):
             raise ValueError("empty answer cannot contain citations")
         if len(self.cited_evidence_ids) != len(set(self.cited_evidence_ids)):
             raise ValueError("citations must be unique")
+        return self
+
+
+class PipelineRun(FrozenModel):
+    schema_version: Literal["1.0"] = "1.0"
+    query: Query
+    top_k: PositiveLimit
+    max_selected: PositiveLimit
+    candidates: CandidateSet
+    selection: SelectionResult
+    selected: SelectedEvidenceSet
+    generation: GenerationResult
+
+    @model_validator(mode="after")
+    def stages_are_consistent(self) -> "PipelineRun":
+        expected = self.query.query_id
+        stage_query_ids = (
+            self.candidates.query_id,
+            self.selection.query_id,
+            self.selected.query_id,
+            self.generation.query_id,
+        )
+        if any(query_id != expected for query_id in stage_query_ids):
+            raise ValueError("pipeline run query IDs differ")
+        if len(self.candidates.candidates) > self.top_k:
+            raise ValueError("candidate count exceeds top_k")
+        if len(self.selection.items) > self.max_selected:
+            raise ValueError("selection count exceeds max_selected")
+
+        candidates_by_id = {
+            item.evidence_id: item for item in self.candidates.candidates
+        }
+        selected_ids = tuple(item.evidence_id for item in self.selection.items)
+        unknown = tuple(
+            evidence_id
+            for evidence_id in selected_ids
+            if evidence_id not in candidates_by_id
+        )
+        if unknown:
+            raise ValueError(f"selection contains unknown evidence: {unknown}")
+        expected_selected = tuple(
+            candidates_by_id[evidence_id] for evidence_id in selected_ids
+        )
+        if self.selected.evidence != expected_selected:
+            raise ValueError("selected evidence does not match selection")
+
+        cited = set(self.generation.cited_evidence_ids)
+        unknown_citations = cited - set(selected_ids)
+        if unknown_citations:
+            raise ValueError(
+                f"generation cites unselected evidence: {sorted(unknown_citations)}"
+            )
         return self

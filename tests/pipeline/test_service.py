@@ -37,3 +37,26 @@ def test_pipeline_returns_empty_output_when_nothing_is_retrieved() -> None:
         max_selected=2,
     )
     assert result.answer == ""
+
+
+def test_run_with_trace_exposes_every_module_output() -> None:
+    pipeline = build_baseline(
+        (
+            Document(
+                document_id="doc-1",
+                text="Revenue increased by ten percent.",
+                source_uri="fixture://doc-1",
+            ),
+        )
+    )
+    query = Query(query_id="q-trace", text="revenue increase")
+
+    trace = pipeline.run_with_trace(query, top_k=3, max_selected=2)
+
+    assert trace.query == query
+    assert trace.candidates.candidates
+    assert trace.selection.items
+    assert trace.selected.evidence
+    assert trace.generation == pipeline.run(query, top_k=3, max_selected=2)
+    assert trace.top_k == 3
+    assert trace.max_selected == 2

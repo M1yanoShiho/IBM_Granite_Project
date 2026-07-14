@@ -5,6 +5,9 @@ from evidence_rag.contracts.models import (
     CandidateSet,
     EvidenceCandidate,
     GenerationResult,
+    PipelineRun,
+    Query,
+    SelectedEvidenceSet,
     SelectionItem,
     SelectionResult,
 )
@@ -42,3 +45,57 @@ def test_selected_ids_must_be_unique() -> None:
 def test_nonempty_answer_requires_citation() -> None:
     with pytest.raises(ValidationError):
         GenerationResult(query_id="q-1", answer="Revenue increased.", cited_evidence_ids=())
+
+
+def test_pipeline_run_rejects_stage_query_mismatch() -> None:
+    evidence = candidate()
+    with pytest.raises(ValidationError, match="query IDs"):
+        PipelineRun(
+            query=Query(query_id="q-1", text="question"),
+            top_k=1,
+            max_selected=1,
+            candidates=CandidateSet(query_id="q-other", candidates=(evidence,)),
+            selection=SelectionResult(
+                query_id="q-1",
+                items=(
+                    SelectionItem(
+                        evidence_id=evidence.evidence_id,
+                        selection_score=1.0,
+                        selection_rank=1,
+                    ),
+                ),
+            ),
+            selected=SelectedEvidenceSet(query_id="q-1", evidence=(evidence,)),
+            generation=GenerationResult(
+                query_id="q-1",
+                answer="Revenue increased.",
+                cited_evidence_ids=(evidence.evidence_id,),
+            ),
+        )
+
+
+def test_pipeline_run_rejects_selection_and_selected_evidence_mismatch() -> None:
+    evidence = candidate()
+    with pytest.raises(ValidationError, match="selected evidence"):
+        PipelineRun(
+            query=Query(query_id="q-1", text="question"),
+            top_k=1,
+            max_selected=1,
+            candidates=CandidateSet(query_id="q-1", candidates=(evidence,)),
+            selection=SelectionResult(
+                query_id="q-1",
+                items=(
+                    SelectionItem(
+                        evidence_id=evidence.evidence_id,
+                        selection_score=1.0,
+                        selection_rank=1,
+                    ),
+                ),
+            ),
+            selected=SelectedEvidenceSet(query_id="q-1", evidence=()),
+            generation=GenerationResult(
+                query_id="q-1",
+                answer="",
+                cited_evidence_ids=(),
+            ),
+        )
