@@ -13,6 +13,12 @@ accelerate==1.13.0       # device placement (device_map="auto") for larger model
 # torch is pulled in by sentence-transformers (CPU build); install a CUDA build
 # of torch separately on a GPU machine / the HPC for fast 8B/30B generation.
 
+# ---- Multimodal ingestion (ingestion layer only; retrieval/generation untouched) ----
+docling>=2.36,<3         # PDF -> Markdown (src/ingestion/loaders/pdf_loader.py);
+#                        # TODO pin exact version once validated on the HPC (repo convention).
+# Granite Vision captioning (src/ingestion/loaders/image_loader.py) needs only
+# transformers + torch, both already covered above / by sentence-transformers.
+
 # ---- RAG baseline: vector store + embeddings ----
 faiss-cpu==1.14.2
 sentence-transformers==5.5.1

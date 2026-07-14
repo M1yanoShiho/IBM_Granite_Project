@@ -16,8 +16,8 @@ Two units are supported:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import List
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional
 
 
 @dataclass
@@ -33,11 +33,24 @@ class Chunk:
         Identifier of the parent document.
     text:
         The chunk text.
+    metadata:
+        Provenance carried over from the source record (``source_type``,
+        ``file_name``, ``page_number`` / ``image_path`` — see
+        ``src.ingestion.loaders.base.LoadedDocument``). Empty for legacy
+        callers. Retrieval and generation never read it; it exists so the app
+        layer can trace an answer back to the exact page or image.
     """
 
     chunk_id: str
     doc_id: str
     text: str
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+    def __setstate__(self, state: Dict[str, Any]) -> None:
+        # ``.meta`` pickles written before the metadata field existed carry no
+        # ``metadata`` key; default it so persisted indexes keep loading.
+        self.__dict__.update(state)
+        self.__dict__.setdefault("metadata", {})
 
 
 def chunk_document(
@@ -46,6 +59,7 @@ def chunk_document(
     chunk_size: int = 512,
     chunk_overlap: int = 50,
     tokenizer=None,
+    metadata: Optional[Dict[str, Any]] = None,
 ) -> List[Chunk]:
     """Split a document into overlapping :class:`Chunk` objects.
 
@@ -67,6 +81,10 @@ def chunk_document(
         original string at token boundaries (via the offset mapping, so no decode
         round-trip artefacts). Pass the embedding model's own tokenizer so chunk
         lengths line up with what the model actually encodes.
+    metadata:
+        Optional provenance dict stamped onto **every** chunk (each chunk gets
+        its own copy, so per-chunk annotation later cannot cross-contaminate).
+        Omitted -> ``{}``, byte-identical to the pre-metadata behaviour.
     """
     if chunk_size < 1:
         raise ValueError(f"chunk_size must be at least 1; got {chunk_size}.")
@@ -79,12 +97,16 @@ def chunk_document(
         )
 
     if tokenizer is None:
-        return _chunk_by_words(doc_id, text, chunk_size, chunk_overlap)
-    return _chunk_by_tokens(doc_id, text, chunk_size, chunk_overlap, tokenizer)
+        return _chunk_by_words(doc_id, text, chunk_size, chunk_overlap, metadata)
+    return _chunk_by_tokens(doc_id, text, chunk_size, chunk_overlap, tokenizer, metadata)
 
 
 def _chunk_by_words(
-    doc_id: str, text: str, chunk_size: int, chunk_overlap: int
+    doc_id: str,
+    text: str,
+    chunk_size: int,
+    chunk_overlap: int,
+    metadata: Optional[Dict[str, Any]],
 ) -> List[Chunk]:
     """Sliding-window chunking over whitespace-delimited words (the default)."""
     tokens = text.split()
@@ -98,7 +120,14 @@ def _chunk_by_words(
 
     while start < len(tokens):
         chunk_text = " ".join(tokens[start : start + chunk_size])
-        chunks.append(Chunk(chunk_id=f"{doc_id}::{n}", doc_id=doc_id, text=chunk_text))
+        chunks.append(
+            Chunk(
+                chunk_id=f"{doc_id}::{n}",
+                doc_id=doc_id,
+                text=chunk_text,
+                metadata=dict(metadata or {}),
+            )
+        )
         n += 1
         start += step
 
@@ -106,7 +135,12 @@ def _chunk_by_words(
 
 
 def _chunk_by_tokens(
-    doc_id: str, text: str, chunk_size: int, chunk_overlap: int, tokenizer
+    doc_id: str,
+    text: str,
+    chunk_size: int,
+    chunk_overlap: int,
+    tokenizer,
+    metadata: Optional[Dict[str, Any]],
 ) -> List[Chunk]:
     """Sliding-window chunking over the model's sub-word tokens.
 
@@ -140,7 +174,14 @@ def _chunk_by_tokens(
         char_start = window[0][0]
         char_end = window[-1][1]
         chunk_text = text[char_start:char_end]
-        chunks.append(Chunk(chunk_id=f"{doc_id}::{n}", doc_id=doc_id, text=chunk_text))
+        chunks.append(
+            Chunk(
+                chunk_id=f"{doc_id}::{n}",
+                doc_id=doc_id,
+                text=chunk_text,
+                metadata=dict(metadata or {}),
+            )
+        )
         n += 1
         start += step
 

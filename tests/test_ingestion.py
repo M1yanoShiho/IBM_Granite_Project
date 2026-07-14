@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import re
+import sys
 import tempfile
+import types
 from pathlib import Path
 
 import numpy as np
@@ -9,7 +11,14 @@ import faiss
 import pytest
 
 from src.ingestion.chunker import Chunk, chunk_document
-from src.ingestion.loaders import load_text_file, load_documents
+from src.ingestion.loaders import (
+    LoadedDocument,
+    caption_images,
+    load_directory,
+    load_documents,
+    load_pdf,
+    load_text_file,
+)
 from src.ingestion.indexer import FaissIndex, VectorIndexer
 
 
@@ -243,3 +252,286 @@ def test_ann_index_save_load_round_trips(tmp_path) -> None:
     loaded = indexer.load(stem)
 
     assert loaded.search([0.0, 1.0, 0.0, 0.0], top_k=1)[0].doc_id == "d2"
+
+
+# ---------------------------------------------------------------------------
+# Chunk metadata (multimodal provenance riding along on ordinary text chunks)
+# ---------------------------------------------------------------------------
+
+def test_chunk_metadata_defaults_to_empty_dict() -> None:
+    # Legacy callers (no metadata argument) must be byte-identical to before.
+    assert Chunk("d::0", "d", "hello").metadata == {}
+    assert chunk_document("d", "hello world")[0].metadata == {}
+
+
+def test_chunk_document_stamps_metadata_on_every_chunk_as_independent_copies() -> None:
+    meta = {"source_type": "pdf", "file_name": "r.pdf", "page_number": 3}
+    chunks = chunk_document("d", "word " * 600, chunk_size=512, chunk_overlap=50, metadata=meta)
+    assert len(chunks) > 1
+    assert all(c.metadata == meta for c in chunks)
+    # Each chunk owns a copy: later per-chunk annotation cannot cross-contaminate.
+    assert chunks[0].metadata is not chunks[1].metadata
+    assert chunks[0].metadata is not meta
+
+
+def test_chunk_document_token_mode_passes_metadata() -> None:
+    chunks = chunk_document(
+        "d", "a b c", chunk_size=2, chunk_overlap=0,
+        tokenizer=FakeOffsetTokenizer(), metadata={"source_type": "txt"},
+    )
+    assert chunks and all(c.metadata == {"source_type": "txt"} for c in chunks)
+
+
+def test_chunk_unpickles_from_pre_metadata_state() -> None:
+    # ``.meta`` index pickles written before the metadata field existed carry
+    # no "metadata" key; loading them must not AttributeError.
+    old = Chunk.__new__(Chunk)
+    old.__setstate__({"chunk_id": "d::0", "doc_id": "d", "text": "t"})
+    assert old.metadata == {}
+
+
+# ---------------------------------------------------------------------------
+# Multimodal loaders. docling / torch / transformers are faked via sys.modules:
+# these tests must run on machines without the ML stack (mirroring the loaders'
+# lazy-import design), and fakes give exact control over pages and captions.
+# ---------------------------------------------------------------------------
+
+class _FakePdfDoc:
+    """Docling document stub: 3 pages; page 2 exports empty (figure-only)."""
+
+    pages = {1: None, 2: None, 3: None}
+
+    def export_to_markdown(self, page_no=None):
+        if page_no is None:
+            return "# whole doc"
+        return "" if page_no == 2 else f"# Page {page_no}"
+
+
+def _install_fake_docling(monkeypatch, doc) -> None:
+    module = types.ModuleType("docling.document_converter")
+
+    class DocumentConverter:
+        def convert(self, path):
+            return types.SimpleNamespace(document=doc)
+
+    module.DocumentConverter = DocumentConverter
+    monkeypatch.setitem(sys.modules, "docling", types.ModuleType("docling"))
+    monkeypatch.setitem(sys.modules, "docling.document_converter", module)
+
+
+def test_load_pdf_emits_one_markdown_record_per_nonblank_page(tmp_path, monkeypatch) -> None:
+    _install_fake_docling(monkeypatch, _FakePdfDoc())
+    pdf = tmp_path / "report.pdf"
+    pdf.write_bytes(b"%PDF-")
+
+    records = load_pdf(pdf)
+
+    assert [r.doc_id for r in records] == ["report::p1", "report::p3"]  # blank p2 skipped
+    assert records[0].text == "# Page 1"
+    assert records[0].metadata == {
+        "source_type": "pdf", "file_name": "report.pdf", "page_number": 1,
+    }
+
+
+def test_load_pdf_falls_back_to_whole_document_without_per_page_export(tmp_path, monkeypatch) -> None:
+    class OldDoc(_FakePdfDoc):
+        def export_to_markdown(self):  # older docling-core: no page_no kwarg
+            return "# whole doc"
+
+    _install_fake_docling(monkeypatch, OldDoc())
+    pdf = tmp_path / "old.pdf"
+    pdf.write_bytes(b"%PDF-")
+
+    records = load_pdf(pdf)
+
+    assert len(records) == 1
+    assert records[0].doc_id == "old"
+    assert records[0].text == "# whole doc"
+    assert records[0].metadata["page_number"] is None
+
+
+def test_load_pdf_missing_file_raises_before_docling_import() -> None:
+    with pytest.raises(FileNotFoundError):
+        load_pdf("no/such.pdf")
+
+
+def _install_fake_vision_stack(monkeypatch, caption="A bar chart.", generate_exc=None) -> dict:
+    """Fake torch + transformers; returns counters for loads / empty_cache."""
+    calls = {"loads": 0, "empty_cache": 0}
+
+    torch_mod = types.ModuleType("torch")
+
+    class _NoGrad:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+    torch_mod.no_grad = _NoGrad
+    torch_mod.cuda = types.SimpleNamespace(
+        is_available=lambda: True,
+        empty_cache=lambda: calls.__setitem__("empty_cache", calls["empty_cache"] + 1),
+    )
+    monkeypatch.setitem(sys.modules, "torch", torch_mod)
+
+    class _Inputs(dict):
+        def to(self, device):
+            return self
+
+    class _Ids:
+        shape = (1, 3)
+
+        def __getitem__(self, key):  # output_ids[0][n:] -> the "new" tokens
+            return "new-token-ids"
+
+    class _Processor:
+        def apply_chat_template(self, conversation, **kwargs):
+            return _Inputs(input_ids=_Ids())
+
+        def decode(self, ids, skip_special_tokens=True):
+            return f"  {caption}  "  # loader must strip
+
+    class _Model:
+        device = "cpu"
+
+        def generate(self, **kwargs):
+            if generate_exc is not None:
+                raise generate_exc
+            return [_Ids()]
+
+        def eval(self):
+            return self
+
+        def to(self, device):
+            return self
+
+    tf_mod = types.ModuleType("transformers")
+
+    class AutoProcessor:
+        @staticmethod
+        def from_pretrained(model_id, **kwargs):
+            return _Processor()
+
+    class AutoModelForImageTextToText:
+        @staticmethod
+        def from_pretrained(model_id, **kwargs):
+            calls["loads"] += 1
+            return _Model()
+
+    tf_mod.AutoProcessor = AutoProcessor
+    tf_mod.AutoModelForImageTextToText = AutoModelForImageTextToText
+    monkeypatch.setitem(sys.modules, "transformers", tf_mod)
+    return calls
+
+
+def _write_png(path: Path) -> None:
+    from PIL import Image
+
+    Image.new("RGB", (4, 4), "white").save(path)
+
+
+def test_caption_images_returns_caption_records_and_frees_vram(tmp_path, monkeypatch) -> None:
+    calls = _install_fake_vision_stack(monkeypatch, caption="A bar chart of revenue.")
+    img1, img2 = tmp_path / "chart.png", tmp_path / "photo.jpg"
+    _write_png(img1)
+    _write_png(img2)
+
+    records = caption_images([img1, img2])
+
+    assert [r.text for r in records] == ["A bar chart of revenue."] * 2
+    assert records[0].doc_id == "chart"
+    assert records[0].metadata == {
+        "source_type": "image", "file_name": "chart.png", "image_path": str(img1.resolve()),
+    }
+    assert calls["loads"] == 1        # one model load for the whole batch
+    assert calls["empty_cache"] == 1  # VRAM released after captioning
+
+
+def test_caption_images_frees_vram_even_when_generation_fails(tmp_path, monkeypatch) -> None:
+    # The cluster-VRAM contract: the finally-block release must run on the
+    # error path too, or a crashed ingestion job pins multi-GB of GPU memory.
+    calls = _install_fake_vision_stack(monkeypatch, generate_exc=RuntimeError("CUDA OOM"))
+    img = tmp_path / "x.png"
+    _write_png(img)
+
+    with pytest.raises(RuntimeError, match="OOM"):
+        caption_images([img])
+    assert calls["empty_cache"] == 1
+
+
+def test_caption_images_missing_file_raises_before_model_load(tmp_path, monkeypatch) -> None:
+    calls = _install_fake_vision_stack(monkeypatch)
+    with pytest.raises(FileNotFoundError):
+        caption_images([tmp_path / "nope.png"])
+    assert calls["loads"] == 0
+
+
+def test_caption_images_empty_input_returns_empty_without_model_load(monkeypatch) -> None:
+    calls = _install_fake_vision_stack(monkeypatch)
+    assert caption_images([]) == []
+    assert calls["loads"] == 0
+
+
+# ---------------------------------------------------------------------------
+# load_directory: extension routing + one vision batch per call
+# ---------------------------------------------------------------------------
+
+def test_load_directory_routes_by_extension_and_batches_images(tmp_path, monkeypatch) -> None:
+    (tmp_path / "a.txt").write_text("text a", encoding="utf-8")
+    (tmp_path / "b.md").write_text("text b", encoding="utf-8")
+    (tmp_path / "c.pdf").write_bytes(b"%PDF-")
+    (tmp_path / "d.png").write_bytes(b"png")
+    (tmp_path / "e.jpg").write_bytes(b"jpg")
+    (tmp_path / "f.docx").write_text("unsupported", encoding="utf-8")
+
+    from src.ingestion.loaders import dispatch
+
+    monkeypatch.setattr(dispatch, "build_converter", lambda: "CONVERTER")
+
+    def fake_load_pdf(path, *, converter=None):
+        assert converter == "CONVERTER"  # built once, shared across PDFs
+        return [LoadedDocument(
+            f"{path.stem}::p1", "# md",
+            {"source_type": "pdf", "file_name": path.name, "page_number": 1},
+        )]
+
+    monkeypatch.setattr(dispatch, "load_pdf", fake_load_pdf)
+
+    batches = []
+
+    def fake_caption_images(paths, **kwargs):
+        batches.append(list(paths))
+        return [LoadedDocument(
+            p.stem, f"caption of {p.name}",
+            {"source_type": "image", "file_name": p.name, "image_path": str(p)},
+        ) for p in paths]
+
+    monkeypatch.setattr(dispatch, "caption_images", fake_caption_images)
+
+    records = dispatch.load_directory(tmp_path)
+
+    # text/pdf in sorted order, then images; unsupported .docx skipped.
+    assert [r.doc_id for r in records] == ["a", "b", "c::p1", "d", "e"]
+    assert records[0].metadata == {"source_type": "txt", "file_name": "a.txt"}
+    # All images captioned in a single batch: one model load + release per call.
+    assert len(batches) == 1
+    assert [p.name for p in batches[0]] == ["d.png", "e.jpg"]
+
+
+def test_load_directory_without_pdfs_never_builds_docling_converter(tmp_path, monkeypatch) -> None:
+    (tmp_path / "a.txt").write_text("hi", encoding="utf-8")
+
+    from src.ingestion.loaders import dispatch
+
+    monkeypatch.setattr(
+        dispatch, "build_converter",
+        lambda: pytest.fail("docling converter built although no PDF is present"),
+    )
+    records = dispatch.load_directory(tmp_path)
+    assert [r.doc_id for r in records] == ["a"]
+
+
+def test_load_directory_rejects_non_directory(tmp_path) -> None:
+    with pytest.raises(NotADirectoryError):
+        load_directory(tmp_path / "missing")

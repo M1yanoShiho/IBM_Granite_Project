@@ -1,12 +1,9 @@
-"""Document loaders.
+"""Plain-text loaders (``.txt`` / ``.md``).
 
-Loads source content into a uniform ``(doc_id, text)`` form. Two sources are
-supported:
-
-1. **Benchmark corpora** (BEIR / MS MARCO / Natural Questions) — used for the
-   primary precision/recall evaluation; see ``eval.benchmarks.loader``.
-2. **Real documents** (PDF / Word / HTML / plain text) — used by the demo app
-   and any enterprise-style scenario.
+Loads source content into a uniform ``(doc_id, text)`` form. Benchmark
+corpora (BEIR / MS MARCO / Natural Questions) are loaded separately by
+``eval.benchmarks.loader``; PDFs and images have their own loaders in this
+package (``pdf_loader`` / ``image_loader``).
 """
 
 from __future__ import annotations
