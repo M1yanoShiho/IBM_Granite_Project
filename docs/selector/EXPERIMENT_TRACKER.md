@@ -1,8 +1,8 @@
 # Graph-Assisted Evidence Selector 2.0 — Experiment Tracker
 
-**Protocol:** zero-new-human-annotation；三类核心关系；FinanceBench=`EXPOSED_DIAGNOSTIC_ONLY` 且完全排除
+**Protocol:** 当前为迁移草稿；FinanceBench 不用于 Selector V2
 
-**Plan:** [V2_EXPERIMENT_PLAN.md](V2_EXPERIMENT_PLAN.md)
+**Plan:** [TRAINING_PLAN.md](TRAINING_PLAN.md)
 
 **Current state:** V2 尚未开始；所有 Run 均为 `TODO`
 

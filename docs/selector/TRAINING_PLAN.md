@@ -1,22 +1,31 @@
 # Graph-Assisted Evidence Selector 2.0 — 实验执行计划
 
+> **清理迁移状态：待重新设计，不得直接开始训练。**
+>
+> 这份文件从旧项目迁移，用于保留已经思考过的 Graph Selector 2.0 方案。
+> 旧项目的 NIAH、人工假针、counterfactual、标签和评估假设不自动成为新项目方案。
+> 清理完成后，Selector 小组要先重新确认任务、数据、标签、指标和共享存储。
+> 当前唯一确定的跨模块接口是：候选证据集合 → 排序后的 selected evidence IDs。
+> FinanceBench 由团队约定保留给完整 RAG 最终对比，不用于 Selector V2。
+
 **项目：** IBM Granite Needle-in-a-Haystack RAG
 
 **日期：** 2026-07-11
 
 **修订：** zero-new-human-annotation protocol
 
-**状态：** 待执行
+**状态：** 迁移后的设计草稿；尚未批准执行
 
 **适用范围：** 模块二 q2d_granite Top-20 → Top-10；不修改模块一 Retriever，不替代模块三 grounded generation
 
-**数据边界：** FinanceBench 状态为 `EXPOSED_DIAGNOSTIC_ONLY`；不参与训练、调参、停止决策、失败分析或最终盲测
+**数据边界：** FinanceBench 不属于 Selector V2 的训练、开发或测试数据；本规则由团队文档约定。
 
-> **V1/V2 边界：** V1 已经使用 FinanceBench 全部 150 个问题，因此它不能再承担任何“未见最终 benchmark”角色。若未来为了历史可比性报告 FinanceBench，必须单列为已暴露诊断结果，不能进入 V2 主张或模型选择。
+> **V1/V2 边界：** V1 是历史探索，V2 从新的任务和数据设计重新确认。FinanceBench 只属于完整 RAG 的最终系统对比，不参与本 Selector 计划。
 
-## 0. Design review status
+## 0. 旧计划审核记录
 
-本计划经过三轮独立只读设计审核，最终 verdict 为 **PASS**。PASS 只表示协议内部一致、可审计且能在 zero-new-human-annotation 条件下执行，不保证实现正确或结果一定支持主张。
+旧版本曾检查过这份方案的内部一致性，但该检查不等于新项目已经批准执行。
+清理后必须按照新的模块定义重新审核任务、数据构造、标签和实验条件。
 
 最终审核冻结了以下修正：
 
@@ -165,7 +174,7 @@ NIAH train 按父页面和 synthetic family 做 5-fold OOF。每折的 claim ext
 
 当前已物化 NIAH artifact 只有 500 个 train query。开始训练前必须按已有 split manifest 完整物化 2000 个 train query，或在 M0 预注册把训练规模改为 500；不能在看到 dev 结果后改变训练规模。
 
-FinanceBench 在 Graph 2.0 中不加载、不训练、不调参、不测试、不分析失败案例。V1 的 FinanceBench 输出只保留为 `EXPOSED_DIAGNOSTIC_ONLY` 历史探索结果，不进入本轮模型选择、停止决策或最终结论。
+FinanceBench 不属于 Selector V2 的训练、开发、调参、测试或失败分析数据。团队将它保留给完整 RAG 的最终系统对比。
 
 ### 4.1 零新增人工标注约束
 
