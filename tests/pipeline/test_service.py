@@ -54,9 +54,34 @@ def test_run_with_trace_exposes_every_module_output() -> None:
     trace = pipeline.run_with_trace(query, top_k=3, max_selected=2)
 
     assert trace.query == query
+    assert trace.checklist.query_id == query.query_id
+    assert trace.checklist.focus
+    assert trace.checklist.required_facts
     assert trace.candidates.candidates
     assert trace.selection.items
     assert trace.selected.evidence
     assert trace.generation == pipeline.run(query, top_k=3, max_selected=2)
     assert trace.top_k == 3
     assert trace.max_selected == 2
+
+
+def test_checklist_is_generated_per_query() -> None:
+    pipeline = build_baseline(
+        (
+            Document(
+                document_id="doc-1",
+                text="IBM revenue increased in 2023.",
+                source_uri="fixture://doc-1",
+            ),
+        )
+    )
+
+    trace = pipeline.run_with_trace(
+        Query(query_id="q-checklist", text="What was IBM revenue in 2023?"),
+        top_k=3,
+        max_selected=2,
+    )
+
+    assert "revenue" in tuple(item.lower() for item in trace.checklist.required_facts)
+    assert "year:2023" in trace.checklist.constraints
+    assert "entity:IBM" in trace.checklist.constraints

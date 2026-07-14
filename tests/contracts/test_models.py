@@ -7,6 +7,7 @@ from evidence_rag.contracts.models import (
     GenerationResult,
     PipelineRun,
     Query,
+    QueryChecklist,
     SelectedEvidenceSet,
     SelectionItem,
     SelectionResult,
@@ -22,6 +23,14 @@ def candidate(evidence_id: str = "ev-1") -> EvidenceCandidate:
         source_uri="fixture://doc-1",
         retrieval_score=1.0,
         retrieval_rank=1,
+    )
+
+
+def checklist(query_id: str = "q-1") -> QueryChecklist:
+    return QueryChecklist(
+        query_id=query_id,
+        focus="question",
+        required_facts=("question",),
     )
 
 
@@ -52,6 +61,7 @@ def test_pipeline_run_rejects_stage_query_mismatch() -> None:
     with pytest.raises(ValidationError, match="query IDs"):
         PipelineRun(
             query=Query(query_id="q-1", text="question"),
+            checklist=checklist(),
             top_k=1,
             max_selected=1,
             candidates=CandidateSet(query_id="q-other", candidates=(evidence,)),
@@ -79,6 +89,7 @@ def test_pipeline_run_rejects_selection_and_selected_evidence_mismatch() -> None
     with pytest.raises(ValidationError, match="selected evidence"):
         PipelineRun(
             query=Query(query_id="q-1", text="question"),
+            checklist=checklist(),
             top_k=1,
             max_selected=1,
             candidates=CandidateSet(query_id="q-1", candidates=(evidence,)),

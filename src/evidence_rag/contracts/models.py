@@ -17,6 +17,14 @@ class Query(FrozenModel):
     text: NonEmpty
 
 
+class QueryChecklist(FrozenModel):
+    schema_version: Literal["1.0"] = "1.0"
+    query_id: NonEmpty
+    focus: NonEmpty
+    required_facts: tuple[NonEmpty, ...]
+    constraints: tuple[NonEmpty, ...] = ()
+
+
 class Document(FrozenModel):
     schema_version: Literal["1.0"] = "1.0"
     document_id: NonEmpty
@@ -108,6 +116,7 @@ class GenerationResult(FrozenModel):
 class PipelineRun(FrozenModel):
     schema_version: Literal["1.0"] = "1.0"
     query: Query
+    checklist: QueryChecklist
     top_k: PositiveLimit
     max_selected: PositiveLimit
     candidates: CandidateSet
@@ -118,6 +127,8 @@ class PipelineRun(FrozenModel):
     @model_validator(mode="after")
     def stages_are_consistent(self) -> "PipelineRun":
         expected = self.query.query_id
+        if self.checklist.query_id != expected:
+            raise ValueError("checklist query ID differs")
         stage_query_ids = (
             self.candidates.query_id,
             self.selection.query_id,

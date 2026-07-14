@@ -6,12 +6,21 @@
 
 ```text
 用户问题
+  -> QueryChecklist 按当前问题整理任务重点
   -> Retriever 找全候选证据
   -> Selector 从候选证据里选准证据
   -> Generator 使用被选证据生成答案和引用
 ```
 
 中间由 Pipeline 负责连接三段，但 Pipeline 不做检索、不做选择、不做生成算法。
+
+`QueryChecklist` 不是写死的固定清单，而是每个问题运行时临时生成的一份轻量任务提示。它现在只保留三个必要信息：
+
+- `focus`：这个问题主要问什么
+- `required_facts`：回答时至少要覆盖哪些关键事实
+- `constraints`：明显的年份、实体等限制
+
+它的作用是把问题先整理清楚，后续 Retriever、Selector、Generator 都可以按需要使用它；如果某个模块暂时不用，也不影响三模块接口。
 
 当前有几个组合入口：
 
@@ -154,6 +163,7 @@ IBM_Granite_Project/
 │   ├── contracts/       三组共同接口
 │   ├── pipeline/        三组连接逻辑
 │   ├── evaluation/      整体评测和过程指标
+│   ├── query_analysis.py 每个问题的轻量 checklist
 │   ├── cli/             简单运行入口，平时不用重点关注
 │   └── composition.py   选择本次使用哪三个模块组合
 ├── tests/

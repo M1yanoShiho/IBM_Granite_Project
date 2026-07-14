@@ -29,11 +29,15 @@ def test_components_only_import_their_own_package_and_contracts() -> None:
                     assert module.startswith(allowed), f"{path} imports {module}"
 
 
-def test_pipeline_imports_contracts_only() -> None:
+def test_pipeline_imports_contracts_and_query_analysis_only() -> None:
+    allowed = (
+        "evidence_rag.contracts",
+        "evidence_rag.query_analysis",
+    )
     for path in (SOURCE / "pipeline").rglob("*.py"):
         for module, level in imports(path):
             assert level == 0, f"{path} uses a relative import"
             if module.startswith("evidence_rag"):
-                assert module.startswith("evidence_rag.contracts"), (
+                assert module.startswith(allowed), (
                     f"{path} imports concrete module {module}"
                 )
