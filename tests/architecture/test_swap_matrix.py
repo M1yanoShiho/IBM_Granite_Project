@@ -126,3 +126,18 @@ def test_selector_can_be_replaced_alone() -> None:
 def test_generator_can_be_replaced_alone() -> None:
     assert run(RetrieverA(), SelectorA(), GeneratorA()).answer == "A:A"
     assert run(RetrieverA(), SelectorA(), GeneratorB()).answer == "B:A"
+
+
+def test_every_module_combination_runs() -> None:
+    retrievers = (RetrieverA, RetrieverB)
+    selectors = (SelectorA, SelectorB)
+    generators = (GeneratorA, GeneratorB)
+
+    answers = {
+        run(retriever(), selector(), generator()).answer
+        for retriever in retrievers
+        for selector in selectors
+        for generator in generators
+    }
+
+    assert answers == {"A:A", "A:B", "B:A", "B:B"}
