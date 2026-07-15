@@ -1,42 +1,29 @@
-import hashlib
-import json
-import re
 from collections.abc import Iterable
 
-from evidence_rag.contracts.models import EvidenceCandidate, PipelineRun
+from evidence_rag.contracts.models import PipelineRun
+from evidence_rag.contracts.validation import validate_generation
 from evidence_rag.evaluation.models import (
-    AggregateMetric,
     CaseEvaluation,
     EvaluationReport,
     GoldCase,
-    MetricDirection,
     MetricSpec,
     MetricValue,
     RegressionGuard,
     RegressionReport,
 )
-
-CORE_DIRECTIONS: dict[str, MetricDirection] = {
-    "retriever.core.document_recall": "higher",
-    "selector.core.conditional_document_recall": "higher",
-    "selector.core.document_precision": "higher",
-    "generator.core.conditional_answer_match": "higher",
-    "generator.core.conditional_cited_document_precision": "higher",
-    "system.core.final_document_recall": "higher",
-    "system.core.cited_document_precision": "higher",
-    "system.core.answer_match": "higher",
-}
-CORE_METRIC_VERSION = "1.0"
-
-
-def _signature(value: object) -> str:
-    encoded = json.dumps(
-        value,
-        ensure_ascii=True,
-        separators=(",", ":"),
-        sort_keys=True,
-    ).encode("utf-8")
-    return hashlib.sha256(encoded).hexdigest()
+from evidence_rag.evaluation.scoring import (
+    CORE_DIRECTIONS,
+    CORE_METRIC_VERSION,
+    CORE_METRIC_VERSIONS,
+    aggregate_metrics,
+    answer_match,
+    compose_generator_metrics,
+    conditional_recall,
+    document_ids,
+    precision,
+    recall,
+    signature,
+)
 
 
 def _validate_extra_metrics(extra_metrics: tuple[MetricSpec, ...]) -> None:
@@ -56,74 +43,6 @@ def _validate_extra_metrics(extra_metrics: tuple[MetricSpec, ...]) -> None:
         seen.add(spec.key)
 
 
-def _unscored(reason: str) -> MetricValue:
-    return MetricValue(value=None, reason=reason)
-
-
-def _recall(predicted: set[str], relevant: set[str] | None) -> MetricValue:
-    if relevant is None:
-        return _unscored("relevant documents were not labelled")
-    if not relevant:
-        return _unscored("no relevant documents were labelled")
-    return MetricValue(value=len(predicted & relevant) / len(relevant))
-
-
-def _precision(predicted: set[str], relevant: set[str] | None) -> MetricValue:
-    if relevant is None:
-        return _unscored("relevant documents were not labelled")
-    if not relevant:
-        return _unscored("no relevant documents were labelled")
-    if not predicted:
-        return MetricValue(value=0.0)
-    return MetricValue(value=len(predicted & relevant) / len(predicted))
-
-
-def _conditional_recall(
-    selected: set[str],
-    retrieved: set[str],
-    relevant: set[str] | None,
-) -> MetricValue:
-    if relevant is None:
-        return _unscored("relevant documents were not labelled")
-    if not relevant:
-        return _unscored("no relevant documents were labelled")
-    reachable = retrieved & relevant
-    if not reachable:
-        return _unscored("retriever supplied no labelled-relevant document")
-    return MetricValue(value=len(selected & reachable) / len(reachable))
-
-
-def _normalise(text: str) -> str:
-    return " ".join(re.findall(r"\w+", text.casefold()))
-
-
-def _answer_match(answer: str, references: tuple[str, ...] | None) -> MetricValue:
-    if references is None:
-        return _unscored("reference answers were not labelled")
-    if not references:
-        return _unscored("no reference answers were labelled")
-    normalised_answer = _normalise(answer)
-    matched = any(_normalise(reference) in normalised_answer for reference in references)
-    return MetricValue(value=float(matched))
-
-
-def _generator_is_eligible(
-    selected: set[str],
-    relevant: set[str] | None,
-) -> MetricValue | None:
-    if relevant is None:
-        return _unscored("relevant documents were not labelled")
-    if not relevant:
-        return _unscored("no relevant documents were labelled")
-    if not selected & relevant:
-        return _unscored("selector supplied no labelled-relevant document")
-    return None
-
-
-def _document_ids(items: tuple[EvidenceCandidate, ...]) -> set[str]:
-    return {item.document_id for item in items}
-
-
 def evaluate_case(
     run: PipelineRun,
     gold: GoldCase,
@@ -139,8 +58,9 @@ def evaluate_case(
         if gold.relevant_document_ids is None
         else set(gold.relevant_document_ids)
     )
-    retrieved = _document_ids(run.candidates.candidates)
-    selected = _document_ids(run.selected.evidence)
+    retrieved = document_ids(run.candidates.candidates)
+    selected = document_ids(run.selected.evidence)
+    validate_generation(run.selected, run.generation)
     by_evidence_id = {
         item.evidence_id: item for item in run.candidates.candidates
     }
@@ -148,38 +68,41 @@ def evaluate_case(
         by_evidence_id[evidence_id].document_id
         for evidence_id in run.generation.cited_evidence_ids
     }
-    generator_ineligible = _generator_is_eligible(selected, relevant)
-    generator_answer = (
-        generator_ineligible
-        if generator_ineligible is not None
-        else _answer_match(run.generation.answer, gold.reference_answers)
-    )
-    generator_citations = (
-        generator_ineligible
-        if generator_ineligible is not None
-        else _precision(cited, relevant)
+    generator_answer, generator_citations, generator_citation_validity = (
+        compose_generator_metrics(
+            selected_evidence_ids={
+                item.evidence_id for item in run.selected.evidence
+            },
+            cited_evidence_ids=set(run.generation.cited_evidence_ids),
+            selected_document_ids=selected,
+            cited_document_ids=cited,
+            relevant_document_ids=relevant,
+            answer=run.generation.answer,
+            reference_answers=gold.reference_answers,
+        )
     )
 
     stages: dict[str, dict[str, MetricValue]] = {
         "retriever": {
-            "retriever.core.document_recall": _recall(retrieved, relevant),
+            "retriever.core.document_recall": recall(retrieved, relevant),
         },
         "selector": {
-            "selector.core.conditional_document_recall": _conditional_recall(
+            "selector.core.conditional_document_recall": conditional_recall(
                 selected,
                 retrieved,
                 relevant,
             ),
-            "selector.core.document_precision": _precision(selected, relevant),
+            "selector.core.document_precision": precision(selected, relevant),
         },
         "generator": {
             "generator.core.conditional_answer_match": generator_answer,
             "generator.core.conditional_cited_document_precision": generator_citations,
+            "generator.core.citation_validity": generator_citation_validity,
         },
         "system": {
-            "system.core.final_document_recall": _recall(cited, relevant),
-            "system.core.cited_document_precision": _precision(cited, relevant),
-            "system.core.answer_match": _answer_match(
+            "system.core.final_document_recall": recall(cited, relevant),
+            "system.core.cited_document_precision": precision(cited, relevant),
+            "system.core.answer_match": answer_match(
                 run.generation.answer,
                 gold.reference_answers,
             ),
@@ -205,6 +128,7 @@ def evaluate_case(
 def evaluate_dataset(
     pairs: Iterable[tuple[PipelineRun, GoldCase]],
     *,
+    dataset_signature: str | None = None,
     extra_metrics: tuple[MetricSpec, ...] = (),
 ) -> EvaluationReport:
     dataset = tuple(pairs)
@@ -217,32 +141,38 @@ def evaluate_dataset(
 
     directions = dict(CORE_DIRECTIONS)
     directions.update({spec.key: spec.direction for spec in extra_metrics})
-    aggregate: dict[str, AggregateMetric] = {}
-    for key in directions:
-        values = [
-            metric.value
-            for case in per_case
-            if (metric := case.flattened()[key]).value is not None
-        ]
-        aggregate[key] = AggregateMetric(
-            mean=None if not values else sum(values) / len(values),
-            n_scored=len(values),
-            n_total=len(per_case),
-        )
+    aggregate = aggregate_metrics(
+        tuple(case.flattened() for case in per_case),
+        directions,
+    )
 
+    evaluation_set_signature = signature(
+        tuple(
+            {
+                "query": run.query.model_dump(mode="json"),
+                "gold": gold.model_dump(mode="json"),
+            }
+            for run, gold in dataset
+        )
+    )
     return EvaluationReport(
-        dataset_signature=_signature(
-            tuple(
-                {
-                    "query": run.query.model_dump(mode="json"),
-                    "gold": gold.model_dump(mode="json"),
-                }
-                for run, gold in dataset
-            )
+        dataset_signature=(
+            evaluation_set_signature
+            if dataset_signature is None
+            else dataset_signature
         ),
-        metric_registry_signature=_signature(
+        evaluation_set_signature=evaluation_set_signature,
+        metric_registry_signature=signature(
             {
                 "core_version": CORE_METRIC_VERSION,
+                "core_metrics": tuple(
+                    (
+                        key,
+                        CORE_DIRECTIONS[key],
+                        CORE_METRIC_VERSIONS[key],
+                    )
+                    for key in sorted(CORE_DIRECTIONS)
+                ),
                 "metrics": tuple(
                     sorted(
                         (
@@ -272,6 +202,8 @@ def compare_reports(
         raise ValueError("reports must contain the same evaluation cases")
     if baseline.dataset_signature != candidate.dataset_signature:
         raise ValueError("reports must use the same evaluation dataset")
+    if baseline.evaluation_set_signature != candidate.evaluation_set_signature:
+        raise ValueError("reports must contain the same evaluation cases")
     if baseline.metric_registry_signature != candidate.metric_registry_signature:
         raise ValueError("reports must use the same metric registry version")
     if baseline.directions != candidate.directions:

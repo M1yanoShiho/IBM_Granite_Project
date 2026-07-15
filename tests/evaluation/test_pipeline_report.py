@@ -49,6 +49,7 @@ def test_real_pipeline_report_shows_each_stage_and_extra_metrics() -> None:
         report.generator["generator.core.conditional_cited_document_precision"].value
         == 1.0
     )
+    assert report.generator["generator.core.citation_validity"].value == 1.0
     assert report.system["system.core.final_document_recall"].value == 1.0
     assert report.system["system.core.cited_document_precision"].value == 1.0
     assert report.selector["selector.extra.mean_selection_score"].value is not None
@@ -250,7 +251,7 @@ def test_extra_metrics_cannot_replace_fixed_core_metrics() -> None:
         evaluate_case(run, gold, extra_metrics=(replacement,))
 
 
-def test_report_comparison_rejects_changed_gold_labels() -> None:
+def test_report_comparison_rejects_changed_evaluation_cases() -> None:
     from evidence_rag.evaluation.evaluator import compare_reports, evaluate_dataset
     from evidence_rag.evaluation.models import GoldCase, RegressionGuard
 
@@ -274,7 +275,8 @@ def test_report_comparison_rejects_changed_gold_labels() -> None:
                     reference_answers=("Revenue increased by ten percent.",),
                 ),
             ),
-        )
+        ),
+        dataset_signature="authoritative-dataset-signature",
     )
     changed_gold = evaluate_dataset(
         (
@@ -286,15 +288,112 @@ def test_report_comparison_rejects_changed_gold_labels() -> None:
                     reference_answers=("A different reference answer.",),
                 ),
             ),
-        )
+        ),
+        dataset_signature="authoritative-dataset-signature",
     )
 
-    with pytest.raises(ValueError, match="dataset"):
+    assert baseline.dataset_signature == changed_gold.dataset_signature
+    assert baseline.evaluation_set_signature != changed_gold.evaluation_set_signature
+    with pytest.raises(ValueError, match="evaluation cases"):
         compare_reports(
             baseline,
             changed_gold,
             guards=(RegressionGuard(metric_key="system.core.answer_match"),),
         )
+
+
+def test_dataset_report_exposes_authoritative_and_evaluation_set_signatures() -> None:
+    from evidence_rag.evaluation.evaluator import evaluate_dataset
+    from evidence_rag.evaluation.models import GoldCase
+
+    pipeline = build_baseline(
+        (
+            Document(
+                document_id="annual-report",
+                text="Revenue increased by ten percent.",
+                source_uri="fixture://annual-report",
+            ),
+        )
+    )
+    run = pipeline.run_with_trace(Query(query_id="q-signature", text="revenue increase"))
+    gold = GoldCase(
+        query_id="q-signature",
+        relevant_document_ids=("annual-report",),
+        reference_answers=("Revenue increased by ten percent.",),
+    )
+
+    explicit = evaluate_dataset(
+        ((run, gold),),
+        dataset_signature="manifest-dataset-signature",
+    )
+    legacy = evaluate_dataset(((run, gold),))
+    changed_query = run.model_copy(
+        update={"query": run.query.model_copy(update={"text": "changed query"})}
+    )
+    query_changed = evaluate_dataset(
+        ((changed_query, gold),),
+        dataset_signature="manifest-dataset-signature",
+    )
+
+    assert explicit.dataset_signature == "manifest-dataset-signature"
+    assert explicit.evaluation_set_signature == legacy.evaluation_set_signature
+    assert legacy.dataset_signature == legacy.evaluation_set_signature
+    assert query_changed.dataset_signature == explicit.dataset_signature
+    assert query_changed.evaluation_set_signature != explicit.evaluation_set_signature
+    with pytest.raises(ValueError, match="dataset_signature"):
+        evaluate_dataset(((run, gold),), dataset_signature="")
+
+
+def test_report_comparison_rejects_changed_authoritative_dataset() -> None:
+    from evidence_rag.evaluation.evaluator import compare_reports, evaluate_dataset
+    from evidence_rag.evaluation.models import GoldCase
+
+    pipeline = build_baseline(
+        (
+            Document(
+                document_id="annual-report",
+                text="Revenue increased by ten percent.",
+                source_uri="fixture://annual-report",
+            ),
+        )
+    )
+    run = pipeline.run_with_trace(Query(query_id="q-dataset", text="revenue increase"))
+    gold = GoldCase(query_id="q-dataset")
+    baseline = evaluate_dataset(((run, gold),), dataset_signature="dataset-a")
+    candidate = evaluate_dataset(((run, gold),), dataset_signature="dataset-b")
+
+    assert baseline.evaluation_set_signature == candidate.evaluation_set_signature
+    with pytest.raises(ValueError, match="evaluation dataset"):
+        compare_reports(baseline, candidate)
+
+
+def test_full_evaluator_keeps_hard_citation_validation() -> None:
+    from evidence_rag.contracts.models import GenerationResult
+    from evidence_rag.evaluation.evaluator import evaluate_case
+    from evidence_rag.evaluation.models import GoldCase
+
+    pipeline = build_baseline(
+        (
+            Document(
+                document_id="annual-report",
+                text="Revenue increased by ten percent.",
+                source_uri="fixture://annual-report",
+            ),
+        )
+    )
+    run = pipeline.run_with_trace(Query(query_id="q-invalid-citation", text="revenue"))
+    invalid_run = run.model_copy(
+        update={
+            "generation": GenerationResult(
+                query_id=run.query.query_id,
+                answer=run.generation.answer,
+                cited_evidence_ids=("not-selected",),
+            )
+        }
+    )
+
+    with pytest.raises(ValueError, match="unselected evidence"):
+        evaluate_case(invalid_run, GoldCase(query_id=run.query.query_id))
 
 
 def test_default_system_guards_catch_noisy_final_citations() -> None:

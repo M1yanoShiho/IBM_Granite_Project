@@ -30,5 +30,10 @@ gold = GoldCase(
     reference_answers=("text",),
 )
 case_report: CaseEvaluation = evaluate_case(trace, gold)
-dataset_report: EvaluationReport = evaluate_dataset(((trace, gold),))
+dataset_report: EvaluationReport = evaluate_dataset(
+    ((trace, gold),),
+    dataset_signature="dataset-signature",
+)
+legacy_dataset_report: EvaluationReport = evaluate_dataset(((trace, gold),))
+evaluation_set_signature: str = dataset_report.evaluation_set_signature
 comparison: RegressionReport = compare_reports(dataset_report, dataset_report)
