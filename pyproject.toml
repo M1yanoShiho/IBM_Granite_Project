@@ -16,9 +16,17 @@ granite = [
   "torch>=2,<3",
   "transformers>=4.45,<5",
 ]
+ingestion = [
+  "docling>=2,<3",
+  "docling-core[chunking]>=2,<3",
+  "pillow>=10,<12",
+]
 dev = [
   "build>=1.2,<2",
   "mypy>=1.10,<2",
+  # pillow duplicated from 'ingestion' so the real-PIL loader tests run
+  # without the heavy docling stack; tests importorskip PIL either way.
+  "pillow>=10,<12",
   "pytest>=8,<9",
   "ruff>=0.5,<1",
 ]

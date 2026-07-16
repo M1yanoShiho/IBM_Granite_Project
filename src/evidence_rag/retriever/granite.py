@@ -6,7 +6,7 @@ from typing import Any, Protocol
 
 from evidence_rag.contracts.models import CandidateSet, Document, EvidenceCandidate, Query
 from evidence_rag.contracts.protocols import Retriever
-from evidence_rag.retriever.chunking import Chunk, WordChunker
+from evidence_rag.retriever.chunking import Chunk, Chunker, WordChunker
 
 DEFAULT_GRANITE_EMBEDDING_MODEL_ID = "ibm-granite/granite-embedding-english-r2"
 QUERY2DOC_PROMPT = (
@@ -108,7 +108,7 @@ class GraniteDenseRetriever:
         documents: Iterable[Document],
         *,
         embedder: TextEmbedder | None = None,
-        chunker: WordChunker | None = None,
+        chunker: Chunker | None = None,
     ) -> None:
         self.chunker = chunker or WordChunker()
         self.embedder = embedder or GraniteEmbedder()
@@ -151,6 +151,7 @@ class GraniteDenseRetriever:
                 source_uri=chunk.source_uri,
                 retrieval_score=score,
                 retrieval_rank=rank,
+                metadata=chunk.metadata,
             )
             for rank, (score, chunk) in enumerate(scored[:top_k], start=1)
         )

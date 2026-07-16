@@ -5,7 +5,7 @@ from collections.abc import Iterable
 
 from evidence_rag.contracts.models import CandidateSet, Document, EvidenceCandidate, Query
 from evidence_rag.infrastructure.corpus import CorpusSnapshot
-from evidence_rag.retriever.chunking import Chunk, WordChunker
+from evidence_rag.retriever.chunking import Chunk, Chunker, WordChunker
 
 TOKEN = re.compile(r"[A-Za-z0-9]+")
 
@@ -34,11 +34,11 @@ class BM25Retriever:
     def __init__(
         self,
         documents: Iterable[Document],
-        chunker: WordChunker | None = None,
+        chunker: Chunker | None = None,
         k1: float = 1.5,
         b: float = 0.75,
     ) -> None:
-        self.chunker: WordChunker | None = chunker or WordChunker()
+        self.chunker: Chunker | None = chunker or WordChunker()
         self.k1, self.b = validate_bm25_parameters(k1, b)
         self._set_chunks(chunk for document in documents for chunk in self.chunker.chunk(document))
 
@@ -93,6 +93,7 @@ class BM25Retriever:
                 source_uri=chunk.source_uri,
                 retrieval_score=score,
                 retrieval_rank=rank,
+                metadata=chunk.metadata,
             )
             for rank, (score, chunk) in enumerate(scored[:top_k], start=1)
         )

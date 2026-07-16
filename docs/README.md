@@ -240,3 +240,26 @@ IBM_Granite_Project/
 - 正式包：`src/evidence_rag`
 - baseline 组合入口：`src/evidence_rag/composition.py`
 - 旧版本备份标签：`legacy-before-three-module-reset-2026-07-13`
+
+## 8. 实验命令（reference baseline）
+
+统一实验入口是 `evidence_rag.cli.experiment`，配置在 `configs/experiments/reference_baseline.toml`。可以分阶段跑，也可以一次跑全流程：
+
+```bash
+python -m evidence_rag.cli.experiment --config configs/experiments/reference_baseline.toml prepare
+python -m evidence_rag.cli.experiment --config configs/experiments/reference_baseline.toml retriever
+python -m evidence_rag.cli.experiment --config configs/experiments/reference_baseline.toml selector
+python -m evidence_rag.cli.experiment --config configs/experiments/reference_baseline.toml generator
+python -m evidence_rag.cli.experiment --config configs/experiments/reference_baseline.toml pipeline
+python -m evidence_rag.cli.experiment --config configs/experiments/reference_baseline.toml all
+```
+
+- `prepare` 构建语料索引并写出冻结 artifact；`retriever` / `selector` / `generator` 各自只跑对应阶段，读上游冻结 artifact、写本阶段结果，方便三组独立做消融。
+- `pipeline` 用同一份配置跑实时 Pipeline（Retriever -> Selector -> Generator 全链路），`all` 等于依次执行以上全部阶段。
+
+输出写到 `runs/reference-baseline/`，其中索引相关的两个关键文件：
+
+- `runs/reference-baseline/index/index_manifest.json`：索引清单（语料签名、BM25 参数、索引签名），阶段间一致性校验靠它。
+- `runs/reference-baseline/index/corpus_snapshot.json`：分块后的语料快照，重跑下游阶段时直接加载，不重新分块。
+
+冻结 artifact 与实时 Pipeline 的结果可以互相对照：分阶段结果用于定位"变化来自哪个模块"，实时 Pipeline 结果用于确认整体系统行为。

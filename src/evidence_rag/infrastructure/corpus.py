@@ -2,11 +2,11 @@ import json
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from hashlib import sha256
-from typing import Annotated, Literal, TypeVar
+from typing import Annotated, Literal, Protocol, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from evidence_rag.contracts.models import Document
+from evidence_rag.contracts.models import Document, SourceMetadata
 
 NonEmpty = Annotated[str, Field(min_length=1)]
 NonNegativeCount = Annotated[int, Field(ge=0)]
@@ -22,6 +22,29 @@ class Chunk:
     evidence_id: str
     text: str
     source_uri: str
+    metadata: SourceMetadata | None = None
+
+
+class Chunker(Protocol):
+    version: str
+
+    def chunk(self, document: Document) -> tuple[Chunk, ...]: ...
+
+
+def _derive_chunk(document: Document, version: str, start: int, end: int, text: str) -> Chunk:
+    chunk_hash = sha256(
+        f"{document.document_id}|{version}|{start}|{end}|{text}".encode()
+    ).hexdigest()[:16]
+    chunk_id = f"chunk-{chunk_hash}"
+    evidence_hash = sha256(f"{document.source_uri}|{chunk_id}".encode()).hexdigest()[:16]
+    return Chunk(
+        document_id=document.document_id,
+        chunk_id=chunk_id,
+        evidence_id=f"ev-{evidence_hash}",
+        text=text,
+        source_uri=document.source_uri,
+        metadata=document.metadata,
+    )
 
 
 class WordChunker:
@@ -42,25 +65,29 @@ class WordChunker:
         for start in range(0, len(words), step):
             end = min(start + self.chunk_size, len(words))
             text = " ".join(words[start:end])
-            chunk_hash = sha256(
-                f"{document.document_id}|{self.version}|{start}|{end}|{text}".encode()
-            ).hexdigest()[:16]
-            chunk_id = f"chunk-{chunk_hash}"
-            evidence_hash = sha256(
-                f"{document.source_uri}|{chunk_id}".encode()
-            ).hexdigest()[:16]
-            chunks.append(
-                Chunk(
-                    document_id=document.document_id,
-                    chunk_id=chunk_id,
-                    evidence_id=f"ev-{evidence_hash}",
-                    text=text,
-                    source_uri=document.source_uri,
-                )
-            )
+            chunks.append(_derive_chunk(document, self.version, start, end, text))
             if end == len(words):
                 break
         return tuple(chunks)
+
+
+class PrechunkedChunker:
+    """Chunker for corpora already chunked at ingestion (e.g. Docling HybridChunker).
+
+    Emits each document as exactly one chunk, so structure-aware units produced
+    by a loader (tables, cross-page sections) are never split again downstream.
+    """
+
+    version = "prechunked-v1"
+
+    def chunk(self, document: Document) -> tuple[Chunk, ...]:
+        text = document.text.strip()
+        if not text:
+            return ()
+        # The hashed (start, end) span is in word indices like WordChunker's;
+        # stripping only removes surrounding whitespace, so the word count of
+        # the unstripped text is identical and the ids stay deterministic.
+        return (_derive_chunk(document, self.version, 0, len(document.text.split()), text),)
 
 
 class FrozenModel(BaseModel):
@@ -136,6 +163,11 @@ class CorpusBuilder:
                         "evidence_id": chunk.evidence_id,
                         "text": chunk.text,
                         "source_uri": chunk.source_uri,
+                        "metadata": (
+                            chunk.metadata.model_dump(mode="json")
+                            if chunk.metadata is not None
+                            else None
+                        ),
                     }
                     for chunk in chunks
                 ],

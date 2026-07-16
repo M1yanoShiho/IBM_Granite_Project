@@ -9,6 +9,7 @@ from evidence_rag.infrastructure.config import ExperimentConfig, ModuleConfig
 from evidence_rag.infrastructure.corpus import CorpusSnapshot
 from evidence_rag.pipeline.service import EvidenceRAGPipeline
 from evidence_rag.retriever.bm25 import BM25Retriever, validate_bm25_parameters
+from evidence_rag.retriever.chunking import Chunker
 from evidence_rag.retriever.granite import (
     GraniteDenseRetriever,
     Query2DocRetriever,
@@ -131,9 +132,13 @@ def build_pipeline_from_config(
     )
 
 
-def build_baseline(documents: Iterable[Document]) -> EvidenceRAGPipeline:
+def build_baseline(
+    documents: Iterable[Document],
+    *,
+    chunker: Chunker | None = None,
+) -> EvidenceRAGPipeline:
     return EvidenceRAGPipeline(
-        retriever=BM25Retriever(documents),
+        retriever=BM25Retriever(documents, chunker=chunker),
         selector=TopKSelector(),
         generator=ExtractiveGenerator(),
     )
@@ -144,9 +149,10 @@ def build_granite_baseline(
     *,
     embedder: TextEmbedder | None = None,
     llm: TextGenerator | None = None,
+    chunker: Chunker | None = None,
 ) -> EvidenceRAGPipeline:
     return EvidenceRAGPipeline(
-        retriever=GraniteDenseRetriever(documents, embedder=embedder),
+        retriever=GraniteDenseRetriever(documents, embedder=embedder, chunker=chunker),
         selector=TopKSelector(),
         generator=GraniteGenerator(llm=llm),
     )
@@ -157,9 +163,10 @@ def build_q2d_granite_baseline(
     *,
     embedder: TextEmbedder | None = None,
     llm: TextGenerator | None = None,
+    chunker: Chunker | None = None,
 ) -> EvidenceRAGPipeline:
     shared_llm = llm or GraniteLLMClient()
-    dense_retriever = GraniteDenseRetriever(documents, embedder=embedder)
+    dense_retriever = GraniteDenseRetriever(documents, embedder=embedder, chunker=chunker)
     return EvidenceRAGPipeline(
         retriever=Query2DocRetriever(dense_retriever, shared_llm),
         selector=TopKSelector(),
@@ -173,9 +180,10 @@ def build_q2d_corroboration_granite(
     embedder: TextEmbedder | None = None,
     llm: TextGenerator | None = None,
     alpha: float = 0.6,
+    chunker: Chunker | None = None,
 ) -> EvidenceRAGPipeline:
     shared_llm = llm or GraniteLLMClient()
-    dense_retriever = GraniteDenseRetriever(documents, embedder=embedder)
+    dense_retriever = GraniteDenseRetriever(documents, embedder=embedder, chunker=chunker)
     return EvidenceRAGPipeline(
         retriever=Query2DocRetriever(dense_retriever, shared_llm),
         selector=CorroborationSelector(shared_llm, alpha=alpha),

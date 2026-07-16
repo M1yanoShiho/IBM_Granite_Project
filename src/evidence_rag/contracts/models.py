@@ -1,6 +1,23 @@
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, FiniteFloat, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    FiniteFloat,
+    SerializerFunctionWrapHandler,
+    model_serializer,
+    model_validator,
+)
+
+
+def _omit_absent_metadata(data: dict[str, Any]) -> dict[str, Any]:
+    """Drop a None ``metadata`` key so plain-text corpora serialize exactly as
+    they did before multimodal provenance existed — committed dataset/corpus
+    signatures and frozen artifacts stay byte-stable."""
+    if data.get("metadata") is None:
+        data.pop("metadata", None)
+    return data
 
 NonEmpty = Annotated[str, Field(min_length=1)]
 PositiveRank = Annotated[int, Field(ge=1)]
@@ -25,11 +42,24 @@ class QueryChecklist(FrozenModel):
     constraints: tuple[NonEmpty, ...] = ()
 
 
+class SourceMetadata(FrozenModel):
+    schema_version: Literal["1.0"] = "1.0"
+    source_type: Literal["txt", "pdf", "image"]
+    file_name: NonEmpty
+    page_number: PositiveRank | None = None
+    image_path: NonEmpty | None = None
+
+
 class Document(FrozenModel):
     schema_version: Literal["1.0"] = "1.0"
     document_id: NonEmpty
     text: NonEmpty
     source_uri: NonEmpty
+    metadata: SourceMetadata | None = None
+
+    @model_serializer(mode="wrap")
+    def _serialize(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        return _omit_absent_metadata(handler(self))
 
 
 class EvidenceCandidate(FrozenModel):
@@ -41,6 +71,11 @@ class EvidenceCandidate(FrozenModel):
     source_uri: NonEmpty
     retrieval_score: FiniteFloat
     retrieval_rank: PositiveRank
+    metadata: SourceMetadata | None = None
+
+    @model_serializer(mode="wrap")
+    def _serialize(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        return _omit_absent_metadata(handler(self))
 
 
 class CandidateSet(FrozenModel):
