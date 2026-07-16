@@ -47,9 +47,13 @@ from src.retrieval.reranker import (
     TwoStageRetriever,
 )
 from src.retrieval.retriever import DenseRetriever
-from src.retrieval.sparse_index import SparseIndex
-from src.retrieval.sparse_retriever import SparseRetriever
-from src.retrieval.splade_encoder import SpladeEncoder
+try:
+    from src.retrieval.sparse_index import SparseIndex
+    from src.retrieval.sparse_retriever import SparseRetriever
+    from src.retrieval.splade_encoder import SpladeEncoder
+    _SPARSE_AVAILABLE = True
+except ModuleNotFoundError:
+    _SPARSE_AVAILABLE = False
 
 
 @dataclass
@@ -515,6 +519,10 @@ def _build_component(
             index = indexer.build(chunks)
         return DenseRetriever(embedder, index, top_k=top_k * config.dense_fanout)
     if name == "splade":
+        if not _SPARSE_AVAILABLE:
+            raise ImportError(
+                "SPLADE requires torch — install it or run on a GPU node."
+            )
         encoder = SpladeEncoder()
         if config.index_cache_dir is not None:
             cache_path = config.index_cache_dir / (

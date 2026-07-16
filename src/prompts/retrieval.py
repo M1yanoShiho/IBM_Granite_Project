@@ -51,3 +51,11 @@ LISTWISE_RANK_PROMPT = (
     "{listing}\n\n"
     "Answer with only the ranking as identifiers, e.g. 3 > 1 > 2."
 )
+
+DECOMPOSE_PROMPT = (
+    "Break the following question into {n} specific, atomic sub-questions that "
+    "together cover all the facts needed to answer it. Each sub-question should "
+    "target a single verifiable fact.\n"
+    "Question: {question}\n"
+    "List the {n} sub-questions, one per line, numbered:"
+)

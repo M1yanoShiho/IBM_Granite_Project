@@ -137,6 +137,7 @@ class StrongBM25Retriever:
                 doc_id=self.doc_ids[i],
                 text=self.corpus[i],
                 score=float(scores[i]),
+                rank=rank,
             )
-            for i in ranked_indices
+            for rank, i in enumerate(ranked_indices, 1)
         ]

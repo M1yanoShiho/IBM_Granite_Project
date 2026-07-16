@@ -11,11 +11,11 @@ groups (see ``docs/superpowers/specs/2026-07-12-prompt-centralization-design.md`
 Layout (per spec §3.1, by LLM-call phase):
 
 * :mod:`src.prompts.rag`        — 5 prompts: generation line
-* :mod:`src.prompts.retrieval`  — 4 prompts: augmentation / post-processing
+* :mod:`src.prompts.retrieval`  — 5 prompts: augmentation / post-processing
 * :mod:`src.prompts.niah`       — 6 prompts: distractor fabrication + filtering
 * :mod:`src.prompts.judge`      — 3 prompts: LLM-as-judge grading
 
-Total = 18 canonical prompts + 1 backwards-compat alias (:data:`Q2D_PROMPT`).
+Total = 19 canonical prompts + 1 backwards-compat alias (:data:`Q2D_PROMPT`).
 
 Public surface:
 
@@ -54,6 +54,7 @@ from src.prompts.rag import (
     FINALIZE_PROMPT,
 )
 from src.prompts.retrieval import (
+    DECOMPOSE_PROMPT,
     EXTRACT_PROMPT,
     HYDE_PROMPT,
     LISTWISE_RANK_PROMPT,
@@ -73,6 +74,7 @@ PROMPT_REGISTRY: dict[str, str] = {
     "rag.consolidate": CONSOLIDATE_PROMPT,
     "rag.finalize": FINALIZE_PROMPT,
     "retrieval.hyde": HYDE_PROMPT,
+    "retrieval.decompose": DECOMPOSE_PROMPT,
     "retrieval.listwise_rank": LISTWISE_RANK_PROMPT,
     "retrieval.extract": EXTRACT_PROMPT,
     "retrieval.parametric": PARAMETRIC_PROMPT,
@@ -98,6 +100,7 @@ __all__ = [
     # retrieval
     "HYDE_PROMPT",
     "Q2D_PROMPT",
+    "DECOMPOSE_PROMPT",
     "EXTRACT_PROMPT",
     "PARAMETRIC_PROMPT",
     "LISTWISE_RANK_PROMPT",

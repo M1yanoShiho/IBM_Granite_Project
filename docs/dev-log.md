@@ -57,9 +57,36 @@
 
 ### P5 — Ingestion 流水线 · 吴泽楠
 - **负责:** `src/ingestion/{loaders,chunker,indexer}.py`
-- **已完成:** _(待本人填)_
-- **进行中:** ☐ `chunker`(token 切块,可独立先做)
-- **下一步:** `indexer` 建 + 存 FAISS(需 P4 的 embedder);和 P4 对齐 `Chunk`/索引交接格式。
+- **已完成:**
+  - ✅ `chunker.py`：word 切分（默认）+ model-token 切分（传 HF fast tokenizer），支持 `chunk_size`/`chunk_overlap`，输出 `List[Chunk]`；边界校验齐全。
+  - ✅ `indexer.py`：`VectorIndexer` 支持 flat / HNSW / IVF / IVFPQ 四种索引；`FaissIndex.search(query_vector, top_k) -> List[RetrievedChunk]` 接口已实现；save/load 做了 Windows unicode 路径兼容处理。
+- **已完成(续):**
+  - ✅ `RetrievedChunk` 扩展：新增 `rank` + `metadata` 字段，`FaissIndex.search()` 填充 rank 和 source_parent_id，对齐 Retriever→Selector 接口规范。
+  - ✅ `eval/benchmarks/rgb_loader.py`：JSONL 格式 loader，支持 4 个维度，处理 information_integration 的嵌套 positive 列表。
+  - ✅ `eval/run_rgb.py`：全管道评测脚本（Retriever 阶段已通，800 samples，Selector/Generator 留 stub），输出 `results/rgb_candidates.jsonl` 供 Selector 组使用。
+  - ✅ `eval/run_msmarco.py`：MS MARCO Retriever 评测脚本（MRR@10 / Recall@20 / ms/query），待发送至服务器运行。
+  - ✅ `eval/benchmarks/fever_loader.py`：FEVER 数据 loader（支持 split / label 过滤 / max_samples）。
+  - ✅ **Query decomposition（§5.3 核心创新）**：`QueryDecomposeTransform`（LLM 分解查询为 N 个子问题）+ `DecomposingRetriever`（多子问题独立检索 + RRF 融合候选池，Cormack 2009）+ `_rrf_merge`，新增 `DECOMPOSE_PROMPT` 并注册到 `PROMPT_REGISTRY`（`retrieval.decompose`）。适用于 information_integration 类多事实查询，提升 Recall（找全）。
+  - ✅ `eval/run_fever.py`：FEVER Retriever 阶段脚本，输出候选供 Selector 组（`results/fever_candidates_strong.jsonl`）。
+  - ✅ `eval/analyze_rgb.py`：RGB 候选 Recall@k 分析脚本，直接从 `rgb_candidates.jsonl` 计算各维度找全率。
+  - ✅ **StrongBM25 升级**：`run_rgb.py` / `run_fever.py` / `run_msmarco.py` 全部换用 `StrongBM25Retriever`（Anserini 参数 k1=0.9, b=0.4 + stopword 过滤），RGB 整体 Recall@20 从 0.9938 → **0.9962**。
+  - ✅ **SciFact BM25 vs StrongBM25 对比（标准 BEIR 数据集，300 queries，5183 docs）**：
+    - BM25（naive）：nDCG@10=0.6360 / MRR=0.6041 / Recall@10=0.7557 / 12.8ms/q
+    - StrongBM25（Anserini参数）：nDCG@10=**0.6486** / MRR=**0.6175** / Recall@10=**0.7704** / **8.7ms/q**
+    - 全部指标提升（+1.3~1.5pp）且延迟降低 32%；结果文件：`results/scifact_bm25_comparison.csv`
+  - ✅ **RGB Recall 指标（已测）**：StrongBM25，800 samples：
+    - noise_robustness: R@5=0.9233 / R@10=0.9733 / R@20=0.9933
+    - counterfactual_robustness: R@5=0.9000 / R@10=1.0000 / R@20=1.0000
+    - information_integration: R@5=0.9200 / R@10=0.9800 / R@20=0.9900
+    - negative_rejection: R@5=0.9667 / R@10=1.0000 / R@20=1.0000
+    - **Overall: R@5=0.9363 / R@10=0.9875 / R@20=0.9962**
+  - ✅ **FEVER Recall 指标（已测，smoke，200 queries，30k corpus）**：R@5=0.9750 / R@10=0.9850 / R@20=0.9850；候选文件含 `positive_ids` 字段，供 `analyze_fever.py` 复算。
+  - ✅ **MS MARCO smoke test（本地，100 queries，50k passages）**：MRR@10=0.7406 / Recall@20=0.9067 / 34.8ms/query；全量 8.8M 需服务器。
+  - ✅ `eval/analyze_rgb.py` 升级为多 k 对比表（`--k 5 10 20`，默认同时输出三列）。
+  - ✅ 新增 `eval/analyze_fever.py`：读取 `fever_candidates_strong.jsonl`，与 `analyze_rgb` 对称，计算 FEVER Recall@k 对比表。
+  - ✅ `run_fever.py` 在输出 JSONL 中加入 `positive_ids` 字段，使离线分析可复算 Recall@k。
+- **进行中:** ◐ MS MARCO 全量跑（需服务器，`run_msmarco.py` 已就绪）；Dense 检索 RGB/FEVER（需 GPU）。
+- **下一步:** MS MARCO 脚本发服务器取 MRR@10 全量数字；等 Selector 组接收候选文件。
 
 ### P6 — 集成 + explainability + 接口负责人 · 毛威凯
 > 详细个人开发记录见 **[dev-log-p6.md](dev-log-p6.md)**。
@@ -87,6 +114,12 @@
 
 | 日期                   | 区域               | 改动                                                                                                                                            | 文件 | 谁  |
 |----------------------|------------------|-----------------------------------------------------------------------------------------------------------------------------------------------| --- |----|
+| 2026-07-16           | Retriever SciFact 对比 | **SciFact BM25 vs StrongBM25**（300q/5183docs，标准 BEIR）：nDCG@10 0.6360→0.6486（+1.3pp）、MRR 0.6041→0.6175（+1.3pp）、Recall@10 0.7557→0.7704（+1.5pp）、ms/q 12.8→8.7（-32%）；修 `run_benchmark.py` 顶层 sparse import 为 lazy（`_SPARSE_AVAILABLE`），无 torch 环境下 BM25-only 可跑。 | `eval/run_benchmark.py`, `results/scifact_bm25_comparison.csv` | Retriever 吴泽楠 |
+| 2026-07-16           | Retriever 接口合规修复 | **`retrieval_rank` bug 修复**：`StrongBM25Retriever.retrieve()` 之前未给 `RetrievedChunk.rank` 赋值（全部输出 0），改为 `enumerate(ranked_indices, 1)` 后输出正确 1-based rank；`run_rgb.py` / `run_fever.py` 输出 JSONL 补全 §6.2 缺失的 `company / date / document_type / version` 字段（benchmark 数据为空字符串，企业文档由 VectorIndexer metadata 填充）；重新生成 `rgb_candidates.jsonl` / `fever_candidates_strong.jsonl`。 | `src/retrieval/strong_bm25.py`, `eval/run_rgb.py`, `eval/run_fever.py`, `results/rgb_candidates.jsonl`, `results/fever_candidates_strong.jsonl` | Retriever 吴泽楠 |
+| 2026-07-16           | Retriever 分析工具完善 | **analyze_rgb 升级为多 k 对比表**（`--k 5 10 20`）；新增 `eval/analyze_fever.py`（Recall@k 对比表，与 RGB 对称）；`run_fever.py` 输出 JSONL 加入 `positive_ids` 字段支持离线复算；FEVER smoke：R@5=0.9750/@10=0.9850/@20=0.9850（200q/30k）；MS MARCO smoke：MRR@10=0.7406, Recall@20=0.9067（100q/50k）。 | `eval/analyze_rgb.py`, `eval/analyze_fever.py`, `eval/run_fever.py`, `results/fever_candidates_strong.jsonl` | Retriever 吴泽楠 |
+| 2026-07-16           | Retriever 指标 + 升级 | **StrongBM25 全面替换**（k1=0.9, b=0.4, stopword）：`run_rgb/fever/msmarco.py` 全部升级；RGB Recall@20=0.9962（Recall@5=0.9363, @10=0.9875）；新增 `eval/analyze_rgb.py` 计算候选找全率；新增 `eval/run_fever.py` + FEVER loader。 | `eval/run_rgb.py`, `eval/run_fever.py`, `eval/run_msmarco.py`, `eval/analyze_rgb.py`, `eval/benchmarks/fever_loader.py`, `results/rgb_candidates.jsonl`, `results/fever_candidates_strong.jsonl` | Retriever 吴泽楠 |
+| 2026-07-16           | Retriever 创新 | **Query Decomposition（§5.3）**：新增 `QueryDecomposeTransform`（LLM 将复杂问题拆成 N 个子问题）、`DecomposingRetriever`（多子问题独立检索 + RRF 融合，Cormack 2009）、`_rrf_merge`；新增 `DECOMPOSE_PROMPT` 并注册至 `PROMPT_REGISTRY`（`retrieval.decompose`）；dev-log 补全 Retriever 已完成工作。 | `src/retrieval/query_transform.py`, `src/prompts/retrieval.py`, `src/prompts/__init__.py`, `eval/benchmarks/fever_loader.py`, `docs/dev-log.md` | Retriever 吴泽楠 |
+| 2026-07-16           | P5 Ingestion + 接口 | **接口扩展(向后兼容)**：`RetrievedChunk` 新增 `rank: int = 0` 和 `metadata: Dict[str, Any] = {}`，对齐新版项目文档 Retriever→Selector 接口规范（新增 retrieval_rank / source_parent_id / company/date/document_type）；`FaissIndex.search()` 同步填入 rank 和 metadata；dev-log P5 小节补全已完成工作（chunker / indexer 均已实现）。 | `src/retrieval/base.py`, `src/ingestion/indexer.py`, `docs/dev-log.md` | P5 吴泽楠 |
 | 2026-07-12           | refactor/prompts | **Prompt 集中化**:新建 `src/prompts/` 包(`rag`/`retrieval`/`niah`/`judge` 4 phase + `PROMPT_REGISTRY`);消除 4 组重复 prompt(HyDE≡Q2D、WRONG_ENTITY、EXTRACT、PARAMETRIC),src 措辞为权威、eval 旧措辞需在 results-summary 标 legacy;`*_SEALED` 变体保留为独立常量;8 个 consuming file 改 import;`Q2D_PROMPT`/`SEALED_*`/`PROMPT_A/B` 保留向后兼容别名;新增 `tests/test_prompts_registry.py` 8 测试(identity、key 形状、placeholder format、sealed≠base),套件 405 collected / 17 env errors(与重构前持平,净增 8 测试)。spec:`docs/superpowers/specs/2026-07-12-prompt-centralization-design.md` | `src/prompts/*`(新), `src/rag_pipeline.py`, `src/retrieval/{reranker,query_transform}.py`, `src/niah/{counterfactual,filters,generative}.py`, `eval/{niah_selector_pilot,niah_label_audit,run_rag}.py`, `tests/test_prompts_registry.py`(新), `docs/interfaces.md`, `docs/superpowers/{specs,plans}/2026-07-12-*` | _TBD_ |
 | 2026-07-05           | RAG demo | RAG demo完成: `RAGResult` 加 fields/helper/optional metadata,`rag_app.py` 加构造参数和 pipeline type 判断,页面展示优化,补测试 | `src/rag_pipeline.py`, `src/rag_app.py`, `app/main.py`, `tests/test_data_structures.py`, `tests/test_rag_pipeline.py`, `tests/test_rag_app.py` | P1许展瑜 |
 | 2026-06-29           | P6 RAG评测线 | **RAG 评测线打通(review→标准化→可跑)**:合入 b1_c1(B1指标+C1引用)/b2(B2 runner)到 `week3`;review 后把 RAG 指标重写为学界标准口径——SQuAD 归一化 EM+token-F1(多 gold 取 max)、context precision 改 qrels precision@k(**修了把 qid 当问题文本的 bug**)、faithfulness 简化为 token 覆盖;`_tokenize/_jaccard/_split_sentences` 抽到 `src/text_utils.py`(去重复+修句切漂移);loader 加 qrels 感知子集抽样(`max_queries/max_docs`)、`answers` 改 `List[str]`;`run_rag` 加 CLI + `--per-query-out`;`run_rag.slurm` 改 NQ 子集 granite/gte/bm25 三路。TDD,套件 218 passed/1 xfailed | `eval/rag_metrics.py`, `src/explainability/citations.py`, `src/text_utils.py`, `eval/run_rag.py`, `eval/benchmarks/loader.py`, `eval/metrics.py`, `scripts/run_rag.slurm`, `tests/` | P6 |

@@ -34,15 +34,21 @@ class FaissIndex:
         q = np.array([query_vector], dtype="float32")
         scores, ids = self._index.search(q, top_k)
         results = []
-        for rank, i in enumerate(ids[0]):
+        position = 1
+        for slot, i in enumerate(ids[0]):
             if i < 0:
                 continue
             chunk = self._chunks[i]
+            metadata = dict(chunk.metadata)
+            metadata.setdefault("source_parent_id", chunk.doc_id)
             results.append(RetrievedChunk(
                 doc_id=chunk.doc_id,
                 text=chunk.text,
-                score=float(scores[0][rank]),
+                score=float(scores[0][slot]),
+                rank=position,
+                metadata=metadata,
             ))
+            position += 1
         return results
 
 

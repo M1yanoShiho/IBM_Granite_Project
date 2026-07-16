@@ -9,8 +9,8 @@ these without team agreement** — other people are coding against them.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import List, Protocol, runtime_checkable
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Protocol, runtime_checkable
 
 
 @dataclass
@@ -26,11 +26,20 @@ class RetrievedChunk:
         The chunk text.
     score:
         Similarity / relevance score; higher = more relevant.
+    rank:
+        1-based position in the ranked list returned by this retriever.
+        Defaults to 0 (unset) for callers that do not populate it.
+    metadata:
+        Provenance fields carried from the source chunk: ``source_parent_id``,
+        ``company``, ``date``, ``document_type``, ``version``, etc.
+        Used by the Selector interface; empty for legacy callers.
     """
 
     doc_id: str
     text: str
     score: float
+    rank: int = 0
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
 
 @runtime_checkable
