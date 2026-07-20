@@ -7,7 +7,7 @@ from evidence_rag.contracts.models import (
 )
 from evidence_rag.pipeline.service import EvidenceRAGPipeline
 from evidence_rag.selector.corroboration import CorroborationSelector
-from evidence_rag.selector.gated import GateDecision, GatedCorroborationSelector
+from evidence_rag.selector.gated import GatedCorroborationSelector, GateDecision
 
 
 class MappedExtractor:

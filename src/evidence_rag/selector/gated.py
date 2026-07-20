@@ -159,8 +159,7 @@ class GatedCorroborationSelector:
             if window[index].evidence_id not in dropped
         )
         score_by_id = {
-            candidate.evidence_id: blended[index]
-            for index, candidate in enumerate(window)
+            candidate.evidence_id: blended[index] for index, candidate in enumerate(window)
         }
         output = (surviving_window + tail)[:max_selected]
         return SelectionResult(
