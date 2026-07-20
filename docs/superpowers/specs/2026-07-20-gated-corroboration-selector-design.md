@@ -175,6 +175,17 @@ winner votes、票差、四条件逐条布尔值、最终动作(keep/drop)。
 - **迁移测试内置:** 在域 1 dev 上调参冻结,原样跑其他域——把 ContractNLI −0.134
   的事故形态变为设计内必测项。
 - **oracle-drop 上界:** 按标注精确踢除 harmful 项,给出门的理论天花板。
+- **边/簇检测组件评估(2026-07-20 增补,导师要求):** 门的判据链条每一环单独量,
+  end-to-end 不够。
+  - **false-conflict rate:** 同池内两条均含 gold 答案(按 official aliases 判定)的候选
+    被归一化聚进不同答案簇的比率——假冲突即门误杀的机制通道,是首要监控量;
+  - **missed-conflict rate:** 含 gold 候选与含 deterministic counterfactual 值的候选
+    被聚进同一簇的比率——漏判冲突即门失明;
+  - **dedup 确定性单测:** document_id 合票规则要求 100% 通过(对应 Graph 2.0
+    Gate 0B 的 SAME_SOURCE exact-rule tests);
+  - **标签来源:** gold aliases 为 official 标签 + counterfactual mutation log,
+    零新增人工标注——与 ArbGraph(arXiv 2604.18362)Table 4 用 200 对人工标注做
+    组件评估形成方法学对照:可复现、无标注者偏差,呼应 judge-kappa≈0 发现。
 - **统计单位 query,配对检验**,沿用项目现行显著性协议。
 - 数据集选择遵循 `docs/selector/README.md` 六条待确认项,由团队会议决定,
   本 spec 不硬编码;FinanceBench 按团队约定排除于 Selector 工作之外。
