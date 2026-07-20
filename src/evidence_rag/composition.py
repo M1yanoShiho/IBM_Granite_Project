@@ -23,6 +23,7 @@ from evidence_rag.retriever.indexing import (
     read_index_manifest,
 )
 from evidence_rag.selector.corroboration import CorroborationSelector
+from evidence_rag.selector.gated import GatedCorroborationSelector
 from evidence_rag.selector.top_k import TopKSelector
 
 
@@ -88,11 +89,69 @@ def build_retriever(
     return BM25Retriever.from_corpus(corpus, k1=k1, b=b)
 
 
-def build_selector(config: ModuleConfig) -> Selector:
-    if config.name != "top-k":
-        raise ValueError(f"unknown selector: {config.name}")
-    _reject_parameters(config, "selector")
-    return TopKSelector()
+def _float_parameter(name: str, value: object, low: float, high: float) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"invalid selector parameter {name}: expected a number")
+    number = float(value)
+    if not low <= number <= high:
+        raise ValueError(f"invalid selector parameter {name}: must be in [{low}, {high}]")
+    return number
+
+
+def _int_parameter(name: str, value: object, minimum: int) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"invalid selector parameter {name}: expected an integer")
+    if value < minimum:
+        raise ValueError(f"invalid selector parameter {name}: must be >= {minimum}")
+    return value
+
+
+def _selector_parameters(
+    config: ModuleConfig,
+    allowed: frozenset[str],
+) -> dict[str, float | int]:
+    unknown = sorted(set(config.parameters) - allowed)
+    if unknown:
+        raise ValueError(f"unknown selector parameter: {unknown[0]}")
+    parameters: dict[str, float | int] = {}
+    if "alpha" in config.parameters:
+        parameters["alpha"] = _float_parameter("alpha", config.parameters["alpha"], 0.0, 1.0)
+    if "margin" in config.parameters:
+        parameters["margin"] = _int_parameter("margin", config.parameters["margin"], 1)
+    if "support_cap" in config.parameters:
+        parameters["support_cap"] = _int_parameter(
+            "support_cap", config.parameters["support_cap"], 0
+        )
+    if "top_n" in config.parameters:
+        parameters["top_n"] = _int_parameter("top_n", config.parameters["top_n"], 1)
+    return parameters
+
+
+def build_selector(config: ModuleConfig, *, llm: TextGenerator | None = None) -> Selector:
+    if config.name == "top-k":
+        _reject_parameters(config, "selector")
+        return TopKSelector()
+    if config.name == "corroboration":
+        parameters = _selector_parameters(config, frozenset({"alpha", "top_n"}))
+        client = llm if llm is not None else GraniteLLMClient()
+        return CorroborationSelector(
+            client,
+            alpha=float(parameters.get("alpha", 0.6)),
+            top_n=int(parameters.get("top_n", 20)),
+        )
+    if config.name == "gated-corroboration":
+        parameters = _selector_parameters(
+            config, frozenset({"alpha", "margin", "support_cap", "top_n"})
+        )
+        client = llm if llm is not None else GraniteLLMClient()
+        return GatedCorroborationSelector(
+            client,
+            alpha=float(parameters.get("alpha", 0.6)),
+            margin=int(parameters.get("margin", 2)),
+            support_cap=int(parameters.get("support_cap", 1)),
+            top_n=int(parameters.get("top_n", 20)),
+        )
+    raise ValueError(f"unknown selector: {config.name}")
 
 
 def build_generator(config: ModuleConfig) -> Generator:
