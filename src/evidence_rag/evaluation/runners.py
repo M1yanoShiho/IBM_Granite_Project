@@ -14,12 +14,12 @@ from evidence_rag.evaluation.models import (
     RetrieverStageRun,
     SelectorStageRun,
 )
-from evidence_rag.query_analysis import QueryAnalyzer, RuleBasedQueryAnalyzer
 from evidence_rag.evaluation.stage_evaluators import (
     evaluate_generator_stage,
     evaluate_retriever_stage,
     evaluate_selector_stage,
 )
+from evidence_rag.query_analysis import QueryAnalyzer, RuleBasedQueryAnalyzer
 
 RecordT = TypeVar("RecordT")
 
