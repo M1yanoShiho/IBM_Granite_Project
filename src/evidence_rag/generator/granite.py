@@ -5,7 +5,12 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any, Protocol
 
-from evidence_rag.contracts.models import GenerationResult, Query, SelectedEvidenceSet
+from evidence_rag.contracts.models import (
+    GenerationResult,
+    Query,
+    QueryChecklist,
+    SelectedEvidenceSet,
+)
 
 DEFAULT_GRANITE_MODEL_ID = "ibm-granite/granite-4.1-3b"
 
@@ -209,6 +214,7 @@ class GraniteGenerator:
     def generate(
         self,
         query: Query,
+        checklist: QueryChecklist,
         selected: SelectedEvidenceSet,
     ) -> GenerationResult:
         if query.query_id != selected.query_id:

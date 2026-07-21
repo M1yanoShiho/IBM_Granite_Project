@@ -1,9 +1,14 @@
 from evidence_rag.contracts.models import (
     EvidenceCandidate,
     Query,
+    QueryChecklist,
     SelectedEvidenceSet,
 )
 from evidence_rag.generator.extractive import ExtractiveGenerator
+
+
+def checklist(query_id: str) -> QueryChecklist:
+    return QueryChecklist(query_id=query_id, focus="what changed", required_facts=("change",))
 
 
 def test_generator_uses_selected_content_and_ids() -> None:
@@ -18,6 +23,7 @@ def test_generator_uses_selected_content_and_ids() -> None:
     )
     result = ExtractiveGenerator().generate(
         Query(query_id="q-1", text="What changed?"),
+        checklist("q-1"),
         SelectedEvidenceSet(query_id="q-1", evidence=(evidence,)),
     )
     assert "Revenue increased" in result.answer
@@ -27,6 +33,7 @@ def test_generator_uses_selected_content_and_ids() -> None:
 def test_empty_selection_returns_empty_output() -> None:
     result = ExtractiveGenerator().generate(
         Query(query_id="q-2", text="What changed?"),
+        checklist("q-2"),
         SelectedEvidenceSet(query_id="q-2", evidence=()),
     )
     assert result.answer == ""

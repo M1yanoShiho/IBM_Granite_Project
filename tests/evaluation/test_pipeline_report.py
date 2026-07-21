@@ -127,6 +127,7 @@ def test_module_improvement_cannot_hide_system_regression() -> None:
         from evidence_rag.contracts.models import (
             CandidateSet,
             GenerationResult,
+            QueryChecklist,
             SelectedEvidenceSet,
             SelectionItem,
             SelectionResult,
@@ -162,6 +163,7 @@ def test_module_improvement_cannot_hide_system_regression() -> None:
         def generate(
             self,
             query: Query,
+            checklist: QueryChecklist,
             selected: SelectedEvidenceSet,
         ) -> GenerationResult:
             if not selected.evidence:
@@ -397,7 +399,11 @@ def test_full_evaluator_keeps_hard_citation_validation() -> None:
 
 
 def test_default_system_guards_catch_noisy_final_citations() -> None:
-    from evidence_rag.contracts.models import GenerationResult, SelectedEvidenceSet
+    from evidence_rag.contracts.models import (
+        GenerationResult,
+        QueryChecklist,
+        SelectedEvidenceSet,
+    )
     from evidence_rag.evaluation.evaluator import compare_reports, evaluate_dataset
     from evidence_rag.evaluation.models import EvaluationReport, GoldCase
     from evidence_rag.pipeline.service import EvidenceRAGPipeline
@@ -411,6 +417,7 @@ def test_default_system_guards_catch_noisy_final_citations() -> None:
         def generate(
             self,
             query: Query,
+            checklist: QueryChecklist,
             selected: SelectedEvidenceSet,
         ) -> GenerationResult:
             relevant = next(

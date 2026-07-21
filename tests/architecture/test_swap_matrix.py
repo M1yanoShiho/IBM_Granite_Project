@@ -3,6 +3,7 @@ from evidence_rag.contracts.models import (
     EvidenceCandidate,
     GenerationResult,
     Query,
+    QueryChecklist,
     SelectedEvidenceSet,
     SelectionItem,
     SelectionResult,
@@ -77,6 +78,7 @@ class GeneratorA:
     def generate(
         self,
         query: Query,
+        checklist: QueryChecklist,
         selected: SelectedEvidenceSet,
     ) -> GenerationResult:
         item = selected.evidence[0]
@@ -91,6 +93,7 @@ class GeneratorB:
     def generate(
         self,
         query: Query,
+        checklist: QueryChecklist,
         selected: SelectedEvidenceSet,
     ) -> GenerationResult:
         item = selected.evidence[0]

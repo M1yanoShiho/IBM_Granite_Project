@@ -45,7 +45,7 @@ class EvidenceRAGPipeline:
         if selection.query_id != query.query_id:
             raise ValueError("selector returned the wrong query ID")
         selected = resolve_selection(candidates, selection)
-        result = self.generator.generate(query, selected)
+        result = self.generator.generate(query, checklist, selected)
         validate_generation(selected, result)
         return PipelineRun(
             query=query,

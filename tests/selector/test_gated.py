@@ -3,6 +3,7 @@ from evidence_rag.contracts.models import (
     EvidenceCandidate,
     GenerationResult,
     Query,
+    QueryChecklist,
     SelectedEvidenceSet,
 )
 from evidence_rag.pipeline.service import EvidenceRAGPipeline
@@ -248,7 +249,12 @@ class PoolRetriever:
 
 
 class CitingGenerator:
-    def generate(self, query: Query, selected: SelectedEvidenceSet) -> GenerationResult:
+    def generate(
+        self,
+        query: Query,
+        checklist: QueryChecklist,
+        selected: SelectedEvidenceSet,
+    ) -> GenerationResult:
         first = selected.evidence[0]
         return GenerationResult(
             query_id=query.query_id,

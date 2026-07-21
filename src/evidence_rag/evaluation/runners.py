@@ -19,6 +19,7 @@ from evidence_rag.evaluation.stage_evaluators import (
     evaluate_retriever_stage,
     evaluate_selector_stage,
 )
+from evidence_rag.query_analysis import QueryAnalyzer, RuleBasedQueryAnalyzer
 
 RecordT = TypeVar("RecordT")
 
@@ -150,7 +151,9 @@ def run_generator_stage(
     gold_cases: Iterable[GoldCase],
     *,
     dataset_signature: str,
+    query_analyzer: QueryAnalyzer | None = None,
 ) -> GeneratorStageRun:
+    analyzer = query_analyzer or RuleBasedQueryAnalyzer()
     ordered_queries = tuple(queries)
     _validate_queries(ordered_queries)
     ordered_selected = _ordered_records(
@@ -167,7 +170,8 @@ def run_generator_stage(
     )
     generations = []
     for query, selected in zip(ordered_queries, ordered_selected, strict=True):
-        result = generator.generate(query, selected)
+        checklist = analyzer.analyze(query)
+        result = generator.generate(query, checklist, selected)
         validate_generation(selected, result)
         generations.append(result)
     generations_tuple = tuple(generations)
