@@ -12,7 +12,7 @@ def write_config(root: Path) -> Path:
     config_path.write_text(
         f"""
 [dataset]
-manifest = "{REFERENCE_MANIFEST}"
+manifest = "{REFERENCE_MANIFEST.as_posix()}"
 [output]
 directory = "run"
 [retriever]

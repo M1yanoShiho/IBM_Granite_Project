@@ -1,51 +1,38 @@
-import re
 from collections.abc import Sequence
-from typing import Protocol
 
 from evidence_rag.contracts.models import (
     CandidateSet,
-    EvidenceCandidate,
     Query,
     SelectionItem,
     SelectionResult,
 )
-
-EXTRACT_PROMPT = (
-    "Using ONLY the passage below, answer the question with the shortest exact answer "
-    "(a name, place, date, or number). If the passage does not answer it, reply NONE.\n"
-    "Question: {question}\n"
-    "Passage: {passage}\n"
-    "Answer:"
+from evidence_rag.selector.answer_norm import (
+    MIN_ANSWER_LENGTH as MIN_ANSWER_LENGTH,
 )
-
-PARAMETRIC_PROMPT = (
-    "Answer the question with the shortest exact answer from your own knowledge. "
-    "If you are not sure, reply NONE.\n"
-    "Question: {question}\n"
-    "Answer:"
+from evidence_rag.selector.answer_norm import (
+    STOPWORDS as STOPWORDS,
 )
-
-MIN_ANSWER_LENGTH = 3
-STOPWORDS = {"the", "a", "an", "none", "n/a", "unknown", "it", "yes", "no"}
-
-
-class TextGenerator(Protocol):
-    def generate(self, prompt: str) -> str: ...
-
-
-def normalize_answer(answer: str) -> str:
-    normalized = answer.strip().lower()
-    normalized = re.sub(r"^(the|a|an)\s+", "", normalized)
-    return normalized.strip(" \t\n.,;:!?\"'()[]")
-
-
-def is_valid_answer(answer: str) -> bool:
-    normalized = normalize_answer(answer)
-    if not normalized or normalized in STOPWORDS:
-        return False
-    if len(normalized) < MIN_ANSWER_LENGTH and not normalized.isdigit():
-        return False
-    return True
+from evidence_rag.selector.answer_norm import (
+    canonicalize_answer,
+)
+from evidence_rag.selector.answer_norm import (
+    is_valid_answer as is_valid_answer,
+)
+from evidence_rag.selector.answer_norm import (
+    normalize_answer as normalize_answer,
+)
+from evidence_rag.selector.extraction import (
+    EXTRACT_PROMPT as EXTRACT_PROMPT,
+)
+from evidence_rag.selector.extraction import (
+    PARAMETRIC_PROMPT as PARAMETRIC_PROMPT,
+)
+from evidence_rag.selector.extraction import (
+    AnswerExtractionEngine,
+)
+from evidence_rag.selector.extraction import (
+    TextGenerator as TextGenerator,
+)
 
 
 def corroboration_scores(
@@ -53,11 +40,11 @@ def corroboration_scores(
     parametric_answer: str | None = None,
 ) -> tuple[float, ...]:
     normalized_answers = tuple(
-        normalize_answer(answer) if is_valid_answer(answer) else None
+        canonicalize_answer(answer) if is_valid_answer(answer) else None
         for answer in answers
     )
     parametric = (
-        normalize_answer(parametric_answer)
+        canonicalize_answer(parametric_answer)
         if parametric_answer is not None and is_valid_answer(parametric_answer)
         else None
     )
@@ -103,27 +90,16 @@ class CorroborationSelector:
             raise ValueError("alpha must be in [0, 1]")
         if top_n <= 0:
             raise ValueError("top_n must be positive")
-        if passage_chars <= 0:
-            raise ValueError("passage_chars must be positive")
         self.answer_extractor = answer_extractor
         self.alpha = alpha
         self.top_n = top_n
         self.use_parametric = use_parametric
         self.passage_chars = passage_chars
-
-    def _extract_answer(self, query: Query, candidate: EvidenceCandidate) -> str:
-        prompt = EXTRACT_PROMPT.format(
-            question=query.text,
-            passage=candidate.text[: self.passage_chars],
+        self._engine = AnswerExtractionEngine(
+            answer_extractor,
+            passage_chars=passage_chars,
+            use_parametric=use_parametric,
         )
-        return self.answer_extractor.generate(prompt).strip()
-
-    def _parametric_answer(self, query: Query) -> str | None:
-        if not self.use_parametric:
-            return None
-        return self.answer_extractor.generate(
-            PARAMETRIC_PROMPT.format(question=query.text)
-        ).strip()
 
     def select(
         self,
@@ -142,10 +118,8 @@ class CorroborationSelector:
             sorted(candidates.candidates, key=lambda item: item.retrieval_rank)
         )
         window = ranked_candidates[: self.top_n]
-        answers = tuple(self._extract_answer(query, candidate) for candidate in window)
-        corroboration = minmax(
-            corroboration_scores(answers, self._parametric_answer(query))
-        )
+        extracted = self._engine.extract(query, window)
+        corroboration = minmax(corroboration_scores(extracted.answers, extracted.parametric))
         relevance = minmax(tuple(candidate.retrieval_score for candidate in window))
         blended = tuple(
             self.alpha * relevance[index] + (1.0 - self.alpha) * corroboration[index]
