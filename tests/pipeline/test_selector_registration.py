@@ -3,7 +3,7 @@ import pytest
 from evidence_rag.composition import build_selector
 from evidence_rag.infrastructure.config import ModuleConfig
 from evidence_rag.selector.corroboration import CorroborationSelector
-from evidence_rag.selector.gated import GatedCorroborationSelector
+from evidence_rag.selector.gated import GatedCorroborationSelector, GatedCoverageSelector
 from evidence_rag.selector.top_k import TopKSelector
 
 
@@ -45,6 +45,19 @@ def test_gated_corroboration_defaults_match_spec() -> None:
     assert isinstance(selector, GatedCorroborationSelector)
     assert selector.margin == 2
     assert selector.support_cap == 1
+
+
+def test_gated_coverage_builds_with_parameters() -> None:
+    selector = build_selector(
+        ModuleConfig(
+            name="gated-coverage-corroboration",
+            parameters={"margin": 3, "support_cap": 2},
+        ),
+        llm=FakeLLM(),
+    )
+    assert isinstance(selector, GatedCoverageSelector)
+    assert selector.margin == 3
+    assert selector.support_cap == 2
 
 
 def test_unknown_parameter_rejected() -> None:

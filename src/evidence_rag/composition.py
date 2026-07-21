@@ -23,7 +23,7 @@ from evidence_rag.retriever.indexing import (
     read_index_manifest,
 )
 from evidence_rag.selector.corroboration import CorroborationSelector
-from evidence_rag.selector.gated import GatedCorroborationSelector
+from evidence_rag.selector.gated import GatedCorroborationSelector, GatedCoverageSelector
 from evidence_rag.selector.top_k import TopKSelector
 
 
@@ -139,12 +139,17 @@ def build_selector(config: ModuleConfig, *, llm: TextGenerator | None = None) ->
             alpha=float(parameters.get("alpha", 0.6)),
             top_n=int(parameters.get("top_n", 20)),
         )
-    if config.name == "gated-corroboration":
+    if config.name in {"gated-corroboration", "gated-coverage-corroboration"}:
         parameters = _selector_parameters(
             config, frozenset({"alpha", "margin", "support_cap", "top_n"})
         )
         client = llm if llm is not None else GraniteLLMClient()
-        return GatedCorroborationSelector(
+        selector_class = (
+            GatedCoverageSelector
+            if config.name == "gated-coverage-corroboration"
+            else GatedCorroborationSelector
+        )
+        return selector_class(
             client,
             alpha=float(parameters.get("alpha", 0.6)),
             margin=int(parameters.get("margin", 2)),
