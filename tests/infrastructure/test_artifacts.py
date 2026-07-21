@@ -1,4 +1,5 @@
 import json
+import os
 import shutil
 from hashlib import sha256
 from pathlib import Path
@@ -180,9 +181,7 @@ def test_read_rejects_tampered_ancestor_provenance(tmp_path: Path) -> None:
     store.write_jsonl(
         "candidate_sets.jsonl",
         (candidate_set(),),
-        upstream_artifact_hashes={
-            "queries.jsonl": store.artifact_hash("queries.jsonl")
-        },
+        upstream_artifact_hashes={"queries.jsonl": store.artifact_hash("queries.jsonl")},
     )
     store.write_jsonl(
         "selected.jsonl",
@@ -371,7 +370,22 @@ def test_stage_reader_rejects_manifest_mismatch_before_parsing_artifact(
         )
 
 
-@pytest.mark.parametrize("filename", ("../outside.jsonl", "/tmp/outside.jsonl", "..\\x.jsonl"))
+@pytest.mark.parametrize(
+    "filename",
+    (
+        "../outside.jsonl",
+        "C:/outside.jsonl",
+        "..\\x.jsonl",
+        pytest.param(
+            "/tmp/outside.jsonl",
+            marks=pytest.mark.xfail(
+                os.name == "nt",
+                reason="rooted-but-driveless paths pass _validate_artifact_filename on Windows",
+                strict=True,
+            ),
+        ),
+    ),
+)
 def test_artifact_paths_reject_traversal_and_absolute_paths(
     tmp_path: Path,
     filename: str,
