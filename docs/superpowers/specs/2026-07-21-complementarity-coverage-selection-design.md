@@ -90,8 +90,8 @@ SelectionResult
   不会为多样性把它挤掉;
 - **不新增误杀:** 覆盖层不 drop,只在幸存者内排序打包;
 - **暴露冲突保持:** 多个幸存答案簇各 pin 一条代表,1v1 冲突两边都留;
-- **gate-off 等价:** 覆盖关闭(或 U 为空/特征无区分度)时,key 退化为纯 blended,
-  行为与现有门一致 → 可与门做干净的 coverage-on/off 配对。
+- **coverage-off 对照干净:** E3 的 off 臂 = 直接用门 `GatedCorroborationSelector`(不走本层);
+  本层在单一幸存答案簇且 U 无区分度时退化为 "pin 代表 + blended 顺序",与门只差 pin 的位置。
 
 ### 7.2 测试映射(逐条单测)
 
