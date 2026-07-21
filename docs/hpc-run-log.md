@@ -53,8 +53,29 @@
 
 ---
 
+## E3 — coverage-on/off 配对(A2 互补覆盖层因果贡献)
+
+**状态:** BLOCKED——依赖 (1) §14 数据决定,且需**互补压力数据**(答案受益于多条支撑的题;
+单段可答反事实集发挥空间小,见 A2 spec §9);(2) 复用 run_selector_gate.slurm 三件套,
+加第三个 config 臂(`gated-coverage-corroboration`)。
+
+**BEFORE(数据落地时补):** 目的=固定门,coverage-on(`gated-coverage-corroboration`)vs
+coverage-off(`gated-corroboration`)配对,主指标 grounded-answer F1/faithfulness/cover-EM
+(承接 finding 17 k=10);guardrail required recall 非劣(pin 结构上保证,需实测);
+辅助:选中集近重复对数下降。**AFTER:** 未运行。
+
+## E1-support — support 边检测准确率(A2 spec §9,导师三边评估的第三边)
+
+**状态:** BLOCKED——需带 official supporting-fact 标注的数据。
+**BEFORE(补):** 实体/数值重叠 support-边 precision/recall(零人工标注,用 official
+supporting-fact 标签);与 conflict 边(false/missed-conflict)、duplicate 边(去重单测)
+并列成 ArbGraph Table 4 式三边准确率表。**AFTER:** 未运行。
+
 ## 本地(非 HPC)验证记录
 
 - 2026-07-20:selector 门实现全套单测 LOCAL 通过(tests/selector 32 + registration 9),
   mypy strict 干净(49 files);全套 pytest 与基线逐项对比:失败集恒为 29 条
   已知 Windows TOML fixture 问题(与 selector 无关,已开修复任务),零回归。
+- 2026-07-21:A2 互补覆盖层实现 LOCAL 通过(coverage 引擎 11 + 覆盖选择器 2 + 注册 1 = +14);
+  gated.py 抽出 `_gate` 复用、门 parity 保持;全套 **332 passed / 1 xfailed**(基线 318/1 + 14,零回归);
+  mypy strict 干净(51 files),ruff 干净。Windows fixture 问题已被队友修掉,不再计入。
