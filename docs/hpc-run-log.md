@@ -30,6 +30,11 @@
 
 **AFTER:** 未运行。
 
+**harm 指标已就绪(2026-07-21):** `evidence-rag-harm-report`(离线,读两臂 selected_evidence_sets.jsonl
++ provenance.jsonl → Harmful Rate on/off + pool-hit + 配对随机化 p + bootstrap CI)。E2 跑法:
+现有 slurm 两臂 dump selected → `evidence-rag-harm-report --selected-on ... --selected-off ... --provenance ...`。
+仍 BLOCKED 于基座数据集(Materializer A)。
+
 ---
 
 ## E1 — 边/簇检测组件评估(spec §12 增补,导师要求)
