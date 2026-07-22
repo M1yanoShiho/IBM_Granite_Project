@@ -33,6 +33,7 @@ dev = [
 
 [project.scripts]
 evidence-rag-experiment = "evidence_rag.cli.experiment:main"
+evidence-rag-harm-report = "evidence_rag.evaluation.harm_cli:main"
 evidence-rag-materialize-benchmark = "evidence_rag.cli.materialize_benchmark:main"
 evidence-rag-materialize-niah = "evidence_rag.materializer.cli:main"
 evidence-rag-smoke = "evidence_rag.cli.smoke:main"
