@@ -86,3 +86,23 @@ def test_query_without_positive_qrel_is_dropped(tmp_path: Path) -> None:
     )
     bundle = JsonlDatasetAdapter.load(result.manifest_path)
     assert {q.query_id for q in bundle.queries} == {"q1"}
+
+
+def test_cli_uses_injected_provider(tmp_path: Path) -> None:
+    from evidence_rag.materializer.base_cli import main
+
+    class Provider:
+        version = "fake-1"
+
+        def load(self, dataset_id: str) -> FakeDataset:
+            assert dataset_id == "dpr-w100/natural-questions/dev"
+            return _dataset()
+
+    out = tmp_path / "base"
+    exit_code = main(
+        ("--split", "dev", "--output", str(out), "--corpus-size", "4", "--seed", "42"),
+        provider=Provider(),
+    )
+    assert exit_code == 0
+    bundle = JsonlDatasetAdapter.load(out / "manifest.json")
+    assert {"d0", "d1"} <= {d.document_id for d in bundle.documents}
