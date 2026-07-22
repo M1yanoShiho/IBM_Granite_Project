@@ -47,7 +47,7 @@ packages = ["src/evidence_rag"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q"
+addopts = "-q --import-mode=importlib"
 
 [tool.ruff]
 target-version = "py311"
