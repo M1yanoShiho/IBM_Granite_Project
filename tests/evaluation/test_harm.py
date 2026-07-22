@@ -1,12 +1,69 @@
 from evidence_rag.contracts.models import CandidateSet, EvidenceCandidate, SelectedEvidenceSet
 from evidence_rag.evaluation.harm import (
+    HARM_DIRECTION,
     HARM_METRIC,
+    HarmComparison,
+    compare_harm,
     counterfactual_pool_hit_rate,
     evaluate_selector_harm,
     harmful_in_context,
     provenance_harm_map,
 )
+from evidence_rag.evaluation.models import (
+    MetricValue,
+    StageCaseEvaluation,
+    StageEvaluationReport,
+)
+from evidence_rag.evaluation.scoring import aggregate_metrics
 from evidence_rag.materializer.provenance import MutationRecord
+
+
+def _harm_report(pairs: dict[str, float | None]) -> StageEvaluationReport:
+    directions = {HARM_METRIC: HARM_DIRECTION}
+    per_case = tuple(
+        StageCaseEvaluation(query_id=q, metrics={HARM_METRIC: MetricValue(value=v)})
+        for q, v in pairs.items()
+    )
+    return StageEvaluationReport(
+        stage="selector",
+        dataset_signature="sig",
+        metric_registry_signature="x" * 64,
+        case_ids=tuple(pairs),
+        per_case=per_case,
+        aggregate=aggregate_metrics(tuple(c.metrics for c in per_case), directions),
+        directions=directions,
+    )
+
+
+def test_compare_harm_reports_delta_and_deterministic_ci() -> None:
+    ids = [f"q{i}" for i in range(5)]
+    on = _harm_report({q: 0.0 for q in ids})
+    off = _harm_report({q: 1.0 for q in ids})
+    result = compare_harm(on, off, seed=13, iterations=1000)
+    assert isinstance(result, HarmComparison)
+    assert result.harm_on == 0.0 and result.harm_off == 1.0
+    assert result.delta == -1.0
+    assert result.ci_low == -1.0 and result.ci_high == -1.0
+    assert result.p_value < 0.2
+    assert result.n_paired == 5
+
+
+def test_compare_harm_no_difference_gives_zero_delta_and_high_p() -> None:
+    ids = [f"q{i}" for i in range(4)]
+    on = _harm_report({q: 1.0 for q in ids})
+    off = _harm_report({q: 1.0 for q in ids})
+    result = compare_harm(on, off, seed=13, iterations=500)
+    assert result.delta == 0.0
+    assert result.ci_low == 0.0 and result.ci_high == 0.0
+    assert result.p_value == 1.0
+
+
+def test_compare_harm_ignores_unpaired_and_unscored() -> None:
+    on = _harm_report({"q1": 0.0, "q2": 0.0, "q3": None})
+    off = _harm_report({"q1": 1.0, "q2": 1.0, "q4": 1.0})
+    result = compare_harm(on, off, seed=13, iterations=200)
+    assert result.n_paired == 2
+    assert result.delta == -1.0
 
 
 def ev(evidence_id: str, document_id: str) -> EvidenceCandidate:
