@@ -1,0 +1,24 @@
+# E2 gate-OFF arm: corroboration rerank, same alpha, NO drop gate.
+# Identical to gate-on except [selector]; same dataset + retriever => same pool,
+# so the only variable is the gate. Isolates the gate's causal effect on harm.
+[dataset]
+manifest = "../../runs/niah-injected/manifest.json"
+
+[output]
+directory = "../../runs/e2-gate-off"
+
+[retriever]
+name = "bm25"
+parameters = { k1 = 1.5, b = 0.75 }
+
+[selector]
+name = "corroboration"
+parameters = { alpha = 0.6, top_n = 20 }
+
+[generator]
+name = "extractive"
+
+[run]
+top_k = 20
+max_selected = 10
+seed = 13

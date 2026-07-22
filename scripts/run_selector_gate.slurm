@@ -1,23 +1,17 @@
 #!/bin/bash
-# E2: gate-on/off paired selector comparison (spec §12 main comparison,
-# docs/superpowers/specs/2026-07-20-gated-corroboration-selector-design.md).
-# Two experiment configs must differ ONLY in [selector]:
-#   gate-on : name = "gated-corroboration"  (alpha/margin/support_cap/top_n per spec §7)
-#   gate-off: name = "corroboration"        (same alpha/top_n — isolates the gate causally)
+# E2: gate-on/off harmful-in-context (spec docs/superpowers/specs/2026-07-21-harmful-in-context-metric-design.md).
+# Runs each arm through prepare -> retriever -> selector ONLY (no generator), so Granite
+# is loaded once per arm (sequential processes, never two at once) — avoids the double-load
+# OOM on the 40GB MIG slice. Then runs the offline harm report so the .out carries the numbers.
 #
-# STATUS: BLOCKED until the spec §14 dataset decision produces the two TOMLs.
-# Do not submit before docs/hpc-run-log.md E2 has its BEFORE section completed.
-#
-# One-time on the login node (compute nodes are offline):
+# One-time on the login node before submitting:
+#   export PYTHONPATH=src HF_HOME=/user/work/$USER/hf_cache IR_DATASETS_HOME=/user/work/$USER/ir_datasets
 #   hf download ibm-granite/granite-4.1-3b
-# Submit from the project root AFTER `git pull`:
-#   mkdir -p logs runs && sbatch scripts/run_selector_gate.slurm \
-#     configs/experiments/<gate_on>.toml configs/experiments/<gate_off>.toml
-#
-# Model selection: GraniteLLMClient reads GRANITE_MODEL_ID
-# (src/evidence_rag/generator/granite.py); default ibm-granite/granite-4.1-3b.
-# 3B is pinned here deliberately — the 2026-07-06 nested-CV re-eval showed the 8B
-# extractor does NOT beat 3B for corroboration extraction (+.013 ns vs +.037).
+#   python -m evidence_rag.materializer.base_cli --split dev --output runs/niah-base --corpus-size 100000 --query-limit 2000 --seed 42
+#   python -m evidence_rag.materializer.cli --base-manifest runs/niah-base/manifest.json --output runs/niah-injected --seed 42
+# Submit from the project root:
+#   mkdir -p logs && sbatch scripts/run_selector_gate.slurm \
+#     configs/experiments/niah_e2_gate_on.toml configs/experiments/niah_e2_gate_off.toml runs/niah-injected/provenance.jsonl
 #SBATCH --job-name=selector-gate
 #SBATCH --account=coms039904
 #SBATCH --partition=gpu
@@ -29,8 +23,9 @@
 #SBATCH --output=logs/%x-%j.out
 
 set -euo pipefail
-CONFIG_ON="${1:?usage: sbatch run_selector_gate.slurm CONFIG_ON CONFIG_OFF}"
-CONFIG_OFF="${2:?usage: sbatch run_selector_gate.slurm CONFIG_ON CONFIG_OFF}"
+CONFIG_ON="${1:?usage: sbatch run_selector_gate.slurm CONFIG_ON CONFIG_OFF PROVENANCE}"
+CONFIG_OFF="${2:?usage: sbatch run_selector_gate.slurm CONFIG_ON CONFIG_OFF PROVENANCE}"
+PROVENANCE="${3:?usage: sbatch run_selector_gate.slurm CONFIG_ON CONFIG_OFF PROVENANCE}"
 
 module load languages/python/3.12.3
 export HF_HOME=/user/work/$USER/hf_cache HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1
@@ -44,22 +39,43 @@ export PYTHONPATH=src
 python -c "import torch; print('CUDA:', torch.cuda.is_available(), '| torch', torch.__version__)"
 
 for CONFIG in "$CONFIG_ON" "$CONFIG_OFF"; do
-  echo "=== running $CONFIG ==="
-  python -m evidence_rag.cli.experiment --config "$CONFIG" all
+  echo "=== $CONFIG : prepare -> retriever -> selector (no generator) ==="
+  python -m evidence_rag.cli.experiment --config "$CONFIG" prepare
+  python -m evidence_rag.cli.experiment --config "$CONFIG" retriever
+  python -m evidence_rag.cli.experiment --config "$CONFIG" selector
 done
 
-echo "=== selector reports (first-read numbers) ==="
-for CONFIG in "$CONFIG_ON" "$CONFIG_OFF"; do
-  python - "$CONFIG" <<'PY'
+resolve_output() {
+  python - "$1" <<'PY'
 import pathlib
 import sys
 import tomllib
 
-config_path = pathlib.Path(sys.argv[1]).resolve()
-raw = tomllib.loads(config_path.read_text(encoding="utf-8"))
-output = (config_path.parent / raw["output"]["directory"]).resolve()
-report = output / "selector_report.json"
-print(config_path.name, "->", report)
-print(report.read_text(encoding="utf-8") if report.is_file() else "MISSING")
+config = pathlib.Path(sys.argv[1]).resolve()
+raw = tomllib.loads(config.read_text(encoding="utf-8"))
+print((config.parent / raw["output"]["directory"]).resolve())
+PY
+}
+ON_DIR="$(resolve_output "$CONFIG_ON")"
+OFF_DIR="$(resolve_output "$CONFIG_OFF")"
+
+echo "=== E2 harmful-in-context: gate-on vs gate-off ==="
+python -m evidence_rag.evaluation.harm_cli \
+  --provenance "$PROVENANCE" \
+  --selected-on "$ON_DIR/selected_evidence_sets.jsonl" \
+  --selected-off "$OFF_DIR/selected_evidence_sets.jsonl" \
+  --candidates "$ON_DIR/candidate_sets.jsonl" \
+  --dataset-signature niah-e2
+
+echo "=== guardrail: Required Recall (conditional_document_recall) each arm ==="
+for DIR in "$ON_DIR" "$OFF_DIR"; do
+  python - "$DIR/selector_report.json" <<'PY'
+import json
+import pathlib
+import sys
+
+report = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+recall = report.get("aggregate", {}).get("selector.core.conditional_document_recall")
+print(sys.argv[1], "conditional_document_recall =", recall)
 PY
 done
