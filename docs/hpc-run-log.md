@@ -30,6 +30,14 @@
 
 **AFTER:** 未运行。
 
+**E2 端到端管道现在全齐(2026-07-21,登录节点 CPU 步骤):**
+1. 登录节点 `ir_datasets` 下载 dpr-w100 NQ(21M passage,大,一次性);
+2. `evidence-rag-load-niah-base --split dev --output <base> --corpus-size 100000` → base 数据集;
+3. `evidence-rag-materialize-niah --base-manifest <base>/manifest.json --output <inj>` → 注入反事实 + provenance;
+4. 两个 config TOML(gate-on `gated-corroboration` / gate-off `corroboration`,指向 `<inj>`)→ slurm 两臂 dump selected;
+5. `evidence-rag-harm-report --selected-on ... --selected-off ... --provenance <inj>/provenance.jsonl --candidates ...` → Harmful on/off + pool-hit + 配对 p/CI。
+唯一未做 = 真实数据下载 + 跑(ops,不是代码)。
+
 **harm 指标已就绪(2026-07-21):** `evidence-rag-harm-report`(离线,读两臂 selected_evidence_sets.jsonl
 + provenance.jsonl → Harmful Rate on/off + pool-hit + 配对随机化 p + bootstrap CI)。E2 跑法:
 现有 slurm 两臂 dump selected → `evidence-rag-harm-report --selected-on ... --selected-off ... --provenance ...`。
