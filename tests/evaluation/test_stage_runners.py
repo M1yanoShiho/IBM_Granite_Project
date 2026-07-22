@@ -7,6 +7,7 @@ from evidence_rag.contracts.models import (
     EvidenceCandidate,
     GenerationResult,
     Query,
+    QueryChecklist,
     SelectedEvidenceSet,
     SelectionItem,
     SelectionResult,
@@ -105,6 +106,7 @@ class GeneratorSpy:
     def generate(
         self,
         query: Query,
+        checklist: QueryChecklist,
         selected: SelectedEvidenceSet,
     ) -> GenerationResult:
         self.calls.append((query, selected))

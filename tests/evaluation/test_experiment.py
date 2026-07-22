@@ -39,7 +39,7 @@ def write_config(root: Path, *, output_directory: str = "run") -> Path:
     config_path.write_text(
         f"""
 [dataset]
-manifest = "{REFERENCE_MANIFEST}"
+manifest = "{REFERENCE_MANIFEST.as_posix()}"
 
 [output]
 directory = "{output_directory}"

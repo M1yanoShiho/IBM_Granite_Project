@@ -4,6 +4,7 @@ from evidence_rag.contracts.models import (
     CandidateSet,
     GenerationResult,
     Query,
+    QueryChecklist,
     SelectedEvidenceSet,
     SelectionResult,
 )
@@ -26,5 +27,6 @@ class Generator(Protocol):
     def generate(
         self,
         query: Query,
+        checklist: QueryChecklist,
         selected: SelectedEvidenceSet,
     ) -> GenerationResult: ...

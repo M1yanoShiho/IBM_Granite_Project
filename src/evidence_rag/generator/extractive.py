@@ -1,6 +1,7 @@
 from evidence_rag.contracts.models import (
     GenerationResult,
     Query,
+    QueryChecklist,
     SelectedEvidenceSet,
 )
 
@@ -9,6 +10,7 @@ class ExtractiveGenerator:
     def generate(
         self,
         query: Query,
+        checklist: QueryChecklist,
         selected: SelectedEvidenceSet,
     ) -> GenerationResult:
         if query.query_id != selected.query_id:

@@ -1,9 +1,14 @@
 from evidence_rag.contracts.models import (
     EvidenceCandidate,
     Query,
+    QueryChecklist,
     SelectedEvidenceSet,
 )
 from evidence_rag.generator.granite import GraniteGenerator, parse_citation_output
+
+
+def checklist(query_id: str) -> QueryChecklist:
+    return QueryChecklist(query_id=query_id, focus="what changed", required_facts=("change",))
 
 
 class FakeLLM:
@@ -48,7 +53,7 @@ def test_granite_generator_maps_citation_numbers_to_evidence_ids() -> None:
         ),
     )
 
-    result = generator.generate(Query(query_id="q", text="What changed?"), selected)
+    result = generator.generate(Query(query_id="q", text="What changed?"), checklist("q"), selected)
 
     assert result.answer == "Revenue increased by ten percent."
     assert result.cited_evidence_ids == ("ev-b",)
@@ -62,7 +67,7 @@ def test_granite_generator_returns_empty_when_model_declines() -> None:
         evidence=(evidence("ev-a", "Profit was stable."),),
     )
 
-    result = generator.generate(Query(query_id="q", text="What changed?"), selected)
+    result = generator.generate(Query(query_id="q", text="What changed?"), checklist("q"), selected)
 
     assert result.answer == ""
     assert result.cited_evidence_ids == ()

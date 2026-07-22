@@ -51,9 +51,17 @@ class Claim(FrozenModel):
     span: ClaimSpan
     faithful_to_answer: bool
     """A2's own self-check: does ``text`` still mean what the source span said,
-    after being rewritten for atomicity/self-containment? False marks a
-    splitter hallucination -- surfaced here rather than silently trusted, so it
-    can be excluded (or flagged) before B spends an NLI pass verifying it.
+    after being rewritten for atomicity/self-containment? This checks the
+    claim against the ANSWER, not against the evidence (that is B's job).
+
+    False marks a splitter hallucination -- the extraction went wrong, not
+    necessarily the answer. A ``False`` claim is therefore excluded from B's
+    verification (no NLI/entity pass) and must NOT drive any edit to its span:
+    the answer text stays untouched, because the mangled part is the claim, not
+    the answer. It is kept in the list (rather than dropped) so the "this span
+    was not verified because splitting failed" signal stays observable
+    (docs/README.md section 5). Re-splitting the span is a possible v2 quality
+    improvement, deliberately out of scope for the single-pass v1.
     """
 
 
@@ -161,16 +169,23 @@ class VerificationReport(FrozenModel):
 
 def validate_verification_report(draft: DraftAnswer, report: VerificationReport) -> None:
     """Cross-check that ``report`` was produced against exactly this ``draft``:
-    same query, one verdict per claim, no more and no less.
+    same query, one verdict per verifiable claim, no more and no less.
+
+    Only ``faithful_to_answer=True`` claims are verifiable -- B skips splitter
+    hallucinations (see ``Claim.faithful_to_answer``), so the report must cover
+    exactly the faithful claims: verifying a mangled claim would produce a
+    verdict that could wrongly drive A3 to edit the answer.
 
     Intended for the A+B integration test (plan section 5, "集成测试").
     """
     if draft.query_id != report.query_id:
         raise ValueError("draft answer and verification report query IDs differ")
-    draft_ids = {claim.claim_id for claim in draft.claims}
+    verifiable_ids = {claim.claim_id for claim in draft.claims if claim.faithful_to_answer}
     report_ids = {item.claim_id for item in report.claims}
-    if draft_ids != report_ids:
-        raise ValueError("verification report does not cover exactly the draft's claims")
+    if verifiable_ids != report_ids:
+        raise ValueError(
+            "verification report does not cover exactly the draft's verifiable claims"
+        )
 
 
 def validate_supporting_evidence(selected: SelectedEvidenceSet, report: VerificationReport) -> None:
