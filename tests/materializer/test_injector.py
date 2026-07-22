@@ -38,7 +38,9 @@ def test_finds_target_when_alias_appears_exactly_once() -> None:
 
 def test_rejects_multi_valued_gold() -> None:
     documents = {"d1": doc("d1", "Alice or Bob won.")}
-    gold = GoldCase(query_id="q1", relevant_document_ids=("d1",), reference_answers=("Alice", "Bob"))
+    gold = GoldCase(
+        query_id="q1", relevant_document_ids=("d1",), reference_answers=("Alice", "Bob")
+    )
     assert find_injection_target(gold, documents) is None
 
 

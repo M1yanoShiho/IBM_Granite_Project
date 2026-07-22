@@ -62,9 +62,7 @@ class AnswerBank:
         ]
         if not candidates:
             return None
-        digest = sha256(
-            f"{self._seed}:{string_class}:{gold_value}".encode("utf-8")
-        ).hexdigest()
+        digest = sha256(f"{self._seed}:{string_class}:{gold_value}".encode()).hexdigest()
         return candidates[int(digest, 16) % len(candidates)]
 
 

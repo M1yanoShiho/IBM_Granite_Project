@@ -13,7 +13,9 @@ def test_string_class_partitions_by_mechanical_type() -> None:
 
 def test_select_is_same_class_excludes_gold_and_deterministic() -> None:
     bank = build_answer_bank(["18", "23", "44", "2025", "Alice"], seed=42)
-    chosen = bank.select(gold_value="18", gold_aliases=("18%", "18 percent"), string_class="integer")
+    chosen = bank.select(
+        gold_value="18", gold_aliases=("18%", "18 percent"), string_class="integer"
+    )
     assert chosen in {"23", "44"}
     assert bank.select("18", ("18%",), "integer") == chosen
 
