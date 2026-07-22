@@ -10,23 +10,22 @@
 
 ## E2 — gate-on/off 配对 selector 对照(spec §12 主对照)
 
-**状态:** BLOCKED——等待 spec §14 数据集决定(团队会议,selector README 六条)
-产出两个 TOML;另外 config 路径 retriever 目前只注册了 bm25,dense 检索器注册属模块一。
+**状态:** READY——三件套齐(configs + slurm + 本条目,commit 3c37d4c)。只差登录节点下 dpr-w100 + granite 后跑。
 
-**BEFORE(提交时补 commit/日期):**
+**BEFORE(预注册):**
 
-- 目的/假设:同一重排配置下,门(margin=2, support_cap=1)显著降低
-  harmful-in-context,且 required recall 满足非劣下界 −0.01(V1 协议双 Gate)。
-  失效方向预期:投票碎裂域中门趋于沉默(退化为纯重排),而非误杀。
-- 预期指标 + 方向:harmful-in-context ↓(标签=deterministic counterfactual
-  mutation log);Required Evidence Recall@selected 非劣(≥ −0.01);
-  次级:选择质量排序指标不显著劣化。
-- 精确命令:
-  `mkdir -p logs runs && sbatch scripts/run_selector_gate.slurm configs/experiments/<gate_on>.toml configs/experiments/<gate_off>.toml`
-  (两 TOML 仅 [selector] 不同:`gated-corroboration` vs `corroboration`,
-  alpha/top_n 相同;文件名在数据集冻结时定)
-- Git commit:提交时填
-- Seed:experiment config `[run] seed`,提交时填
+- 目的/假设:同一 bm25 池、同 α,门(margin=2, support_cap=1)显著降低 harmful-in-context,
+  且 Required Recall 非劣下界 −0.01(双 Gate)。**诚实预期:NQ 多为单 gold passage → 真答案 1 票 vs 孪生 1 票 = 1v1 → 门按设计双留不踢 → harm 可能不降(null),不是 bug**;pool-hit / gate-fire 诊断区分"门没用"与"池里没冲突可判"。
+- 预期指标 + 方向:`selector.core.harmful_in_context` ↓(标签=注入 mutation log);guardrail `selector.core.conditional_document_recall` 非劣 ≥ −0.01;诊断:pool-hit rate、gate-fire。
+- 精确命令(登录节点先建数据,再 sbatch):
+  ```
+  export PYTHONPATH=src HF_HOME=/user/work/$USER/hf_cache IR_DATASETS_HOME=/user/work/$USER/ir_datasets
+  hf download ibm-granite/granite-4.1-3b
+  python -m evidence_rag.materializer.base_cli --split dev --output runs/niah-base --corpus-size 100000 --query-limit 2000 --seed 42
+  python -m evidence_rag.materializer.cli --base-manifest runs/niah-base/manifest.json --output runs/niah-injected --seed 42
+  mkdir -p logs && sbatch scripts/run_selector_gate.slurm configs/experiments/niah_e2_gate_on.toml configs/experiments/niah_e2_gate_off.toml runs/niah-injected/provenance.jsonl
+  ```
+- Git commit:3c37d4c(configs+slurm);Seed:`[run] seed = 13`,harm-report seed 13。
 
 **AFTER:** 未运行。
 
