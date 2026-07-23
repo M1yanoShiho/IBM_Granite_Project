@@ -12,6 +12,8 @@ import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 
+from evidence_rag.selector.answer_norm import canonicalize_answer
+
 EQUAL_AFTER_NORM = "equal_after_norm"
 GOLD_IN_EXTRACTED = "gold_in_extracted"
 EXTRACTED_IN_GOLD = "extracted_in_gold"
@@ -58,6 +60,19 @@ def reclassify(extracted: str, gold: str) -> str:
     if is_sublist(e, g):
         return EXTRACTED_IN_GOLD
     return DIFFERENT
+
+
+def lenient_equivalent(extracted: str, gold: str) -> bool:
+    """True if the two answers match under a lenient, deterministic equivalence.
+
+    Superset of exact canonicalization: exact-equal, or one is a contiguous token-subsequence
+    of the other after leading-function-word + number-word normalization. Does NOT cover
+    abbreviations (USA/United States) or synonyms (needs NLI / Graph 2.0) -- those stay a
+    reported residual. Reusable by the selector-side answer-matcher and by lenient re-scoring.
+    """
+    if canonicalize_answer(extracted) == canonicalize_answer(gold):
+        return True
+    return reclassify(extracted, gold) != DIFFERENT
 
 
 @dataclass(frozen=True)

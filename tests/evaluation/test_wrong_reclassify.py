@@ -4,10 +4,21 @@ from evidence_rag.evaluation.wrong_reclassify import (
     EXTRACTED_IN_GOLD,
     GOLD_IN_EXTRACTED,
     is_sublist,
+    lenient_equivalent,
     normalize_tokens,
     reclassify,
     summarize_reclass,
 )
+
+
+def test_lenient_equivalent_superset_of_exact():
+    assert lenient_equivalent("Kennedy", "kennedy") is True  # exact after canonicalize
+    assert lenient_equivalent("1,200", "1200") is True  # exact via number canonicalization
+    assert lenient_equivalent("Apostle Paul", "paul") is True  # containment
+    assert lenient_equivalent("2009", "in 2009") is True  # leading prep
+    assert lenient_equivalent("30 minutes", "thirty minutes") is True  # number-word
+    assert lenient_equivalent("chemical bonds", "intramolecular force") is False  # synonym
+    assert lenient_equivalent("Reba McEntire", "linda davis") is False  # real error
 
 
 def test_is_sublist():
