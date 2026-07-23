@@ -21,6 +21,10 @@ ingestion = [
   "docling-core[chunking]>=2,<3",
   "pillow>=10,<12",
 ]
+# Optional upgrade for the Generator's entity check only: SpacyEntityExtractor.
+# The default RuleBasedEntityExtractor needs nothing beyond the stdlib, and the
+# NLI verifier reuses the 'granite' extra's transformers/torch.
+verification = ["spacy>=3.7,<4"]
 dev = [
   "build>=1.2,<2",
   "mypy>=1.10,<2",
