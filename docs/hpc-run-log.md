@@ -44,22 +44,32 @@
 
 ---
 
-## E1 — 边/簇检测组件评估(spec §12 增补,导师要求)
+## E1 — 边/簇检测组件评估(spec §12,pool 级 B2 harness)
 
-**状态:** BLOCKED——依赖 (1) §14 数据集决定;(2) 组件评估 harness 尚未实现
-(false-conflict / missed-conflict rate 计算器 + gold-alias 加载)。
-**三件套约定:** harness 实现时,其 slurm 与本条目的 BEFORE 一并补齐后才可提交;
-不为不存在的入口预写脚本(避免虚构 CLI 参数)。
+**状态:** READY——三件套齐:harness(cluster_eval + cluster_eval_cli + tests,commit
+126c95f + d2e6631)、slurm(a19c90a)、本条目。§14 数据决定已由 niah-injected 落定(E2 已跑),
+gold-alias 加载由 provenance sidecar(gold_value/gold_alias_used/replacement_value)解决,不再是 blocker。
+依赖 E2 已产出的 `runs/e2-gate-on/candidate_sets.jsonl`(job 18130403)。
+设计:`docs/superpowers/specs/2026-07-23-e1-cluster-eval-design.md`。
 
-**BEFORE(harness 落地时补全):**
+**BEFORE(预注册):**
 
-- 目的/假设:answer-equivalence 聚簇的 false-conflict rate(同池两条均含
-  gold alias 的候选被劈进不同簇)足够低,使门的误杀通道可控;
-  与 ArbGraph Table 4(200 人工对,96%)形成零人工标注的方法学对照。
-- 预期指标 + 方向:false-conflict rate(首要,越低越好;阈值在数据集冻结时预注册)、
-  missed-conflict rate;标签=official gold aliases + counterfactual mutation log。
-- 精确命令:harness 落地时填。
-- Git commit / Seed:提交时填。
+- 目的/假设:量化 E2 池上 exact-string 答案簇的错误模式,把 E2 的 harm 收益 / recall 代价与簇错摘开。
+  假设:missed-conflict 低(注入按设计使 gold 与 counterfactual canonically 可分)、needle-gold-recovery 高;
+  **若 missed-conflict 偏高 → 门对部分注入题失明、E2 harm 收益被高估;若 recovery 偏低 → 簇指标被抽取失败主导,须如实标注。**
+- 预期指标 + 方向:`selector.cluster.missed_conflict` ↓(主)、`selector.cluster.false_conflict` ↓、
+  `selector.cluster.needle_gold_recovery` ↑,各带 Wilson 95% CI;**框架句 `injection selection-bias`
+  (multi-canonical-key skip rate)必并列**——注入集已把别名假冲突过滤掉(injector `len(normalized)!=1` 跳过),
+  低 conflict 值须据此解读,否则会被误读成"簇已验证正确"。标签=provenance + official gold_cases,零新增人工标注
+  (与 ArbGraph Table 4 的 200 人工对形成方法学对照,呼应 judge-kappa≈0)。
+- 精确命令(登录节点确认 E2 dump 在位后 sbatch):
+  ```
+  ls runs/e2-gate-on/candidate_sets.jsonl runs/niah-injected/manifest.json runs/niah-injected/provenance.jsonl
+  mkdir -p logs results && sbatch scripts/run_cluster_eval.slurm \
+    runs/e2-gate-on/candidate_sets.jsonl runs/niah-injected/manifest.json \
+    runs/niah-injected/provenance.jsonl results/e1-cluster-eval/cluster_eval_report.json
+  ```
+- Git commit:harness 126c95f + d2e6631,slurm a19c90a;Seed:无(确定性抽取 + 计数,无随机化)。
 
 **AFTER:** 未运行。
 
