@@ -71,7 +71,25 @@ gold-alias 加载由 provenance sidecar(gold_value/gold_alias_used/replacement_v
   ```
 - Git commit:harness 126c95f + d2e6631,slurm a19c90a;Seed:无(确定性抽取 + 计数,无随机化)。
 
-**AFTER:** 未运行。
+**AFTER(2026-07-23,job cluster-eval,gres 覆盖为 gpu:1):**
+- raw:`results/e1-cluster-eval/cluster_eval_report.json`。missed_conflict **.386**(n=941,CI[.355,.417])、
+  false_conflict .594(n=836,文本代理 noisy)、needle_gold_recovery **.509**(n=1264,CI[.481,.536]);
+  selection_bias multi_key_rate .106 / skip_rate .261。
+- 定论:v1 exact-string 簇在机制层**没通过**——needle 在池里时抽取器只有 51% 能抽回 gold;missed-conflict .39 =
+  门对孪生冲突两成半以上失明。E2 的 −11.2pp harm 有相当部分非来自有原则的冲突检测,−4.8pp recall 大部分是簇碎裂误杀。
+- **诊断链(root cause):** needle-visibility 审计(`needle_visibility_cli`,CPU)显示 visible@600 **.949**、
+  truncated .051、absent **0** → **不是截断/分块,是抽取能力**:答案 95% 可见却只 51% 抽出(conditional .536)。
+
+**E1-diag — needle 抽取失败模式探针(systematic-debugging Phase 3):**
+- 目的:visible-but-missed 里,3B 是输出 NONE(太保守 → prompt 免费修,8B 大概无用,呼应 [[progress-2026-07-06]] 8B 没帮助)
+  还是 wrong-entity(真 QA 错 → 8B 才有戏)。只抽 needle 一条(~1264 call,~15-20min)。
+- 指标:visible 子集内 recovered/wrong/none 分布。命令:
+  ```
+  mkdir -p logs results && sbatch --gres=gpu:1 scripts/run_needle_probe.slurm \
+    runs/e2-gate-on/candidate_sets.jsonl runs/niah-injected/manifest.json \
+    runs/niah-injected/provenance.jsonl results/e1-needle-probe.json results/e1-needle-probe.jsonl
+  ```
+- Git commit:提交时填;Seed:无。**AFTER:** 未运行。
 
 ---
 
