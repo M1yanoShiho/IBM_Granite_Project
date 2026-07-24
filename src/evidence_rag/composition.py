@@ -1,7 +1,7 @@
 import os
 from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from evidence_rag.contracts.models import Document
 from evidence_rag.contracts.protocols import Generator, Retriever, Selector
@@ -331,7 +331,7 @@ def build_selector(config: ModuleConfig, *, llm: TextGenerator | None = None) ->
         )
     if config.name in {"gated-corroboration", "gated-coverage-corroboration"}:
         parameters = _selector_parameters(
-            config, frozenset({"alpha", "margin", "support_cap", "top_n"})
+            config, frozenset({"alpha", "margin", "support_cap", "top_n", "equivalence"})
         )
         client = llm if llm is not None else GraniteLLMClient()
         selector_class = (
@@ -339,12 +339,19 @@ def build_selector(config: ModuleConfig, *, llm: TextGenerator | None = None) ->
             if config.name == "gated-coverage-corroboration"
             else GatedCorroborationSelector
         )
+        raw_equivalence = config.parameters.get("equivalence", "exact")
+        if raw_equivalence not in ("exact", "lenient"):
+            raise ValueError(f"invalid selector parameter equivalence: {raw_equivalence!r}")
+        equivalence: Literal["exact", "lenient"] = (
+            "lenient" if raw_equivalence == "lenient" else "exact"
+        )
         return selector_class(
             client,
             alpha=float(parameters.get("alpha", 0.6)),
             margin=int(parameters.get("margin", 2)),
             support_cap=int(parameters.get("support_cap", 1)),
             top_n=int(parameters.get("top_n", 20)),
+            equivalence=equivalence,
         )
     raise ValueError(f"unknown selector: {config.name}")
 

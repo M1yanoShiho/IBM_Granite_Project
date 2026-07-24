@@ -60,6 +60,29 @@ def test_gated_coverage_builds_with_parameters() -> None:
     assert selector.support_cap == 2
 
 
+def test_gated_equivalence_defaults_to_exact() -> None:
+    selector = build_selector(ModuleConfig(name="gated-corroboration"), llm=FakeLLM())
+    assert isinstance(selector, GatedCorroborationSelector)
+    assert selector.equivalence == "exact"
+
+
+def test_gated_equivalence_lenient_builds() -> None:
+    selector = build_selector(
+        ModuleConfig(name="gated-corroboration", parameters={"equivalence": "lenient"}),
+        llm=FakeLLM(),
+    )
+    assert isinstance(selector, GatedCorroborationSelector)
+    assert selector.equivalence == "lenient"
+
+
+def test_gated_equivalence_invalid_rejected() -> None:
+    with pytest.raises(ValueError, match="invalid selector parameter equivalence"):
+        build_selector(
+            ModuleConfig(name="gated-corroboration", parameters={"equivalence": "fuzzy"}),
+            llm=FakeLLM(),
+        )
+
+
 def test_unknown_parameter_rejected() -> None:
     with pytest.raises(ValueError, match="unknown selector parameter"):
         build_selector(
