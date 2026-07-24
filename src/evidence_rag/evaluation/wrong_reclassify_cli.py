@@ -12,7 +12,8 @@ import json
 from collections.abc import Sequence
 from pathlib import Path
 
-from evidence_rag.evaluation.wrong_reclassify import DIFFERENT, reclassify, summarize_reclass
+from evidence_rag.evaluation.wrong_reclassify import summarize_reclass
+from evidence_rag.selector.answer_equivalence import DIFFERENT, reclassify
 
 
 def _read_dump(path: Path) -> list[dict[str, object]]:
