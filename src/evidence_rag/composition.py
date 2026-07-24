@@ -1,5 +1,7 @@
-from collections.abc import Iterable
+import os
+from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
+from typing import Any, Literal
 
 from evidence_rag.contracts.models import Document
 from evidence_rag.contracts.protocols import Generator, Retriever, Selector
@@ -10,18 +12,26 @@ from evidence_rag.infrastructure.corpus import CorpusSnapshot
 from evidence_rag.pipeline.service import EvidenceRAGPipeline
 from evidence_rag.retriever.bm25 import BM25Retriever, validate_bm25_parameters
 from evidence_rag.retriever.chunking import Chunker
+from evidence_rag.retriever.fusion import DEFAULT_RRF_K
 from evidence_rag.retriever.granite import (
+    DEFAULT_GRANITE_EMBEDDING_MODEL_ID,
+    DecomposingRetriever,
     GraniteDenseRetriever,
+    GraniteEmbedder,
+    HyDERetriever,
     Query2DocRetriever,
     TextEmbedder,
 )
+from evidence_rag.retriever.hybrid import ConvexHybridRetriever, HybridRetriever
 from evidence_rag.retriever.indexing import (
     MANIFEST_FILENAME,
     SNAPSHOT_FILENAME,
-    BM25IndexPlugin,
     IndexManifest,
+    load_index,
     read_index_manifest,
+    write_index,
 )
+from evidence_rag.retriever.strong_bm25 import StrongBM25Retriever
 from evidence_rag.selector.corroboration import CorroborationSelector
 from evidence_rag.selector.gated import GatedCorroborationSelector, GatedCoverageSelector
 from evidence_rag.selector.top_k import TopKSelector
@@ -33,19 +43,195 @@ def _reject_parameters(config: ModuleConfig, module_kind: str) -> None:
         raise ValueError(f"{module_kind} {config.name!r} does not accept parameters: {names}")
 
 
-def _bm25_parameters(config: ModuleConfig) -> tuple[float, float]:
-    allowed = {"k1", "b"}
-    unknown = sorted(set(config.parameters) - allowed)
+# The retriever registry: each name maps to an implementation version. Parameter
+# normalisation (below) turns a ModuleConfig into the canonical parameter dict that
+# is persisted in the index manifest and drives construction; wrappers/hybrid nest
+# a fully-normalised base config so a single signature covers the whole tree.
+_RETRIEVER_VERSIONS: dict[str, str] = {
+    "bm25": "bm25-v1",
+    "strong-bm25": "strong-bm25-v1",
+    "granite-dense": "granite-dense-v1",
+    "hybrid": "hybrid-v1",
+    "query2doc": "query2doc-v1",
+    "hyde": "hyde-v1",
+    "decompose": "decompose-v1",
+}
+
+
+def _implementation_version(name: str) -> str:
+    try:
+        return _RETRIEVER_VERSIONS[name]
+    except KeyError:
+        raise ValueError(f"unknown retriever: {name}") from None
+
+
+def retriever_implementation_version(name: str) -> str:
+    """Public lookup of a retriever's index implementation version (for provenance)."""
+
+    return _implementation_version(name)
+
+
+def _reject_unknown(parameters: Mapping[str, Any], allowed: set[str]) -> None:
+    unknown = sorted(set(parameters) - allowed)
     if unknown:
         raise ValueError(f"unknown retriever parameter: {unknown[0]}")
 
+
+def _positive_int(name: str, value: object) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"retriever parameter {name!r} must be an integer")
+    if value <= 0:
+        raise ValueError(f"retriever parameter {name!r} must be positive")
+    return value
+
+
+def _optional_positive_int(name: str, value: object) -> int | None:
+    return None if value is None else _positive_int(name, value)
+
+
+def _unit_float(name: str, value: object) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"retriever parameter {name!r} must be a number")
+    number = float(value)
+    if not 0.0 <= number <= 1.0:
+        raise ValueError(f"retriever parameter {name!r} must be in [0, 1]")
+    return number
+
+
+def _nested_config(raw: object, field: str) -> ModuleConfig:
+    if not isinstance(raw, Mapping) or "name" not in raw:
+        raise ValueError(f"retriever parameter {field!r} must name a base retriever")
+    return ModuleConfig(name=str(raw["name"]), parameters=dict(raw.get("parameters", {})))
+
+
+def _normalise_nested(raw: object, field: str) -> dict[str, Any]:
+    name, version, parameters = _normalise_retriever(_nested_config(raw, field))
+    return {"name": name, "implementation_version": version, "parameters": parameters}
+
+
+def _sparse_parameters(name: str, parameters: Mapping[str, Any]) -> dict[str, Any]:
+    _reject_unknown(parameters, {"k1", "b"})
+    default_k1, default_b = (1.5, 0.75) if name == "bm25" else (0.9, 0.4)
     try:
-        return validate_bm25_parameters(
-            config.parameters.get("k1", 1.5),
-            config.parameters.get("b", 0.75),
+        k1, b = validate_bm25_parameters(
+            parameters.get("k1", default_k1),
+            parameters.get("b", default_b),
         )
     except ValueError as error:
         raise ValueError(f"invalid retriever parameters: {error}") from error
+    return {"k1": k1, "b": b}
+
+
+def _dense_parameters(parameters: Mapping[str, Any]) -> dict[str, Any]:
+    _reject_unknown(parameters, {"embedder_model_id", "query_prefix", "document_prefix"})
+    model_id = (
+        parameters.get("embedder_model_id")
+        or os.getenv("GRANITE_EMBEDDING_MODEL_ID")
+        or DEFAULT_GRANITE_EMBEDDING_MODEL_ID
+    )
+    return {
+        "embedder_model_id": str(model_id),
+        "query_prefix": str(parameters.get("query_prefix", "")),
+        "document_prefix": str(parameters.get("document_prefix", "")),
+    }
+
+
+def _hybrid_parameters(parameters: Mapping[str, Any]) -> dict[str, Any]:
+    _reject_unknown(parameters, {"fusion", "retrievers", "k", "alpha", "pool_size"})
+    fusion = parameters.get("fusion", "rrf")
+    if fusion not in {"rrf", "convex"}:
+        raise ValueError("hybrid parameter 'fusion' must be 'rrf' or 'convex'")
+    raw_arms = parameters.get("retrievers")
+    if not isinstance(raw_arms, Sequence) or isinstance(raw_arms, (str, bytes)):
+        raise ValueError("hybrid parameter 'retrievers' must be a list of retriever configs")
+    arms = [_normalise_nested(arm, "retrievers") for arm in raw_arms]
+    result: dict[str, Any] = {
+        "fusion": fusion,
+        "retrievers": arms,
+        "pool_size": _optional_positive_int("pool_size", parameters.get("pool_size")),
+    }
+    if fusion == "rrf":
+        if not arms:
+            raise ValueError("hybrid 'rrf' requires at least one retriever")
+        result["k"] = _positive_int("k", parameters.get("k", DEFAULT_RRF_K))
+    else:
+        if len(arms) != 2:
+            raise ValueError("hybrid 'convex' requires exactly two retrievers (sparse, dense)")
+        result["alpha"] = _unit_float("alpha", parameters.get("alpha", 0.5))
+    return result
+
+
+def _wrapper_parameters(parameters: Mapping[str, Any]) -> dict[str, Any]:
+    _reject_unknown(parameters, {"base"})
+    if "base" not in parameters:
+        raise ValueError("retriever wrapper requires a 'base' retriever config")
+    return {"base": _normalise_nested(parameters["base"], "base")}
+
+
+def _decompose_parameters(parameters: Mapping[str, Any]) -> dict[str, Any]:
+    _reject_unknown(parameters, {"base", "k", "pool_size"})
+    if "base" not in parameters:
+        raise ValueError("retriever wrapper requires a 'base' retriever config")
+    return {
+        "base": _normalise_nested(parameters["base"], "base"),
+        "k": _positive_int("k", parameters.get("k", DEFAULT_RRF_K)),
+        "pool_size": _optional_positive_int("pool_size", parameters.get("pool_size")),
+    }
+
+
+def _normalise_retriever(config: ModuleConfig) -> tuple[str, str, dict[str, Any]]:
+    name = config.name
+    version = _implementation_version(name)
+    if name in {"bm25", "strong-bm25"}:
+        parameters = _sparse_parameters(name, config.parameters)
+    elif name == "granite-dense":
+        parameters = _dense_parameters(config.parameters)
+    elif name == "hybrid":
+        parameters = _hybrid_parameters(config.parameters)
+    elif name in {"query2doc", "hyde"}:
+        parameters = _wrapper_parameters(config.parameters)
+    else:  # decompose (only remaining registered name)
+        parameters = _decompose_parameters(config.parameters)
+    return name, version, parameters
+
+
+def _construct_retriever(
+    name: str,
+    parameters: Mapping[str, Any],
+    corpus: CorpusSnapshot,
+) -> Retriever:
+    if name == "bm25":
+        return BM25Retriever.from_corpus(corpus, k1=parameters["k1"], b=parameters["b"])
+    if name == "strong-bm25":
+        return StrongBM25Retriever.from_corpus(corpus, k1=parameters["k1"], b=parameters["b"])
+    if name == "granite-dense":
+        embedder = GraniteEmbedder(
+            model_id=parameters["embedder_model_id"],
+            query_prefix=parameters["query_prefix"],
+            document_prefix=parameters["document_prefix"],
+        )
+        return GraniteDenseRetriever.from_corpus(corpus, embedder=embedder)
+    if name == "hybrid":
+        arms = [
+            _construct_retriever(arm["name"], arm["parameters"], corpus)
+            for arm in parameters["retrievers"]
+        ]
+        if parameters["fusion"] == "rrf":
+            return HybridRetriever(arms, k=parameters["k"], pool_size=parameters["pool_size"])
+        return ConvexHybridRetriever(
+            arms[0],
+            arms[1],
+            alpha=parameters["alpha"],
+            pool_size=parameters["pool_size"],
+        )
+    base_config = parameters["base"]
+    base = _construct_retriever(base_config["name"], base_config["parameters"], corpus)
+    llm = GraniteLLMClient()
+    if name == "query2doc":
+        return Query2DocRetriever(base, llm)
+    if name == "hyde":
+        return HyDERetriever(base, llm)
+    return DecomposingRetriever(base, llm, k=parameters["k"], pool_size=parameters["pool_size"])
 
 
 def prepare_retriever_index(
@@ -53,20 +239,24 @@ def prepare_retriever_index(
     corpus: CorpusSnapshot,
     directory: Path,
 ) -> IndexManifest:
-    if config.name != "bm25":
-        raise ValueError(f"unknown retriever: {config.name}")
-    k1, b = _bm25_parameters(config)
-    plugin = BM25IndexPlugin()
+    name, version, parameters = _normalise_retriever(config)
     directory = Path(directory)
     if (directory / MANIFEST_FILENAME).exists() or (directory / SNAPSHOT_FILENAME).exists():
-        plugin.load(
+        load_index(
             directory,
             expected_corpus_signature=corpus.manifest.corpus_signature,
-            expected_k1=k1,
-            expected_b=b,
+            expected_implementation=name,
+            expected_implementation_version=version,
+            expected_parameters=parameters,
         )
     else:
-        plugin.build(corpus, directory, k1=k1, b=b)
+        write_index(
+            corpus,
+            directory,
+            implementation=name,
+            implementation_version=version,
+            parameters=parameters,
+        )
     return read_index_manifest(directory)
 
 
@@ -76,17 +266,17 @@ def build_retriever(
     *,
     index_directory: Path | None = None,
 ) -> Retriever:
-    if config.name != "bm25":
-        raise ValueError(f"unknown retriever: {config.name}")
-    k1, b = _bm25_parameters(config)
+    name, version, parameters = _normalise_retriever(config)
     if index_directory is not None:
-        return BM25IndexPlugin().load(
+        snapshot = load_index(
             index_directory,
             expected_corpus_signature=corpus.manifest.corpus_signature,
-            expected_k1=k1,
-            expected_b=b,
+            expected_implementation=name,
+            expected_implementation_version=version,
+            expected_parameters=parameters,
         )
-    return BM25Retriever.from_corpus(corpus, k1=k1, b=b)
+        return _construct_retriever(name, parameters, snapshot)
+    return _construct_retriever(name, parameters, corpus)
 
 
 def _float_parameter(name: str, value: object, low: float, high: float) -> float:
@@ -141,7 +331,7 @@ def build_selector(config: ModuleConfig, *, llm: TextGenerator | None = None) ->
         )
     if config.name in {"gated-corroboration", "gated-coverage-corroboration"}:
         parameters = _selector_parameters(
-            config, frozenset({"alpha", "margin", "support_cap", "top_n"})
+            config, frozenset({"alpha", "margin", "support_cap", "top_n", "equivalence"})
         )
         client = llm if llm is not None else GraniteLLMClient()
         selector_class = (
@@ -149,12 +339,19 @@ def build_selector(config: ModuleConfig, *, llm: TextGenerator | None = None) ->
             if config.name == "gated-coverage-corroboration"
             else GatedCorroborationSelector
         )
+        raw_equivalence = config.parameters.get("equivalence", "exact")
+        if raw_equivalence not in ("exact", "lenient"):
+            raise ValueError(f"invalid selector parameter equivalence: {raw_equivalence!r}")
+        equivalence: Literal["exact", "lenient"] = (
+            "lenient" if raw_equivalence == "lenient" else "exact"
+        )
         return selector_class(
             client,
             alpha=float(parameters.get("alpha", 0.6)),
             margin=int(parameters.get("margin", 2)),
             support_cap=int(parameters.get("support_cap", 1)),
             top_n=int(parameters.get("top_n", 20)),
+            equivalence=equivalence,
         )
     raise ValueError(f"unknown selector: {config.name}")
 

@@ -12,6 +12,10 @@ from evidence_rag.evaluation.models import (
 
 CORE_DIRECTIONS: dict[str, MetricDirection] = {
     "retriever.core.document_recall": "higher",
+    "retriever.core.document_mrr": "higher",
+    "retriever.core.document_recall_at_5": "higher",
+    "retriever.core.document_recall_at_10": "higher",
+    "retriever.core.document_recall_at_20": "higher",
     "selector.core.conditional_document_recall": "higher",
     "selector.core.document_precision": "higher",
     "generator.core.conditional_answer_match": "higher",
@@ -21,8 +25,11 @@ CORE_DIRECTIONS: dict[str, MetricDirection] = {
     "system.core.cited_document_precision": "higher",
     "system.core.answer_match": "higher",
 }
-CORE_METRIC_VERSION = "1.1"
+CORE_METRIC_VERSION = "1.2"
 CORE_METRIC_VERSIONS = {key: "1.0" for key in CORE_DIRECTIONS}
+
+# The rank cut-offs reported as retriever.core.document_recall_at_{k}.
+RECALL_AT_K = (5, 10, 20)
 
 
 def signature(value: object) -> str:
@@ -45,6 +52,41 @@ def recall(predicted: set[str], relevant: set[str] | None) -> MetricValue:
     if not relevant:
         return unscored("no relevant documents were labelled")
     return MetricValue(value=len(predicted & relevant) / len(relevant))
+
+
+def _rank_ordered(candidates: Iterable[EvidenceCandidate]) -> list[EvidenceCandidate]:
+    return sorted(candidates, key=lambda candidate: candidate.retrieval_rank)
+
+
+def reciprocal_rank(
+    candidates: Iterable[EvidenceCandidate],
+    relevant: set[str] | None,
+) -> MetricValue:
+    """Mean-reciprocal-rank contribution: 1 / rank of the first relevant document."""
+
+    if relevant is None:
+        return unscored("relevant documents were not labelled")
+    if not relevant:
+        return unscored("no relevant documents were labelled")
+    for candidate in _rank_ordered(candidates):
+        if candidate.document_id in relevant:
+            return MetricValue(value=1.0 / candidate.retrieval_rank)
+    return MetricValue(value=0.0)
+
+
+def recall_at_k(
+    candidates: Iterable[EvidenceCandidate],
+    relevant: set[str] | None,
+    k: int,
+) -> MetricValue:
+    """Document recall restricted to the top-``k`` candidates by retrieval rank."""
+
+    if relevant is None:
+        return unscored("relevant documents were not labelled")
+    if not relevant:
+        return unscored("no relevant documents were labelled")
+    top_k_documents = {candidate.document_id for candidate in _rank_ordered(candidates)[:k]}
+    return MetricValue(value=len(top_k_documents & relevant) / len(relevant))
 
 
 def precision(predicted: set[str], relevant: set[str] | None) -> MetricValue:

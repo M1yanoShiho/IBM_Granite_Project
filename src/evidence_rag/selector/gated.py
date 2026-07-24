@@ -22,8 +22,9 @@ from evidence_rag.contracts.models import (
     SelectionItem,
     SelectionResult,
 )
+from evidence_rag.selector.answer_equivalence import lenient_equivalent
 from evidence_rag.selector.answer_norm import canonicalize_answer, is_valid_answer
-from evidence_rag.selector.clusters import AnswerCluster, build_clusters
+from evidence_rag.selector.clusters import AnswerCluster, build_clusters, build_clusters_lenient
 from evidence_rag.selector.corroboration import corroboration_scores, minmax
 from evidence_rag.selector.coverage import coverage_select
 from evidence_rag.selector.extraction import AnswerExtractionEngine, TextGenerator
@@ -82,6 +83,7 @@ class GatedCorroborationSelector:
         margin: int = 2,
         support_cap: int = 1,
         top_n: int = 20,
+        equivalence: Literal["exact", "lenient"] = "exact",
         use_parametric: bool = True,
         passage_chars: int = 600,
         on_gate_decision: Callable[[GateDecision], None] | None = None,
@@ -94,10 +96,13 @@ class GatedCorroborationSelector:
             raise ValueError("support_cap must be non-negative")
         if top_n <= 0:
             raise ValueError("top_n must be positive")
+        if equivalence not in ("exact", "lenient"):
+            raise ValueError("equivalence must be 'exact' or 'lenient'")
         self.alpha = alpha
         self.margin = margin
         self.support_cap = support_cap
         self.top_n = top_n
+        self.equivalence = equivalence
         self.on_gate_decision = on_gate_decision
         self._engine = AnswerExtractionEngine(
             answer_extractor,
@@ -153,7 +158,11 @@ class GatedCorroborationSelector:
         blended_by_id: dict[str, float] = {
             window[index].evidence_id: blended[index] for index in range(len(window))
         }
-        clusters = build_clusters(window, extracted.answers)
+        clusters = (
+            build_clusters_lenient(window, extracted.answers, lenient_equivalent)
+            if self.equivalence == "lenient"
+            else build_clusters(window, extracted.answers)
+        )
         cluster_by_member = {
             member_id: cluster for cluster in clusters for member_id in cluster.member_ids
         }

@@ -1,5 +1,6 @@
 from evidence_rag.contracts.models import EvidenceCandidate
-from evidence_rag.selector.clusters import build_clusters
+from evidence_rag.selector.answer_equivalence import lenient_equivalent
+from evidence_rag.selector.clusters import build_clusters, build_clusters_lenient
 
 
 def evidence(evidence_id: str, document_id: str) -> EvidenceCandidate:
@@ -43,3 +44,49 @@ def test_length_mismatch_raises() -> None:
     except ValueError:
         return
     raise AssertionError("expected ValueError")
+
+
+def test_lenient_merges_containment_fragments() -> None:
+    # "Apostle Paul" and "Paul" are the same answer; exact clustering splits them, lenient merges.
+    window = (evidence("e1", "d1"), evidence("e2", "d2"), evidence("e3", "d3"))
+    clusters = build_clusters_lenient(window, ("Apostle Paul", "Paul", "Nixon"), lenient_equivalent)
+    by_answer = {c.answer: c for c in clusters}
+    assert set(by_answer) == {"apostle paul", "nixon"}
+    assert by_answer["apostle paul"].member_ids == ("e1", "e2")
+    assert by_answer["apostle paul"].independent_support == 2
+
+
+def test_lenient_keeps_distinct_values_separate() -> None:
+    # gold vs canonically-distinct counterfactual must NOT merge — the planted conflict is preserved.
+    window = (evidence("e1", "d1"), evidence("e2", "d2"))
+    clusters = build_clusters_lenient(window, ("Kennedy", "Nixon"), lenient_equivalent)
+    assert {c.answer for c in clusters} == {"kennedy", "nixon"}
+
+
+def test_lenient_no_transitive_chaining() -> None:
+    # A="alpha", C="beta" are distinct; B="alpha beta" is equivalent to BOTH by containment.
+    # Representative-anchored greedy must NOT let B chain A and C into one cluster.
+    window = (evidence("e1", "d1"), evidence("e2", "d2"), evidence("e3", "d3"))
+    clusters = build_clusters_lenient(window, ("alpha", "beta", "alpha beta"), lenient_equivalent)
+    by_answer = {c.answer: c for c in clusters}
+    assert set(by_answer) == {"alpha", "beta"}
+    assert by_answer["alpha"].member_ids == ("e1", "e3")  # B joined A (first match), not C
+    assert by_answer["beta"].member_ids == ("e2",)
+
+
+def test_lenient_representative_is_first_in_order() -> None:
+    window = (evidence("e1", "d1"), evidence("e2", "d2"))
+    clusters = build_clusters_lenient(window, ("Paul", "Apostle Paul"), lenient_equivalent)
+    assert clusters[0].answer == "paul"  # representative = first member's canonical answer
+    assert clusters[0].member_ids == ("e1", "e2")
+
+
+def test_lenient_same_document_counts_once() -> None:
+    window = (evidence("e1", "dX"), evidence("e2", "dX"))
+    clusters = build_clusters_lenient(window, ("Paul", "Apostle Paul"), lenient_equivalent)
+    assert clusters[0].independent_support == 1
+
+
+def test_lenient_excludes_invalid_answers() -> None:
+    window = (evidence("e1", "d1"), evidence("e2", "d2"))
+    assert build_clusters_lenient(window, ("NONE", "it"), lenient_equivalent) == ()

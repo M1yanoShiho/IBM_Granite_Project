@@ -150,6 +150,34 @@ def test_alias_answers_cluster_together_and_gate_uses_merged_votes() -> None:
     assert "b" not in selected_ids(selector, pool, 3)
 
 
+def test_lenient_clustering_prevents_gold_fragment_false_drop() -> None:
+    # Gold appears as two aliases across two documents; a distractor has 3 votes.
+    pool = candidate_set(
+        evidence("g1", "text g1", 1.0, 1, document_id="gold-1"),
+        evidence("g2", "text g2", 0.95, 2, document_id="gold-2"),
+        evidence("d1", "text d1", 0.9, 3, document_id="dist-1"),
+        evidence("d2", "text d2", 0.8, 4, document_id="dist-2"),
+        evidence("d3", "text d3", 0.7, 5, document_id="dist-3"),
+    )
+    extractor = MappedExtractor(
+        {
+            "text g1": "Apostle Paul",
+            "text g2": "Paul",
+            "text d1": "Acme",
+            "text d2": "Acme",
+            "text d3": "Acme",
+        }
+    )
+    # exact: gold fragments to one vote each, both dropped by the 3-vote distractor.
+    exact = GatedCorroborationSelector(extractor, use_parametric=False)
+    exact_ids = selected_ids(exact, pool, 5)
+    assert "g1" not in exact_ids and "g2" not in exact_ids
+    # lenient: "Apostle Paul" + "Paul" merge to a 2-vote cluster, so gold survives.
+    lenient = GatedCorroborationSelector(extractor, equivalence="lenient", use_parametric=False)
+    lenient_ids = selected_ids(lenient, pool, 5)
+    assert "g1" in lenient_ids and "g2" in lenient_ids
+
+
 def test_same_document_chunks_collapse_to_one_vote() -> None:
     pool = candidate_set(
         evidence("x1", "text x1", 1.0, 1, document_id="doc-X"),
@@ -225,7 +253,13 @@ def test_deterministic_across_repeats() -> None:
 
 def test_invalid_arguments_raise() -> None:
     extractor = MappedExtractor({})
-    for kwargs in ({"alpha": 1.5}, {"margin": 0}, {"support_cap": -1}, {"top_n": 0}):
+    for kwargs in (
+        {"alpha": 1.5},
+        {"margin": 0},
+        {"support_cap": -1},
+        {"top_n": 0},
+        {"equivalence": "fuzzy"},
+    ):
         try:
             GatedCorroborationSelector(extractor, **kwargs)  # type: ignore[arg-type]
         except ValueError:

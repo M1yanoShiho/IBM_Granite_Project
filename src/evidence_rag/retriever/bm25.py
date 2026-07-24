@@ -1,13 +1,17 @@
 import math
 import re
 from collections import Counter
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 
 from evidence_rag.contracts.models import CandidateSet, Document, EvidenceCandidate, Query
 from evidence_rag.infrastructure.corpus import CorpusSnapshot
 from evidence_rag.retriever.chunking import Chunk, Chunker, WordChunker
 
 TOKEN = re.compile(r"[A-Za-z0-9]+")
+
+# An analyzer turns raw text into the term sequence BM25 scores over. The default
+# is plain lower-cased tokenisation; StrongBM25 supplies a stopword-filtering one.
+Analyzer = Callable[[str], tuple[str, ...]]
 
 
 def tokenize(text: str) -> tuple[str, ...]:
@@ -37,9 +41,12 @@ class BM25Retriever:
         chunker: Chunker | None = None,
         k1: float = 1.5,
         b: float = 0.75,
+        *,
+        analyzer: Analyzer | None = None,
     ) -> None:
         self.chunker: Chunker | None = chunker or WordChunker()
         self.k1, self.b = validate_bm25_parameters(k1, b)
+        self.analyzer: Analyzer = analyzer or tokenize
         self._set_chunks(chunk for document in documents for chunk in self.chunker.chunk(document))
 
     @classmethod
@@ -49,16 +56,18 @@ class BM25Retriever:
         *,
         k1: float = 1.5,
         b: float = 0.75,
+        analyzer: Analyzer | None = None,
     ) -> "BM25Retriever":
         retriever = cls.__new__(cls)
         retriever.chunker = None
         retriever.k1, retriever.b = validate_bm25_parameters(k1, b)
+        retriever.analyzer = analyzer or tokenize
         retriever._set_chunks(corpus.chunks)
         return retriever
 
     def _set_chunks(self, chunks: Iterable[Chunk]) -> None:
         self.chunks = tuple(chunks)
-        self.tokens = tuple(tokenize(chunk.text) for chunk in self.chunks)
+        self.tokens = tuple(self.analyzer(chunk.text) for chunk in self.chunks)
         self.average_length = (
             sum(len(tokens) for tokens in self.tokens) / len(self.tokens) if self.tokens else 0.0
         )
@@ -72,7 +81,7 @@ class BM25Retriever:
         for chunk, tokens in zip(self.chunks, self.tokens, strict=True):
             counts = Counter(tokens)
             score = 0.0
-            for term in tokenize(query.text):
+            for term in self.analyzer(query.text):
                 frequency = counts[term]
                 if frequency == 0:
                     continue

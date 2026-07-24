@@ -15,6 +15,7 @@ from evidence_rag.evaluation.scoring import (
     CORE_DIRECTIONS,
     CORE_METRIC_VERSION,
     CORE_METRIC_VERSIONS,
+    RECALL_AT_K,
     aggregate_metrics,
     answer_match,
     compose_generator_metrics,
@@ -22,6 +23,8 @@ from evidence_rag.evaluation.scoring import (
     document_ids,
     precision,
     recall,
+    recall_at_k,
+    reciprocal_rank,
     signature,
 )
 
@@ -85,6 +88,15 @@ def evaluate_case(
     stages: dict[str, dict[str, MetricValue]] = {
         "retriever": {
             "retriever.core.document_recall": recall(retrieved, relevant),
+            "retriever.core.document_mrr": reciprocal_rank(
+                run.candidates.candidates, relevant
+            ),
+            **{
+                f"retriever.core.document_recall_at_{k}": recall_at_k(
+                    run.candidates.candidates, relevant, k
+                )
+                for k in RECALL_AT_K
+            },
         },
         "selector": {
             "selector.core.conditional_document_recall": conditional_recall(
