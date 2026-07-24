@@ -48,8 +48,8 @@ class RunManifest(FrozenModel):
     chunker_version: NonEmpty
     chunk_size: PositiveInteger
     overlap: NonNegativeInteger
-    index_implementation: Literal["bm25"]
-    index_implementation_version: Literal["bm25-v1"]
+    index_implementation: NonEmpty
+    index_implementation_version: NonEmpty
     index_signature: Digest
     retriever: ModuleConfig
     selector: ModuleConfig

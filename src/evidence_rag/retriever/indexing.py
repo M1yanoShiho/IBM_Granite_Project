@@ -1,51 +1,41 @@
+"""Deterministic, signature-verified persistence for a retriever index.
+
+An "index" here is the corpus snapshot plus the fully-normalised retriever
+configuration. v1 persists no numeric structures (BM25 tables, dense vectors are
+rebuilt on load), so the manifest captures *identity* — which retriever
+implementation, at which version, with which parameters, over which corpus — and a
+SHA-256 ``index_signature`` binding all of it together. Concrete retriever
+construction lives in :mod:`evidence_rag.composition`; this module is
+implementation-agnostic.
+"""
+
 import json
+from collections.abc import Mapping
 from hashlib import sha256
 from pathlib import Path
-from typing import Annotated, Literal, Protocol, TypeVar
+from typing import Annotated, Any, Literal, TypeVar
 
-from pydantic import BaseModel, ConfigDict, Field, FiniteFloat, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from evidence_rag.contracts.protocols import Retriever
 from evidence_rag.infrastructure.corpus import CorpusSnapshot
-from evidence_rag.retriever.bm25 import BM25Retriever, validate_bm25_parameters
 
 NonEmpty = Annotated[str, Field(min_length=1)]
 ModelT = TypeVar("ModelT", bound=BaseModel)
 SNAPSHOT_FILENAME: Literal["corpus_snapshot.json"] = "corpus_snapshot.json"
 MANIFEST_FILENAME: Literal["index_manifest.json"] = "index_manifest.json"
+SCHEMA_VERSION: Literal["1.0"] = "1.0"
 
 
 class IndexManifest(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
 
     schema_version: Literal["1.0"]
-    implementation: Literal["bm25"]
-    implementation_version: Literal["bm25-v1"]
+    implementation: NonEmpty
+    implementation_version: NonEmpty
     corpus_signature: NonEmpty
-    k1: Annotated[FiniteFloat, Field(ge=0)]
-    b: Annotated[FiniteFloat, Field(ge=0, le=1)]
+    parameters: dict[str, Any]
     snapshot_filename: Literal["corpus_snapshot.json"]
     index_signature: NonEmpty
-
-
-class IndexPlugin(Protocol):
-    def build(
-        self,
-        corpus: CorpusSnapshot,
-        directory: Path,
-        *,
-        k1: float,
-        b: float,
-    ) -> Retriever: ...
-
-    def load(
-        self,
-        directory: Path,
-        *,
-        expected_corpus_signature: str,
-        expected_k1: float,
-        expected_b: float,
-    ) -> Retriever: ...
 
 
 def _canonical_json(value: object) -> str:
@@ -60,14 +50,19 @@ def _canonical_json(value: object) -> str:
     )
 
 
-def _index_signature(corpus: CorpusSnapshot, *, k1: float, b: float) -> str:
+def _index_signature(
+    corpus: CorpusSnapshot,
+    *,
+    implementation: str,
+    implementation_version: str,
+    parameters: Mapping[str, Any],
+) -> str:
     payload = {
-        "schema_version": "1.0",
-        "implementation": "bm25",
-        "implementation_version": "bm25-v1",
+        "schema_version": SCHEMA_VERSION,
+        "implementation": implementation,
+        "implementation_version": implementation_version,
         "corpus_signature": corpus.manifest.corpus_signature,
-        "k1": k1,
-        "b": b,
+        "parameters": dict(parameters),
         "snapshot_filename": SNAPSHOT_FILENAME,
         "corpus_snapshot": corpus.model_dump(mode="json"),
     }
@@ -87,79 +82,97 @@ def read_index_manifest(directory: Path) -> IndexManifest:
     return _read_model(Path(directory) / MANIFEST_FILENAME, IndexManifest)
 
 
-class BM25IndexPlugin:
-    def build(
-        self,
-        corpus: CorpusSnapshot,
-        directory: Path,
-        *,
-        k1: float,
-        b: float,
-    ) -> Retriever:
-        k1, b = validate_bm25_parameters(k1, b)
-        directory = Path(directory)
-        directory.mkdir(parents=True, exist_ok=True)
-        manifest = IndexManifest(
-            schema_version="1.0",
-            implementation="bm25",
-            implementation_version="bm25-v1",
-            corpus_signature=corpus.manifest.corpus_signature,
-            k1=k1,
-            b=b,
-            snapshot_filename=SNAPSHOT_FILENAME,
-            index_signature=_index_signature(corpus, k1=k1, b=b),
-        )
-        (directory / SNAPSHOT_FILENAME).write_text(
-            _canonical_json(corpus) + "\n",
-            encoding="utf-8",
-        )
-        (directory / MANIFEST_FILENAME).write_text(
-            _canonical_json(manifest) + "\n",
-            encoding="utf-8",
-        )
-        return BM25Retriever.from_corpus(corpus, k1=k1, b=b)
+def write_index(
+    corpus: CorpusSnapshot,
+    directory: Path,
+    *,
+    implementation: str,
+    implementation_version: str,
+    parameters: Mapping[str, Any],
+) -> IndexManifest:
+    """Persist the corpus snapshot and a signed manifest; return the manifest."""
 
-    def load(
-        self,
-        directory: Path,
-        *,
-        expected_corpus_signature: str,
-        expected_k1: float,
-        expected_b: float,
-    ) -> Retriever:
-        expected_k1, expected_b = validate_bm25_parameters(expected_k1, expected_b)
-        directory = Path(directory)
-        manifest_path = directory / MANIFEST_FILENAME
-        manifest = _read_model(manifest_path, IndexManifest)
-        if manifest.corpus_signature != expected_corpus_signature:
-            raise ValueError(
-                f"corpus signature mismatch in {manifest_path}: "
-                f"expected {expected_corpus_signature}, found {manifest.corpus_signature}"
-            )
-        for name, expected, found in (
-            ("k1", expected_k1, manifest.k1),
-            ("b", expected_b, manifest.b),
-        ):
-            if found != expected:
-                raise ValueError(
-                    f"{name} mismatch in {manifest_path}: expected {expected}, found {found}"
-                )
-        snapshot_path = directory / SNAPSHOT_FILENAME
-        corpus = _read_model(snapshot_path, CorpusSnapshot)
-        if corpus.manifest.corpus_signature != manifest.corpus_signature:
-            raise ValueError(
-                f"corpus signature mismatch in {snapshot_path}: "
-                f"expected {manifest.corpus_signature}, "
-                f"found {corpus.manifest.corpus_signature}"
-            )
-        expected_index_signature = _index_signature(
+    directory = Path(directory)
+    directory.mkdir(parents=True, exist_ok=True)
+    manifest = IndexManifest(
+        schema_version=SCHEMA_VERSION,
+        implementation=implementation,
+        implementation_version=implementation_version,
+        corpus_signature=corpus.manifest.corpus_signature,
+        parameters=dict(parameters),
+        snapshot_filename=SNAPSHOT_FILENAME,
+        index_signature=_index_signature(
             corpus,
-            k1=manifest.k1,
-            b=manifest.b,
-        )
-        if manifest.index_signature != expected_index_signature:
+            implementation=implementation,
+            implementation_version=implementation_version,
+            parameters=parameters,
+        ),
+    )
+    (directory / SNAPSHOT_FILENAME).write_text(
+        _canonical_json(corpus) + "\n",
+        encoding="utf-8",
+    )
+    (directory / MANIFEST_FILENAME).write_text(
+        _canonical_json(manifest) + "\n",
+        encoding="utf-8",
+    )
+    return manifest
+
+
+def load_index(
+    directory: Path,
+    *,
+    expected_corpus_signature: str,
+    expected_implementation: str,
+    expected_implementation_version: str,
+    expected_parameters: Mapping[str, Any],
+) -> CorpusSnapshot:
+    """Validate a persisted index against expectations and return its snapshot.
+
+    Raises ``ValueError`` on any mismatch (corpus signature, implementation,
+    implementation version, parameters, or a tampered index signature), so the
+    caller can safely reconstruct the retriever from the returned snapshot.
+    """
+
+    directory = Path(directory)
+    manifest_path = directory / MANIFEST_FILENAME
+    manifest = _read_model(manifest_path, IndexManifest)
+    expected = dict(expected_parameters)
+    for name, want, found in (
+        ("corpus signature", expected_corpus_signature, manifest.corpus_signature),
+        ("implementation", expected_implementation, manifest.implementation),
+        (
+            "implementation_version",
+            expected_implementation_version,
+            manifest.implementation_version,
+        ),
+    ):
+        if found != want:
             raise ValueError(
-                f"index signature mismatch in {manifest_path}: "
-                f"expected {expected_index_signature}, found {manifest.index_signature}"
+                f"{name} mismatch in {manifest_path}: expected {want}, found {found}"
             )
-        return BM25Retriever.from_corpus(corpus, k1=manifest.k1, b=manifest.b)
+    if manifest.parameters != expected:
+        raise ValueError(
+            f"parameters mismatch in {manifest_path}: "
+            f"expected {expected}, found {manifest.parameters}"
+        )
+    snapshot_path = directory / SNAPSHOT_FILENAME
+    corpus = _read_model(snapshot_path, CorpusSnapshot)
+    if corpus.manifest.corpus_signature != manifest.corpus_signature:
+        raise ValueError(
+            f"corpus signature mismatch in {snapshot_path}: "
+            f"expected {manifest.corpus_signature}, "
+            f"found {corpus.manifest.corpus_signature}"
+        )
+    expected_signature = _index_signature(
+        corpus,
+        implementation=manifest.implementation,
+        implementation_version=manifest.implementation_version,
+        parameters=manifest.parameters,
+    )
+    if manifest.index_signature != expected_signature:
+        raise ValueError(
+            f"index signature mismatch in {manifest_path}: "
+            f"expected {expected_signature}, found {manifest.index_signature}"
+        )
+    return corpus

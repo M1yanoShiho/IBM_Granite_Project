@@ -1,0 +1,97 @@
+from evidence_rag.contracts.models import CandidateSet, EvidenceCandidate, Query
+from evidence_rag.retriever.granite import DecomposingRetriever, HyDERetriever
+
+
+class RecordingRetriever:
+    def __init__(self) -> None:
+        self.received: list[Query] = []
+
+    def retrieve(self, query: Query, top_k: int) -> CandidateSet:
+        self.received.append(query)
+        # Score by a toy relevance signal so RRF ordering is observable: a candidate
+        # per distinct query text, keyed deterministically.
+        return CandidateSet(
+            query_id=query.query_id,
+            candidates=(
+                EvidenceCandidate(
+                    evidence_id=f"ev-{abs(hash(query.text)) % 1000}",
+                    document_id="doc-1",
+                    chunk_id="chunk-1",
+                    text=query.text,
+                    source_uri="fixture://doc-1",
+                    retrieval_score=1.0,
+                    retrieval_rank=1,
+                ),
+            ),
+        )
+
+
+class ConstantGenerator:
+    def __init__(self, text: str) -> None:
+        self.text = text
+        self.prompts: list[str] = []
+
+    def generate(self, prompt: str) -> str:
+        self.prompts.append(prompt)
+        return self.text
+
+
+def test_hyde_replaces_query_with_generated_document() -> None:
+    base = RecordingRetriever()
+    retriever = HyDERetriever(base, ConstantGenerator("Revenue rose in 2024."))
+
+    retriever.retrieve(Query(query_id="q", text="did revenue rise?"), top_k=3)
+
+    # HyDE replaces (not appends) the query text with the hypothetical document.
+    assert base.received[0].text == "Revenue rose in 2024."
+
+
+def test_hyde_falls_back_to_original_query_when_generation_empty() -> None:
+    base = RecordingRetriever()
+    retriever = HyDERetriever(base, ConstantGenerator("   "))
+
+    retriever.retrieve(Query(query_id="q", text="original"), top_k=3)
+
+    assert base.received[0].text == "original"
+
+
+def test_decompose_retrieves_each_subquery_and_merges() -> None:
+    base = RecordingRetriever()
+    generator = ConstantGenerator("1. what is revenue?\n2. what is profit?")
+    retriever = DecomposingRetriever(base, generator)
+
+    result = retriever.retrieve(Query(query_id="q", text="revenue and profit?"), top_k=10)
+
+    # Numbered-list prefixes are stripped; both sub-questions were retrieved.
+    assert [q.text for q in base.received] == ["what is revenue?", "what is profit?"]
+    assert result.query_id == "q"
+    assert tuple(c.retrieval_rank for c in result.candidates) == tuple(
+        range(1, len(result.candidates) + 1)
+    )
+
+
+def test_decompose_falls_back_to_original_when_no_subqueries() -> None:
+    base = RecordingRetriever()
+    retriever = DecomposingRetriever(base, ConstantGenerator("\n\n"))
+
+    retriever.retrieve(Query(query_id="q", text="only question"), top_k=5)
+
+    assert [q.text for q in base.received] == ["only question"]
+
+
+def test_decompose_uses_pool_size_per_subquery() -> None:
+    class TopKSpy(RecordingRetriever):
+        def __init__(self) -> None:
+            super().__init__()
+            self.top_ks: list[int] = []
+
+        def retrieve(self, query: Query, top_k: int) -> CandidateSet:
+            self.top_ks.append(top_k)
+            return super().retrieve(query, top_k)
+
+    base = TopKSpy()
+    retriever = DecomposingRetriever(
+        base, ConstantGenerator("a?\nb?"), pool_size=30
+    )
+    retriever.retrieve(Query(query_id="q", text="x"), top_k=5)
+    assert base.top_ks == [30, 30]
