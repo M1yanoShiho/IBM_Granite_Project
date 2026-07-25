@@ -59,8 +59,32 @@ def test_cli_reports_per_prompt(tmp_path) -> None:
     assert exit_code == 0
     report = json.loads(output.read_text(encoding="utf-8"))
     assert report["n_records"] == 1
-    assert set(report["prompts"]) == {"baseline", "verbatim", "attribute"}
-    for prompt in report["prompts"].values():
-        assert prompt["missed_conflict_rate"] == 0.0  # twins separated
-        assert prompt["needle_gold_rate"] == 1.0
-        assert prompt["cf_replacement_rate"] == 1.0
+    assert "model" in report
+    # decoupled (2-stage) runs alongside the single-stage strategies
+    assert set(report["strategies"]) == {"baseline", "attribute", "decoupled"}
+    for strategy in report["strategies"].values():
+        assert strategy["missed_conflict_rate"] == 0.0  # twins separated: needle->Kennedy, cf->Nixon
+        assert strategy["needle_gold_rate"] == 1.0
+        assert strategy["cf_replacement_rate"] == 1.0
+
+
+def test_cli_limit_subsamples(tmp_path) -> None:
+    manifest = _dataset(tmp_path)
+    provenance = tmp_path / "provenance.jsonl"
+    write_provenance(provenance, [
+        MutationRecord(
+            query_id="q1", needle_document_id="needle", counterfactual_document_id="cf::needle",
+            gold_value="Kennedy", gold_alias_used="Kennedy", replacement_value="Nixon",
+            string_class="name-1", seed=42, char_span=(0, 7), text_hash_before="a",
+            text_hash_after="b", answer_bank_hash="h",
+        )
+        for _ in range(5)
+    ])
+    output = tmp_path / "probe.json"
+    main(
+        ["--manifest", str(manifest), "--provenance", str(provenance), "--output", str(output),
+         "--limit", "2"],
+        llm=FakeLLM(),
+    )
+    report = json.loads(output.read_text(encoding="utf-8"))
+    assert report["n_records"] == 2  # limited to the first 2 records

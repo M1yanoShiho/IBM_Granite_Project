@@ -1,5 +1,7 @@
 from evidence_rag.evaluation.missed_conflict_probe import (
     PROMPTS,
+    STAGE_A_PROMPT,
+    STAGE_B_PROMPT,
     PairOutcome,
     classify_pair,
     summarize_prompt,
@@ -11,6 +13,11 @@ def test_prompts_include_baseline_and_targeted() -> None:
     assert {"verbatim", "attribute"} <= set(PROMPTS)
     for template in PROMPTS.values():
         assert "{question}" in template and "{passage}" in template
+
+
+def test_decoupled_stage_prompts_have_placeholders() -> None:
+    assert "{question}" in STAGE_A_PROMPT
+    assert "{target}" in STAGE_B_PROMPT and "{passage}" in STAGE_B_PROMPT
 
 
 def test_classify_twins_collapsed() -> None:

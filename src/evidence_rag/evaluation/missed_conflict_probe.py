@@ -30,6 +30,19 @@ PROMPTS: dict[str, str] = {
     "attribute": ATTRIBUTE_PROMPT,
 }
 
+# Decoupled two-stage extraction: separate the reasoning (what value does the question want?) from
+# the mechanical span-copy, so the extractor locks onto the swapped value in each twin rather than a
+# shared entity. Stage A runs once per query (passage-independent); Stage B once per passage.
+STAGE_A_PROMPT = (
+    "What kind of value does this question ask for? Answer in a few words naming the target "
+    "(for example: a person's name, a year, a city, a number).\nQuestion: {question}\nTarget:"
+)
+STAGE_B_PROMPT = (
+    "From the passage below, output the exact {target} that the passage states, copied verbatim "
+    "from the passage and nothing else. If the passage does not state it, reply NONE.\n"
+    "Passage: {passage}\nAnswer:"
+)
+
 
 @dataclass(frozen=True)
 class PairOutcome:
