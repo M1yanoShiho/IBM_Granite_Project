@@ -30,3 +30,22 @@ E1 pool 级组件评估(exact-string 簇,标签零人工=provenance + official g
 - **Harmful-in-context +0.3pp**(0.569 → 0.572),p=0.55,CI[−0.005,+0.012]——**不显著(无代价)**。
 - 修复**显著且安全**,但幅度**适中**:回收 −4.8pp 门召回代价的 ~**25%**(0.012/0.048),仍未闭合 −0.01 守卫(−4.8pp→−3.6pp vs gate-off)。适中因:(a) injector 在本数据集设计掉了大部分 canonicalization 假冲突(10.6% 多别名题被跳);(b) 确定性匹配只吃 containment/number/prep,吃不到同义词/缩写。
 - **未回收的 ~75%(含 39% 孪生 missed-conflict)= 语义等价(Graph 2.0)的残差,已量化。** 全建 NLI 前先跑 Phase 3 低成本探针:针对性"抽被查询属性的值"prompt 能否分开孪生 → 能则拿 Graph 2.0 主收益而不建 NLI,不能则 Graph 2.0 有据。
+
+### S4 — 孪生 missed-conflict 是**抽取受限**,prompt 修不了;Graph 2.0 是经验赌注(Phase 3,2026-07-25)
+
+对每注入题从 needle/cf 源文档直抽(隔离 prompt),baseline 现行 prompt vs 两个 targeted。n=1479。
+
+| prompt | missed_conflict | needle_gold | cf_replacement |
+|---|---|---|---|
+| baseline | .281 | .486 | .211 |
+| verbatim | .238 | **.363** | .183 |
+| attribute | .254 | .479 | **.269** |
+
+- **verbatim 低 missed 是假胜:** 靠抽取变噪(needle_gold −12.3pp、cf −2.8pp)而非正确分离孪生,弃。
+- **attribute 真但小:** missed −2.7pp、**cf_replacement +5.8pp**(更常抽出注入 replacement)、gold 持平——正确方向,幅度小。
+- **定论:prompt 修不了孪生崩塌**——最优正确 prompt 仍留 ~25% missed。根因=**抽取能力**(swapped value 只 ~48% needle / ~27% cf 抽得出,余落共享错误实体→崩塌)。
+- **对 Graph 2.0:** 按预注册 justified,但 missed 是**抽取问题**、NLI 坐在抽取之上 → Graph 2.0 只在 claim 级抽取比单答案更 twin-robust 时才帮,是**经验赌注非保证修复**。counterfactual-twin 冲突检测本质难;真实杠杆是抽取质量,非只加 NLI。
+
+## 路线总结(3-phase route,2026-07)
+
+诊断链(E1 + CPU 探针)把 E2 的 −4.8pp recall 代价定位到 exact-string 答案等价,三次否掉 8B。**便宜/确定性修复给小而真的收益:** lenient 聚类(S3,recall +1.2pp p≈0,零 harm)+ attribute prompt(S4,小)。**残差(孪生 missed-conflict ~25%)抽取受限,Graph 2.0 是下一步经验赌注,非保证。** rigor 底线已达(全发现诚实+实测),Graph 2.0 仍是 upside。
