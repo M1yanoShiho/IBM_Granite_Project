@@ -48,11 +48,7 @@ class AnswerRepairer:
                     seen.add(evidence_id)
                     citations.append(evidence_id)
 
-        answer = (
-            draft.answer_text
-            if trusted_claims and len(trusted_claims) == len(draft.claims)
-            else self._assemble_retained_spans(draft, trusted_ids)
-        )
+        answer = self._assemble_retained_spans(draft, trusted_ids)
         return GenerationResult(
             query_id=draft.query_id,
             answer=answer,

@@ -1,6 +1,11 @@
 import pytest
 
-from evidence_rag.contracts.models import EvidenceCandidate, Query, SelectedEvidenceSet
+from evidence_rag.contracts.models import (
+    EvidenceCandidate,
+    Query,
+    QueryChecklist,
+    SelectedEvidenceSet,
+)
 from evidence_rag.generator.draft import DraftAnswerGenerator
 from evidence_rag.generator.models import Claim, ClaimSpan
 
@@ -9,7 +14,12 @@ class FakeDraftTextGenerator:
     def __init__(self, answer_text: str) -> None:
         self.answer_text = answer_text
 
-    def generate_answer(self, query: Query, selected: SelectedEvidenceSet) -> str:
+    def generate_answer(
+        self,
+        query: Query,
+        checklist: QueryChecklist,
+        selected: SelectedEvidenceSet,
+    ) -> str:
         return self.answer_text
 
 
@@ -44,6 +54,10 @@ def selected_evidence(query_id: str = "q-1") -> SelectedEvidenceSet:
     return SelectedEvidenceSet(query_id=query_id, evidence=(evidence,))
 
 
+def checklist(query_id: str = "q-1") -> QueryChecklist:
+    return QueryChecklist(query_id=query_id, focus="performance", required_facts=())
+
+
 def test_draft_answer_generator_composes_text_and_claims() -> None:
     claim = Claim(
         claim_id="claim-1",
@@ -59,6 +73,7 @@ def test_draft_answer_generator_composes_text_and_claims() -> None:
 
     draft = generator.generate(
         Query(query_id="q-1", text="What changed?"),
+        checklist(),
         selected_evidence(),
     )
 
@@ -77,6 +92,7 @@ def test_draft_answer_generator_rejects_query_id_mismatch() -> None:
     with pytest.raises(ValueError, match="query IDs differ"):
         generator.generate(
             Query(query_id="q-1", text="What changed?"),
+            checklist(),
             selected_evidence(query_id="q-other"),
         )
 
@@ -90,6 +106,7 @@ def test_draft_answer_generator_returns_empty_draft_when_a1_declines() -> None:
 
     draft = generator.generate(
         Query(query_id="q-1", text="What changed?"),
+        checklist(),
         selected_evidence(),
     )
 
@@ -112,6 +129,7 @@ def test_draft_answer_generator_preserves_unfaithful_claim_for_b() -> None:
 
     draft = generator.generate(
         Query(query_id="q-1", text="What may happen?"),
+        checklist(),
         selected_evidence(),
     )
 
@@ -131,6 +149,7 @@ def test_draft_answer_generator_runs_a1_and_a2_with_one_shared_llm() -> None:
 
     draft = DraftAnswerGenerator(llm=llm).generate(
         Query(query_id="q-1", text="What changed?"),
+        checklist(),
         selected_evidence(),
     )
 

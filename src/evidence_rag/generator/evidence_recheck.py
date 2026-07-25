@@ -3,7 +3,12 @@ from typing import Any
 
 from pydantic import model_validator
 
-from evidence_rag.contracts.models import FrozenModel, NonEmpty, SelectedEvidenceSet
+from evidence_rag.contracts.models import (
+    FrozenModel,
+    NonEmpty,
+    QueryChecklist,
+    SelectedEvidenceSet,
+)
 from evidence_rag.generator.granite import GraniteLLMClient, TextGenerator
 from evidence_rag.generator.models import RequiredFactCoverage
 
@@ -14,6 +19,8 @@ RECHECK_PROMPT = (
     "or "
     '{{"found":false,"answer_fragment":"","evidence_indices":[]}}.\n\n'
     "Evidence:\n{context}\n\n"
+    "Focus: {focus}\n"
+    "Constraints: {constraints}\n"
     "Gap question: {gap_question}"
 )
 
@@ -45,17 +52,24 @@ class EvidenceRechecker:
         self,
         llm: TextGenerator | None = None,
         prompt_template: str = RECHECK_PROMPT,
+        max_fragment_chars: int = 1000,
     ) -> None:
+        if max_fragment_chars < 1:
+            raise ValueError("max_fragment_chars must be positive")
         self.llm = llm or GraniteLLMClient()
         self.prompt_template = prompt_template
+        self.max_fragment_chars = max_fragment_chars
 
     def recheck(
         self,
         coverage: RequiredFactCoverage,
+        checklist: QueryChecklist,
         selected: SelectedEvidenceSet,
     ) -> EvidenceRecheckResult:
         if coverage.covered:
             raise ValueError("cannot recheck a fact already covered")
+        if checklist.query_id != selected.query_id:
+            raise ValueError("checklist and selected evidence query IDs differ")
         if not selected.evidence:
             return EvidenceRecheckResult(
                 required_fact=coverage.required_fact,
@@ -69,6 +83,8 @@ class EvidenceRechecker:
         )
         prompt = self.prompt_template.format(
             context=context,
+            focus=checklist.focus,
+            constraints="; ".join(checklist.constraints) or "none",
             gap_question=coverage.gap_question,
         )
         data = self._load_json(self.llm.generate(prompt))
@@ -78,6 +94,8 @@ class EvidenceRechecker:
         raw_fragment = data.get("answer_fragment", "")
         if not isinstance(raw_fragment, str):
             raise ValueError("recheck answer_fragment must be a string")
+        if len(raw_fragment.strip()) > self.max_fragment_chars:
+            raise ValueError("recheck answer_fragment is too long")
         indices = data.get("evidence_indices", [])
         if not isinstance(indices, list):
             raise ValueError("recheck evidence_indices must be an array")

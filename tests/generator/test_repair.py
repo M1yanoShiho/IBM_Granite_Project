@@ -73,6 +73,43 @@ def test_repair_preserves_fully_supported_answer_and_verified_citations() -> Non
     assert result.cited_evidence_ids == ("ev-1", "ev-2")
 
 
+def test_repair_does_not_preserve_text_outside_verified_claim_spans() -> None:
+    draft = DraftAnswer(
+        query_id="q-1",
+        answer_text="Revenue rose. Unsplit forecast doubled.",
+        claims=(
+            Claim(
+                claim_id="claim-1",
+                text="Revenue rose.",
+                span=ClaimSpan(start=0, end=13),
+                faithful_to_answer=True,
+            ),
+        ),
+    )
+    report = VerificationReport(
+        query_id="q-1",
+        claims=(
+            ClaimVerification(
+                claim_id="claim-1",
+                status="supported",
+                supporting_evidence_ids=("ev-1",),
+                entity_consistent=True,
+                contradicted=False,
+            ),
+        ),
+        fact_coverage=(),
+    )
+
+    result = AnswerRepairer().repair(
+        draft,
+        report,
+        SelectedEvidenceSet(query_id="q-1", evidence=(evidence("ev-1"),)),
+    )
+
+    assert result.answer == "Revenue rose."
+    assert result.cited_evidence_ids == ("ev-1",)
+
+
 def test_repair_removes_unsupported_claim_and_its_citation() -> None:
     draft = DraftAnswer(
         query_id="q-1",

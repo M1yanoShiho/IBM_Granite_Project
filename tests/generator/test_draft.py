@@ -1,6 +1,11 @@
 import pytest
 
-from evidence_rag.contracts.models import EvidenceCandidate, Query, SelectedEvidenceSet
+from evidence_rag.contracts.models import (
+    EvidenceCandidate,
+    Query,
+    QueryChecklist,
+    SelectedEvidenceSet,
+)
 from evidence_rag.generator.draft import DraftGenerator
 
 
@@ -26,6 +31,15 @@ def evidence(evidence_id: str, text: str) -> EvidenceCandidate:
     )
 
 
+def checklist(query_id: str = "q-1") -> QueryChecklist:
+    return QueryChecklist(
+        query_id=query_id,
+        focus="2024 performance",
+        required_facts=("revenue change",),
+        constraints=("exclude forecasts",),
+    )
+
+
 def test_draft_generator_answers_using_selected_evidence() -> None:
     llm = FakeLLM("Revenue increased by ten percent.")
     generator = DraftGenerator(llm=llm)
@@ -36,11 +50,15 @@ def test_draft_generator_answers_using_selected_evidence() -> None:
 
     answer = generator.generate_answer(
         Query(query_id="q-1", text="What changed?"),
+        checklist(),
         selected,
     )
 
     assert answer == "Revenue increased by ten percent."
     assert "What changed?" in llm.prompts[0]
+    assert "Focus: 2024 performance" in llm.prompts[0]
+    assert "Required facts: revenue change" in llm.prompts[0]
+    assert "Constraints: exclude forecasts" in llm.prompts[0]
     assert "[1] (ev-1) Revenue increased by ten percent." in llm.prompts[0]
 
 
@@ -49,7 +67,11 @@ def test_draft_generator_rejects_query_id_mismatch() -> None:
     selected = SelectedEvidenceSet(query_id="q-other", evidence=())
 
     with pytest.raises(ValueError, match="query IDs differ"):
-        generator.generate_answer(Query(query_id="q-1", text="What changed?"), selected)
+        generator.generate_answer(
+            Query(query_id="q-1", text="What changed?"),
+            checklist(),
+            selected,
+        )
 
 
 def test_draft_generator_returns_empty_without_selected_evidence() -> None:
@@ -58,6 +80,7 @@ def test_draft_generator_returns_empty_without_selected_evidence() -> None:
 
     answer = generator.generate_answer(
         Query(query_id="q-1", text="What changed?"),
+        checklist(),
         SelectedEvidenceSet(query_id="q-1", evidence=()),
     )
 
@@ -74,6 +97,7 @@ def test_draft_generator_normalizes_model_decline_to_empty_answer() -> None:
 
     answer = generator.generate_answer(
         Query(query_id="q-1", text="What was the revenue?"),
+        checklist(),
         selected,
     )
 
@@ -91,7 +115,11 @@ def test_draft_generator_includes_every_selected_evidence_in_rank_order() -> Non
         ),
     )
 
-    generator.generate_answer(Query(query_id="q-1", text="Summarize."), selected)
+    generator.generate_answer(
+        Query(query_id="q-1", text="Summarize."),
+        checklist(),
+        selected,
+    )
 
     prompt = llm.prompts[0]
     assert prompt.index("[1] (ev-1) First fact.") < prompt.index("[2] (ev-2) Second fact.")
