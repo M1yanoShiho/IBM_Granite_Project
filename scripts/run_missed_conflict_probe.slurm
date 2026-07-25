@@ -43,13 +43,13 @@ export PYTHONPATH=src
 python -c "import torch; print('CUDA:', torch.cuda.is_available(), '| torch', torch.__version__)"
 echo "=== 2x2 twin missed-conflict probe | model=$MODEL limit=$LIMIT ==="
 
-LIMIT_ARG=()
-if [ "$LIMIT" -gt 0 ]; then LIMIT_ARG=(--limit "$LIMIT"); fi
-python -m evidence_rag.evaluation.missed_conflict_probe_cli \
-  --manifest "$MANIFEST" \
-  --provenance "$PROVENANCE" \
-  --output "$OUTPUT" \
-  "${LIMIT_ARG[@]}"
+if [ "$LIMIT" -gt 0 ]; then
+  python -m evidence_rag.evaluation.missed_conflict_probe_cli \
+    --manifest "$MANIFEST" --provenance "$PROVENANCE" --output "$OUTPUT" --limit "$LIMIT"
+else
+  python -m evidence_rag.evaluation.missed_conflict_probe_cli \
+    --manifest "$MANIFEST" --provenance "$PROVENANCE" --output "$OUTPUT"
+fi
 
 echo "=== probe report (missed_conflict_rate per strategy = the number) ==="
 cat "$OUTPUT"
