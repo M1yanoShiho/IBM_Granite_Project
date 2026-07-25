@@ -75,6 +75,28 @@
 
 ---
 
+## E3-prompt — 孪生 missed-conflict 的 prompt 探针(systematic-debugging Phase 3)
+
+**状态:** READY——harness(missed_conflict_probe + cli + tests,commit 444d2d8)+ slurm + 本条目。
+承接 E1 顽疾(missed_conflict .386,lenient 修不了孪生崩塌)。全建 Graph 2.0/NLI 前的低成本判据。
+
+**BEFORE(预注册):**
+
+- 目的/假设:孪生崩塌 because 抽取器抓**共享的未替换实体**而非被查询属性的值;针对性
+  "逐字 copy 回答问题的那个值"prompt 能把孪生分开(needle→gold、cf→replacement)→ missed_conflict 降。
+- 预期指标 + 方向:每 prompt 的 `missed_conflict_rate` ↓、`needle_gold_rate`/`cf_replacement_rate` ↑。
+  baseline(现行 EXTRACT_PROMPT)vs verbatim / attribute 两个 targeted。**判定:某 targeted 显著降 missed →
+  prompt fix,拿 Graph 2.0 冲突检测主收益而不建 NLI;都不降 → Graph 2.0 有据。** baseline missed 应 ≈ E1 的 .386(sanity)。
+  标签=provenance(gold_value/replacement_value);从 needle/cf 源文档直抽(隔离 prompt,去掉检索变量)。
+- 精确命令(gres 默认已是 gpu:1):
+  ```
+  mkdir -p logs results && sbatch scripts/run_missed_conflict_probe.slurm \
+    runs/niah-injected/manifest.json runs/niah-injected/provenance.jsonl results/e3-missed-conflict-probe.json
+  ```
+- Git commit:444d2d8;Seed:无(确定性分类)。**AFTER:** 未运行。
+
+---
+
 ## E1 — 边/簇检测组件评估(spec §12,pool 级 B2 harness)
 
 **状态:** READY——三件套齐:harness(cluster_eval + cluster_eval_cli + tests,commit
