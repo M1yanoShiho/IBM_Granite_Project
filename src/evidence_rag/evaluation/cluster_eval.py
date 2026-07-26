@@ -6,13 +6,13 @@ CLI feeds extracted answers. Statistic unit = injected query.
 """
 
 import re
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from math import sqrt
 
 from evidence_rag.contracts.models import EvidenceCandidate
 from evidence_rag.selector.answer_norm import canonicalize_answer
-from evidence_rag.selector.clusters import build_clusters
+from evidence_rag.selector.clusters import build_clusters, build_clusters_lenient
 
 MISSED_CONFLICT = "selector.cluster.missed_conflict"
 FALSE_CONFLICT = "selector.cluster.false_conflict"
@@ -45,8 +45,19 @@ def evaluate_case(
     counterfactual_document_id: str,
     gold_value: str,
     gold_aliases: Sequence[str],
+    equivalence: Callable[[str, str], bool] | None = None,
 ) -> ClusterEvalCase:
-    clusters = build_clusters(window, answers)
+    """Score one injected query's window. `equivalence` None = exact-string clustering.
+
+    Pass `lenient_equivalent` to cluster (and credit gold recovery) with containment tolerance —
+    required when comparing models or extraction strategies that differ in verbosity, since exact
+    matching penalises a correct but wordier answer (see results-summary S5).
+    """
+    clusters = (
+        build_clusters_lenient(window, answers, equivalence)
+        if equivalence is not None
+        else build_clusters(window, answers)
+    )
     cluster_answer_by_member = {
         member_id: cluster.answer
         for cluster in clusters
@@ -75,7 +86,9 @@ def evaluate_case(
 
     if needle_in_window:
         needle_gold_recovery: bool | None = (
-            canonicalize_answer(gold_value) in needle_cluster_answers
+            any(equivalence(answer, gold_value) for answer in needle_cluster_answers)
+            if equivalence is not None
+            else canonicalize_answer(gold_value) in needle_cluster_answers
         )
     else:
         needle_gold_recovery = None

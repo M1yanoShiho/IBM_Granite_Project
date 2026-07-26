@@ -67,12 +67,10 @@ def _candidates(tmp_path: Path) -> Path:
     return path
 
 
-def test_cli_writes_report_with_fake_extractor(tmp_path, capsys):
-    manifest = _manifest(tmp_path)
-    candidates = _candidates(tmp_path)
-    provenance = tmp_path / "provenance.jsonl"
+def _provenance(tmp_path: Path) -> Path:
+    path = tmp_path / "provenance.jsonl"
     write_provenance(
-        provenance,
+        path,
         [
             MutationRecord(
                 query_id="q1", needle_document_id="needle",
@@ -83,6 +81,13 @@ def test_cli_writes_report_with_fake_extractor(tmp_path, capsys):
             )
         ],
     )
+    return path
+
+
+def test_cli_writes_report_with_fake_extractor(tmp_path, capsys):
+    manifest = _manifest(tmp_path)
+    candidates = _candidates(tmp_path)
+    provenance = _provenance(tmp_path)
     output = tmp_path / "cluster_eval_report.json"
 
     exit_code = main(
@@ -97,8 +102,72 @@ def test_cli_writes_report_with_fake_extractor(tmp_path, capsys):
 
     assert exit_code == 0
     report = json.loads(output.read_text(encoding="utf-8"))
-    assert report["needle_gold_recovery"]["rate"] == 1.0
-    assert report["missed_conflict"]["rate"] == 0.0
+    # both scorings are reported so verbosity bias is visible, not hidden (S5)
+    for scoring in ("exact", "lenient"):
+        assert report[scoring]["needle_gold_recovery"]["rate"] == 1.0
+        assert report[scoring]["missed_conflict"]["rate"] == 0.0
     assert report["selection_bias"]["n_injected"] == 1
+    assert report["extraction"] == "single"
     printed = capsys.readouterr().out
     assert "missed_conflict" in printed
+
+
+def test_cli_lenient_credits_verbose_extraction(tmp_path) -> None:
+    """A wordier but correct extraction fails exact scoring and passes lenient."""
+
+    class VerboseLLM:
+        def generate(self, prompt: str) -> str:
+            if "MARK_NEEDLE" in prompt:
+                return "The winner was Kennedy"
+            if "MARK_CF" in prompt:
+                return "The winner was Nixon"
+            return "NONE"
+
+    output = tmp_path / "report.json"
+    main(
+        [
+            "--manifest", str(_manifest(tmp_path)),
+            "--candidates", str(_candidates(tmp_path)),
+            "--provenance", str(_provenance(tmp_path)),
+            "--output", str(output),
+        ],
+        llm=VerboseLLM(),
+    )
+    report = json.loads(output.read_text(encoding="utf-8"))
+    assert report["exact"]["needle_gold_recovery"]["rate"] == 0.0
+    assert report["lenient"]["needle_gold_recovery"]["rate"] == 1.0
+
+
+def test_cli_decoupled_extraction_runs(tmp_path) -> None:
+    """The decoupled path issues a Stage A target call and Stage B per passage."""
+    prompts: list[str] = []
+
+    class TracingLLM:
+        def generate(self, prompt: str) -> str:
+            prompts.append(prompt)
+            if "Target:" in prompt:
+                return "a person's name"
+            if "MARK_NEEDLE" in prompt:
+                return "Kennedy"
+            if "MARK_CF" in prompt:
+                return "Nixon"
+            return "NONE"
+
+    output = tmp_path / "report.json"
+    exit_code = main(
+        [
+            "--manifest", str(_manifest(tmp_path)),
+            "--candidates", str(_candidates(tmp_path)),
+            "--provenance", str(_provenance(tmp_path)),
+            "--output", str(output),
+            "--extraction", "decoupled",
+        ],
+        llm=TracingLLM(),
+    )
+    assert exit_code == 0
+    report = json.loads(output.read_text(encoding="utf-8"))
+    assert report["extraction"] == "decoupled"
+    assert any("Target:" in p for p in prompts)  # Stage A ran
+    # Stage B carries both the named target and the original question
+    stage_b = [p for p in prompts if "a person's name" in p]
+    assert stage_b and all("who won?" in p for p in stage_b)
