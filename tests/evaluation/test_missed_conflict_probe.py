@@ -17,7 +17,30 @@ def test_prompts_include_baseline_and_targeted() -> None:
 
 def test_decoupled_stage_prompts_have_placeholders() -> None:
     assert "{question}" in STAGE_A_PROMPT
-    assert "{target}" in STAGE_B_PROMPT and "{passage}" in STAGE_B_PROMPT
+    # Stage B must carry the question too: the target type alone ("a person's name") cannot
+    # disambiguate which entity in the passage is being asked for.
+    assert "{target}" in STAGE_B_PROMPT
+    assert "{question}" in STAGE_B_PROMPT
+    assert "{passage}" in STAGE_B_PROMPT
+
+
+def test_lenient_matcher_credits_verbose_answer() -> None:
+    from evidence_rag.selector.answer_equivalence import lenient_equivalent
+
+    # A wordier but correct answer: exact scoring calls it wrong, lenient credits it.
+    exact = classify_pair(
+        "The answer is Kennedy", "Nixon", gold_value="Kennedy", replacement_value="Nixon"
+    )
+    assert exact.needle_gold is False
+    lenient = classify_pair(
+        "The answer is Kennedy",
+        "Nixon",
+        gold_value="Kennedy",
+        replacement_value="Nixon",
+        equivalent=lenient_equivalent,
+    )
+    assert lenient.needle_gold is True
+    assert lenient.missed_conflict is False
 
 
 def test_classify_twins_collapsed() -> None:

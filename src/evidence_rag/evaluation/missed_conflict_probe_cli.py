@@ -27,6 +27,7 @@ from evidence_rag.evaluation.missed_conflict_probe import (
 )
 from evidence_rag.generator.granite import GraniteLLMClient, TextGenerator
 from evidence_rag.materializer.provenance import read_provenance
+from evidence_rag.selector.answer_equivalence import lenient_equivalent
 
 SINGLE_STAGE = ("baseline", "attribute")
 STRATEGIES = (*SINGLE_STAGE, "decoupled")
@@ -53,6 +54,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--passage-chars", type=int, default=600)
     parser.add_argument("--limit", type=int, default=0, help="subsample the first N queries (0 = all)")
+    parser.add_argument("--dump", type=Path, help="write raw per-pair answers to this jsonl")
     return parser
 
 
@@ -61,8 +63,12 @@ def _pair_answers(
 ) -> tuple[str, str]:
     if strategy == "decoupled":
         target = llm.generate(STAGE_A_PROMPT.format(question=question)).strip()
-        needle = llm.generate(STAGE_B_PROMPT.format(target=target, passage=needle_text)).strip()
-        cf = llm.generate(STAGE_B_PROMPT.format(target=target, passage=cf_text)).strip()
+        needle = llm.generate(
+            STAGE_B_PROMPT.format(target=target, question=question, passage=needle_text)
+        ).strip()
+        cf = llm.generate(
+            STAGE_B_PROMPT.format(target=target, question=question, passage=cf_text)
+        ).strip()
         return needle, cf
     template = PROMPTS[strategy]
     needle = llm.generate(template.format(question=question, passage=needle_text)).strip()
@@ -84,7 +90,9 @@ def main(argv: Sequence[str] | None = None, *, llm: TextGenerator | None = None)
     queries = _read_jsonl_field(root / manifest["queries_file"], "query_id", "text")
     client = llm if llm is not None else GraniteLLMClient()
 
-    outcomes: dict[str, list[PairOutcome]] = {name: [] for name in STRATEGIES}
+    exact: dict[str, list[PairOutcome]] = {name: [] for name in STRATEGIES}
+    lenient: dict[str, list[PairOutcome]] = {name: [] for name in STRATEGIES}
+    dump_rows: list[dict[str, object]] = []
     for record in records:
         question = queries[record.query_id]
         needle_text = docs[record.needle_document_id][: arguments.passage_chars]
@@ -93,7 +101,7 @@ def main(argv: Sequence[str] | None = None, *, llm: TextGenerator | None = None)
             needle_answer, cf_answer = _pair_answers(
                 client, strategy, question, needle_text, cf_text
             )
-            outcomes[strategy].append(
+            exact[strategy].append(
                 classify_pair(
                     needle_answer,
                     cf_answer,
@@ -101,16 +109,45 @@ def main(argv: Sequence[str] | None = None, *, llm: TextGenerator | None = None)
                     replacement_value=record.replacement_value,
                 )
             )
+            lenient[strategy].append(
+                classify_pair(
+                    needle_answer,
+                    cf_answer,
+                    gold_value=record.gold_value,
+                    replacement_value=record.replacement_value,
+                    equivalent=lenient_equivalent,
+                )
+            )
+            dump_rows.append(
+                {
+                    "query_id": record.query_id,
+                    "strategy": strategy,
+                    "question": question,
+                    "gold_value": record.gold_value,
+                    "replacement_value": record.replacement_value,
+                    "needle_answer": needle_answer,
+                    "cf_answer": cf_answer,
+                }
+            )
 
     payload = {
         "model": os.environ.get("GRANITE_MODEL_ID", "unknown"),
         "n_records": len(records),
         "strategies": {
-            name: dataclasses.asdict(summarize_prompt(name, outcomes[name])) for name in STRATEGIES
+            name: {
+                "exact": dataclasses.asdict(summarize_prompt(name, exact[name])),
+                "lenient": dataclasses.asdict(summarize_prompt(name, lenient[name])),
+            }
+            for name in STRATEGIES
         },
     }
     arguments.output.parent.mkdir(parents=True, exist_ok=True)
     arguments.output.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    if arguments.dump is not None:
+        arguments.dump.parent.mkdir(parents=True, exist_ok=True)
+        arguments.dump.write_text(
+            "".join(json.dumps(row, sort_keys=True) + "\n" for row in dump_rows), encoding="utf-8"
+        )
     print(json.dumps(payload, sort_keys=True))
     return 0
 

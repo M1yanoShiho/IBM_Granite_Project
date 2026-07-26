@@ -8,7 +8,7 @@ If a prompt lowers missed-conflict, that is Graph 2.0's conflict-detection benef
 if not, the NLI graph is justified. Pure classification here; the CLI runs the LLM.
 """
 
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 
 from evidence_rag.selector.answer_norm import canonicalize_answer, is_valid_answer
@@ -38,9 +38,9 @@ STAGE_A_PROMPT = (
     "(for example: a person's name, a year, a city, a number).\nQuestion: {question}\nTarget:"
 )
 STAGE_B_PROMPT = (
-    "From the passage below, output the exact {target} that the passage states, copied verbatim "
-    "from the passage and nothing else. If the passage does not state it, reply NONE.\n"
-    "Passage: {passage}\nAnswer:"
+    "The question asks for {target}. From the passage below, output that exact value, copied "
+    "verbatim from the passage and nothing else. If the passage does not state it, reply NONE.\n"
+    "Question: {question}\nPassage: {passage}\nAnswer:"
 )
 
 
@@ -51,19 +51,31 @@ class PairOutcome:
     cf_replacement: bool  # counterfactual recovered the injected replacement value
 
 
+def _exact_equivalent(left: str, right: str) -> bool:
+    return canonicalize_answer(left) == canonicalize_answer(right)
+
+
 def classify_pair(
     needle_answer: str,
     cf_answer: str,
     *,
     gold_value: str,
     replacement_value: str,
+    equivalent: Callable[[str, str], bool] | None = None,
 ) -> PairOutcome:
-    needle = canonicalize_answer(needle_answer) if is_valid_answer(needle_answer) else None
-    cf = canonicalize_answer(cf_answer) if is_valid_answer(cf_answer) else None
+    """Classify a twin pair. `equivalent` defaults to exact canonical equality.
+
+    Pass `lenient_equivalent` to score with containment/number/preposition tolerance — necessary when
+    comparing prompts or models that differ in verbosity, since exact matching penalizes a correct but
+    wordier answer ("The value is Kennedy" vs "Kennedy") and fakes a low missed-conflict rate.
+    """
+    match = equivalent if equivalent is not None else _exact_equivalent
+    needle = needle_answer if is_valid_answer(needle_answer) else None
+    cf = cf_answer if is_valid_answer(cf_answer) else None
     return PairOutcome(
-        missed_conflict=needle is not None and needle == cf,
-        needle_gold=needle is not None and needle == canonicalize_answer(gold_value),
-        cf_replacement=cf is not None and cf == canonicalize_answer(replacement_value),
+        missed_conflict=needle is not None and cf is not None and match(needle, cf),
+        needle_gold=needle is not None and match(needle, gold_value),
+        cf_replacement=cf is not None and match(cf, replacement_value),
     )
 
 
