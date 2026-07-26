@@ -41,11 +41,30 @@ E1 pool 级组件评估(exact-string 簇,标签零人工=provenance + official g
 | verbatim | .238 | **.363** | .183 |
 | attribute | .254 | .479 | **.269** |
 
-- **verbatim 低 missed 是假胜:** 靠抽取变噪(needle_gold −12.3pp、cf −2.8pp)而非正确分离孪生,弃。
-- **attribute 真但小:** missed −2.7pp、**cf_replacement +5.8pp**(更常抽出注入 replacement)、gold 持平——正确方向,幅度小。
-- **定论:prompt 修不了孪生崩塌**——最优正确 prompt 仍留 ~25% missed。根因=**抽取能力**(swapped value 只 ~48% needle / ~27% cf 抽得出,余落共享错误实体→崩塌)。
-- **对 Graph 2.0:** 按预注册 justified,但 missed 是**抽取问题**、NLI 坐在抽取之上 → Graph 2.0 只在 claim 级抽取比单答案更 twin-robust 时才帮,是**经验赌注非保证修复**。counterfactual-twin 冲突检测本质难;真实杠杆是抽取质量,非只加 NLI。
+- **attribute 真但小(3B):** missed −2.7pp、**cf_replacement +5.8pp**(更常抽出注入 replacement)、gold 持平——正确方向,幅度小。
+- ⚠️ **本表用 exact-string 计分,已被 S5 证明对"更啰嗦但正确"的输出有系统性偏见**(见 S5:同一模型 exact→lenient 差可达 +56pp)。**verbatim 那行"假胜"的判断因此不可靠**——verbatim 明确要求更长的 copied span,正是 exact 计分惩罚的形态;v2 未复跑 verbatim,该结论**存疑、不作引用**。
+- **⚠️ 本节原结论"prompt 修不了孪生崩塌"已被 S5 推翻**:该结论只在 3B 上成立,且受 exact 计分混淆。8B 上 targeted prompt 近乎腰斩 missed。以 S5 为准。
 
-## 路线总结(3-phase route,2026-07)
+### S5 — 孪生崩塌可被**容量 × 结构的交互**大幅修复(2×2,2026-07-25)
 
-诊断链(E1 + CPU 探针)把 E2 的 −4.8pp recall 代价定位到 exact-string 答案等价,三次否掉 8B。**便宜/确定性修复给小而真的收益:** lenient 聚类(S3,recall +1.2pp p≈0,零 harm)+ attribute prompt(S4,小)。**残差(孪生 missed-conflict ~25%)抽取受限,Graph 2.0 是下一步经验赌注,非保证。** rigor 底线已达(全发现诚实+实测),Graph 2.0 仍是 upside。
+修掉 S4 探针的两个缺陷后重跑:(1) decoupled 的 Stage B 原先**没收到 question**(只给目标类型,无法判别passage里哪个实体)——已修;(2) 计分只用 exact 等价,系统性惩罚啰嗦但正确的输出——现**同时报 exact 与 lenient**。n=500/格,**下表为 lenient(可信列)**。
+
+| 模型 × 策略 | missed_conflict | needle_gold | cf_replacement |
+|---|---|---|---|
+| 3B baseline | .318 | .576 | .248 |
+| 3B attribute | .286 | .562 | .300 |
+| 3B decoupled | .190 | **.442** | .240 |
+| 8B baseline | **.444** | .664 | .296 |
+| 8B attribute | .232 | .650 | .386 |
+| **8B decoupled** | **.224** | **.690** | .372 |
+
+- **计分伪影极大:** 8B 的 exact→lenient gold 差 **+56.6pp(attribute)/+62.6pp(decoupled)**。此前"8B 崩溃"(gold .084)**纯属 exact 计分伪影**,非能力问题;lenient 下 8B 反而**优于** 3B(baseline .664 vs .576)。
+- **容量单独无效:** 8B baseline 的 missed **最差(.444)**——大模型配旧 prompt 更容易对孪生给同一答案。
+- **结构单独无效:** 3B decoupled missed 降到 .190,但 gold 从 .576 塌到 .442 = 典型**假胜**形态。
+- **容量 × 结构有效(真胜):** **8B + decoupled 把 missed 从 .444 砍到 .224(−22pp),同时 gold 持平/微升(.664→.690)、cf 抽取升(.296→.372)**——三项同向,不是假胜。8B + attribute 几乎同样好(.232)。n=500(SE≈.02),22pp 远超抽样噪声;gold 的 +2.6pp 在噪声内,只能称"持平"。
+- **对 Graph 2.0:** 孪生 missed **可被抽取层大幅修复**(近腰斩),而非只能靠 NLI。真实杠杆确为**抽取质量**(S4 的方向对、结论错)。Graph 2.0 若上,应建在**更强抽取**之上;其增量价值须对照"8B+decoupled 抽取"这一新基线,而非对照旧的 .39 baseline。
+- **限制:** 直抽源文档(隔离检索),非全管道;未做配对显著性(仅比对 SE);8B 成本更高;未验证收益能否级联到 E1/E2 的 in-pool 指标。
+
+## 路线总结(3-phase route + 2×2,2026-07)
+
+诊断链(E1 + CPU 探针)把 E2 的 −4.8pp recall 代价定位到 **exact-string 答案等价**——这一诊断在 S5 又一次自我印证:**连我们自己的探针计分都栽在同一个坑上**。修复给出两处真收益:**lenient 聚类**(S3,recall +1.2pp p≈0,零 harm)与 **8B×decoupled 抽取**(S5,孪生 missed −22pp,gold 持平)。**8B 的前三次否决只在 recovery/matching 轴成立;在 twin 轴 + 修好的计分下,8B 是有用的**——这是本轮最重要的修正。rigor 底线已达(缺陷自查、诚实更正、全实测);Graph 2.0 仍是 upside,但须以"强抽取"为新基线论证其增量。
