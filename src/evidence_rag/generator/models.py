@@ -55,13 +55,11 @@ class Claim(FrozenModel):
     claim against the ANSWER, not against the evidence (that is B's job).
 
     False marks a splitter hallucination -- the extraction went wrong, not
-    necessarily the answer. A ``False`` claim is therefore excluded from B's
-    verification (no NLI/entity pass) and must NOT drive any edit to its span:
-    the answer text stays untouched, because the mangled part is the claim, not
-    the answer. It is kept in the list (rather than dropped) so the "this span
-    was not verified because splitting failed" signal stays observable
-    (docs/README.md section 5). Re-splitting the span is a possible v2 quality
-    improvement, deliberately out of scope for the single-pass v1.
+    necessarily the answer. It is kept in ``DraftAnswer`` so the failure stays
+    observable, B excludes it from NLI/entity verification, and A removes its
+    unverifiable source span before producing the final answer. Re-splitting
+    the span is a possible v2 quality improvement, deliberately out of scope
+    for the single-pass v1.
     """
 
 

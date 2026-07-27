@@ -1,0 +1,25 @@
+# E2 gate-ON-lenient arm: contrastive drop gate with lenient answer clustering.
+# Identical to niah_e2_gate_on.toml except [selector].parameters.equivalence = "lenient".
+# Same dataset, retriever, margin, and support_cap as gate-on-exact, so the ONLY variable is the
+# clustering equivalence — isolates the lenient-clustering fix's causal effect on harm and recall.
+[dataset]
+manifest = "../../runs/niah-injected/manifest.json"
+
+[output]
+directory = "../../runs/e2-gate-on-lenient"
+
+[retriever]
+name = "bm25"
+parameters = { k1 = 1.5, b = 0.75 }
+
+[selector]
+name = "gated-corroboration"
+parameters = { alpha = 0.6, margin = 2, support_cap = 1, top_n = 20, equivalence = "lenient" }
+
+[generator]
+name = "extractive"
+
+[run]
+top_k = 20
+max_selected = 10
+seed = 13

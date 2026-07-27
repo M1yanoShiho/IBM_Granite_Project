@@ -8,14 +8,22 @@ recovery (Wilson CIs), plus the deterministic injection selection-bias framing l
 import argparse
 import dataclasses
 import json
+import os
 from collections.abc import Sequence
 from pathlib import Path
 
-from evidence_rag.contracts.models import CandidateSet
-from evidence_rag.evaluation.cluster_eval import aggregate, evaluate_case, selection_bias
+from evidence_rag.contracts.models import CandidateSet, EvidenceCandidate
+from evidence_rag.evaluation.cluster_eval import (
+    ClusterEvalCase,
+    aggregate,
+    evaluate_case,
+    selection_bias,
+)
+from evidence_rag.evaluation.missed_conflict_probe import STAGE_A_PROMPT, STAGE_B_PROMPT
 from evidence_rag.generator.granite import GraniteLLMClient, TextGenerator
 from evidence_rag.infrastructure.datasets import JsonlDatasetAdapter
 from evidence_rag.materializer.provenance import read_provenance
+from evidence_rag.selector.answer_equivalence import lenient_equivalent
 from evidence_rag.selector.extraction import AnswerExtractionEngine
 
 
@@ -35,7 +43,32 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--top-n", type=int, default=20)
     parser.add_argument("--passage-chars", type=int, default=600)
+    parser.add_argument(
+        "--extraction",
+        choices=("single", "decoupled"),
+        default="single",
+        help="single = the shared EXTRACT_PROMPT; decoupled = Stage A target + Stage B copy (S5)",
+    )
+    parser.add_argument("--limit", type=int, default=0, help="subsample the first N injected queries")
     return parser
+
+
+def _decoupled_answers(
+    llm: TextGenerator,
+    question: str,
+    window: Sequence[EvidenceCandidate],
+    passage_chars: int,
+) -> tuple[str, ...]:
+    """Two-stage extraction (S5): name the queried target once, then copy it from each passage."""
+    target = llm.generate(STAGE_A_PROMPT.format(question=question)).strip()
+    return tuple(
+        llm.generate(
+            STAGE_B_PROMPT.format(
+                target=target, question=question, passage=candidate.text[:passage_chars]
+            )
+        ).strip()
+        for candidate in window
+    )
 
 
 def main(argv: Sequence[str] | None = None, *, llm: TextGenerator | None = None) -> int:
@@ -45,14 +78,18 @@ def main(argv: Sequence[str] | None = None, *, llm: TextGenerator | None = None)
     gold_by_id = {gold_case.query_id: gold_case for gold_case in bundle.gold_cases}
     candidates_by_id = _read_candidates(arguments.candidates)
     records = read_provenance(arguments.provenance)
+    if arguments.limit > 0:
+        records = records[: arguments.limit]
 
+    client = llm if llm is not None else GraniteLLMClient()
     engine = AnswerExtractionEngine(
-        llm if llm is not None else GraniteLLMClient(),
+        client,
         passage_chars=arguments.passage_chars,
         use_parametric=False,
     )
 
-    cases = []
+    exact_cases: list[ClusterEvalCase] = []
+    lenient_cases: list[ClusterEvalCase] = []
     for record in records:
         query = query_by_id[record.query_id]
         candidate_set = candidates_by_id[record.query_id]
@@ -60,31 +97,56 @@ def main(argv: Sequence[str] | None = None, *, llm: TextGenerator | None = None)
         window = tuple(
             sorted(candidate_set.candidates, key=lambda item: item.retrieval_rank)
         )[: arguments.top_n]
-        extracted = engine.extract(query, window)
-        cases.append(
+        if arguments.extraction == "decoupled":
+            answers = _decoupled_answers(client, query.text, window, arguments.passage_chars)
+        else:
+            answers = engine.extract(query, window).answers
+        gold_aliases = (gold_case.reference_answers or ()) if gold_case else ()
+        exact_cases.append(
             evaluate_case(
                 window,
-                extracted.answers,
+                answers,
                 query_id=record.query_id,
                 needle_document_id=record.needle_document_id,
                 counterfactual_document_id=record.counterfactual_document_id,
                 gold_value=record.gold_value,
-                gold_aliases=(gold_case.reference_answers or ()) if gold_case else (),
+                gold_aliases=gold_aliases,
+            )
+        )
+        lenient_cases.append(
+            evaluate_case(
+                window,
+                answers,
+                query_id=record.query_id,
+                needle_document_id=record.needle_document_id,
+                counterfactual_document_id=record.counterfactual_document_id,
+                gold_value=record.gold_value,
+                gold_aliases=gold_aliases,
+                equivalence=lenient_equivalent,
             )
         )
 
-    report = aggregate(cases)
     bias = selection_bias(
         (gold_case.reference_answers for gold_case in bundle.gold_cases),
         n_injected=len(records),
     )
+
+    def _scored(cases: list[ClusterEvalCase]) -> dict[str, object]:
+        report = aggregate(cases)
+        return {
+            "missed_conflict": dataclasses.asdict(report.missed_conflict),
+            "false_conflict": dataclasses.asdict(report.false_conflict),
+            "needle_gold_recovery": dataclasses.asdict(report.needle_gold_recovery),
+            "n_cases": report.n_cases,
+            "needle_in_window": report.needle_in_window,
+            "cf_in_window": report.cf_in_window,
+        }
+
     payload = {
-        "missed_conflict": dataclasses.asdict(report.missed_conflict),
-        "false_conflict": dataclasses.asdict(report.false_conflict),
-        "needle_gold_recovery": dataclasses.asdict(report.needle_gold_recovery),
-        "n_cases": report.n_cases,
-        "needle_in_window": report.needle_in_window,
-        "cf_in_window": report.cf_in_window,
+        "model": os.environ.get("GRANITE_MODEL_ID", "unknown"),
+        "extraction": arguments.extraction,
+        "exact": _scored(exact_cases),
+        "lenient": _scored(lenient_cases),
         "selection_bias": dataclasses.asdict(bias),
     }
     arguments.output.parent.mkdir(parents=True, exist_ok=True)

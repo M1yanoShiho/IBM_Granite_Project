@@ -464,8 +464,14 @@ class ExperimentWorkflow:
                 parameters={
                     "chunker_name": self.corpus.manifest.chunker_name,
                     "chunker_version": self.corpus.manifest.chunker_version,
-                    "index_implementation": "bm25",
-                    "index_implementation_version": "bm25-v1",
+                    "index_implementation": (
+                        self.manifest.index_implementation if self.manifest else "unknown"
+                    ),
+                    "index_implementation_version": (
+                        self.manifest.index_implementation_version
+                        if self.manifest
+                        else "unknown"
+                    ),
                 },
             )
             parameters = {}

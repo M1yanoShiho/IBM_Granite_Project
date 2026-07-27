@@ -3,12 +3,14 @@ from typing import TypeVar
 
 from evidence_rag.contracts.models import (
     CandidateSet,
+    EvidenceCandidate,
     GenerationResult,
     SelectedEvidenceSet,
 )
 from evidence_rag.contracts.validation import validate_generation
 from evidence_rag.evaluation.models import (
     GoldCase,
+    MetricValue,
     StageCaseEvaluation,
     StageEvaluationReport,
     StageName,
@@ -17,18 +19,25 @@ from evidence_rag.evaluation.scoring import (
     CORE_DIRECTIONS,
     CORE_METRIC_VERSION,
     CORE_METRIC_VERSIONS,
+    RECALL_AT_K,
     aggregate_metrics,
     compose_generator_metrics,
     conditional_recall,
     document_ids,
     precision,
     recall,
+    recall_at_k,
+    reciprocal_rank,
     signature,
 )
 
 RecordT = TypeVar("RecordT")
 
-RETRIEVER_METRICS = ("retriever.core.document_recall",)
+RETRIEVER_METRICS = (
+    "retriever.core.document_recall",
+    "retriever.core.document_mrr",
+    *tuple(f"retriever.core.document_recall_at_{k}" for k in RECALL_AT_K),
+)
 SELECTOR_METRICS = (
     "selector.core.conditional_document_recall",
     "selector.core.document_precision",
@@ -119,16 +128,27 @@ def evaluate_retriever_stage(
     per_case = tuple(
         StageCaseEvaluation(
             query_id=candidate_set.query_id,
-            metrics={
-                RETRIEVER_METRICS[0]: recall(
-                    document_ids(candidate_set.candidates),
-                    _relevant_documents(gold_case),
-                )
-            },
+            metrics=_retriever_metrics(
+                candidate_set.candidates,
+                _relevant_documents(gold_case),
+            ),
         )
         for candidate_set, gold_case in zip(candidates, gold, strict=True)
     )
     return _report("retriever", dataset_signature, RETRIEVER_METRICS, per_case)
+
+
+def _retriever_metrics(
+    candidates: tuple[EvidenceCandidate, ...],
+    relevant: set[str] | None,
+) -> dict[str, MetricValue]:
+    metrics: dict[str, MetricValue] = {
+        "retriever.core.document_recall": recall(document_ids(candidates), relevant),
+        "retriever.core.document_mrr": reciprocal_rank(candidates, relevant),
+    }
+    for k in RECALL_AT_K:
+        metrics[f"retriever.core.document_recall_at_{k}"] = recall_at_k(candidates, relevant, k)
+    return metrics
 
 
 def evaluate_selector_stage(

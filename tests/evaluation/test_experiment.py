@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+import evidence_rag.composition as composition_module
 import evidence_rag.evaluation.experiment as experiment_module
 from evidence_rag.composition import (
     build_generator,
@@ -26,7 +27,7 @@ from evidence_rag.evaluation.models import EvaluationReport, GoldCase, StageEval
 from evidence_rag.infrastructure.config import ExperimentConfig, ModuleConfig
 from evidence_rag.infrastructure.corpus import CorpusBuilder, CorpusSnapshot
 from evidence_rag.infrastructure.datasets import JsonlDatasetAdapter
-from evidence_rag.retriever.indexing import BM25IndexPlugin, IndexManifest
+from evidence_rag.retriever.indexing import IndexManifest
 
 ROOT = Path(__file__).resolve().parents[2]
 REFERENCE_MANIFEST = ROOT / "tests/fixtures/reference_dataset/manifest.json"
@@ -291,26 +292,13 @@ def test_retriever_and_pipeline_load_the_prepared_index(
     current.prepare()
     index_directory = current.store.root / "index"
     load_calls: list[Path] = []
-    original_load = BM25IndexPlugin.load
+    original_load = composition_module.load_index
 
-    def tracked_load(
-        self: BM25IndexPlugin,
-        directory: Path,
-        *,
-        expected_corpus_signature: str,
-        expected_k1: float,
-        expected_b: float,
-    ) -> object:
+    def tracked_load(directory: Path, **kwargs: object) -> object:
         load_calls.append(directory)
-        return original_load(
-            self,
-            directory,
-            expected_corpus_signature=expected_corpus_signature,
-            expected_k1=expected_k1,
-            expected_b=expected_b,
-        )
+        return original_load(directory, **kwargs)  # type: ignore[arg-type]
 
-    monkeypatch.setattr(BM25IndexPlugin, "load", tracked_load)
+    monkeypatch.setattr(composition_module, "load_index", tracked_load)
 
     current.run_retriever()
     current.run_pipeline()

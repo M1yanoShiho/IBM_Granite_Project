@@ -6,13 +6,27 @@ from typing import Any, Protocol
 
 from evidence_rag.contracts.models import CandidateSet, Document, EvidenceCandidate, Query
 from evidence_rag.contracts.protocols import Retriever
+from evidence_rag.infrastructure.corpus import CorpusSnapshot
 from evidence_rag.retriever.chunking import Chunk, Chunker, WordChunker
+from evidence_rag.retriever.fusion import DEFAULT_RRF_K, reciprocal_rank_fusion
 
 DEFAULT_GRANITE_EMBEDDING_MODEL_ID = "ibm-granite/granite-embedding-english-r2"
 QUERY2DOC_PROMPT = (
     "Write a short, factual passage that answers the question.\n"
     "Question: {question}\n"
     "Passage:"
+)
+HYDE_PROMPT = (
+    "Write a short, factual passage that plausibly answers the question, as if it "
+    "were excerpted from a relevant document.\n"
+    "Question: {question}\n"
+    "Passage:"
+)
+DECOMPOSE_PROMPT = (
+    "Break the question into a few simpler, self-contained sub-questions, one per "
+    "line. If it is already simple, return it unchanged.\n"
+    "Question: {question}\n"
+    "Sub-questions:"
 )
 
 
@@ -110,11 +124,29 @@ class GraniteDenseRetriever:
         embedder: TextEmbedder | None = None,
         chunker: Chunker | None = None,
     ) -> None:
-        self.chunker = chunker or WordChunker()
+        self.chunker: Chunker | None = chunker or WordChunker()
         self.embedder = embedder or GraniteEmbedder()
-        self.chunks: tuple[Chunk, ...] = tuple(
+        self._embed_chunks(
             chunk for document in documents for chunk in self.chunker.chunk(document)
         )
+
+    @classmethod
+    def from_corpus(
+        cls,
+        corpus: CorpusSnapshot,
+        *,
+        embedder: TextEmbedder | None = None,
+    ) -> "GraniteDenseRetriever":
+        """Embed a pre-chunked corpus snapshot directly, without re-chunking."""
+
+        retriever = cls.__new__(cls)
+        retriever.chunker = None
+        retriever.embedder = embedder or GraniteEmbedder()
+        retriever._embed_chunks(corpus.chunks)
+        return retriever
+
+    def _embed_chunks(self, chunks: Iterable[Chunk]) -> None:
+        self.chunks: tuple[Chunk, ...] = tuple(chunks)
         self.chunk_vectors: tuple[tuple[float, ...], ...] = tuple(
             _normalise(vector)
             for vector in self.embedder.embed_documents(
@@ -184,3 +216,87 @@ class Query2DocRetriever:
 
     def retrieve(self, query: Query, top_k: int) -> CandidateSet:
         return self.base.retrieve(self._transform(query), top_k)
+
+
+class HyDERetriever:
+    """Retriever wrapper that *replaces* the query with an LLM hypothetical document.
+
+    Unlike :class:`Query2DocRetriever` (which appends the pseudo-document to the
+    original query), HyDE (Gao et al., 2022) retrieves against the generated
+    hypothetical document alone. Falls back to the original query if generation is
+    empty.
+    """
+
+    def __init__(
+        self,
+        base: Retriever,
+        generator: TextGenerator,
+        prompt_template: str = HYDE_PROMPT,
+    ) -> None:
+        self.base = base
+        self.generator = generator
+        self.prompt_template = prompt_template
+
+    def _transform(self, query: Query) -> Query:
+        hypothesis = self.generator.generate(
+            self.prompt_template.format(question=query.text)
+        ).strip()
+        if not hypothesis:
+            return query
+        return Query(query_id=query.query_id, text=hypothesis)
+
+    def retrieve(self, query: Query, top_k: int) -> CandidateSet:
+        return self.base.retrieve(self._transform(query), top_k)
+
+
+class DecomposingRetriever:
+    """Decompose a complex query into sub-questions, retrieve each, and RRF-merge.
+
+    Improves recall on multi-hop queries: each sub-question is retrieved
+    independently against the base retriever and the ranked lists are fused with
+    Reciprocal Rank Fusion. If the LLM returns nothing usable, falls back to
+    retrieving the original query unchanged.
+    """
+
+    def __init__(
+        self,
+        base: Retriever,
+        generator: TextGenerator,
+        prompt_template: str = DECOMPOSE_PROMPT,
+        *,
+        k: int = DEFAULT_RRF_K,
+        pool_size: int | None = None,
+    ) -> None:
+        if pool_size is not None and pool_size <= 0:
+            raise ValueError("pool_size must be positive")
+        self.base = base
+        self.generator = generator
+        self.prompt_template = prompt_template
+        self.k = k
+        self.pool_size = pool_size
+
+    def _subqueries(self, query: Query) -> tuple[str, ...]:
+        raw = self.generator.generate(self.prompt_template.format(question=query.text))
+        subqueries = tuple(
+            cleaned
+            for line in raw.splitlines()
+            if (cleaned := line.strip().lstrip("-*0123456789.()[] ").strip())
+        )
+        return subqueries or (query.text,)
+
+    def retrieve(self, query: Query, top_k: int) -> CandidateSet:
+        if top_k <= 0:
+            raise ValueError("top_k must be positive")
+        pool = self.pool_size or top_k
+        results = []
+        for text in self._subqueries(query):
+            result = self.base.retrieve(Query(query_id=query.query_id, text=text), pool)
+            if result.query_id != query.query_id:
+                raise ValueError("base retriever returned the wrong query ID")
+            results.append(result)
+        return reciprocal_rank_fusion(
+            results,
+            query_id=query.query_id,
+            top_k=top_k,
+            k=self.k,
+        )
