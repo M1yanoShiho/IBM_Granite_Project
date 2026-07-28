@@ -47,7 +47,11 @@ DUMP="${2:?usage: sbatch run_verifier_triage.slurm REPORT DUMP}"
 
 module load languages/python/3.12.3
 export HF_HOME=/user/work/$USER/hf_cache HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1
-export MODEL_CACHE_DIR=/user/work/$USER/hf_cache
+# MODEL_CACHE_DIR is passed straight to transformers `cache_dir=`, which expects
+# the hub-level dir (`.../models--org--repo`), NOT the HF_HOME root. `hf download`
+# wrote the weights under $HF_HOME/hub, so point cache_dir there or offline loads
+# miss the cache and (with HF_HUB_OFFLINE=1) fail.
+export MODEL_CACHE_DIR=/user/work/$USER/hf_cache/hub
 export TRIAGE_DATA_DIR=/user/work/$USER/triage_data
 export PYTHONUNBUFFERED=1
 # NOTE: GRANITE_MODEL_ID is deliberately NOT set -- each Granite arm pins its own

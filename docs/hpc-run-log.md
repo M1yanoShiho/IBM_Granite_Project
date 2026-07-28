@@ -271,7 +271,46 @@ supporting-fact 标签);与 conflict 边(false/missed-conflict)、duplicate 边(
 - 数据合规:只用 ALCE/ASQA + 2WikiMultihopQA + 合成实体替换;**HotpotQA / RGB /
   MuSiQue-Full 是封闭最终测试集,脚本里从不加载**。
 
-**AFTER:** 未运行。
+**AFTER(2026-07-28,job `18200000`,`gpu:a100:1`,bp1-gpu035,1189 对/臂,walltime ~3.4h):**
+
+- Raw:结果 `docs/generator/verifier-triage-results-hpc.md`;逐对分数
+  `results/verifier-triage/scores.jsonl`(HPC `/user/work/ri25947/IBM_Granite_Project/`,488KB;
+  本地副本 `results/verifier-triage/scores-hpc.jsonl`,未入库大数据留 HPC)。
+- 两次前置失败(**均为环境/依赖 bug,不碰任何测量口径**,seed/n/multihop/prompt/阈值/pair
+  构造全原样):(1) job `18194795` — `MODEL_CACHE_DIR` 作为 transformers `cache_dir=` 传入时
+  须指到 **hub 层**(`$HF_HOME/hub`),BEFORE 命令里少一层 `hub` → offline 找不到缓存;slurm
+  已修。(2) job `18197370` — TRUE 权重是 `pytorch_model-*.bin`(pickle),新版 transformers
+  因 CVE-2025-32434 拒绝对 `.bin` 用 `torch.load`,须 **torch ≥ 2.6**;venv 由 2.5.1 升到
+  `2.6.0+cu124`(granite 两臂 safetensors 不受影响)。
+- **Headline(六臂,ASQA 召回 / hard-neutral→entail FP / 推导引用精度,1-in-5 假设):**
+
+  | 臂 | 召回 | hard-neu FP | 引用精度 | ms/对 | 备注 |
+  |---|---|---|---|---|---|
+  | base | 0.467 | 0.007 | 0.946 | 173 | CPU |
+  | large | 0.540 | 0.073 | 0.648 | 503 | CPU |
+  | minicheck | 0.620 | 0.020 | 0.886 | 539 | CPU,实用最优 |
+  | **true** | **0.747** | **0.007** | **0.966** | 264 | **精度天花板** |
+  | granite3b | 0.767 | 0.067 | 0.742 | **114** | LLM 判官 |
+  | granite8b | 0.900 | 0.240 | 0.484 | 256 | 召回最高、精度崩 |
+
+- **发现草稿(给 results-summary):**
+  1. **模型族假设在顶端坐实。** TRUE 召回 0.747(> minicheck 0.620)且 hard-neutral FP 仍
+     0.007(与 base 并列最干净)→ 推导引用精度 **0.966,六臂最高**。Half 1.5 的 0.34 主要是
+     *模型族*(通用 NLI)而非领域的问题:换 grounding/citation-专用判定器把召回和精度同时抬起来。
+  2. **容量对照给出决定性结论:是"LLM-as-a-judge 路子不对",不是"3B 太小"。** 3B→8B **没有**
+     修好判官的 FP,反而大幅恶化 hard-neutral→entail 0.067→**0.240**;8B 用"更宽松"换召回
+     0.900,把引用精度砸到 **0.484**。容量×方法混淆解开,判在"方法"一侧。
+  3. **Granite `contradicted` 有值但边际。** hard-neutral→contra:true 0.000(二分类,无此类)/
+     granite3b 0.020 / granite8b 0.087。Granite 确实能产出 contradiction(MiniCheck 二分类不能),
+     且 0.087 远低于通用 NLI 的 **28%(base)/44.7%(large)** 不可用线——即 Granite 过了那条线;
+     但这点唯一独有信号,是和一个"随规模恶化、砸引用精度"的 entail-FP 捆绑来的。
+  4. **Granite 无法做阈值救援。** 两档 Granite 的 P(entail) 阈值扫描全程**持平**(一词输出近似
+     0/1 退化),TRUE 扫描有效(召回 0.593–0.880 可换 FP 0.000–0.053)。又一条 LLM-as-judge 的减分。
+  5. **反事实(实体替换)同向。** verifier-alone:true 0.963(最好档)> granite3b 0.945 >
+     granite8b 0.872(又是宽松 8B 漏更多);entity_check 叠加后三臂皆 1.000。
+- **结论:** 主判官保持 NLI/grounding-专用一路。TRUE 是精度天花板(0.966)但 11B/贵;MiniCheck
+  仍是实用 CPU 选择(0.886)。**Granite-as-judge 在两个规模点上均被否决为主判官**——其唯一独有的
+  `contradicted` 信号边际且随规模恶化,并捆绑一个摧毁引用精度的 entail-FP。
 
 ---
 
