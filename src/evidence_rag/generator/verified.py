@@ -17,7 +17,7 @@ from evidence_rag.generator.models import (
     RequiredFactCoverage,
     VerificationReport,
 )
-from evidence_rag.generator.nli import DebertaNLIModel, NLIModel
+from evidence_rag.generator.nli import NLIModel, build_nli_model
 from evidence_rag.generator.repair import AnswerRepairer
 from evidence_rag.generator.verifier import Verifier
 
@@ -76,7 +76,7 @@ class VerifiedGenerator:
             shared_llm = shared_llm or GraniteLLMClient()
         self.draft_generator = draft_generator or DraftAnswerGenerator(llm=shared_llm)
         self.verifier = verifier or Verifier(
-            nli or DebertaNLIModel(),
+            nli or build_nli_model(),
             llm=shared_llm,
         )
         self.evidence_rechecker = evidence_rechecker or EvidenceRechecker(llm=shared_llm)
