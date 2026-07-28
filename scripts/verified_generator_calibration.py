@@ -53,8 +53,7 @@ if str(REPO_ROOT / "src") not in sys.path:
 if str(REPO_ROOT / "scripts") not in sys.path:
     sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
-import verifier_triage as vt  # noqa: E402  ASQA loader + text helpers, shared with G1
-
+import verifier_triage as vt  # noqa: E402, I001  ASQA loader + text helpers, shared with G1
 from evidence_rag.contracts.models import (  # noqa: E402
     EvidenceCandidate,
     Query,
@@ -382,7 +381,9 @@ def summarize_case(
 
 @dataclass
 class B5Result:
+    attempted: int = 0
     cases: int = 0
+    chain_errors: int = 0
     total_claims: int = 0
     faithful_claims: int = 0
     supported_claims: int = 0
@@ -396,6 +397,7 @@ class B5Result:
     contract_ok: int = 0
     ms_total: float = 0.0
     per_case: list[dict[str, Any]] = field(default_factory=list)
+    error_examples: list[dict[str, str]] = field(default_factory=list)
 
 
 def run_b5(
@@ -423,9 +425,24 @@ def run_b5(
         checklist = checklist_for(case, case.required_facts)
         entity_before = len(entity_sink)
         rechecker.reset()
+        result.attempted += 1
 
         start = time.perf_counter()
-        generation = generator.generate(query, checklist, case.selected)
+        try:
+            generation = generator.generate(query, checklist, case.selected)
+        except Exception as exc:  # noqa: BLE001 -- first real run: record, don't abort
+            result.chain_errors += 1
+            if len(result.error_examples) < 20:
+                result.error_examples.append(
+                    {
+                        "query_id": case.query_id,
+                        "error": f"{type(exc).__name__}: {exc}"[:300],
+                    }
+                )
+            if not peak_reported:
+                _report_peak_memory("after first B5 query (Granite + TRUE resident)")
+                peak_reported = True
+            continue
         elapsed_ms = (time.perf_counter() - start) * 1000.0
 
         report = verifier.last_report
@@ -578,7 +595,11 @@ def render_report(args: argparse.Namespace, b4: B4Result | None, b5: B5Result | 
     if b5 is not None:
         lines.append("## B5 -- full chain (Granite + TRUE co-resident)")
         lines.append("")
-        lines.append(f"Ran {b5.cases} cases end to end.")
+        lines.append(
+            f"Attempted {b5.attempted} cases; {b5.cases} completed the chain, "
+            f"{b5.chain_errors} raised (see chain-error notes below). Rates below are "
+            "over the completed cases."
+        )
         lines.append("")
         lines.append("| diagnostic | value |")
         lines.append("|---|---|")
@@ -603,6 +624,12 @@ def render_report(args: argparse.Namespace, b4: B4Result | None, b5: B5Result | 
             f"| ms/case | {b5.ms_total / b5.cases:.0f} |" if b5.cases else "| ms/case | n/a |"
         )
         lines.append("")
+        if b5.error_examples:
+            lines.append("### Chain-error notes (first real run)")
+            lines.append("")
+            for example in b5.error_examples:
+                lines.append(f"- `{example['query_id']}`: {example['error']}")
+            lines.append("")
     return "\n".join(lines)
 
 
@@ -631,12 +658,27 @@ def main() -> int:
     b4: B4Result | None = None
     b5: B5Result | None = None
 
+    def flush_outputs() -> None:
+        report = render_report(args, b4, b5)
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(report + "\n", encoding="utf-8")
+        if args.dump is not None:
+            args.dump.parent.mkdir(parents=True, exist_ok=True)
+            with args.dump.open("w", encoding="utf-8") as handle:
+                if b4 is not None:
+                    for example in b4.gap_examples:
+                        handle.write(json.dumps({"stage": "b4", **example}) + "\n")
+                if b5 is not None:
+                    for record in b5.per_case:
+                        handle.write(json.dumps({"stage": "b5", **record}) + "\n")
+
     llm = GraniteLLMClient()
 
     if args.stage in ("b4", "all"):
         print("[b4] completeness on labelled cases", flush=True)
         b4 = run_b4(cases, CompletenessChecker(llm=llm), random.Random(args.seed))
         _free_gpu()
+        flush_outputs()  # persist B4 before B5 so a B5 failure cannot lose it
 
     if args.stage in ("b5", "all"):
         print("[b5] loading TRUE verifier", flush=True)
@@ -645,21 +687,8 @@ def main() -> int:
         b5 = run_b5(cases, llm, nli)
         _report_peak_memory("after full B5 run")
 
-    report = render_report(args, b4, b5)
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(report + "\n", encoding="utf-8")
-    print("\n" + report, flush=True)
-
-    if args.dump is not None:
-        args.dump.parent.mkdir(parents=True, exist_ok=True)
-        with args.dump.open("w", encoding="utf-8") as handle:
-            if b4 is not None:
-                for example in b4.gap_examples:
-                    handle.write(json.dumps({"stage": "b4", **example}) + "\n")
-            if b5 is not None:
-                for record in b5.per_case:
-                    handle.write(json.dumps({"stage": "b5", **record}) + "\n")
-
+    flush_outputs()
+    print("\n" + render_report(args, b4, b5), flush=True)
     return 0
 
 

@@ -1,7 +1,7 @@
 import json
-from typing import Any
 
 from evidence_rag.generator.granite import GraniteLLMClient, TextGenerator
+from evidence_rag.generator.json_parsing import parse_json_object
 from evidence_rag.generator.models import Claim, ClaimSpan
 
 SPLIT_PROMPT = (
@@ -87,11 +87,6 @@ class ClaimSplitter:
         )
 
     @staticmethod
-    def _load_json(raw: str) -> dict[str, Any]:
-        try:
-            data = json.loads(raw)
-        except json.JSONDecodeError as exc:
-            raise ValueError("LLM output must be valid JSON") from exc
-        if not isinstance(data, dict):
-            raise ValueError("LLM output must be a JSON object")
-        return data
+    def _load_json(raw: str) -> dict[str, object]:
+        # tolerate the trailing prose a real Granite model appends after the JSON
+        return parse_json_object(raw)
