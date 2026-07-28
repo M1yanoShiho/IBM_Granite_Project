@@ -224,32 +224,44 @@ coverage-off(`gated-corroboration`)配对,主指标 grounded-answer F1/faithfuln
 supporting-fact 标签);与 conflict 边(false/missed-conflict)、duplicate 边(去重单测)
 并列成 ArbGraph Table 4 式三边准确率表。**AFTER:** 未运行。
 
-## G1 — Generator B 验证器分诊,GPU 臂(Half 1.6 arms D-true / E-granite)
+## G1 — Generator B 验证器分诊,GPU 臂(Half 1.6 arms D-true / E-granite 3b+8b)
 
 **状态:** READY——三件套齐:代码(`scripts/verifier_triage.py`)、slurm
 (`scripts/run_verifier_triage.slurm`)、本条目。CPU 臂(base / large / minicheck)已在
-本机跑完,结果 `docs/generator/verifier-triage-results.md`;本条目只覆盖装不进 16GB CPU
-的两臂。**commit hash:提交前补**(当前代码在 working tree,未提交)。
+本机跑完,结果 `docs/generator/verifier-triage-results.md`;本条目覆盖装不进 16GB CPU
+的 GPU 臂:`true` + Granite-as-judge 两档 `granite3b` / **`granite8b`(本轮新增,容量对照)**。
+三臂**顺序加载、臂间释放**(`_free_gpu`),单张 **a100** 一次只驻留一个大模型,故一作业跑全。
+**commit hash:`c470b68`**(code + slurm;本条目在其后随台账提交)。
 
 **BEFORE(预注册):**
 
 - 目的/假设:SciFact 那轮(Half 1.5)测出通用 NLI 在 entailment 召回上只有 0.34 上限,
   怀疑**是模型族选错而不只是 checkpoint 选小**——真正的任务是 document-grounded
-  verification,不是 sentence-pair NLI。本臂上 `google/t5_xxl_true_nli_mixture`
-  (ALCE 自己的引用评测所用的 TRUE 判定器,11B / fp32 42.5GB,bf16 约 21GB,压 3g.40gb MIG)
-  与 Granite-as-judge,和已跑完的 CPU 三臂**共用同一 pair set**做对照。
-  **诚实预期:TRUE 是二分类(1/0),没有 contradiction 类**,所以它无法给 `contradicted`
+  verification,不是 sentence-pair NLI。本组上 `google/t5_xxl_true_nli_mixture`
+  (ALCE 自己的引用评测所用的 TRUE 判定器,11B / fp32 42.5GB,bf16 约 21GB)与
+  Granite-as-judge,和已跑完的 CPU 三臂**共用同一 pair set**做对照。**新增 `granite8b`
+  是把"LLM-as-a-judge 路子不对"与"3B 太小"这两种失败摘开**——正是 Selector 团队
+  (E3-2x2)遇到并用"两档都测"解决过的容量×方法混淆;3B 判官若输给 MiniCheck,单看
+  一档无法区分是方法错还是容量小。Granite 相对 MiniCheck 的结构优势:三分类,能填
+  `ClaimVerification.contradicted`,且不引入 self-host 之外的新模型依赖。
+  **诚实预期:TRUE 是二分类(1/0),没有 contradiction 类**,无法给 `contradicted`
   信号;若 TRUE 召回也上不去,则问题不在模型族而在 pair set 或任务本身,须如实标注。
+  **对 8B 的诚实预期:8B 可能在召回上胜过 MiniCheck 但每对成本高得多——那样结论就从
+  "明确胜出"退成"成本/质量权衡";若 8B 相对 3B 没有实质提升,则指向判官方法本身而非容量。**
 - 预期指标 + 方向:ASQA `entailment recall` ↑(主,对照 CPU 最好臂)、
   `hard-neutral -> entail` ↓(引用精度的分母)、2Wiki `atomic recall (any single chunk)` ↑、
-  `residual multi-hop` ↓;诊断:union diagnostic(把"分解没降维"与"验证器看不见已在的支撑"摘开)、
-  ms/pair(Granite judge 的成本是否值)。
-- 精确命令(登录节点先下模型 + 建数据,再 sbatch):
+  `residual multi-hop` ↓;两档 Granite 的 `hard-neutral -> contra` FP 率须清算(通用 NLI
+  在此 28% / 44.7% 被判不可用,判官要过这条线才有价值);诊断:union diagnostic
+  (把"分解没降维"与"验证器看不见已在的支撑"摘开)、**两档 Granite 的 ms/pair**
+  (成本一侧要可见)。
+- 精确命令(登录节点先下模型 + 建数据,再 sbatch;slurm 已请求 `--gres=gpu:a100:1`,
+  `--arms true,granite3b,granite8b`):
   ```
   export HF_HOME=/user/work/$USER/hf_cache MODEL_CACHE_DIR=/user/work/$USER/hf_cache
   export TRIAGE_DATA_DIR=/user/work/$USER/triage_data
   hf download google/t5_xxl_true_nli_mixture
   hf download ibm-granite/granite-4.1-3b
+  hf download ibm-granite/granite-4.1-8b
   PYTHONPATH=src python -c "import sys; sys.path.insert(0,'scripts'); import verifier_triage as v; v.ensure_asqa(); v.ensure_2wiki()"
   mkdir -p logs results && sbatch scripts/run_verifier_triage.slurm \
     docs/generator/verifier-triage-results-hpc.md results/verifier-triage/scores.jsonl
