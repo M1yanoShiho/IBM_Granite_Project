@@ -24,8 +24,9 @@ Set `TRIAGE_DATA_DIR` (or `MODEL_CACHE_DIR`) to keep the ~450MB ALCE tar off the
 home filesystem on a cluster -- see docs/hpc-run-log.md.
 
 Arms A/B/C/D-minicheck run on CPU. Arm D-true (google/t5_xxl_true_nli_mixture,
-42.5GB fp32) and arm E (Granite-as-judge) need a GPU node and are selected with
-`--arms`; they are not run by default.
+42.5GB fp32) and arm E (Granite-as-judge: `granite3b` / `granite8b`, a
+capacity control on the LLM-as-a-judge path) need a GPU node and are selected
+with `--arms`; they are not run by default.
 
 Usage (local, CPU arms):
     PYTHONPATH=src python scripts/verifier_triage.py --arms base,large,minicheck
@@ -34,6 +35,8 @@ Usage (local, CPU arms):
 from __future__ import annotations
 
 import argparse
+import gc
+import importlib
 import json
 import math
 import os
@@ -715,17 +718,25 @@ GRANITE_JUDGE_PROMPT = (
 
 
 class GraniteJudgeArm:
-    """Arm E -- LLM-as-a-judge, HPC GPU only."""
+    """Arm E -- LLM-as-a-judge, HPC GPU only.
+
+    The model id is pinned explicitly (mirrors how ``DebertaArm`` takes its own):
+    two Granite arms in one run must NOT both resolve to whatever ``GRANITE_MODEL_ID``
+    happens to be, or the grid would show two identically-configured arms under
+    different labels (guide task 1).
+    """
 
     kind = "nli3"
 
-    def __init__(self, name: str = "granite") -> None:
+    def __init__(self, name: str, model_id: str) -> None:
         from evidence_rag.generator.granite import GraniteGenerationConfig, GraniteLLMClient
 
         self.name = name
         # the judge answers in one word; the production default of 256 new tokens
         # would multiply the arm's cost for nothing
-        self._llm = GraniteLLMClient(config=GraniteGenerationConfig(max_new_tokens=8))
+        self._llm = GraniteLLMClient(
+            model_id=model_id, config=GraniteGenerationConfig(max_new_tokens=8)
+        )
 
     def describe(self) -> str:
         return f"{getattr(self._llm, 'model_id', 'granite')} (LLM-as-a-judge, fixed prompt)"
@@ -746,7 +757,8 @@ DUMP_DESCRIPTIONS = {
     "large": 'cross-encoder/nli-deberta-v3-large id2label={"0": "contradiction", "1": "entailment", "2": "neutral"}',
     "minicheck": "lytang/MiniCheck-Flan-T5-Large (binary supported/unsupported, decoder ids 209/3)",
     "true": "google/t5_xxl_true_nli_mixture (TRUE mixture, binary 1/0)",
-    "granite": "ibm-granite/granite-4.1-3b (LLM-as-a-judge, fixed prompt)",
+    "granite3b": "ibm-granite/granite-4.1-3b (LLM-as-a-judge, fixed prompt)",
+    "granite8b": "ibm-granite/granite-4.1-8b (LLM-as-a-judge, fixed prompt)",
 }
 """Descriptions for --from-dump, where no model is loaded to ask."""
 
@@ -760,9 +772,15 @@ def build_arm(name: str) -> Any:
         return MiniCheckArm()
     if name == "true":
         return TrueT5Arm()
-    if name == "granite":
-        return GraniteJudgeArm()
-    raise SystemExit(f"unknown arm {name!r} (base|large|minicheck|true|granite)")
+    # The bare `granite` name is retired: it resolved to GRANITE_MODEL_ID (ambient
+    # state), so the two Granite arms below each pin their own id explicitly.
+    if name == "granite3b":
+        return GraniteJudgeArm("granite3b", "ibm-granite/granite-4.1-3b")
+    if name == "granite8b":
+        return GraniteJudgeArm("granite8b", "ibm-granite/granite-4.1-8b")
+    raise SystemExit(
+        f"unknown arm {name!r} (base|large|minicheck|true|granite3b|granite8b)"
+    )
 
 
 # --------------------------------------------------------------------------
@@ -803,6 +821,18 @@ def run_arm(arm: Any, pairs: list[Pair]) -> ArmRun:
         scores=scores,
         seconds=time.perf_counter() - started,
     )
+
+
+def _free_gpu() -> None:
+    """Return the just-dropped arm's model memory to the CUDA allocator so the
+    next arm starts from a clean card (measurement-only helper, no prod impact)."""
+    gc.collect()
+    try:
+        torch = importlib.import_module("torch")
+    except ImportError:
+        return
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
 
 
 def group_any_entailed(
@@ -1096,7 +1126,7 @@ def main() -> int:
     parser.add_argument(
         "--arms",
         default="base,large,minicheck",
-        help="comma-separated: base,large,minicheck,true,granite",
+        help="comma-separated: base,large,minicheck,true,granite3b,granite8b",
     )
     parser.add_argument("--seed", type=int, default=13)
     parser.add_argument(
@@ -1175,7 +1205,16 @@ def main() -> int:
             for name in names
         ]
     else:
-        runs = [run_arm(build_arm(name), pairs) for name in names]
+        # Load one arm at a time and free it before the next loads, so two large
+        # GPU models (e.g. TRUE-XXL ~21GB bf16 and granite-4.1-8b ~16GB) never
+        # co-reside on one card (guide task 2). arm drops out of scope each pass;
+        # gc + empty_cache returns its blocks to the allocator.
+        runs = []
+        for name in names:
+            arm = build_arm(name)
+            runs.append(run_arm(arm, pairs))
+            arm = None
+            _free_gpu()
 
     if args.dump:
         args.dump.parent.mkdir(parents=True, exist_ok=True)
