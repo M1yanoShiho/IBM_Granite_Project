@@ -77,16 +77,38 @@ def test_claim_splitter_keeps_claim_that_fails_faithfulness_check() -> None:
     assert claims[0].faithful_to_answer is False
 
 
-def test_claim_splitter_rejects_source_text_not_found_in_answer() -> None:
+def test_claim_splitter_anchors_paraphrased_source_text_to_a_sentence() -> None:
+    # real Granite often paraphrases source_text instead of quoting it verbatim;
+    # the claim anchors to the best-overlapping answer sentence rather than raising
+    answer = "Pfizer's revenue increased by eight percent this year."
     llm = FakeLLM(
         [
-            '{"claims":[{"source_text":"Revenue fell.",'
-            '"text":"Revenue fell."}]}',
+            '{"claims":[{"source_text":"Revenue rose 8%.",'
+            '"text":"Revenue rose by 8%."}]}',
+            '{"results":[{"claim_id":"claim-1","faithful":true}]}',
         ]
     )
 
-    with pytest.raises(ValueError, match="source_text is not in answer_text"):
-        ClaimSplitter(llm=llm).split("Revenue rose.")
+    claims = ClaimSplitter(llm=llm).split(answer)
+
+    assert len(claims) == 1
+    assert answer[claims[0].span.start : claims[0].span.end] == answer
+
+
+def test_claim_splitter_skips_unlocatable_claim() -> None:
+    # a source_text that overlaps no answer sentence is dropped, not fatal, and
+    # no faithfulness call is made because nothing was located
+    llm = FakeLLM(
+        [
+            '{"claims":[{"source_text":"Bananas are a yellow fruit.",'
+            '"text":"Bananas are yellow."}]}',
+        ]
+    )
+
+    claims = ClaimSplitter(llm=llm).split("Revenue rose.")
+
+    assert claims == ()
+    assert len(llm.prompts) == 1
 
 
 def test_claim_splitter_rejects_malformed_json_output() -> None:
