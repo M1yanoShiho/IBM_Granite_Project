@@ -22,9 +22,9 @@
 #SBATCH --account=coms039904
 #SBATCH --partition=gpu_short
 #SBATCH --qos=normal
-#SBATCH --gres=gpu:rtx_30:1
-#SBATCH --cpus-per-task=8
-#SBATCH --mem=32G
+#SBATCH --gres=gpu:rtx_3090:1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=16G
 #SBATCH --time=01:00:00
 #SBATCH --output=logs/%x-%j.out
 #SBATCH --mail-type=END,FAIL
