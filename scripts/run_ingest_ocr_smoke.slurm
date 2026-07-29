@@ -20,13 +20,15 @@
 #   mkdir -p logs runs/ocr-smoke && sbatch scripts/run_ingest_ocr_smoke.slurm
 #SBATCH --job-name=ingest-ocr-smoke
 #SBATCH --account=coms039904
-#SBATCH --partition=gpu
-#SBATCH --qos=normal
-#SBATCH --gres=gpu:a100:1
+#SBATCH --partition=gpu_short
+#SBATCH --qos=maxgpu
+#SBATCH --gres=gpu:rtx_30:1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=32G
 #SBATCH --time=01:00:00
 #SBATCH --output=logs/%x-%j.out
+#SBATCH --mail-type=END,FAIL
+#SBATCH --mail-user=dh25275@bristol.ac.uk
 
 set -euo pipefail
 
