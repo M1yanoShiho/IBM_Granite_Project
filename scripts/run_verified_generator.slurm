@@ -60,7 +60,8 @@ python scripts/verified_generator_calibration.py \
   --top-k 5 \
   --seed 13 \
   --output "$REPORT" \
-  --dump "$DUMP"
+  --dump "$DUMP" \
+  --audit-dump "${AUDIT_DUMP:-results/verified-generator/audit-claims.jsonl}"
 
 echo "=== report ==="
 cat "$REPORT"
