@@ -4,12 +4,15 @@ Walks a directory, routes each file to its loader by extension, and returns a
 flat list of ``Document`` records ready for any ``build_*`` pipeline factory
 (pair PDF ``chunks`` mode with ``PrechunkedChunker`` downstream).
 
-Two-phase orchestration keeps resources tight: phase 1 parses text and PDFs
+Three-phase orchestration keeps resources tight: phase 1 parses text and PDFs
 (consulting the ingestion cache) and collects every image that needs a
 caption — standalone files and, when ``caption_pdf_pictures`` is enabled,
 pictures embedded in PDFs; phase 2 captions all of them inside a single
 ``VisionCaptioner`` batch, so the Granite Vision weights are loaded and
-released exactly once per call.
+released exactly once per call; phase 3 runs Docling OCR (when ``image_ocr``
+is set) over standalone images and embedded PDF pictures alike, appending any
+recognised text so exact figures survive the lossy caption. OCR runs only
+after the vision weights are freed, so at most one model is resident at a time.
 """
 
 import logging
@@ -19,6 +22,7 @@ from pathlib import Path
 from typing import Any
 
 from evidence_rag.contracts.models import Document, SourceMetadata
+from evidence_rag.infrastructure.config import IngestionConfig
 from evidence_rag.loaders.cache import DocumentCache
 from evidence_rag.loaders.image_loader import (
     DEFAULT_CAPTION_PROMPT,
@@ -28,6 +32,7 @@ from evidence_rag.loaders.image_loader import (
     VisionCaptioner,
     build_image_document,
     caption_image_paths,
+    extract_ocr_text_from_image,
 )
 from evidence_rag.loaders.pdf_loader import (
     PDF_LOADER_VERSION,
@@ -46,12 +51,23 @@ IMAGE_EXTENSIONS = frozenset({".png", ".jpg", ".jpeg", ".bmp", ".gif", ".tiff", 
 
 
 @dataclass
+class _CaptionedPicture:
+    """A PDF picture that has been captioned and still awaits OCR of its text."""
+
+    caption: str
+    image: Any  # PIL.Image.Image
+    page_number: int | None
+    index: int  # 1-based position within the source PDF
+
+
+@dataclass
 class _PdfJob:
     """A cache-miss PDF awaiting embedded-picture captions before finalising."""
 
     path: Path
     text_documents: list[Document]
     pictures: list[PdfPicture]
+    captioned: list[_CaptionedPicture] = field(default_factory=list)
     caption_documents: list[Document] = field(default_factory=list)
     caption_failed: bool = False
 
@@ -88,7 +104,7 @@ def load_directory(
     pdf_fingerprint = "|".join(
         ["pdf", PDF_LOADER_VERSION, f"mode={pdf_mode}", f"pictures={caption_pdf_pictures}"]
         + (
-            [f"prompt={caption_prompt}", f"vision={resolved_model_id}"]
+            [f"prompt={caption_prompt}", f"vision={resolved_model_id}", f"ocr={image_ocr}"]
             if caption_pdf_pictures
             else []
         )
@@ -167,7 +183,8 @@ def load_directory(
                 _caption_pdf_pictures(job, captioner, on_error)
 
     # Assemble: OCR (vision model already released), documents, cache writes.
-    ocr_converter = _resolve_ocr_converter(converter, enabled=image_ocr and bool(image_captions))
+    needs_ocr = bool(image_captions) or any(job.captioned for job in pdf_jobs)
+    ocr_converter = _resolve_ocr_converter(converter, enabled=image_ocr and needs_ocr)
     for path, caption in image_captions:
         document = build_image_document(
             path.resolve(),
@@ -180,6 +197,9 @@ def load_directory(
             cache.put(path, image_fingerprint, results[path])
 
     for job in pdf_jobs:
+        _finalize_pdf_pictures(
+            job, include_ocr=image_ocr and ocr_converter is not None, converter=ocr_converter
+        )
         results[job.path] = job.text_documents + job.caption_documents
         if cache and not job.caption_failed:
             cache.put(job.path, pdf_fingerprint, results[job.path])
@@ -187,9 +207,43 @@ def load_directory(
     return [document for path in ordered_files for document in results.get(path, [])]
 
 
+def load_directory_from_config(
+    directory: str | Path,
+    config: IngestionConfig,
+    *,
+    converter: Any | None = None,
+) -> list[Document]:
+    """Ingest ``directory`` driven by a config-file :class:`IngestionConfig`.
+
+    Maps the config's switches onto :func:`load_directory`, passing the optional
+    string fields only when set so ``load_directory``'s own defaults / env-var
+    fallbacks still apply.
+    """
+    kwargs: dict[str, Any] = {
+        "pdf_mode": config.pdf_mode,
+        "caption_pdf_pictures": config.caption_pdf_pictures,
+        "image_ocr": config.image_ocr,
+        "on_error": config.on_error,
+    }
+    if config.caption_prompt is not None:
+        kwargs["caption_prompt"] = config.caption_prompt
+    if config.vision_model_id is not None:
+        kwargs["vision_model_id"] = config.vision_model_id
+    if config.vision_device is not None:
+        kwargs["vision_device"] = config.vision_device
+    if config.cache_dir is not None:
+        kwargs["cache_dir"] = config.cache_dir
+    return load_directory(directory, converter=converter, **kwargs)
+
+
 def _caption_pdf_pictures(job: _PdfJob, captioner: VisionCaptioner, on_error: OnError) -> None:
+    """Caption each embedded picture (phase 2); OCR is deferred to phase 3.
+
+    Only captioning happens here, inside the vision-model context. The PIL image
+    is retained on the job so OCR can run in :func:`_finalize_pdf_pictures` once
+    the vision weights are released, preserving the one-model-resident invariant.
+    """
     name = job.path.name
-    resolved = job.path.resolve()
     for picture in job.pictures:
         try:
             caption = captioner.caption(picture.image)
@@ -205,14 +259,41 @@ def _caption_pdf_pictures(job: _PdfJob, captioner: VisionCaptioner, on_error: On
         if not caption:
             logger.warning("Empty caption for picture %d of %s; skipping", picture.index, name)
             continue
-        page = picture.page_number
+        job.captioned.append(
+            _CaptionedPicture(
+                caption=caption,
+                image=picture.image,
+                page_number=picture.page_number,
+                index=picture.index,
+            )
+        )
+
+
+def _finalize_pdf_pictures(
+    job: _PdfJob, *, include_ocr: bool, converter: Any | None
+) -> None:
+    """Build the picture documents (phase 3), appending OCR text when enabled.
+
+    Mirrors :func:`build_image_document` for standalone images: OCR runs after
+    the vision model is released, and any recognised text is appended so exact
+    figures in charts survive the lossy caption.
+    """
+    name = job.path.name
+    resolved = job.path.resolve()
+    for item in job.captioned:
+        text = item.caption
+        if include_ocr:
+            ocr_text = extract_ocr_text_from_image(item.image, converter=converter)
+            if ocr_text:
+                text = f"{item.caption}\n\nText in image:\n{ocr_text}"
+        page = item.page_number
         document_id = (
-            f"{name}::p{page}::img{picture.index}" if page is not None else f"{name}::img{picture.index}"
+            f"{name}::p{page}::img{item.index}" if page is not None else f"{name}::img{item.index}"
         )
         job.caption_documents.append(
             Document(
                 document_id=document_id,
-                text=caption,
+                text=text,
                 source_uri=f"{resolved}#page={page}" if page is not None else str(resolved),
                 metadata=SourceMetadata(
                     source_type="image",

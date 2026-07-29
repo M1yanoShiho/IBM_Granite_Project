@@ -5,7 +5,11 @@ same plain-text ``Document`` contract regardless of the original modality.
 """
 
 from evidence_rag.loaders.cache import DocumentCache
-from evidence_rag.loaders.dispatch import IMAGE_EXTENSIONS, load_directory
+from evidence_rag.loaders.dispatch import (
+    IMAGE_EXTENSIONS,
+    load_directory,
+    load_directory_from_config,
+)
 from evidence_rag.loaders.image_loader import (
     DEFAULT_CAPTION_PROMPT,
     DEFAULT_VISION_MODEL_ID,
@@ -34,6 +38,7 @@ __all__ = [
     "convert_pdf",
     "extract_pictures",
     "load_directory",
+    "load_directory_from_config",
     "load_pdf",
     "load_text_file",
 ]

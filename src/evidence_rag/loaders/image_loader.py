@@ -14,6 +14,7 @@ import gc
 import importlib
 import logging
 import os
+import tempfile
 from collections.abc import Sequence
 from pathlib import Path
 from types import TracebackType
@@ -185,6 +186,33 @@ def extract_ocr_text(path: Path, *, converter: Any | None = None) -> str:
     except Exception:
         logger.warning("OCR failed for %s; caption only", path, exc_info=True)
         return ""
+
+
+def extract_ocr_text_from_image(image: Any, *, converter: Any | None = None) -> str:
+    """Run Docling OCR over an in-memory PIL image; empty string on any failure.
+
+    PDF-embedded pictures arrive as PIL images with no path, but the OCR engine
+    (:func:`extract_ocr_text`) works on files. Persist the image to a temporary
+    PNG, reuse the tested file-based OCR path, then delete the temp file.
+    """
+    try:
+        prepared = image.convert("RGB")
+    except Exception:
+        logger.warning("Could not prepare image for OCR; caption only", exc_info=True)
+        return ""
+    tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+    try:
+        tmp.close()
+        prepared.save(tmp.name, format="PNG")
+        return extract_ocr_text(Path(tmp.name), converter=converter)
+    except Exception:
+        logger.warning("OCR failed for embedded picture; caption only", exc_info=True)
+        return ""
+    finally:
+        try:
+            os.unlink(tmp.name)
+        except OSError:
+            pass
 
 
 def _open_image(path: Path) -> Any:

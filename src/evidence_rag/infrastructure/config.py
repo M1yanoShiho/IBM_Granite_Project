@@ -80,6 +80,72 @@ class _TomlExperimentConfig(FrozenModel):
     run: _RunToml
 
 
+class IngestionConfig(FrozenModel):
+    """Config-file switches for directory ingestion (see ``loaders.load_directory``).
+
+    ``caption_pdf_pictures`` turns on Granite Vision captioning of embedded PDF
+    figures; with ``image_ocr`` (on by default) their in-figure text is OCR'd and
+    appended too. The optional string fields fall back to ``load_directory``'s own
+    defaults / environment variables when left unset.
+    """
+
+    schema_version: Literal["1.0"] = "1.0"
+    pdf_mode: Literal["chunks", "pages"] = "chunks"
+    caption_pdf_pictures: bool = False
+    image_ocr: bool = True
+    caption_prompt: NonEmpty | None = None
+    vision_model_id: NonEmpty | None = None
+    vision_device: NonEmpty | None = None
+    on_error: Literal["skip", "raise"] = "skip"
+    cache_dir: Path | None = None
+
+
+class _TomlIngestionSection(FrozenModel):
+    schema_version: Literal["1.0"] = "1.0"
+    pdf_mode: Literal["chunks", "pages"] = "chunks"
+    caption_pdf_pictures: bool = False
+    image_ocr: bool = True
+    caption_prompt: NonEmpty | None = None
+    vision_model_id: NonEmpty | None = None
+    vision_device: NonEmpty | None = None
+    on_error: Literal["skip", "raise"] = "skip"
+    cache_dir: NonEmpty | None = None
+
+
+class _TomlIngestionConfig(FrozenModel):
+    ingestion: _TomlIngestionSection = Field(default_factory=_TomlIngestionSection)
+
+
+def load_ingestion_config(path: Path) -> IngestionConfig:
+    """Load an ``[ingestion]`` TOML section into an :class:`IngestionConfig`.
+
+    A missing ``[ingestion]`` table yields all defaults. ``cache_dir`` is resolved
+    relative to the config file, matching ``load_experiment_config``.
+    """
+    config_path = Path(path).resolve()
+    try:
+        raw_config = tomllib.loads(config_path.read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError) as error:
+        raise ValueError(f"unable to load ingestion config {config_path}: {error}") from error
+
+    section = _TomlIngestionConfig.model_validate(raw_config).ingestion
+    cache_dir = (
+        (config_path.parent / section.cache_dir).resolve()
+        if section.cache_dir is not None
+        else None
+    )
+    return IngestionConfig(
+        pdf_mode=section.pdf_mode,
+        caption_pdf_pictures=section.caption_pdf_pictures,
+        image_ocr=section.image_ocr,
+        caption_prompt=section.caption_prompt,
+        vision_model_id=section.vision_model_id,
+        vision_device=section.vision_device,
+        on_error=section.on_error,
+        cache_dir=cache_dir,
+    )
+
+
 def load_experiment_config(path: Path) -> ExperimentConfig:
     config_path = Path(path).resolve()
     try:

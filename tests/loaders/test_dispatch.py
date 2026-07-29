@@ -4,6 +4,7 @@ from typing import Any
 
 import pytest
 
+from evidence_rag.infrastructure.config import IngestionConfig
 from evidence_rag.loaders import dispatch, image_loader
 
 
@@ -138,6 +139,159 @@ def test_caption_pdf_pictures_shares_the_vision_batch(
     assert picture_doc.metadata.source_type == "image"
     assert picture_doc.metadata.page_number == 2
     assert "report.pdf::p1" in by_id
+
+
+def test_caption_pdf_pictures_appends_ocr_text(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    (tmp_path / "report.pdf").write_bytes(b"%PDF-fake")
+    converter = FakeConverter(
+        {
+            "report.pdf": FakeDoc(
+                pages={1: "Body text."},
+                pictures=[FakePicture(FakeImage("embedded"), page=2)],
+            )
+        }
+    )
+    _patch_vision(monkeypatch, {"embedded": "An embedded diagram."})
+    monkeypatch.setattr(
+        dispatch,
+        "extract_ocr_text_from_image",
+        lambda image, converter: "Revenue up 12%" if image.name == "embedded" else "",
+    )
+
+    documents = dispatch.load_directory(
+        tmp_path,
+        converter=converter,
+        pdf_mode="pages",
+        caption_pdf_pictures=True,
+        image_ocr=True,
+    )
+
+    by_id = {document.document_id: document for document in documents}
+    picture_doc = by_id["report.pdf::p2::img1"]
+    assert picture_doc.text == "An embedded diagram.\n\nText in image:\nRevenue up 12%"
+
+
+def test_caption_pdf_pictures_skips_ocr_when_disabled(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    (tmp_path / "report.pdf").write_bytes(b"%PDF-fake")
+    converter = FakeConverter(
+        {
+            "report.pdf": FakeDoc(
+                pages={1: "Body text."},
+                pictures=[FakePicture(FakeImage("embedded"), page=2)],
+            )
+        }
+    )
+    _patch_vision(monkeypatch, {"embedded": "An embedded diagram."})
+
+    def _fail_ocr(image: Any, converter: Any) -> str:
+        raise AssertionError("OCR must not run when image_ocr=False")
+
+    monkeypatch.setattr(dispatch, "extract_ocr_text_from_image", _fail_ocr)
+
+    documents = dispatch.load_directory(
+        tmp_path,
+        converter=converter,
+        pdf_mode="pages",
+        caption_pdf_pictures=True,
+        image_ocr=False,
+    )
+
+    by_id = {document.document_id: document for document in documents}
+    assert by_id["report.pdf::p2::img1"].text == "An embedded diagram."
+
+
+def test_pdf_cache_invalidated_by_image_ocr_flag(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    corpus = tmp_path / "corpus"
+    corpus.mkdir()
+    (corpus / "report.pdf").write_bytes(b"%PDF-fake")
+    cache_dir = tmp_path / "cache"
+
+    def _converter() -> FakeConverter:
+        return FakeConverter(
+            {
+                "report.pdf": FakeDoc(
+                    pages={1: "Body text."},
+                    pictures=[FakePicture(FakeImage("embedded"), page=2)],
+                )
+            }
+        )
+
+    loads, _ = _patch_vision(monkeypatch, {"embedded": "An embedded diagram."})
+    monkeypatch.setattr(dispatch, "extract_ocr_text_from_image", lambda image, converter: "42%")
+
+    dispatch.load_directory(
+        corpus,
+        converter=_converter(),
+        pdf_mode="pages",
+        caption_pdf_pictures=True,
+        image_ocr=True,
+        cache_dir=cache_dir,
+    )
+    # Same inputs but a different OCR flag must miss the cache and recaption.
+    dispatch.load_directory(
+        corpus,
+        converter=_converter(),
+        pdf_mode="pages",
+        caption_pdf_pictures=True,
+        image_ocr=False,
+        cache_dir=cache_dir,
+    )
+
+    assert loads == [1, 1]
+
+
+def test_load_directory_from_config_maps_switches(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    captured: dict[str, Any] = {}
+
+    def fake_load_directory(directory: Any, **kwargs: Any) -> list[Any]:
+        captured["directory"] = directory
+        captured.update(kwargs)
+        return []
+
+    monkeypatch.setattr(dispatch, "load_directory", fake_load_directory)
+    config = IngestionConfig(
+        pdf_mode="pages",
+        caption_pdf_pictures=True,
+        image_ocr=False,
+        caption_prompt="Describe the chart.",
+        cache_dir=tmp_path / "cache",
+    )
+
+    dispatch.load_directory_from_config(tmp_path, config)
+
+    assert captured["directory"] == tmp_path
+    assert captured["pdf_mode"] == "pages"
+    assert captured["caption_pdf_pictures"] is True
+    assert captured["image_ocr"] is False
+    assert captured["caption_prompt"] == "Describe the chart."
+    assert captured["cache_dir"] == tmp_path / "cache"
+    # Unset optional fields must not be forwarded (keep load_directory's defaults).
+    assert "vision_model_id" not in captured
+    assert "vision_device" not in captured
+
+
+def test_load_directory_from_config_omits_unset_optionals(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    captured: dict[str, Any] = {}
+    monkeypatch.setattr(
+        dispatch, "load_directory", lambda directory, **kwargs: captured.update(kwargs) or []
+    )
+
+    dispatch.load_directory_from_config(tmp_path, IngestionConfig())
+
+    for optional in ("caption_prompt", "vision_model_id", "vision_device", "cache_dir"):
+        assert optional not in captured
+    assert captured["caption_pdf_pictures"] is False
+    assert captured["image_ocr"] is True
 
 
 def test_image_ocr_appends_text_via_shared_converter(

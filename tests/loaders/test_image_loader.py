@@ -175,6 +175,37 @@ def test_extract_ocr_text_uses_supplied_converter(tmp_path: Path) -> None:
     assert image_loader.extract_ocr_text(chart, converter=OkConverter()) == "recognised text"
 
 
+def test_extract_ocr_text_from_image_uses_supplied_converter(tmp_path: Path) -> None:
+    class FakePilImage:
+        def convert(self, mode: str) -> "FakePilImage":
+            return self
+
+        def save(self, path: str, format: str) -> None:
+            Path(path).write_bytes(b"png-bytes")
+
+    class OkConverter:
+        def convert(self, path: Path) -> Any:
+            document = SimpleNamespace(export_to_markdown=lambda: "  chart text  ")
+            return SimpleNamespace(document=document)
+
+    assert (
+        image_loader.extract_ocr_text_from_image(FakePilImage(), converter=OkConverter())
+        == "chart text"
+    )
+
+
+def test_extract_ocr_text_from_image_empty_on_unpreparable_image(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    class BadImage:
+        def convert(self, mode: str) -> Any:
+            raise RuntimeError("not an image")
+
+    with caplog.at_level("WARNING", logger="evidence_rag.loaders"):
+        assert image_loader.extract_ocr_text_from_image(BadImage(), converter=None) == ""
+    assert "caption only" in caplog.text
+
+
 def test_open_image_applies_exif_orientation(tmp_path: Path) -> None:
     pil = pytest.importorskip("PIL.Image")
     image = pil.new("RGB", (10, 20), "red")
