@@ -9,15 +9,9 @@ import random
 import sys
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-if str(REPO_ROOT / "scripts") not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT / "scripts"))
-
-import verified_generator_calibration as g  # noqa: E402
-
-from evidence_rag.contracts.models import GenerationResult  # noqa: E402
-from evidence_rag.generator.completeness import CompletenessChecker, fallback_gap_question  # noqa: E402
-from evidence_rag.generator.models import (  # noqa: E402
+from evidence_rag.contracts.models import GenerationResult
+from evidence_rag.generator.completeness import fallback_gap_question
+from evidence_rag.generator.models import (
     Claim,
     ClaimSpan,
     ClaimVerification,
@@ -25,6 +19,12 @@ from evidence_rag.generator.models import (  # noqa: E402
     RequiredFactCoverage,
     VerificationReport,
 )
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT / "scripts") not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT / "scripts"))
+
+import verified_generator_calibration as g  # noqa: E402
 
 
 def _claim(claim_id: str, start: int, end: int, faithful: bool = True) -> Claim:

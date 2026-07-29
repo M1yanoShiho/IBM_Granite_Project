@@ -43,6 +43,7 @@ import random
 import re
 import sys
 import time
+from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -398,6 +399,10 @@ class B5Result:
     ms_total: float = 0.0
     per_case: list[dict[str, Any]] = field(default_factory=list)
     error_examples: list[dict[str, str]] = field(default_factory=list)
+    audit_records: list[dict[str, Any]] = field(default_factory=list)
+    """One record per faithful claim, for the manual-adjudication audit packet
+    (scripts/audit_export.py). Carries the hidden verdict + stratum AND the full
+    evidence, so the export step can split it into a blind packet and a key."""
 
 
 def run_b5(
@@ -455,6 +460,39 @@ def run_b5(
             entity_mismatch=len(entity_sink) - entity_before,
             gaps_patched=rechecker.found,
         )
+
+        # per-claim audit records: stratum resolves from ClaimVerification --
+        # an unsupported claim with entity_consistent=True had no entailment
+        # (stratum A), entity_consistent=False means NLI entailed but the entity
+        # check vetoed it (stratum B). entity_veto_pairs is how many (claim,
+        # evidence) pairs the sink recorded for this claim, which is what makes
+        # the run-level "entity mismatches" figure a pair count, not a claim count.
+        claim_text_by_id = {claim.claim_id: claim.text for claim in draft.claims}
+        veto_pairs = Counter(record.claim_id for record in entity_sink[entity_before:])
+        evidence_payload = [
+            {"evidence_id": item.evidence_id, "text": item.text}
+            for item in case.selected.evidence
+        ]
+        for verification in report.claims:
+            if verification.status == "supported":
+                stratum = "supported"
+            elif verification.entity_consistent:
+                stratum = "A"  # NLI returned no entailment
+            else:
+                stratum = "B"  # NLI entailed, entity_check vetoed
+            result.audit_records.append(
+                {
+                    "query_id": case.query_id,
+                    "question": case.question,
+                    "claim_id": verification.claim_id,
+                    "claim_text": claim_text_by_id.get(verification.claim_id, ""),
+                    "system_status": verification.status,
+                    "stratum": stratum,
+                    "supporting_evidence_ids": list(verification.supporting_evidence_ids),
+                    "entity_veto_pairs": int(veto_pairs.get(verification.claim_id, 0)),
+                    "evidence": evidence_payload,
+                }
+            )
 
         result.cases += 1
         result.total_claims += stats.draft_claims
@@ -646,6 +684,12 @@ def main() -> int:
     parser.add_argument("--seed", type=int, default=13)
     parser.add_argument("--output", type=Path, required=True, help="results markdown")
     parser.add_argument("--dump", type=Path, default=None, help="per-case jsonl")
+    parser.add_argument(
+        "--audit-dump",
+        type=Path,
+        default=None,
+        help="per-claim jsonl for the manual-adjudication audit packet (B5 only)",
+    )
     args = parser.parse_args()
 
     rng = random.Random(args.seed)
@@ -671,6 +715,11 @@ def main() -> int:
                 if b5 is not None:
                     for record in b5.per_case:
                         handle.write(json.dumps({"stage": "b5", **record}) + "\n")
+        if args.audit_dump is not None and b5 is not None:
+            args.audit_dump.parent.mkdir(parents=True, exist_ok=True)
+            with args.audit_dump.open("w", encoding="utf-8") as handle:
+                for record in b5.audit_records:
+                    handle.write(json.dumps(record, ensure_ascii=False) + "\n")
 
     llm = GraniteLLMClient()
 
