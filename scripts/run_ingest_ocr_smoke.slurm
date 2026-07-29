@@ -21,7 +21,7 @@
 #SBATCH --job-name=ingest-ocr-smoke
 #SBATCH --account=coms039904
 #SBATCH --partition=gpu_short
-#SBATCH --qos=maxgpu
+#SBATCH --qos=normal
 #SBATCH --gres=gpu:rtx_30:1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=32G
