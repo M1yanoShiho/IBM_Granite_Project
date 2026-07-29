@@ -187,7 +187,19 @@ model 走 slurm 参数;commit 82ee0e7)+ 复用 run_cluster_eval.slurm + 本条�
   # S5 臂(8B+decoupled):
   sbatch --gres=gpu:a100:1 scripts/run_cluster_eval.slurm runs/e2-gate-on/candidate_sets.jsonl runs/niah-injected/manifest.json runs/niah-injected/provenance.jsonl results/e1-cascade-8b-decoupled.json ibm-granite/granite-4.1-8b decoupled 300
   ```
-- Git commit:82ee0e7;Seed:无(确定性;子采样取前 300 确定)。**AFTER:** 未运行。
+- Git commit:82ee0e7;Seed:无(确定性;子采样取前 300 确定)。
+
+**AFTER(2026-07-26,两臂 n=300;raw `results/e1-cascade-{3b-single,8b-decoupled}.json`):**
+- **lenient 列:** missed_conflict .427[.358,.499] → **.308**[.253,.369](−11.9pp);needle_gold .609[.547,.668] → **.673**[.613,.729](+6.4pp);
+  **false_conflict .494[.421,.568] → .877[.825,.916](+38.3pp)**。
+- **定论:S5 收益不级联 —— 这是一个干净的负结果。** 三项里唯一**统计确凿**的是**坏的那项**:missed/recovery 的 CI 互相重叠(仅提示性),
+  而 false_conflict 的 CI **完全不重叠**,退化无疑。
+- **机制(预注册的担忧成立且远超预期):** decoupled 的 Stage A 每题只命名**一个**目标类型,再套到全部 20 段。孤立探针里只有 needle+cf 两段所以无害;
+  真实池里其余 18 条干扰段被**逼着**吐出该类型的某个值 → 含 gold 的段与 needle 抽出不同答案 → **gold 碎裂率 88%**。
+  而 false_conflict 正是 E2 −4.8pp recall 的机制通道 → 把 8B+decoupled 接进门**大概率使 recall 更差**。
+- **S5 为真但不外推到两段以上**;孤立探针高估了它,因为**池结构**才是破点。
+- 另:8B 的 exact→lenient recovery 差再次巨大(.093→.673),双计分必要性再确认。`selection_bias.skip_rate` 在 `--limit` 下曾误报(300/2000=.85),已修为按全量算(真值 .261);`multi_key_rate` .106 不受影响。
+- **限制:** 两臂 denominator 不同(185 vs 237,"both clustered"条件随抽取策略变)→ 未做配对检验,只用各臂 Wilson CI 比较。发现落 results-summary **S6**。
 
 ---
 

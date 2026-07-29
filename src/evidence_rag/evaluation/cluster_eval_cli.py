@@ -78,6 +78,9 @@ def main(argv: Sequence[str] | None = None, *, llm: TextGenerator | None = None)
     gold_by_id = {gold_case.query_id: gold_case for gold_case in bundle.gold_cases}
     candidates_by_id = _read_candidates(arguments.candidates)
     records = read_provenance(arguments.provenance)
+    # selection-bias is a property of the dataset, so it is computed from the FULL injected set even
+    # when --limit subsamples the evaluated queries (otherwise skip_rate reports the subsample size).
+    n_injected_total = len(records)
     if arguments.limit > 0:
         records = records[: arguments.limit]
 
@@ -128,7 +131,7 @@ def main(argv: Sequence[str] | None = None, *, llm: TextGenerator | None = None)
 
     bias = selection_bias(
         (gold_case.reference_answers for gold_case in bundle.gold_cases),
-        n_injected=len(records),
+        n_injected=n_injected_total,
     )
 
     def _scored(cases: list[ClusterEvalCase]) -> dict[str, object]:
