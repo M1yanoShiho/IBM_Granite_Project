@@ -1,0 +1,20 @@
+[dataset]
+manifest = "../../data/benchmarks/scifact/test/manifest.json"
+
+[output]
+directory = "../../runs/retr-scifact-decompose"
+
+[retriever]
+name = "decompose"
+parameters = { base = { name = "strong-bm25" }, k = 60 }
+
+[selector]
+name = "top-k"
+
+[generator]
+name = "extractive"
+
+[run]
+top_k = 50
+max_selected = 5
+seed = 7
