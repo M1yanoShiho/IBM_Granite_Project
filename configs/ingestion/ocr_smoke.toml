@@ -1,0 +1,11 @@
+# Ingestion config for the BluePebble OCR smoke test.
+# Drives `python -m evidence_rag.cli.ingest --config configs/ingestion/ocr_smoke.toml`.
+#
+# Exercises the full new path: extract embedded PDF pictures -> Granite Vision
+# caption -> Docling OCR of the same picture appended as "Text in image:".
+
+[ingestion]
+pdf_mode = "chunks"
+caption_pdf_pictures = true   # abstract embedded figures and run vision captioning
+image_ocr = true              # OCR in-figure text and append it to the caption
+on_error = "raise"            # a smoke test should fail loudly, not skip silently

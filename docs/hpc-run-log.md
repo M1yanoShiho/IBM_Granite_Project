@@ -8,6 +8,40 @@
 
 ---
 
+## OCR-smoke — PDF 内嵌图表 caption + 图内 OCR 功能冒烟
+
+**状态:** READY——三件套齐(config `configs/ingestion/ocr_smoke.toml` + slurm
+`scripts/run_ingest_ocr_smoke.slurm` + 造样脚本 `scripts/make_ocr_smoke_pdf.py` + 本条目)。
+这是**功能冒烟**(能否端到端跑通新 OCR 路径),不是度量实验,无指标对照。
+
+**BEFORE(预注册):**
+
+- 目的/假设:验证新增的“PDF 内嵌图表 caption + 图内 OCR”在真实 Docling OCR + Granite
+  Vision 下端到端跑通。触发链:`caption_pdf_pictures=true` → `generate_picture_images=True`
+  建 converter → `extract_pictures` 抽内嵌图 → phase2 Vision caption → phase3
+  `extract_ocr_text_from_image` OCR 同图 → 文档 text 追加 `Text in image:`。
+- 判据(非指标,PASS/FAIL):`runs/ocr-smoke/out/documents.jsonl` 存在 image 源文档,其
+  `text` 含 `Text in image:` 且 OCR 段含图内 sentinel 数字 `42`(sentinel
+  `REVENUE 2024 42 PERCENT` 只画在图里、不在 PDF 正文,故命中即证明 OCR 生效)。作业内嵌
+  断言,PASS 退出 0。
+- 精确命令(登录节点预取后):
+  ```
+  # 登录节点(有网,一次性):
+  source /user/work/$USER/venv/bin/activate
+  export HF_HOME=/user/work/$USER/hf_cache
+  pip install -e '.[ingestion]' && pip install fpdf2
+  hf download ibm-granite/granite-vision-3.3-2b
+  docling-tools models download -o /user/work/$USER/docling_artifacts layout tableformer easyocr
+  PYTHONPATH=src python scripts/make_ocr_smoke_pdf.py
+  # 提交:
+  mkdir -p logs runs/ocr-smoke && sbatch scripts/run_ingest_ocr_smoke.slurm
+  ```
+- Git commit:待 OCR 特性(feat(ingestion))提交后填其 hash 并在 bp1 `git pull`。
+
+**AFTER:** 未运行。<!-- 填:job id、OCR SMOKE PASS/FAIL、raw = runs/ocr-smoke/out/documents.jsonl -->
+
+---
+
 ## E2 — gate-on/off 配对 selector 对照(spec §12 主对照)
 
 **状态:** READY——三件套齐(configs + slurm + 本条目,commit 3c37d4c)。只差登录节点下 dpr-w100 + granite 后跑。
