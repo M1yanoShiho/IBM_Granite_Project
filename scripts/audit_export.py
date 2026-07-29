@@ -85,9 +85,14 @@ def sample_items(
     if len(smaller) + len(larger) <= dropped_target:
         dropped = smaller + larger
     else:
-        small_take = smaller[:dropped_target]
-        remaining = max(dropped_target - len(small_take), 0)
-        dropped = small_take + larger[:remaining]
+        # aim for a balanced ~half/half so both failure modes are characterised;
+        # but if one stratum is genuinely small (<= half the target) take all of
+        # it and give the remainder to the larger one.
+        ideal = dropped_target // 2
+        take_small = min(len(smaller), ideal)
+        take_large = min(len(larger), dropped_target - take_small)
+        take_small = min(len(smaller), dropped_target - take_large)  # top up if larger was short
+        dropped = smaller[:take_small] + larger[:take_large]
 
     controls = supported[:controls_target]
     return dropped + controls, sizes

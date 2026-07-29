@@ -60,6 +60,21 @@ def test_sample_takes_all_of_smaller_stratum() -> None:
     assert len(chosen_sup) == 10
 
 
+def test_sample_balances_when_both_strata_large() -> None:
+    # both strata comfortably exceed half the target -> ~even split, not all-of-one
+    records = []
+    for i in range(27):
+        records.append(_record(f"qa{i}", f"c{i}", "A"))
+    for i in range(24):
+        records.append(_record(f"qb{i}", f"c{i}", "B"))
+    for i in range(26):
+        records.append(_record(f"qs{i}", f"c{i}", "supported"))
+    chosen, _ = ae.sample_items(records, random.Random(13), dropped_target=30, controls_target=10)
+    a = sum(1 for r in chosen if r["stratum"] == "A")
+    b = sum(1 for r in chosen if r["stratum"] == "B")
+    assert a == 15 and b == 15  # balanced 15/15, not 24 B + 6 A
+
+
 def test_sample_takes_everything_when_under_target() -> None:
     records = [_record("qa", "c1", "A"), _record("qb", "c2", "B"), _record("qs", "c3", "supported")]
     chosen, _ = ae.sample_items(records, random.Random(1), dropped_target=30, controls_target=10)
