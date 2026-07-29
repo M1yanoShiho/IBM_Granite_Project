@@ -353,7 +353,44 @@ supporting-fact 标签);与 conflict 边(false/missed-conflict)、duplicate 边(
 - Seed:`--seed 13 --limit 60 --top-k 5`。
 - 数据合规:只用 ALCE/ASQA;**HotpotQA / RGB / MuSiQue-Full 从不加载**。
 
-**AFTER:** 未运行。
+**AFTER(2026-07-29,job `18206324`,MIG `3g.40gb`,60 用例,seed 13,walltime ~2.2h):**
+
+- Raw:结果 `docs/generator/verified-generator-results-hpc.md`;逐例 `local/raw-results/
+  verified-generator-cases-hpc.jsonl`(HPC `results/verified-generator/cases.jsonl`);
+  日志 `local/raw-results/verified-generator-18206324.out`。
+- 三次投递,前两次失败**均非测量口径问题**:(1) `MODEL_CACHE_DIR` hub 层(G1 已修,沿用);
+  实际首崩是 (2) job 18203195 — **真 Granite 输出 `合法 JSON + 尾部解释`**,三处严格 `json.loads`
+  抛 `Extra data`,B5 首查询即断。修:`generator/json_parsing.parse_json_object` 容忍尾部散文/
+  代码围栏(commit `872ed61`),runner 加固(B4 先落盘、每例 try/except 记 chain-error)。
+- **Task 2 共驻已证明:** `[mem] peak allocated 27.8GB / reserved 27.9GB of 39.2GB`(granite-3b +
+  TRUE 同驻)。**注:调度实际给的是 3g.40gb MIG 切片(39.2GB),不是整卡 a100**——两模型峰值
+  27.8GB 仍留 ~11GB 余量,**连 40GB 切片都放得下**,比预注册预期更宽松;slurm 里"须整卡"的
+  注释偏保守,已在结果 md 如实标注。链内 Granite/TRUE 逐查询交替、无法拆段的判断成立。
+- **B4 completeness(仅 Granite):** own-fact 覆盖 **0.786**(gold 陈述仍有 ~21% 被误判未覆盖=假
+  gap);foreign-fact 未覆盖 **1.000**(从不假称覆盖缺失事实);**gap 问题空泛率仅 0.067**——指南
+  最担心的一项反而是强项,问题具体可答(逐字样例见结果 md);约束(年份)存活 **0.423**,但这项被
+  我合成方式拖累(把本例年份挂到**无关的** foreign fact,如给 Rock Hall 事实挂"as of 1880"本就荒谬),
+  是下限而非真实力。
+- **B5 全链(Granite + TRUE):** 60 例 **49 跑通 / 11 报错(18%)**。faithful 声明 69:supported
+  **0.333**、unsupported 被 repair 丢弃 **0.667**(TRUE 很严,2/3 声明证据撑不住);`contradicted`
+  **0**(TRUE 二分类,符合预期);entity 不一致捕获 **47**(实体层很活跃);completeness gap **88** 找到、
+  recheck 补上 **0.477**;**repair 触发 0.673**(指南担心"几乎不触发"——真数据上恰相反,2/3 会改答案);
+  **诚实弃答 0.571**(过半空答案:TRUE 严 + 必填事实缺失触发弃答);`GenerationResult` 合同 **1.000**;
+  ~9.6s/例。
+- **chain-error 是第二波 fake-vs-real 分歧(11 例):** 7× `claim source_text 不在 answer_text`
+  (Granite 的 source_text 是**改写**而非答案里的逐字子串,claim_splitter 要求精确子串)、2× recheck
+  缺 `found` 布尔、1× recheck `found=false 却带答案片段`、1× 连容忍解析都找不到 JSON 对象。
+- **发现草稿(给 results-summary):**
+  1. **B4 gap 问题质量过关**——空泛率 6.7%、foreign 精度 1.000、own 召回 0.786,证明 completeness 能给
+     `evidence_recheck` 喂具体子问题;弱点是约束注入(合成 artifact,非组件缺陷)。
+  2. **B5 端到端能跑,行为由 TRUE 的严格度主导**:仅 1/3 声明被撑住 → repair 高触发(0.673)、弃答高
+     (0.571)。这是"宁可不答也不乱引"的设计在真数据上的表现,不是 bug;但也说明 top-5 选证据对多数
+     ASQA 声明支撑不足,值得回看 Selector/证据粒度。
+  3. **TRUE 生产操作点 0.50 实测偏严**:配合必填事实弃答逻辑,过半问题弃答。是否放宽阈值需与"引用精度
+     0.966"权衡,留 held-out 前决定。
+  4. **claim_splitter 逐字子串约束是下一个鲁棒性靶子**——真 Granite source_text 常改写,占 chain-error
+     的 7/11;修好可把完成率从 82% 拉高。recheck JSON 契约(found 布尔 / found=false 不带内容)次之。
+- 硬约束保持:recheck 只引已选证据 id(代码校验未触发违规)、单轮、合同 1.000;`--seed 13` 未变。
 
 ---
 
