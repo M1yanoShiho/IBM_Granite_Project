@@ -440,6 +440,69 @@ supporting-fact 标签);与 conflict 边(false/missed-conflict)、duplicate 边(
 
 ---
 
+## Graph 2.0 M0 — 预注册条目(BEFORE 已填,AFTER 待回填)
+
+协议 `g2-proto-1`([docs/selector/M0_PROTOCOL_FREEZE.md](selector/M0_PROTOCOL_FREEZE.md))。
+台账规则:提交前填目的/假设/**预期指标与方向**/精确命令/commit hash,拉回填 AFTER。
+**只存在于 `.out` 或散装 scp 文件里的结果不算已记录** —— S6 就是这么丢的,`results/` 被 gitignore,
+回传后须 `git add -f`。
+
+### R001 — G-FC 固定分母基线(关键路径)
+
+- **目的:** 测出 Graph 1.0-lenient 在**固定分母**口径下的 false_conflict 基线,据此填 M0 §3.5 的 δ。
+  这是 M0 从 DRAFT 转 FROZEN 的唯一剩余阻塞。
+- **假设:** 固定分母口径的 rate 与现行条件性口径不同(分母更大,因为不再要求其他段抽取成功),
+  但**两个口径都必须报**,以便与 S1–S6 的历史数字对照。
+- **预期方向:** 无方向性预期 —— 这是基线测量,不是对照。**任何"预期"在这里都是污染。**
+- **命令:**
+  ```
+  mkdir -p logs results && sbatch scripts/run_cluster_eval.slurm     runs/e2-gate-on/candidate_sets.jsonl runs/niah-injected/manifest.json     runs/niah-injected/provenance.jsonl results/r001-e1-baseline.json     ibm-granite/granite-4.1-3b single 0 results/r001-e1-baseline-dump.jsonl
+  ```
+  拉回后纯 CPU 重打分:
+  ```
+  python -m evidence_rag.evaluation.cluster_rescore_cli     --dump results/r001-e1-baseline-dump.jsonl     --output results/r001-gfc-baseline.json     --per-query results/r001-gfc-per-query.json
+  ```
+- **commit:** 10289bc(rescore 工具)/ 70fca84(`--dump`)/ 7c15460(固定分母判定)
+- **AFTER:** _待填 —— `lenient.fixed_false_conflict` 的 rate、n_scored、n_fixed_eligible,以及推出的 δ_
+
+### R001b — parent 碰撞率 + `support_unit=parent` 基线臂
+
+- **目的:** (a) 量出 top-20 里同 Wikipedia 条目的碰撞率;(b) 跑出与 Graph 2.0 同 `support_unit` 的
+  Graph 1.0-lenient 对照臂 —— 主对照两侧必须同单位,否则 SAME_SOURCE 修复的收益会混进 NLI 的账上。
+- **假设:** dpr-w100 是 100 词切分,检索倾向把同条目相邻 passage 一起召回,故碰撞非零。
+- **预期方向(预注册):** parent 单位只会让 `independent_support` **变小或不变**,故票差缩小、门 fire 更少
+  ⇒ **harm 上升、recall 上升**。**若观测到 harm 下降**,说明碰撞集中在 cf 一侧,须单独解释,
+  **不得当成利好收下**。
+- **命令(前两条纯 CPU,登录节点即可):**
+  ```
+  python -m evidence_rag.cli.build_source_parent     --documents runs/niah-injected/documents.jsonl     --output runs/niah-injected/source_parent.jsonl
+
+  python -m evidence_rag.cli.parent_collision     --candidates runs/e2-gate-on/candidate_sets.jsonl     --parent-index runs/niah-injected/source_parent.jsonl --top-n 20
+
+  sbatch scripts/run_selector_gate.slurm     configs/experiments/niah_e2_gate_on_lenient_parent.toml     configs/experiments/niah_e2_gate_off.toml     runs/niah-injected/provenance.jsonl     runs/niah-injected/source_parent.jsonl
+  ```
+- **commit:** 5740d1b(sidecar)/ d6607b3(`support_unit`)/ b4ca71c(碰撞率 CLI)
+- **AFTER:** _待填 —— collision_rate、mean_parents_per_window、harm、conditional_document_recall_
+
+### R012 — Gate 0B 零训练 sweep(真实分叉点)
+
+- **目的:** 判定现成 checkpoint 是否够用。**过则接门(Plan 2),不过则启动 M0 §3.8 的训练路径。**
+- **假设:** `tals/albert-xlarge-vitaminc-mnli` 域对口(VitaminC 的对比结构 = injector 孪生的同构),
+  有机会直接过;通用 NLI 上界臂用于区分"域不匹配"与"能力不足"。
+- **预期指标与方向(预注册):** 三臂中至少一臂同时满足
+  `twin_refutes_accuracy ≥ .70` **且** `gold_supports_recall ≥ .85`(0B-2),
+  以及 0B-1 的五项阈值。**UNKNOWN 一律计失败** —— 全弃权的模型必须两项都挂。
+- **为什么三臂同场:** 只跑一臂时,未过 Gate 只能得出"albert 不够",**无法排除"任何零训练模型都不够"**。
+- **命令:** 见 `scripts/run_gate0b.slurm` 头部(含登录节点的模型预下载与两个 pair 文件的生成)。
+  ```
+  mkdir -p logs results/gate0b && sbatch scripts/run_gate0b.slurm
+  ```
+- **前置:** `runs/niah-train/` 的 artifact 必须已物化(0B-2 探针必须建在 **train** split 上)。
+- **commit:** be9dd2c(Gate 0B 指标 + runner)/ ddb5342(探针)/ b5dbb5d(VitaminC adapter)
+- **AFTER:** _待填 —— 每臂的 0B-1 五项与 0B-2 两项,以及分叉判定_
+
+---
+
 ## 本地(非 HPC)验证记录
 
 - 2026-07-20:selector 门实现全套单测 LOCAL 通过(tests/selector 32 + registration 9),

@@ -6,7 +6,7 @@
 #
 # One-time on the login node before submitting (E2 must have produced the pool dump):
 #   ls runs/e2-gate-on/candidate_sets.jsonl runs/niah-injected/manifest.json runs/niah-injected/provenance.jsonl
-# Submit from the project root (args: CANDIDATES MANIFEST PROVENANCE OUTPUT [MODEL] [EXTRACTION] [LIMIT]):
+# Submit from the project root (args: CANDIDATES MANIFEST PROVENANCE OUTPUT [MODEL] [EXTRACTION] [LIMIT] [DUMP]):
 #   mkdir -p logs results && sbatch scripts/run_cluster_eval.slurm \
 #     runs/e2-gate-on/candidate_sets.jsonl runs/niah-injected/manifest.json \
 #     runs/niah-injected/provenance.jsonl results/e1-cluster-eval/cluster_eval_report.json
@@ -19,14 +19,14 @@
 #SBATCH --account=coms039904
 #SBATCH --partition=gpu
 #SBATCH --qos=normal
-#SBATCH --gres=gpu:3g.40gb:1
+#SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=64G
 #SBATCH --time=08:00:00
 #SBATCH --output=logs/%x-%j.out
 
 set -euo pipefail
-USAGE="usage: sbatch run_cluster_eval.slurm CANDIDATES MANIFEST PROVENANCE OUTPUT [MODEL] [EXTRACTION] [LIMIT]"
+USAGE="usage: sbatch run_cluster_eval.slurm CANDIDATES MANIFEST PROVENANCE OUTPUT [MODEL] [EXTRACTION] [LIMIT] [DUMP]"
 CANDIDATES="${1:?$USAGE}"
 MANIFEST="${2:?$USAGE}"
 PROVENANCE="${3:?$USAGE}"
@@ -34,6 +34,9 @@ OUTPUT="${4:?$USAGE}"
 MODEL="${5:-ibm-granite/granite-4.1-3b}"
 EXTRACTION="${6:-single}"
 LIMIT="${7:-0}"
+# M0 G-PQ: any run feeding a conclusion must persist per-case rows, or paired testing later
+# needs a fresh GPU pass. Pass DUMP for anything that will be reported.
+DUMP="${8:-}"
 
 module load languages/python/3.12.3
 export HF_HOME=/user/work/$USER/hf_cache HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1
@@ -50,11 +53,11 @@ echo "=== E1 edge/cluster component eval | model=$MODEL extraction=$EXTRACTION l
 if [ "$LIMIT" -gt 0 ]; then
   python -m evidence_rag.evaluation.cluster_eval_cli \
     --candidates "$CANDIDATES" --manifest "$MANIFEST" --provenance "$PROVENANCE" \
-    --output "$OUTPUT" --extraction "$EXTRACTION" --limit "$LIMIT"
+    --output "$OUTPUT" --extraction "$EXTRACTION" --limit "$LIMIT" ${DUMP:+--dump "$DUMP"}
 else
   python -m evidence_rag.evaluation.cluster_eval_cli \
     --candidates "$CANDIDATES" --manifest "$MANIFEST" --provenance "$PROVENANCE" \
-    --output "$OUTPUT" --extraction "$EXTRACTION"
+    --output "$OUTPUT" --extraction "$EXTRACTION" ${DUMP:+--dump "$DUMP"}
 fi
 
 echo "=== E1 report ==="

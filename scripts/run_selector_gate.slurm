@@ -16,7 +16,7 @@
 #SBATCH --account=coms039904
 #SBATCH --partition=gpu
 #SBATCH --qos=normal
-#SBATCH --gres=gpu:3g.40gb:1
+#SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=64G
 #SBATCH --time=12:00:00
@@ -25,7 +25,11 @@
 set -euo pipefail
 CONFIG_ON="${1:?usage: sbatch run_selector_gate.slurm CONFIG_ON CONFIG_OFF PROVENANCE}"
 CONFIG_OFF="${2:?usage: sbatch run_selector_gate.slurm CONFIG_ON CONFIG_OFF PROVENANCE}"
-PROVENANCE="${3:?usage: sbatch run_selector_gate.slurm CONFIG_ON CONFIG_OFF PROVENANCE}"
+PROVENANCE="${3:?usage: sbatch run_selector_gate.slurm CONFIG_ON CONFIG_OFF PROVENANCE [PARENT_INDEX]}"
+# Optional 4th arg: the SAME_SOURCE sidecar, required by any config using
+# support_unit = "parent". Building the selector fails loudly without it rather than
+# silently falling back to the old per-chunk vote counting.
+PARENT_INDEX="${4:-}"
 
 module load languages/python/3.12.3
 export HF_HOME=/user/work/$USER/hf_cache HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1
@@ -35,6 +39,7 @@ export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 source /user/work/$USER/venv/bin/activate
 cd /user/work/$USER/IBM_Granite_Project
 export PYTHONPATH=src
+if [ -n "$PARENT_INDEX" ]; then export SOURCE_PARENT_INDEX="$PARENT_INDEX"; fi
 
 python -c "import torch; print('CUDA:', torch.cuda.is_available(), '| torch', torch.__version__)"
 
