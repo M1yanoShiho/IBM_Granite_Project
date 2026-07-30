@@ -84,6 +84,31 @@ def _provenance(tmp_path: Path) -> Path:
     return path
 
 
+def _dump_provenance(tmp_path: Path) -> Path:
+    """Provenance fixture shared by the --dump tests (identical MutationRecord in both)."""
+    path = tmp_path / "provenance.jsonl"
+    write_provenance(
+        path,
+        [
+            MutationRecord(
+                query_id="q1",
+                needle_document_id="needle",
+                counterfactual_document_id="cf::needle",
+                gold_value="Kennedy",
+                gold_alias_used="Kennedy",
+                replacement_value="Nixon",
+                string_class="proper_name_1",
+                seed=42,
+                char_span=(12, 20),
+                text_hash_before="a" * 8,
+                text_hash_after="b" * 8,
+                answer_bank_hash="c" * 8,
+            )
+        ],
+    )
+    return path
+
+
 def test_cli_writes_report_with_fake_extractor(tmp_path, capsys):
     manifest = _manifest(tmp_path)
     candidates = _candidates(tmp_path)
@@ -171,3 +196,53 @@ def test_cli_decoupled_extraction_runs(tmp_path) -> None:
     # Stage B carries both the named target and the original question
     stage_b = [p for p in prompts if "a person's name" in p]
     assert stage_b and all("who won?" in p for p in stage_b)
+
+
+def test_dump_writes_one_row_per_case_with_answers_and_alias_flags(tmp_path: Path) -> None:
+    manifest = _manifest(tmp_path)
+    candidates = _candidates(tmp_path)
+    provenance = _dump_provenance(tmp_path)
+    dump = tmp_path / "dump.jsonl"
+    exit_code = main(
+        [
+            "--manifest", str(manifest),
+            "--candidates", str(candidates),
+            "--provenance", str(provenance),
+            "--output", str(tmp_path / "report.json"),
+            "--dump", str(dump),
+        ],
+        llm=FakeLLM({"MARK_NEEDLE": "Kennedy", "MARK_CF": "Nixon"}),
+    )
+    assert exit_code == 0
+    rows = [json.loads(line) for line in dump.read_text(encoding="utf-8").splitlines() if line]
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["query_id"] == "q1"
+    assert row["gold_value"] == "Kennedy"
+    assert row["gold_aliases"] == ["Kennedy"]
+    assert row["needle_document_id"] == "needle"
+    assert row["counterfactual_document_id"] == "cf::needle"
+    window = row["window"]
+    assert [item["evidence_id"] for item in window] == ["e_needle", "e_cf"]
+    assert [item["answer"] for item in window] == ["Kennedy", "Nixon"]
+    assert [item["document_id"] for item in window] == ["needle", "cf::needle"]
+    assert window[0]["contains_gold_alias"] is True
+    assert window[1]["contains_gold_alias"] is False
+    assert row["exact"]["missed_conflict"] is False
+    assert row["lenient"]["needle_gold_recovery"] is True
+
+
+def test_dump_is_optional(tmp_path: Path) -> None:
+    manifest = _manifest(tmp_path)
+    candidates = _candidates(tmp_path)
+    provenance = _dump_provenance(tmp_path)
+    exit_code = main(
+        [
+            "--manifest", str(manifest),
+            "--candidates", str(candidates),
+            "--provenance", str(provenance),
+            "--output", str(tmp_path / "report.json"),
+        ],
+        llm=FakeLLM({"MARK_NEEDLE": "Kennedy", "MARK_CF": "Nixon"}),
+    )
+    assert exit_code == 0

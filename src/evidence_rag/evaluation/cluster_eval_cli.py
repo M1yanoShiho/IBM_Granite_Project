@@ -16,6 +16,7 @@ from evidence_rag.contracts.models import CandidateSet, EvidenceCandidate
 from evidence_rag.evaluation.cluster_eval import (
     ClusterEvalCase,
     aggregate,
+    contains_alias,
     evaluate_case,
     selection_bias,
 )
@@ -48,6 +49,11 @@ def _parser() -> argparse.ArgumentParser:
         choices=("single", "decoupled"),
         default="single",
         help="single = the shared EXTRACT_PROMPT; decoupled = Stage A target + Stage B copy (S5)",
+    )
+    parser.add_argument(
+        "--dump",
+        type=Path,
+        help="write per-case rows (raw answers + alias flags) to this jsonl; required by M0 G-PQ",
     )
     parser.add_argument("--limit", type=int, default=0, help="subsample the first N injected queries")
     return parser
@@ -93,6 +99,7 @@ def main(argv: Sequence[str] | None = None, *, llm: TextGenerator | None = None)
 
     exact_cases: list[ClusterEvalCase] = []
     lenient_cases: list[ClusterEvalCase] = []
+    dump_rows: list[dict[str, object]] = []
     for record in records:
         query = query_by_id[record.query_id]
         candidate_set = candidates_by_id[record.query_id]
@@ -128,6 +135,28 @@ def main(argv: Sequence[str] | None = None, *, llm: TextGenerator | None = None)
                 equivalence=lenient_equivalent,
             )
         )
+        if arguments.dump is not None:
+            dump_rows.append(
+                {
+                    "query_id": record.query_id,
+                    "needle_document_id": record.needle_document_id,
+                    "counterfactual_document_id": record.counterfactual_document_id,
+                    "gold_value": record.gold_value,
+                    "gold_aliases": list(gold_aliases),
+                    "window": [
+                        {
+                            "evidence_id": candidate.evidence_id,
+                            "document_id": candidate.document_id,
+                            "retrieval_rank": candidate.retrieval_rank,
+                            "answer": answer,
+                            "contains_gold_alias": contains_alias(candidate.text, gold_aliases),
+                        }
+                        for candidate, answer in zip(window, answers, strict=True)
+                    ],
+                    "exact": dataclasses.asdict(exact_cases[-1]),
+                    "lenient": dataclasses.asdict(lenient_cases[-1]),
+                }
+            )
 
     bias = selection_bias(
         (gold_case.reference_answers for gold_case in bundle.gold_cases),
@@ -154,6 +183,11 @@ def main(argv: Sequence[str] | None = None, *, llm: TextGenerator | None = None)
     }
     arguments.output.parent.mkdir(parents=True, exist_ok=True)
     arguments.output.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    if arguments.dump is not None:
+        arguments.dump.parent.mkdir(parents=True, exist_ok=True)
+        arguments.dump.write_text(
+            "".join(json.dumps(row, sort_keys=True) + "\n" for row in dump_rows), encoding="utf-8"
+        )
     print(json.dumps(payload, sort_keys=True))
     return 0
 
