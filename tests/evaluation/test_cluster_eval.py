@@ -193,22 +193,10 @@ def test_selection_bias_counts_multi_canonical_key():
     assert bias.skip_rate == (4 - 2) / 4
 
 
-def _candidate(evidence_id: str, document_id: str, text: str, rank: int) -> EvidenceCandidate:
-    return EvidenceCandidate(
-        evidence_id=evidence_id,
-        document_id=document_id,
-        chunk_id=f"{document_id}::c0",
-        text=text,
-        source_uri=f"s://{document_id}",
-        retrieval_score=1.0 / rank,
-        retrieval_rank=rank,
-    )
-
-
 def test_fixed_eligible_needs_needle_and_another_gold_alias_passage() -> None:
     window = (
-        _candidate("e_needle", "needle", "Kennedy won the race", 1),
-        _candidate("e_other", "other", "Kennedy also appears here", 2),
+        _cand("e_needle", "needle", "Kennedy won the race", 1),
+        _cand("e_other", "other", "Kennedy also appears here", 2),
     )
     case = evaluate_case(
         window,
@@ -225,8 +213,8 @@ def test_fixed_eligible_needs_needle_and_another_gold_alias_passage() -> None:
 
 def test_fixed_eligible_is_false_without_a_second_gold_alias_passage() -> None:
     window = (
-        _candidate("e_needle", "needle", "Kennedy won the race", 1),
-        _candidate("e_noise", "noise", "unrelated text", 2),
+        _cand("e_needle", "needle", "Kennedy won the race", 1),
+        _cand("e_noise", "noise", "unrelated text", 2),
     )
     case = evaluate_case(
         window,
@@ -243,8 +231,8 @@ def test_fixed_eligible_is_false_without_a_second_gold_alias_passage() -> None:
 
 def test_fixed_false_conflict_true_when_gold_alias_passage_lands_elsewhere() -> None:
     window = (
-        _candidate("e_needle", "needle", "Kennedy won the race", 1),
-        _candidate("e_other", "other", "Kennedy also appears here", 2),
+        _cand("e_needle", "needle", "Kennedy won the race", 1),
+        _cand("e_other", "other", "Kennedy also appears here", 2),
     )
     case = evaluate_case(
         window,
@@ -261,8 +249,8 @@ def test_fixed_false_conflict_true_when_gold_alias_passage_lands_elsewhere() -> 
 def test_abstention_never_creates_a_fixed_false_conflict() -> None:
     """UNKNOWN/NONE counts as 'did not create a conflict' — frozen in the M0 G-FC guardrail."""
     window = (
-        _candidate("e_needle", "needle", "Kennedy won the race", 1),
-        _candidate("e_other", "other", "Kennedy also appears here", 2),
+        _cand("e_needle", "needle", "Kennedy won the race", 1),
+        _cand("e_other", "other", "Kennedy also appears here", 2),
     )
     case = evaluate_case(
         window,
@@ -280,8 +268,8 @@ def test_abstention_never_creates_a_fixed_false_conflict() -> None:
 def test_fixed_false_conflict_false_when_needle_itself_abstains() -> None:
     """Eligibility is system-independent, so an abstaining needle scores False, not None."""
     window = (
-        _candidate("e_needle", "needle", "Kennedy won the race", 1),
-        _candidate("e_other", "other", "Kennedy also appears here", 2),
+        _cand("e_needle", "needle", "Kennedy won the race", 1),
+        _cand("e_other", "other", "Kennedy also appears here", 2),
     )
     case = evaluate_case(
         window,
