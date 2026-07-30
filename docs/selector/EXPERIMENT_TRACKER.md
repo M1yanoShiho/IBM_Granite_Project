@@ -1,10 +1,12 @@
 # Graph-Assisted Evidence Selector 2.0 — Experiment Tracker
 
-**Protocol:** 当前为迁移草稿；FinanceBench 不用于 Selector V2
+**Protocol:** `g2-proto-1`（[M0_PROTOCOL_FREEZE.md](M0_PROTOCOL_FREEZE.md)，状态 DRAFT — 待 R001 的 δ 后转 FROZEN）
 
-**Plan:** [TRAINING_PLAN.md](TRAINING_PLAN.md)
+**Plan:** [TRAINING_PLAN.md](TRAINING_PLAN.md) + [Graph 2.0 设计](../superpowers/specs/2026-07-30-graph-2.0-relation-layer-design.md) + [Plan 1](../superpowers/plans/2026-07-30-graph-2.0-plan-1-foundation.md)
 
-**Current state:** V2 尚未开始；所有 Run 均为 `TODO`
+**Current state:** Plan 1 的代码全部落地（见下表 Git commit 列）；**尚未跑任何 Run** —— R001 与 R012 都在等 GPU 轮次。
+
+**D1 = A**（只升级边与票的构造，门的四条件不动）。**D2 已消解**（D1=A 下选择器无参数，零训练路线下关系模型也不训）。
 
 ## 使用规则
 
@@ -18,13 +20,15 @@
 
 | Run | M | 工作与系统 | 数据 / split | 优先级 | 状态 | Git commit | Seed | Host / Job | Outputs | Gate / metric | Interpretation |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| R000 | M0 | 冻结 protocol/schema/splits | 全部 | MUST | TODO | — | — | — | — | hash / leakage audit | — |
-| R001 | M0 | 自动 label provenance Gate | NIAH train/dev/fresh manifest | MUST | TODO | — | deterministic | — | — | violations / overlap | — |
-| R002 | M0 | 冻结 NIAH train 500 或 2000 | NIAH train | MUST | TODO | — | — | — | — | query count / hash | dev 前决定 |
-| R003 | M0 | paired Monte Carlo 样本量 sensitivity | NIAH dev | MUST | TODO | — | frozen in run | — | — | power / MDE | query 为统计单位 |
-| R010 | M1 | ContractNLI adapter sanity | official train/dev | MUST | TODO | — | — | — | — | counts / leakage | 同合同不跨 split |
-| R011 | M1 | VitaminC adapter 与 revision-family decontamination | decontaminated train/dev + official test | MUST | TODO | — | — | — | — | counts / removed families | official test 不移动 |
-| R012 | M1 | pretrained NLI Relation Builder baseline | ContractNLI/VitaminC dev | MUST | TODO | — | model default | — | — | macro-F1 / precision / coverage | — |
+| R000 | M0 | 冻结 protocol/schema/splits（`g2-proto-1`） | 全部 | MUST | RUNNING | ddb5342 | — | — | [M0_PROTOCOL_FREEZE.md](M0_PROTOCOL_FREEZE.md) | hash / leakage audit | 决定全部拍板；状态 DRAFT，等 R001 的 δ 才能转 FROZEN |
+| R001 | M0 | **G-FC 固定分母基线**：带 `--dump` 跑一轮 3B+single E1，再离线 `cluster_rescore_cli` | `runs/niah-injected` | MUST | TODO | 10289bc | deterministic | — | — | 基线 false_conflict + δ | **关键路径**：工具已就位，只差一次 GPU 轮次 |
+| R001b | M0 | parent 碰撞率 + Graph 1.0-lenient 的 `support_unit=parent` 基线臂 | `runs/niah-injected` | MUST | TODO | d6607b3 | 13 | — | — | collision_rate / harm / recall | 预注册方向：门 fire 更少 ⇒ harm↑ recall↑ |
+| R002 | M0 | ~~冻结 NIAH train 500 或 2000~~ | — | — | **N/A** | — | — | — | — | — | 已消解：D1=A + 零训练 ⇒ 无 Selector 训练 |
+| R003 | M0 | paired Monte Carlo 样本量 sensitivity + G-FC 的 MDE | NIAH dev | MUST | TODO | — | frozen in run | — | — | power / MDE | 依赖 R001；δ = max(0.05, MDE) |
+| R010 | M1 | ~~ContractNLI adapter sanity~~ | — | — | **DROPPED** | — | — | — | — | — | 17 假设×607 NDA，与任务无结构相似性；v1 迁移 −0.134。理由见 M0 §3.0 |
+| R011 | M1 | VitaminC adapter 与 revision-family decontamination | decontaminated train/dev + official test | MUST | TODO | b5dbb5d | — | — | — | counts / removed families | 代码+测试已落；待导出 official test |
+| R011b | M1 | Gate 0B-2 探针构造（mutation log → 四类确定性对） | NIAH **train** split | MUST | TODO | ddb5342 | deterministic | — | — | n_pairs / n_skipped | 必须用 train，不得用 dev |
+| R012 | M1 | **零训练 Relation Builder sweep（三臂同场）** | VitaminC official test + 0B-2 探针 | MUST | TODO | be9dd2c | model default | — | — | 0B-1 五项 + 0B-2 两项 | **真实分叉点**：过则接门，不过则启动训练路径 |
 | R013 | M1 | fine-tuned Relation Builder | ContractNLI/VitaminC train/dev | MUST | TODO | — | 13 | — | — | per-class F1 | — |
 | R014 | M1 | fine-tuned Relation Builder | ContractNLI/VitaminC train/dev | MUST | TODO | — | 42 | — | — | per-class F1 | — |
 | R015 | M1 | fine-tuned Relation Builder | ContractNLI/VitaminC train/dev | MUST | TODO | — | 73 | — | — | per-class F1 | — |
