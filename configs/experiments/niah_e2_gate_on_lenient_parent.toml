@@ -1,0 +1,39 @@
+# E2 gate-ON-lenient-PARENT arm: lenient clustering with independent support counted by
+# source parent instead of by document_id.
+#
+# Identical to niah_e2_gate_on_lenient.toml except [selector].parameters.support_unit = "parent",
+# so the ONLY variable is the vote unit. dpr-w100 splits one Wikipedia article into many
+# document_ids, so the default "document" unit counts several passages of one article as
+# independent votes; this arm counts them once.
+#
+# Requires the SAME_SOURCE sidecar. Export it before running or the build fails loudly:
+#   python -m evidence_rag.cli.build_source_parent \
+#     --documents runs/niah-injected/documents.jsonl \
+#     --output runs/niah-injected/source_parent.jsonl
+#   export SOURCE_PARENT_INDEX=runs/niah-injected/source_parent.jsonl
+#
+# Pre-registered direction: the parent unit can only shrink independent_support, never grow it,
+# so vote margins shrink and the gate fires LESS. Expect harm to rise and recall to rise. If harm
+# instead falls, the collisions are concentrated on the counterfactual side and that needs a
+# separate explanation — it must not be accepted as a free win.
+[dataset]
+manifest = "../../runs/niah-injected/manifest.json"
+
+[output]
+directory = "../../runs/e2-gate-on-lenient-parent"
+
+[retriever]
+name = "bm25"
+parameters = { k1 = 1.5, b = 0.75 }
+
+[selector]
+name = "gated-corroboration"
+parameters = { alpha = 0.6, margin = 2, support_cap = 1, top_n = 20, equivalence = "lenient", support_unit = "parent" }
+
+[generator]
+name = "extractive"
+
+[run]
+top_k = 20
+max_selected = 10
+seed = 13

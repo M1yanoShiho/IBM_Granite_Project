@@ -84,6 +84,7 @@ class GatedCorroborationSelector:
         support_cap: int = 1,
         top_n: int = 20,
         equivalence: Literal["exact", "lenient"] = "exact",
+        parent_by_document: Mapping[str, str] | None = None,
         use_parametric: bool = True,
         passage_chars: int = 600,
         on_gate_decision: Callable[[GateDecision], None] | None = None,
@@ -103,6 +104,7 @@ class GatedCorroborationSelector:
         self.support_cap = support_cap
         self.top_n = top_n
         self.equivalence = equivalence
+        self.parent_by_document = parent_by_document
         self.on_gate_decision = on_gate_decision
         self._engine = AnswerExtractionEngine(
             answer_extractor,
@@ -159,9 +161,16 @@ class GatedCorroborationSelector:
             window[index].evidence_id: blended[index] for index in range(len(window))
         }
         clusters = (
-            build_clusters_lenient(window, extracted.answers, lenient_equivalent)
+            build_clusters_lenient(
+                window,
+                extracted.answers,
+                lenient_equivalent,
+                parent_by_document=self.parent_by_document,
+            )
             if self.equivalence == "lenient"
-            else build_clusters(window, extracted.answers)
+            else build_clusters(
+                window, extracted.answers, parent_by_document=self.parent_by_document
+            )
         )
         cluster_by_member = {
             member_id: cluster for cluster in clusters for member_id in cluster.member_ids

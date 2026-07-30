@@ -9,6 +9,7 @@ from evidence_rag.generator.extractive import ExtractiveGenerator
 from evidence_rag.generator.granite import GraniteGenerator, GraniteLLMClient, TextGenerator
 from evidence_rag.infrastructure.config import ExperimentConfig, ModuleConfig
 from evidence_rag.infrastructure.corpus import CorpusSnapshot
+from evidence_rag.materializer.source_parent import read_parent_index
 from evidence_rag.pipeline.service import EvidenceRAGPipeline
 from evidence_rag.retriever.bm25 import BM25Retriever, validate_bm25_parameters
 from evidence_rag.retriever.chunking import Chunker
@@ -317,6 +318,22 @@ def _selector_parameters(
     return parameters
 
 
+def _load_parent_index() -> Mapping[str, str]:
+    """Load the SAME_SOURCE sidecar for `support_unit="parent"`.
+
+    Fails loudly when it is absent: silently falling back to the document unit would run a whole
+    experiment on the old vote counting, and no metric would reveal it.
+    """
+    raw_path = os.environ.get("SOURCE_PARENT_INDEX")
+    if not raw_path:
+        raise ValueError(
+            "support_unit='parent' needs the SOURCE_PARENT_INDEX environment variable pointing "
+            "at a source_parent.jsonl sidecar; build one with "
+            "'python -m evidence_rag.cli.build_source_parent'"
+        )
+    return read_parent_index(Path(raw_path)).parent_by_document
+
+
 def build_selector(config: ModuleConfig, *, llm: TextGenerator | None = None) -> Selector:
     if config.name == "top-k":
         _reject_parameters(config, "selector")
@@ -331,7 +348,8 @@ def build_selector(config: ModuleConfig, *, llm: TextGenerator | None = None) ->
         )
     if config.name in {"gated-corroboration", "gated-coverage-corroboration"}:
         parameters = _selector_parameters(
-            config, frozenset({"alpha", "margin", "support_cap", "top_n", "equivalence"})
+            config,
+            frozenset({"alpha", "margin", "support_cap", "top_n", "equivalence", "support_unit"}),
         )
         client = llm if llm is not None else GraniteLLMClient()
         selector_class = (
@@ -345,6 +363,12 @@ def build_selector(config: ModuleConfig, *, llm: TextGenerator | None = None) ->
         equivalence: Literal["exact", "lenient"] = (
             "lenient" if raw_equivalence == "lenient" else "exact"
         )
+        raw_support_unit = config.parameters.get("support_unit", "document")
+        if raw_support_unit not in ("document", "parent"):
+            raise ValueError(f"invalid selector parameter support_unit: {raw_support_unit!r}")
+        parent_by_document = (
+            _load_parent_index() if raw_support_unit == "parent" else None
+        )
         return selector_class(
             client,
             alpha=float(parameters.get("alpha", 0.6)),
@@ -352,6 +376,7 @@ def build_selector(config: ModuleConfig, *, llm: TextGenerator | None = None) ->
             support_cap=int(parameters.get("support_cap", 1)),
             top_n=int(parameters.get("top_n", 20)),
             equivalence=equivalence,
+            parent_by_document=parent_by_document,
         )
     raise ValueError(f"unknown selector: {config.name}")
 
