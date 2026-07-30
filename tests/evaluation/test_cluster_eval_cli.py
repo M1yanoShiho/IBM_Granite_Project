@@ -23,16 +23,21 @@ def _write_jsonl(path: Path, rows: list[dict]) -> None:
     path.write_text("\n".join(json.dumps(row) for row in rows) + "\n", encoding="utf-8")
 
 
-def _manifest(tmp_path: Path) -> Path:
+def _manifest(tmp_path: Path, query_ids: tuple[str, ...] = ("q1",)) -> Path:
     documents = [
         {"schema_version": "1.0", "document_id": "needle", "text": "MARK_NEEDLE Kennedy won",
          "source_uri": "s://needle"},
         {"schema_version": "1.0", "document_id": "cf::needle", "text": "MARK_CF Nixon won",
          "source_uri": "s://cf"},
     ]
-    queries = [{"schema_version": "1.0", "query_id": "q1", "text": "who won?"}]
+    queries = [
+        {"schema_version": "1.0", "query_id": query_id, "text": "who won?"}
+        for query_id in query_ids
+    ]
     gold_cases = [
-        {"query_id": "q1", "relevant_document_ids": ["needle"], "reference_answers": ["Kennedy"]}
+        {"query_id": query_id, "relevant_document_ids": ["needle"],
+         "reference_answers": ["Kennedy"]}
+        for query_id in query_ids
     ]
     _write_jsonl(tmp_path / "documents.jsonl", documents)
     _write_jsonl(tmp_path / "queries.jsonl", queries)
@@ -46,64 +51,46 @@ def _manifest(tmp_path: Path) -> Path:
     return tmp_path / "manifest.json"
 
 
-def _candidates(tmp_path: Path) -> Path:
-    candidate_set = CandidateSet(
-        query_id="q1",
-        candidates=(
-            EvidenceCandidate(
-                evidence_id="e_needle", document_id="needle", chunk_id="needle::c0",
-                text="MARK_NEEDLE Kennedy won", source_uri="s://needle",
-                retrieval_score=2.0, retrieval_rank=1,
+def _candidates(tmp_path: Path, query_ids: tuple[str, ...] = ("q1",)) -> Path:
+    candidate_sets = [
+        CandidateSet(
+            query_id=query_id,
+            candidates=(
+                EvidenceCandidate(
+                    evidence_id="e_needle", document_id="needle", chunk_id="needle::c0",
+                    text="MARK_NEEDLE Kennedy won", source_uri="s://needle",
+                    retrieval_score=2.0, retrieval_rank=1,
+                ),
+                EvidenceCandidate(
+                    evidence_id="e_cf", document_id="cf::needle", chunk_id="cf::needle::c0",
+                    text="MARK_CF Nixon won", source_uri="s://cf",
+                    retrieval_score=1.0, retrieval_rank=2,
+                ),
             ),
-            EvidenceCandidate(
-                evidence_id="e_cf", document_id="cf::needle", chunk_id="cf::needle::c0",
-                text="MARK_CF Nixon won", source_uri="s://cf",
-                retrieval_score=1.0, retrieval_rank=2,
-            ),
-        ),
-    )
+        )
+        for query_id in query_ids
+    ]
     path = tmp_path / "candidate_sets.jsonl"
-    path.write_text(candidate_set.model_dump_json() + "\n", encoding="utf-8")
+    path.write_text(
+        "".join(candidate_set.model_dump_json() + "\n" for candidate_set in candidate_sets),
+        encoding="utf-8",
+    )
     return path
 
 
-def _provenance(tmp_path: Path) -> Path:
+def _provenance(tmp_path: Path, query_ids: tuple[str, ...] = ("q1",)) -> Path:
     path = tmp_path / "provenance.jsonl"
     write_provenance(
         path,
         [
             MutationRecord(
-                query_id="q1", needle_document_id="needle",
+                query_id=query_id, needle_document_id="needle",
                 counterfactual_document_id="cf::needle", gold_value="Kennedy",
                 gold_alias_used="Kennedy", replacement_value="Nixon", string_class="name-1",
                 seed=42, char_span=(0, 7), text_hash_before="a", text_hash_after="b",
                 answer_bank_hash="h",
             )
-        ],
-    )
-    return path
-
-
-def _dump_provenance(tmp_path: Path) -> Path:
-    """Provenance fixture shared by the --dump tests (identical MutationRecord in both)."""
-    path = tmp_path / "provenance.jsonl"
-    write_provenance(
-        path,
-        [
-            MutationRecord(
-                query_id="q1",
-                needle_document_id="needle",
-                counterfactual_document_id="cf::needle",
-                gold_value="Kennedy",
-                gold_alias_used="Kennedy",
-                replacement_value="Nixon",
-                string_class="proper_name_1",
-                seed=42,
-                char_span=(12, 20),
-                text_hash_before="a" * 8,
-                text_hash_after="b" * 8,
-                answer_bank_hash="c" * 8,
-            )
+            for query_id in query_ids
         ],
     )
     return path
@@ -201,7 +188,7 @@ def test_cli_decoupled_extraction_runs(tmp_path) -> None:
 def test_dump_writes_one_row_per_case_with_answers_and_alias_flags(tmp_path: Path) -> None:
     manifest = _manifest(tmp_path)
     candidates = _candidates(tmp_path)
-    provenance = _dump_provenance(tmp_path)
+    provenance = _provenance(tmp_path)
     dump = tmp_path / "dump.jsonl"
     exit_code = main(
         [
@@ -232,10 +219,11 @@ def test_dump_writes_one_row_per_case_with_answers_and_alias_flags(tmp_path: Pat
     assert row["lenient"]["needle_gold_recovery"] is True
 
 
-def test_dump_is_optional(tmp_path: Path) -> None:
+def test_dump_is_optional_and_writes_nothing_when_omitted(tmp_path: Path) -> None:
     manifest = _manifest(tmp_path)
     candidates = _candidates(tmp_path)
-    provenance = _dump_provenance(tmp_path)
+    provenance = _provenance(tmp_path)
+    unexpected = tmp_path / "dump.jsonl"
     exit_code = main(
         [
             "--manifest", str(manifest),
@@ -246,3 +234,30 @@ def test_dump_is_optional(tmp_path: Path) -> None:
         llm=FakeLLM({"MARK_NEEDLE": "Kennedy", "MARK_CF": "Nixon"}),
     )
     assert exit_code == 0
+    assert not unexpected.exists()
+
+
+def test_dump_honours_limit(tmp_path: Path) -> None:
+    """--limit slices the records before the loop, so the dump must not leak the skipped ones.
+
+    Cheap insurance rather than a suspected bug: this CLI has had a real --limit interaction
+    defect before (c5f813f, selection_bias denominator).
+    """
+    manifest = _manifest(tmp_path, query_ids=("q1", "q2"))
+    candidates = _candidates(tmp_path, query_ids=("q1", "q2"))
+    provenance = _provenance(tmp_path, query_ids=("q1", "q2"))
+    dump = tmp_path / "dump.jsonl"
+    exit_code = main(
+        [
+            "--manifest", str(manifest),
+            "--candidates", str(candidates),
+            "--provenance", str(provenance),
+            "--output", str(tmp_path / "report.json"),
+            "--dump", str(dump),
+            "--limit", "1",
+        ],
+        llm=FakeLLM({"MARK_NEEDLE": "Kennedy", "MARK_CF": "Nixon"}),
+    )
+    assert exit_code == 0
+    rows = [json.loads(line) for line in dump.read_text(encoding="utf-8").splitlines() if line]
+    assert [row["query_id"] for row in rows] == ["q1"]

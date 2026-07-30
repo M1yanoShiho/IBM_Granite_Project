@@ -3,6 +3,10 @@
 Reuses the E2 candidate_sets.jsonl (pools carry passage text), runs one Granite extraction
 pass over each injected query's top_n window, and reports missed/false-conflict, needle-gold
 recovery (Wilson CIs), plus the deterministic injection selection-bias framing line.
+
+``--dump`` additionally persists one per-case row (raw extracted answers + per-candidate
+gold-alias flags) so that rescoring and paired significance tests become CPU-level operations
+instead of requiring a fresh GPU extraction pass (M0 G-PQ).
 """
 
 import argparse
@@ -181,13 +185,16 @@ def main(argv: Sequence[str] | None = None, *, llm: TextGenerator | None = None)
         "lenient": _scored(lenient_cases),
         "selection_bias": dataclasses.asdict(bias),
     }
-    arguments.output.parent.mkdir(parents=True, exist_ok=True)
-    arguments.output.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    # The dump is written FIRST: by this point the GPU extraction cost is sunk and the dump is
+    # not regenerable, whereas the aggregate report can be recomputed from a dump offline
+    # (cluster_rescore). If one write has to fail, it should be the recoverable one.
     if arguments.dump is not None:
         arguments.dump.parent.mkdir(parents=True, exist_ok=True)
         arguments.dump.write_text(
             "".join(json.dumps(row, sort_keys=True) + "\n" for row in dump_rows), encoding="utf-8"
         )
+    arguments.output.parent.mkdir(parents=True, exist_ok=True)
+    arguments.output.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
     print(json.dumps(payload, sort_keys=True))
     return 0
 
