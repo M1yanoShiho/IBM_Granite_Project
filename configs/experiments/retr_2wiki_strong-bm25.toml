@@ -1,0 +1,20 @@
+[dataset]
+manifest = "../../runs/twowiki/manifest.json"
+
+[output]
+directory = "../../runs/retr-2wiki-strong-bm25"
+
+[retriever]
+name = "strong-bm25"
+parameters = { k1 = 0.9, b = 0.4 }
+
+[selector]
+name = "top-k"
+
+[generator]
+name = "extractive"
+
+[run]
+top_k = 50
+max_selected = 5
+seed = 7

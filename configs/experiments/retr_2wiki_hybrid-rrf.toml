@@ -1,0 +1,24 @@
+[dataset]
+manifest = "../../runs/twowiki/manifest.json"
+
+[output]
+directory = "../../runs/retr-2wiki-hybrid-rrf"
+
+[retriever]
+name = "hybrid"
+
+[retriever.parameters]
+fusion = "rrf"
+k = 60
+retrievers = [ { name = "strong-bm25" }, { name = "granite-dense" } ]
+
+[selector]
+name = "top-k"
+
+[generator]
+name = "extractive"
+
+[run]
+top_k = 50
+max_selected = 5
+seed = 7

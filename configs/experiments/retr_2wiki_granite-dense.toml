@@ -1,0 +1,19 @@
+[dataset]
+manifest = "../../runs/twowiki/manifest.json"
+
+[output]
+directory = "../../runs/retr-2wiki-granite-dense"
+
+[retriever]
+name = "granite-dense"
+
+[selector]
+name = "top-k"
+
+[generator]
+name = "extractive"
+
+[run]
+top_k = 50
+max_selected = 5
+seed = 7
