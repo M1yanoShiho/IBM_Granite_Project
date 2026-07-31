@@ -136,3 +136,14 @@ def test_external_report_boundary_is_inclusive() -> None:
     report = external_report(gold=gold, predicted=predicted)
     assert report.non_unknown_coverage == pytest.approx(0.80)
     assert "non_unknown_coverage" not in report.failures
+
+
+def test_macro_f1_is_the_mean_of_per_class_f1_not_of_precision() -> None:
+    """Pins the VALUE, not just the pass/fail. With perfectly-scored inputs precision, recall and
+    f1 all coincide, so an f1-vs-precision mix-up hides unless the arms are asymmetric."""
+    report = external_report(gold=[S, S, R, R], predicted=[S, U, R, R])
+    # SUPPORTS: precision 1.0, recall .5 -> f1 .667 | REFUTES: precision 1.0, recall 1.0 -> f1 1.0
+    assert report.supports_precision == pytest.approx(1.0)
+    assert report.supports_recall == pytest.approx(0.5)
+    assert report.macro_f1 == pytest.approx((2 / 3 + 1.0) / 2)
+    assert report.macro_f1 != pytest.approx(1.0)

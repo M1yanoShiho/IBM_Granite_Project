@@ -85,3 +85,19 @@ def test_predictions_are_returned_in_input_order() -> None:
     )
     labels = [p.label for p in predictor.predict([("p1", "h1"), ("p2", "h2")])]
     assert labels == [RelationLabel.SUPPORTS, RelationLabel.REFUTES]
+
+
+def test_confidence_comes_from_the_winning_class_not_always_supports() -> None:
+    """Every edge records a confidence as part of the frozen provenance, so a confidence taken
+    from the wrong class corrupts the audit record silently while the label stays right."""
+    refutes = _predictor(
+        {("p", "h"): {"SUPPORTS": 0.1, "REFUTES": 0.8, "UNKNOWN": 0.1}}
+    ).predict([("p", "h")])[0]
+    assert refutes.label is RelationLabel.REFUTES
+    assert refutes.confidence == pytest.approx(0.8)
+
+    unknown = _predictor(
+        {("p", "h"): {"SUPPORTS": 0.2, "REFUTES": 0.1, "UNKNOWN": 0.7}}
+    ).predict([("p", "h")])[0]
+    assert unknown.label is RelationLabel.UNKNOWN
+    assert unknown.confidence == pytest.approx(0.7)
