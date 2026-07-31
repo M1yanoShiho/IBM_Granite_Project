@@ -1,0 +1,24 @@
+[dataset]
+manifest = "../../data/benchmarks/scifact/test/manifest.json"
+
+[output]
+directory = "../../runs/retr-scifact-rrf-k10"
+
+[retriever]
+name = "hybrid"
+
+[retriever.parameters]
+fusion = "rrf"
+k = 10
+retrievers = [ { name = "bm25" }, { name = "strong-bm25" } ]
+
+[selector]
+name = "top-k"
+
+[generator]
+name = "extractive"
+
+[run]
+top_k = 50
+max_selected = 5
+seed = 7

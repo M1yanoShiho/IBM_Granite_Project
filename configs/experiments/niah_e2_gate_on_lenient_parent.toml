@@ -1,0 +1,58 @@
+# E2 gate-ON-lenient-PARENT arm: lenient clustering with independent support counted by
+# source parent instead of by document_id.
+#
+# Identical to niah_e2_gate_on_lenient.toml except [selector].parameters.support_unit = "parent",
+# so the ONLY variable is the vote unit. dpr-w100 splits one Wikipedia article into many
+# document_ids, so the default "document" unit counts several passages of one article as
+# independent votes; this arm counts them once.
+#
+# Requires the SAME_SOURCE sidecar. Export it before running or the build fails loudly:
+#   python -m evidence_rag.cli.build_source_parent \
+#     --documents runs/niah-injected/documents.jsonl \
+#     --output runs/niah-injected/source_parent.jsonl
+#   export SOURCE_PARENT_INDEX=runs/niah-injected/source_parent.jsonl
+#
+# Pre-registered direction (revised 2026-07-31, BEFORE the run, after measuring the collision
+# rate at 0.931 on dev — 1862/2000 windows contain at least one same-article pair, 20.0 docs
+# collapsing to 16.47 parents on average).
+#
+# The parent unit can only shrink independent_support, never grow it, but that feeds TWO gate
+# conditions in opposite directions:
+#
+#   condition 3 (margin = winner - own >= margin): both sides shrink, so the difference is not
+#     monotone. The competitor cluster is usually the larger one and so usually shrinks more,
+#     which shrinks the margin and makes the gate fire LESS.
+#   condition 4 (own <= support_cap): own shrinks, which makes this EASIER to satisfy and so
+#     makes more candidates droppable. A gold cluster held at support 2 by two passages of ONE
+#     article was structurally undroppable; under the parent unit it falls to 1 and becomes
+#     droppable.
+#
+# The net direction is therefore NOT derivable a priori, and the earlier prediction of
+# "harm up, recall up" was wrong because it only considered condition 3. Report both metrics
+# with no directional claim.
+#
+# Interpretation rule, fixed in advance: if recall falls via the condition-4 path, that is NOT a
+# regression. The protection being removed was one source counted twice. A recall drop of that
+# origin must be reported as the correction it is, and separated from any recall drop caused by
+# the gate genuinely mis-firing.
+[dataset]
+manifest = "../../runs/niah-injected/manifest.json"
+
+[output]
+directory = "../../runs/e2-gate-on-lenient-parent"
+
+[retriever]
+name = "bm25"
+parameters = { k1 = 1.5, b = 0.75 }
+
+[selector]
+name = "gated-corroboration"
+parameters = { alpha = 0.6, margin = 2, support_cap = 1, top_n = 20, equivalence = "lenient", support_unit = "parent" }
+
+[generator]
+name = "extractive"
+
+[run]
+top_k = 20
+max_selected = 10
+seed = 13

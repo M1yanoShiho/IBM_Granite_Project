@@ -20,7 +20,7 @@
 #   mkdir -p logs runs/ocr-smoke && sbatch scripts/run_ingest_ocr_smoke.slurm
 #SBATCH --job-name=ingest-ocr-smoke
 #SBATCH --account=coms039904
-#SBATCH --partition=gpu_short
+#SBATCH --partition=gpu
 #SBATCH --qos=normal
 #SBATCH --gres=gpu:rtx_3090:1
 #SBATCH --cpus-per-task=4

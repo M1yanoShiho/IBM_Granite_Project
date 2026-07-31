@@ -34,6 +34,8 @@ class ClusterEvalCase:
     missed_conflict: bool | None
     false_conflict: bool | None
     needle_gold_recovery: bool | None
+    fixed_eligible: bool
+    fixed_false_conflict: bool | None
 
 
 def evaluate_case(
@@ -105,6 +107,32 @@ def evaluate_case(
         if other_gold_clusters:
             false_conflict = bool(other_gold_clusters - needle_cluster_answers)
 
+    # Fixed-denominator G-FC: eligibility depends ONLY on the pool and the passage text,
+    # never on the system, so both arms score the same query set. Abstaining passages count as
+    # "did not create a conflict"; an abstaining needle therefore scores False, not None.
+    gold_alias_others = [
+        candidate
+        for candidate in window
+        if candidate.document_id != needle_document_id
+        and contains_alias(candidate.text, gold_aliases)
+    ]
+    fixed_eligible = needle_in_window and bool(gold_alias_others)
+    if not fixed_eligible:
+        fixed_false_conflict: bool | None = None
+    elif not needle_cluster_answers:
+        # An abstaining needle states nothing, so nothing can falsely conflict with it. It scores
+        # False rather than None because eligibility must stay system-independent — dropping the
+        # query would make the denominator depend on the extractor, which is the trap this
+        # metric exists to avoid.
+        fixed_false_conflict = False
+    else:
+        other_answers = {
+            cluster_answer_by_member[candidate.evidence_id]
+            for candidate in gold_alias_others
+            if candidate.evidence_id in cluster_answer_by_member
+        }
+        fixed_false_conflict = bool(other_answers - needle_cluster_answers)
+
     return ClusterEvalCase(
         query_id=query_id,
         needle_in_window=needle_in_window,
@@ -112,6 +140,8 @@ def evaluate_case(
         missed_conflict=missed_conflict,
         false_conflict=false_conflict,
         needle_gold_recovery=needle_gold_recovery,
+        fixed_eligible=fixed_eligible,
+        fixed_false_conflict=fixed_false_conflict,
     )
 
 
@@ -128,10 +158,12 @@ class MetricSummary:
 class ClusterEvalReport:
     missed_conflict: MetricSummary
     false_conflict: MetricSummary
+    fixed_false_conflict: MetricSummary
     needle_gold_recovery: MetricSummary
     n_cases: int
     needle_in_window: int
     cf_in_window: int
+    n_fixed_eligible: int
 
 
 def wilson_interval(successes: int, n: int, z: float = 1.96) -> tuple[float, float]:
@@ -160,10 +192,12 @@ def aggregate(cases: Sequence[ClusterEvalCase]) -> ClusterEvalReport:
     return ClusterEvalReport(
         missed_conflict=summarize(case.missed_conflict for case in cases),
         false_conflict=summarize(case.false_conflict for case in cases),
+        fixed_false_conflict=summarize(case.fixed_false_conflict for case in cases),
         needle_gold_recovery=summarize(case.needle_gold_recovery for case in cases),
         n_cases=len(cases),
         needle_in_window=sum(1 for case in cases if case.needle_in_window),
         cf_in_window=sum(1 for case in cases if case.cf_in_window),
+        n_fixed_eligible=sum(1 for case in cases if case.fixed_eligible),
     )
 
 

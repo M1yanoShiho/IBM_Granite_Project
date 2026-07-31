@@ -307,3 +307,62 @@ def test_pipeline_accepts_gated_shortfall() -> None:
     run = pipeline.run_with_trace(QUERY, top_k=4, max_selected=4)
     assert len(run.selection.items) == 3
     assert "lone" not in {item.evidence_id for item in run.selection.items}
+
+
+class _TwoChunkExtractor:
+    """d1 and d2 are two passages of ONE article; d3 is a genuinely different source."""
+
+    def generate(self, prompt: str) -> str:
+        if "Passage: P_A1" in prompt or "Passage: P_A2" in prompt:
+            return "Nixon"
+        if "Passage: P_B" in prompt:
+            return "Kennedy"
+        return "NONE"
+
+
+def _two_chunk_pool() -> tuple[Query, CandidateSet]:
+    def candidate(evidence_id: str, document_id: str, text: str, rank: int) -> EvidenceCandidate:
+        return EvidenceCandidate(
+            evidence_id=evidence_id,
+            document_id=document_id,
+            chunk_id=f"{document_id}::c0",
+            text=text,
+            source_uri=f"s://{document_id}",
+            retrieval_score=1.0 / rank,
+            retrieval_rank=rank,
+        )
+
+    query = Query(query_id="q1", text="who won?")
+    candidates = CandidateSet(
+        query_id="q1",
+        candidates=(
+            candidate("a1", "d1", "P_A1", 1),
+            candidate("a2", "d2", "P_A2", 2),
+            candidate("b", "d3", "P_B", 3),
+        ),
+    )
+    return query, candidates
+
+
+def test_document_unit_lets_two_chunks_of_one_article_out_vote_a_real_source() -> None:
+    """Pins the defect: under the document unit d1+d2 are one article but cast two votes,
+    out-voting the genuinely independent d3 by the margin and dropping it."""
+    query, candidates = _two_chunk_pool()
+    selector = GatedCorroborationSelector(
+        _TwoChunkExtractor(), margin=1, support_cap=1, use_parametric=False
+    )
+    result = selector.select(query, candidates, max_selected=3)
+    assert "b" not in {item.evidence_id for item in result.items}
+
+
+def test_parent_unit_stops_the_same_article_from_out_voting_it() -> None:
+    query, candidates = _two_chunk_pool()
+    selector = GatedCorroborationSelector(
+        _TwoChunkExtractor(),
+        margin=1,
+        support_cap=1,
+        use_parametric=False,
+        parent_by_document={"d1": "page a", "d2": "page a", "d3": "page b"},
+    )
+    result = selector.select(query, candidates, max_selected=3)
+    assert "b" in {item.evidence_id for item in result.items}

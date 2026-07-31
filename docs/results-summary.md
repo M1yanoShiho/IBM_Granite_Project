@@ -65,6 +65,32 @@ E1 pool 级组件评估(exact-string 簇,标签零人工=provenance + official g
 - **对 Graph 2.0:** 孪生 missed **可被抽取层大幅修复**(近腰斩),而非只能靠 NLI。真实杠杆确为**抽取质量**(S4 的方向对、结论错)。Graph 2.0 若上,应建在**更强抽取**之上;其增量价值须对照"8B+decoupled 抽取"这一新基线,而非对照旧的 .39 baseline。
 - **限制:** 直抽源文档(隔离检索),非全管道;未做配对显著性(仅比对 SE);8B 成本更高;未验证收益能否级联到 E1/E2 的 in-pool 指标。
 
-## 路线总结(3-phase route + 2×2,2026-07)
+### S6 — S5 的收益**不级联**到真实检索池:解耦抽取在池内制造大量假冲突(2026-07-26)
 
-诊断链(E1 + CPU 探针)把 E2 的 −4.8pp recall 代价定位到 **exact-string 答案等价**——这一诊断在 S5 又一次自我印证:**连我们自己的探针计分都栽在同一个坑上**。修复给出两处真收益:**lenient 聚类**(S3,recall +1.2pp p≈0,零 harm)与 **8B×decoupled 抽取**(S5,孪生 missed −22pp,gold 持平)。**8B 的前三次否决只在 recovery/matching 轴成立;在 twin 轴 + 修好的计分下,8B 是有用的**——这是本轮最重要的修正。rigor 底线已达(缺陷自查、诚实更正、全实测);Graph 2.0 仍是 upside,但须以"强抽取"为新基线论证其增量。
+把 S5 的 8B+decoupled 接到 **E2 真实 top-20 池**(cluster_eval,n=300,lenient 列)对照 3B+single:
+
+| 指标 | 3B + single | 8B + decoupled | Δ |
+|---|---|---|---|
+| missed_conflict | .427 [.358,.499] | .308 [.253,.369] | −11.9pp |
+| needle_gold_recovery | .609 [.547,.668] | .673 [.613,.729] | +6.4pp |
+| **false_conflict** | **.494 [.421,.568]** | **.877 [.825,.916]** | **+38.3pp** |
+
+- **三项里唯一统计确凿的是坏的那项:** missed 与 recovery 的 CI 互相重叠(提示性,未确立);false_conflict 的 CI **完全不重叠**,退化无疑。
+- **机制:** decoupled 的 Stage A 每题只命名**一个**目标类型,再套到全部 20 段。孤立探针(S5)只有 needle+cf 两段 → 无害;真实池里其余 18 条干扰段被**逼着**吐出该类型的某个值 → 含 gold 的段与 needle 抽出不同答案 → **gold 碎裂 88%**。而 false_conflict 正是 E2 −4.8pp recall 的机制通道 → 接进门**大概率让 recall 更差**。
+- **结论:S5 为真但不外推到两段以上。** 孤立探针高估了它,**池结构**才是破点。**"更强抽取"这条新基线因此不成立**——S5 结论(§S5 最后一条)据此下调:8B+decoupled 不是可用的系统级修复。
+- **对 Graph 2.0(反而变强):** 失败根因是"每段必须吐一个答案"的单答案抽取**无法表达"本段与被问属性无关"**。而 Graph 2.0 的关系模型**设计上就有 UNKNOWN / 不建边**(TRAINING_PLAN §3.2、Gate 0B 的 abstention/coverage 指标)——正对这个失效模式。这是**用实测负结果**支撑 NLI 关系层的具体论据,而非泛泛而谈。
+- **限制:** 两臂 denominator 不同(185 vs 237,"both clustered"随抽取策略变)→ 未做配对检验,仅各臂 Wilson CI;n=300 子采样。
+
+## 路线总结(3-phase route + 2×2 + 级联验证,2026-07)
+
+诊断链(E1 + CPU 探针)把 E2 的 −4.8pp recall 代价定位到 **exact-string 答案等价**——这一诊断在 S5 又一次自我印证:**连我们自己的探针计分都栽在同一个坑上**。
+
+**最终计分:**
+- **唯一确立的系统级修复 = lenient 聚类**(S3,in-pool recall **+1.2pp p≈0**,harm 不变)。确定性、门内、零推理成本。
+- **8B × decoupled 抽取(S5)在孤立探针上很漂亮(孪生 missed −22pp),但 S6 证明它不级联**——池内 false_conflict 从 .49 飙到 .88,而这正是伤 recall 的通道。**不采用。**
+- 8B 本身的价值被平反了一半:前三次否决(recovery/matching 轴)是 exact 计分伪影;但**在真实池里它也没能变成可用修复**。
+- 顽疾 **twin missed-conflict 仍在**(池内 .31–.43),且已证明**抽取层修不动**。
+
+**对 Graph 2.0:** S6 的失败根因——单答案抽取**无法表达"本段与被问属性无关"**——正是 Graph 2.0 关系层 **UNKNOWN / 不建边**设计所针对的。所以这轮负结果**加强**了 NLI 关系层的论据,并给它一个具体的、可检验的必达目标:**在不推高 false_conflict 的前提下压低 missed_conflict**。Graph 2.0 的 Gate 0B(abstention rate、edge coverage、CLAIM_REFUTES precision ≥ .85)就是这个目标的验收口径。
+
+rigor 底线已达:两个自查出的探针缺陷、两条被推翻的自家结论(S4、S5)、全部以实测更正。

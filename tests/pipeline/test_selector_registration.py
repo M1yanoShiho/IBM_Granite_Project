@@ -116,3 +116,82 @@ def test_top_k_rejects_parameters() -> None:
 def test_unknown_selector_rejected() -> None:
     with pytest.raises(ValueError, match="unknown selector"):
         build_selector(ModuleConfig(name="mystery"))
+
+
+def test_support_unit_rejects_an_unknown_value() -> None:
+    config = ModuleConfig(name="gated-corroboration", parameters={"support_unit": "page"})
+    with pytest.raises(ValueError, match="support_unit"):
+        build_selector(config, llm=FakeLLM())
+
+
+def test_support_unit_defaults_to_document() -> None:
+    selector = build_selector(
+        ModuleConfig(name="gated-corroboration", parameters={}), llm=FakeLLM()
+    )
+    assert isinstance(selector, GatedCorroborationSelector)
+    assert selector.parent_by_document is None
+
+
+def test_support_unit_parent_loads_the_sidecar_from_the_environment(
+    tmp_path, monkeypatch
+) -> None:
+    import json
+
+    index = tmp_path / "source_parent.jsonl"
+    index.write_text(
+        json.dumps({"document_id": "d1", "source_parent_id": "page a"}) + "\n", encoding="utf-8"
+    )
+    monkeypatch.setenv("SOURCE_PARENT_INDEX", str(index))
+    selector = build_selector(
+        ModuleConfig(name="gated-corroboration", parameters={"support_unit": "parent"}),
+        llm=FakeLLM(),
+    )
+    assert isinstance(selector, GatedCorroborationSelector)
+    assert selector.parent_by_document == {"d1": "page a"}
+
+
+def test_support_unit_parent_fails_loudly_without_the_sidecar(monkeypatch) -> None:
+    """Silently falling back to the document unit would run a whole experiment on the old
+    vote counting with no metric able to reveal it."""
+    monkeypatch.delenv("SOURCE_PARENT_INDEX", raising=False)
+    with pytest.raises(ValueError, match="SOURCE_PARENT_INDEX"):
+        build_selector(
+            ModuleConfig(name="gated-corroboration", parameters={"support_unit": "parent"}),
+            llm=FakeLLM(),
+        )
+
+
+def test_source_parent_provenance_is_empty_for_the_document_unit() -> None:
+    from evidence_rag.composition import source_parent_provenance
+
+    assert source_parent_provenance(ModuleConfig(name="gated-corroboration")) == {}
+
+
+def test_source_parent_provenance_records_path_and_hash(tmp_path, monkeypatch) -> None:
+    """The sidecar comes from the environment, not the config, so a run against a stale sidecar
+    would otherwise be indistinguishable from one against a regenerated sidecar."""
+    import hashlib
+    import json
+
+    from evidence_rag.composition import source_parent_provenance
+
+    index = tmp_path / "source_parent.jsonl"
+    index.write_bytes(
+        (json.dumps({"document_id": "d1", "source_parent_id": "page a"}) + "\n").encode("utf-8")
+    )
+    monkeypatch.setenv("SOURCE_PARENT_INDEX", str(index))
+    recorded = source_parent_provenance(
+        ModuleConfig(name="gated-corroboration", parameters={"support_unit": "parent"})
+    )
+    assert recorded["source_parent_index"] == str(index)
+    assert recorded["source_parent_sha256"] == hashlib.sha256(index.read_bytes()).hexdigest()
+
+
+def test_source_parent_provenance_fails_loudly_without_the_sidecar(monkeypatch) -> None:
+    from evidence_rag.composition import source_parent_provenance
+
+    monkeypatch.delenv("SOURCE_PARENT_INDEX", raising=False)
+    with pytest.raises(ValueError, match="SOURCE_PARENT_INDEX"):
+        source_parent_provenance(
+            ModuleConfig(name="gated-corroboration", parameters={"support_unit": "parent"})
+        )

@@ -21,6 +21,9 @@ ingestion = [
   "docling-core[chunking]>=2,<3",
   "pillow>=10,<12",
 ]
+# Graph 2.0 relation layer: loading VitaminC for Gate 0B. The relation model itself
+# reuses the 'granite' extra's transformers/torch; only the dataset export needs this.
+relations = ["datasets>=2,<5"]
 # Optional upgrade for the Generator's entity check only: SpacyEntityExtractor.
 # The default RuleBasedEntityExtractor needs nothing beyond the stdlib, and the
 # NLI verifier reuses the 'granite' extra's transformers/torch.
