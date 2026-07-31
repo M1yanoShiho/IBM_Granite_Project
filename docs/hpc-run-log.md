@@ -474,6 +474,16 @@ supporting-fact 标签);与 conflict 边(false/missed-conflict)、duplicate 边(
   `mean_documents_per_window = 20.0` → `mean_parents_per_window = 16.4735`、`n_unresolved = 0`
   (101479 文档全部解析出 parent,91492 个不同条目)。**假设成立,且远超预期:93% 的题受影响,
   平均每窗口 20 段只对应 16.5 个真实来源。** `independent_support` 的虚增是普遍现象,不是边角情况。
+- **(a′) needle-parent 定向诊断(同次运行,commit a09f787):**
+  `needle_parent_inflation_rate = 0.328`(415 / 1264)、`cf_shares_needle_parent = 1261 / 1264`、
+  `n_injected_scored = 1264`。
+  - **1264 / 1479 = 0.854** 的 needle 在窗口内,与已知 `pool_hit ≈ 0.842` 一致 ——
+    独立口径的一致性核对通过,说明工具读的是同一批题。
+  - **0.328 是上界,不是实测虚增。** 该指标只说"同条目另一段**在窗口里**",不说它**抽出了等价答案
+    并落进 gold 簇**。真正落进 gold 簇需要抽取结果,那要 GPU,属 (b)。
+  - **3 例 `cf` 与 needle 不同 parent**(1264−1261)。成因:gold alias 恰好只出现在**标题段**,
+    mutation 因而改到了 title,孪生的 parent 随之变了。占比 0.24%,且**机制上惰性**
+    (cf 簇的 support 两种单位下都是 1),不修,但如实记录而非隐去。
 - **预期方向(预注册,2026-07-31 修订 —— 在 (b) 运行之前):** ~~原写"票差缩小 ⇒ 门 fire 更少 ⇒ harm↑ recall↑"~~
   **该推导有误,只考虑了条件 3。** parent 单位让 support 单调变小,但它同时喂给两个方向相反的门条件:
   - **条件 3**(`margin = winner − own ≥ margin`):两边都缩,差值**非单调**。竞争簇通常更大、缩得更多,
@@ -485,6 +495,16 @@ supporting-fact 标签);与 conflict 边(false/missed-conflict)、duplicate 边(
 - **判读口径(事先固定):** 若 recall 经条件 4 那条通道下降,**那不是回归,是撤掉了假保护** ——
   被撤掉的保护本来就是同一个来源被数了两次。这类 recall 下降必须**作为"修正"报告**,
   并与"门真的误踢"造成的 recall 下降**分开计**。
+- **(a′) 之后收窄的预期(仍不作方向性主张,只把机制写细):**
+  - **harm 侧:** 门要踢掉毒需 `support(gold) − support(cf) ≥ 2` 且 `support(cf) ≤ 1`;
+    因 cf 簇恒为 1,等价于 **`support(gold) ≥ 3`**。原本靠 3 段以上撑到 ≥3 的题,若其中有同 parent 的,
+    parent 单位下会掉到 <3 ⇒ **门停火 ⇒ harm 上升**。(a′) 无法预判有多少题落在这里,因为它没测 gold 簇。
+  - **recall 侧:** gold 簇若靠**同条目两段**撑到 support=2,document 单位下 `2 > cap=1` 使 needle
+    **结构性不可踢**;parent 单位下掉到 1 ⇒ 变可踢 ⇒ **recall 下降**。0.328 说明这条通道的
+    **机会**在 1/3 的题上存在。
+  - **必须一起读的推论:** 若 (b) 观测到 harm 明显回弹向 gate-off 的 0.680,则 **S1 的 −11.2pp
+    有一部分是"同一篇条目被数多次"换来的记账收益,而非机制收益** —— 这必须写进报告,
+    不得只报"parent 单位下门更保守"了事。
 - **命令(前两条纯 CPU,登录节点即可):**
   ```
   python -m evidence_rag.cli.build_source_parent     --documents runs/niah-injected/documents.jsonl     --output runs/niah-injected/source_parent.jsonl
