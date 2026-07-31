@@ -27,6 +27,10 @@
 #
 # Submit from the project root:
 #   mkdir -p logs results/gate0b && sbatch scripts/run_gate0b.slurm
+#
+# 0B-2 only (fast; this tier carries the go/no-go thresholds):
+#   sbatch scripts/run_gate0b.slurm data/gate0b/task_pairs.jsonl none \
+#     results/gate0b/sweep-task-only.json
 #SBATCH --job-name=gate0b
 #SBATCH --account=coms039904
 #SBATCH --partition=gpu
@@ -34,13 +38,17 @@
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=32G
-#SBATCH --time=02:00:00
+#SBATCH --time=04:00:00
 #SBATCH --output=logs/%x-%j.out
 
 set -euo pipefail
+# Pass "none" as EXTERNAL_PAIRS to run 0B-2 only. That tier is 5888 pairs versus 55197 and
+# carries the go/no-go thresholds, so it is worth having on its own turnaround.
 TASK_PAIRS="${1:-data/gate0b/task_pairs.jsonl}"
 EXTERNAL_PAIRS="${2:-data/gate0b/vitaminc_test.jsonl}"
 OUTPUT="${3:-results/gate0b/sweep.json}"
+MODELS="${4:-tals/albert-xlarge-vitaminc-mnli MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli}"
+if [ "$EXTERNAL_PAIRS" = "none" ]; then EXTERNAL_ARG=""; else EXTERNAL_ARG="--external-pairs $EXTERNAL_PAIRS"; fi
 
 module load languages/python/3.12.3
 export HF_HOME=/user/work/$USER/hf_cache HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1

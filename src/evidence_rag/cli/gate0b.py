@@ -92,6 +92,13 @@ def load_score_fn(model_id: str) -> tuple[ScoreFn, str]:
     model = transformers.AutoModelForSequenceClassification.from_pretrained(model_id)
     model.eval()
 
+    # Without this the job holds a GPU and runs on CPU anyway. ALBERT-xlarge is far heavier than
+    # its 59M parameter count suggests — 24 layers share one weight set, so the compute is that
+    # of a 24-layer hidden-2048 model — and on CPU it simply looks like a hang.
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    model.to(device)
+    print(f"[gate0b] {model_id} on {device} (tokenizer: {tokenizer_variant})", flush=True)
+
     def score(pairs: Sequence[tuple[str, str]]) -> list[dict[str, float]]:
         results: list[dict[str, float]] = []
         for start in range(0, len(pairs), BATCH_SIZE):
@@ -103,10 +110,13 @@ def load_score_fn(model_id: str) -> tuple[ScoreFn, str]:
                 padding=True,
                 return_tensors="pt",
             )
+            encoded = {key: value.to(device) for key, value in encoded.items()}
             with torch.no_grad():
                 logits = model(**encoded).logits
-            for row in torch.softmax(logits, dim=-1).tolist():
+            for row in torch.softmax(logits.float().cpu(), dim=-1).tolist():
                 results.append({name: float(row[index]) for index, name in enumerate(order)})
+            if start % (BATCH_SIZE * 20) == 0:
+                print(f"[gate0b] {model_id} {start}/{len(pairs)}", flush=True)
         return results
 
     return score, tokenizer_variant
