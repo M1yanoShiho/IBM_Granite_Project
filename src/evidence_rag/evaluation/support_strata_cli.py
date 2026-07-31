@@ -7,6 +7,7 @@ from being counted as a different claim.
 """
 
 import argparse
+import dataclasses
 import json
 from collections.abc import Sequence
 from pathlib import Path
@@ -27,6 +28,12 @@ def _parser() -> argparse.ArgumentParser:
         "--parent-index",
         type=Path,
         help="SAME_SOURCE sidecar; without it the parent columns repeat the document columns",
+    )
+    parser.add_argument(
+        "--per-case",
+        type=Path,
+        help="write one row per query (document/lenient arm) with the answer that out-voted "
+        "the needle, so killers can be inspected instead of only counted",
     )
     parser.add_argument("--margin", type=int, default=2)
     parser.add_argument("--support-cap", type=int, default=1)
@@ -61,6 +68,22 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
             for name, equivalence in SCORINGS.items()
         }
+
+    if arguments.per_case is not None:
+        cases = analyse(
+            rows,
+            equivalence=lenient_equivalent,
+            parent_by_document=None,
+            margin=arguments.margin,
+            support_cap=arguments.support_cap,
+        )
+        arguments.per_case.parent.mkdir(parents=True, exist_ok=True)
+        arguments.per_case.write_text(
+            "".join(
+                json.dumps(dataclasses.asdict(case), sort_keys=True) + "\n" for case in cases
+            ),
+            encoding="utf-8",
+        )
 
     arguments.output.parent.mkdir(parents=True, exist_ok=True)
     arguments.output.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")

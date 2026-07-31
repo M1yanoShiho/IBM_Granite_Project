@@ -77,9 +77,14 @@ def test_parent_unit_collapses_same_article_support() -> None:
     assert parent[0].gold_support == 1
 
 
-def test_poison_is_droppable_only_when_gold_reaches_three() -> None:
-    """The cf cluster is always a single source, so with margin 2 and cap 1 the gate can act on
-    the poison only when the gold cluster has at least three independent sources."""
+def test_poison_needs_a_competitor_three_strong_in_this_window() -> None:
+    """With margin 2 and cap 1 the poison is dropped only when SOME competing cluster reaches 3.
+
+    In this window gold is the only competitor, so gold reaching 3 is what decides it. Do NOT
+    read this as "the gate needs gold >= 3" in general — the winner is the strongest cluster with
+    a different answer, and a distractor cluster out-votes the poison just as well. The R001
+    measurement found the poison dropped on 3-11% of queries with zero gold support.
+    """
     three = analyse((_row(["Kennedy", "Nixon", "Kennedy", "Kennedy"]),),
                     equivalence=None, parent_by_document=None)
     two = analyse((_row(["Kennedy", "Nixon", "Kennedy"]),),
@@ -90,9 +95,11 @@ def test_poison_is_droppable_only_when_gold_reaches_three() -> None:
     assert two[0].poison_dropped is False
 
 
-def test_true_needle_leaves_the_gate_structurally_silent() -> None:
-    """gold_support == 1 is the actual needle case. The gate can never reach the margin, so it
-    cannot act on the poison at all — no tuning changes this."""
+def test_lone_gold_with_no_other_competitor_leaves_the_poison_untouched() -> None:
+    """gold_support == 1 with nothing else in the window: no cluster reaches the margin, so the
+    poison survives. This is about THIS window, not a general property of the needle case — see
+    test_poison_needs_a_competitor_three_strong_in_this_window.
+    """
     rows = (_row(["Kennedy", "Nixon"]),)
     result = analyse(rows, equivalence=None, parent_by_document=None)
     assert result[0].gold_support == 1
@@ -167,3 +174,21 @@ def test_cli_round_trip(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> N
         for scoring in ("exact", "lenient"):
             assert payload[unit][scoring]["n_cases"] == 1
     assert payload["document"]["exact"]["true_needle_rate"] == 1.0
+
+
+def test_stratum_row_carries_the_winner_that_out_voted_the_needle() -> None:
+    """Knowing WHICH answer out-voted the needle is what tells us whether the killer is a real
+    competing claim or extraction noise from passages that do not address the question."""
+    rows = (_row(["Kennedy", "Nixon", "Nixon", "Nixon"]),)
+    result = analyse(rows, equivalence=None, parent_by_document=None)
+    assert result[0].needle_dropped is True
+    assert result[0].needle_winner_answer == "nixon"
+    assert result[0].needle_winner_support == 3
+    assert result[0].needle_own_answer == "kennedy"
+
+
+def test_winner_fields_are_none_when_the_needle_is_absent() -> None:
+    rows = (_row(["Nixon", "Truman"], document_ids=["d1", "d2"]),)
+    result = analyse(rows, equivalence=None, parent_by_document=None)
+    assert result[0].needle_winner_answer is None
+    assert result[0].needle_own_answer is None
