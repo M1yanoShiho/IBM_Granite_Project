@@ -513,6 +513,28 @@ supporting-fact 标签);与 conflict 边(false/missed-conflict)、duplicate 边(
 - **commit:** be9dd2c(Gate 0B 指标 + runner)/ ddb5342(探针)/ b5dbb5d(VitaminC adapter)
 - **AFTER:** _待填 —— 每臂的 0B-1 五项与 0B-2 两项,以及分叉判定_
 
+### R011 — VitaminC adapter 与 revision-family 去污染 [DONE 2026-07-31]
+
+- **命令:** `python -m evidence_rag.cli.export_vitaminc --out-test data/gate0b/vitaminc_test.jsonl
+  --removed-log data/gate0b/vitaminc_decontamination.json`(登录节点,纯 CPU,约 5 秒)
+- **AFTER(实测):**
+
+| split | official | 去污染后 | 移除 |
+|---|---:|---:|---:|
+| train | 370653 | **369843** | 810 行 / **38 个 page** |
+| validation | 63054 | **62984** | 70 行 / **2 个 page** |
+| test | 55197 | **55197** | **0 —— official test 一行未动** ✅ |
+
+- **移除的 dev page:** `John Frusciante`、`Linkin Park`(两者均出现在 official test 中)。
+- **移除的 train page(38):** 含 `World War II`、`China`、`Aristotle`、`French Revolution`、`YouTube` 等。
+  `Linkin Park` 同时出现在两份移除清单里 —— 与实现一致(它在 test 中,故 dev 和 train 都要清)。
+- **判读:** VitaminC 的 official split **确实存在跨 split 的 revision-family 重叠**(38 个 page),
+  虽然量小(train 0.22% / dev 0.11%)。这条去污染步骤不是形式主义,它真的删掉了东西;
+  同时 official test 逐行未动,满足"test-preserving"的冻结要求。删除清单已存档
+  (`data/gate0b/vitaminc_decontamination.json`,注意 `/data/` 被 gitignore,须 `git add -f`)。
+- **未导出 train/dev 的去污染副本:** Gate 0B-1 只需 official test;去污染后的 train/dev 仅在
+  §3.8 训练路径被启动时才需要,届时加 `--out-train` / `--out-dev` 重跑即可(确定性,可复现)。
+
 ---
 
 ## 本地(非 HPC)验证记录

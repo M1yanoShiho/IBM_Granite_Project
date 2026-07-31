@@ -26,7 +26,7 @@
 | R002 | M0 | ~~冻结 NIAH train 500 或 2000~~ | — | — | **N/A** | — | — | — | — | — | 已消解：D1=A + 零训练 ⇒ 无 Selector 训练 |
 | R003 | M0 | paired Monte Carlo 样本量 sensitivity + G-FC 的 MDE | NIAH dev | MUST | TODO | — | frozen in run | — | — | power / MDE | 依赖 R001；δ = max(0.05, MDE) |
 | R010 | M1 | ~~ContractNLI adapter sanity~~ | — | — | **DROPPED** | — | — | — | — | — | 17 假设×607 NDA，与任务无结构相似性；v1 迁移 −0.134。理由见 M0 §3.0 |
-| R011 | M1 | VitaminC adapter 与 revision-family decontamination | decontaminated train/dev + official test | MUST | TODO | b5dbb5d | — | — | — | counts / removed families | 代码+测试已落；待导出 official test |
+| R011 | M1 | VitaminC adapter 与 revision-family decontamination | official test（+去污染 train/dev） | MUST | **DONE** | b5dbb5d | deterministic | bp1 login | `data/gate0b/vitaminc_decontamination.json` | test 55197 **未动**；train −810 行/38 page；dev −70 行/2 page | official split 确有跨 split family 重叠（量小但非零），去污染非形式主义；test-preserving 满足 |
 | R011b | M1 | Gate 0B-2 探针构造（mutation log → 四类确定性对） | NIAH **train** split | MUST | TODO | ddb5342 | deterministic | — | — | n_pairs / n_skipped | 必须用 train，不得用 dev |
 | R012 | M1 | **零训练 Relation Builder sweep（三臂同场）** | VitaminC official test + 0B-2 探针 | MUST | TODO | be9dd2c | model default | — | — | 0B-1 五项 + 0B-2 两项 | **真实分叉点**：过则接门，不过则启动训练路径 |
 | R013 | M1 | fine-tuned Relation Builder | ContractNLI/VitaminC train/dev | MUST | TODO | — | 13 | — | — | per-class F1 | — |
