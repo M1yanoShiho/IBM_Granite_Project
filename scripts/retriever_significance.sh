@@ -37,14 +37,14 @@ for pair in "${PAIRS[@]}"; do
     continue
   fi
   for METRIC in "${METRICS[@]}"; do
-    python -m evidence_rag.evaluation.paired_metric_cli \
-      --on-report "$ON_REPORT" --off-report "$OFF_REPORT" --metric "$METRIC" \
-    | python - "$ON vs $OFF" "$METRIC" <<'PY'
-import json, sys
-label, metric = sys.argv[1], sys.argv[2]
-d = json.loads(sys.stdin.read())
-print(f"{label:<26} {metric:<34} {d['mean_on']:8.4f} {d['mean_off']:8.4f} "
-      f"{d['delta']:+8.4f} {d['p_value']:10.4f} {d['n_paired']:7d}")
-PY
+    # Capture the CLI's JSON, then format it — do NOT pipe into a `python - <<heredoc`,
+    # because the heredoc claims stdin and the piped JSON never reaches sys.stdin.
+    JSON="$(python -m evidence_rag.evaluation.paired_metric_cli \
+      --on-report "$ON_REPORT" --off-report "$OFF_REPORT" --metric "$METRIC")"
+    python -c 'import json, sys
+d = json.loads(sys.argv[3])
+print("%-26s %-34s %8.4f %8.4f %+8.4f %10.4f %7d" % (
+    sys.argv[1], sys.argv[2], d["mean_on"], d["mean_off"], d["delta"], d["p_value"], d["n_paired"]))' \
+      "$ON vs $OFF" "$METRIC" "$JSON"
   done
 done

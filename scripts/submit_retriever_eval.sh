@@ -36,14 +36,22 @@ case "$SUITE" in
   scifact) mapfile -t FILES < <(mk scifact "${BASE[@]}") ;;
   nq)      mapfile -t FILES < <(mk nq "${BASE[@]}") ;;
   2wiki)   mapfile -t FILES < <(mk 2wiki "${BASE[@]}") ;;
-  # Convex sweep: endpoints (pure sparse / pure dense) + alpha grid (a50 = hybrid-convex).
+  # Convex sweep: only the NEW alpha points (fresh output dirs). The endpoints
+  # (strong-bm25=pure sparse, granite-dense=pure dense) and the a50 midpoint
+  # (hybrid-convex) are already in the base matrix — do NOT re-run them here (their dirs
+  # exist and would trip the manifest guard). Add those base reports to
+  # summarize_retriever_eval.py to draw the full alpha curve.
   scifact-convex)
-    mapfile -t FILES < <(mk scifact strong-bm25 convex-a10 convex-a30 hybrid-convex convex-a70 convex-a90 granite-dense) ;;
+    mapfile -t FILES < <(mk scifact convex-a10 convex-a30 convex-a70 convex-a90) ;;
   nq-convex)
-    mapfile -t FILES < <(mk nq strong-bm25 convex-a30 hybrid-convex convex-a70 granite-dense) ;;
+    mapfile -t FILES < <(mk nq convex-a30 convex-a70) ;;
   # Hyperparameter sweep: pure-CPU sparse arms — prefer --local (no GPU queue).
+  # NOTE: intentionally excludes bm25 / strong-bm25 — those are in the base matrix and
+  # their runs/retr-scifact-{bm25,strong-bm25} dirs already exist; re-running prepare over
+  # a populated dir trips the manifest guard. Compare against the base results instead
+  # (pass them to summarize_retriever_eval.py, which only reads reports).
   scifact-hyper)
-    mapfile -t FILES < <(mk scifact bm25 strong-bm25 \
+    mapfile -t FILES < <(mk scifact \
       bm25-k09b30 bm25-k09b75 bm25-k12b40 bm25-k12b75 bm25-k20b40 bm25-k20b75 \
       rrf-k10 rrf-k30 rrf-k100) ;;
   *) echo "unknown suite: $SUITE" >&2; exit 2 ;;
