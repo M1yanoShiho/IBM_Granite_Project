@@ -12,6 +12,7 @@ from evidence_rag.composition import (
     build_retriever,
     build_selector,
     prepare_retriever_index,
+    source_parent_provenance,
 )
 from evidence_rag.contracts.models import (
     CandidateSet,
@@ -442,6 +443,10 @@ class ExperimentWorkflow:
         elif stage == "selector":
             module = self.config.selector
             parameters = {"max_selected": self.config.max_selected}
+            # The SAME_SOURCE sidecar is resolved from the environment, not the config, so
+            # its identity has to be recorded here or two runs against different sidecars
+            # would be indistinguishable in the archived provenance.
+            parameters.update(source_parent_provenance(self.config.selector))
         elif stage == "generator":
             module = self.config.generator
             parameters = {}

@@ -107,7 +107,21 @@ def test_load_score_fn_rejects_an_unverified_checkpoint() -> None:
         load_score_fn("some/unknown-model")
 
 
-def test_label_order_covers_the_planned_checkpoints() -> None:
-    assert "tals/albert-xlarge-vitaminc-mnli" in LABEL_ORDER
+def test_label_order_matches_the_verified_id2label_of_each_checkpoint() -> None:
+    """Pins the ORDER, not just completeness.
+
+    Verified against the real checkpoints on 2026-07-30:
+      tals/albert-xlarge-vitaminc-mnli -> {0: SUPPORTS, 1: REFUTES, 2: NOT ENOUGH INFO}
+      MoritzLaurer/DeBERTa-...-wanli   -> {0: entailment, 1: neutral, 2: contradiction}
+
+    A test that only checked the three labels are present would let a future wrong entry swap
+    REFUTES and SUPPORTS while every downstream number stayed plausible.
+    """
+    assert LABEL_ORDER["tals/albert-xlarge-vitaminc-mnli"] == (
+        "SUPPORTS", "REFUTES", "UNKNOWN"
+    )
+    assert LABEL_ORDER["MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli"] == (
+        "SUPPORTS", "UNKNOWN", "REFUTES"
+    )
     for order in LABEL_ORDER.values():
         assert sorted(order) == ["REFUTES", "SUPPORTS", "UNKNOWN"]

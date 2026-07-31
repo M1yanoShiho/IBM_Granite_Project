@@ -1,3 +1,4 @@
+import hashlib
 import os
 from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
@@ -318,20 +319,42 @@ def _selector_parameters(
     return parameters
 
 
-def _load_parent_index() -> Mapping[str, str]:
-    """Load the SAME_SOURCE sidecar for `support_unit="parent"`.
+SOURCE_PARENT_INDEX_ENV = "SOURCE_PARENT_INDEX"
 
-    Fails loudly when it is absent: silently falling back to the document unit would run a whole
-    experiment on the old vote counting, and no metric would reveal it.
+
+def _source_parent_index_path() -> Path:
+    """Resolve the SAME_SOURCE sidecar path, failing loudly when it is absent.
+
+    A silent fallback to the document unit would run a whole experiment on the old vote counting
+    and no metric would reveal it.
     """
-    raw_path = os.environ.get("SOURCE_PARENT_INDEX")
+    raw_path = os.environ.get(SOURCE_PARENT_INDEX_ENV)
     if not raw_path:
         raise ValueError(
-            "support_unit='parent' needs the SOURCE_PARENT_INDEX environment variable pointing "
-            "at a source_parent.jsonl sidecar; build one with "
+            f"support_unit='parent' needs the {SOURCE_PARENT_INDEX_ENV} environment variable "
+            "pointing at a source_parent.jsonl sidecar; build one with "
             "'python -m evidence_rag.cli.build_source_parent'"
         )
-    return read_parent_index(Path(raw_path)).parent_by_document
+    return Path(raw_path)
+
+
+def source_parent_provenance(config: ModuleConfig) -> dict[str, str]:
+    """Identity of the sidecar a `support_unit="parent"` run actually loaded.
+
+    The sidecar comes from the environment, not the config, so without this the archived
+    provenance cannot distinguish a run against a stale sidecar from one against a regenerated
+    one — the config would read `support_unit = "parent"` in both cases. Empty for every other
+    selector, so callers can merge it unconditionally.
+    """
+    if config.parameters.get("support_unit") != "parent":
+        return {}
+    path = _source_parent_index_path()
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    return {"source_parent_index": str(path), "source_parent_sha256": digest}
+
+
+def _load_parent_index() -> Mapping[str, str]:
+    return read_parent_index(_source_parent_index_path()).parent_by_document
 
 
 def build_selector(config: ModuleConfig, *, llm: TextGenerator | None = None) -> Selector:

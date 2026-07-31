@@ -18,10 +18,16 @@ from evidence_rag.relations.predictor import NLIRelationPredictor, ScoreFn
 
 # NLI heads order their classes differently and the mapping is per checkpoint. A wrong order
 # silently swaps REFUTES and SUPPORTS while every number stays plausible, so unknown ids are
-# rejected rather than guessed. Verify with:
+# rejected rather than guessed.
+#
+# Each entry below was verified against the real checkpoint on 2026-07-30 with
 #   AutoConfig.from_pretrained(model_id).id2label
+# and the observed output is recorded beside it. Re-verify and update the recorded output before
+# adding any new checkpoint — a guess here is not detectable from the numbers.
 LABEL_ORDER: dict[str, tuple[str, ...]] = {
+    # id2label = {0: 'SUPPORTS', 1: 'REFUTES', 2: 'NOT ENOUGH INFO'}
     "tals/albert-xlarge-vitaminc-mnli": ("SUPPORTS", "REFUTES", "UNKNOWN"),
+    # id2label = {0: 'entailment', 1: 'neutral', 2: 'contradiction'}
     "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli": (
         "SUPPORTS",
         "UNKNOWN",
