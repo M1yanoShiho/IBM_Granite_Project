@@ -118,7 +118,9 @@ SelectionResult
   | needle_gold_recovery | .609 [.547,.668] | .673 [.613,.729] | +6.4pp(CI 重叠,仅提示性) |
   | **false_conflict** | **.494 [.421,.568]** | **.877 [.825,.916]** | **+38.3pp(CI 完全不重叠)** |
 
-  三项里唯一统计确凿的是坏的那项。机制 = 预注册的担忧成立且远超预期:decoupled 的 Stage A 每题只命名**一个**目标类型,再套到全部 20 段;孤立探针里只有 needle + cf 两段所以无害,真实池里其余 18 条干扰段被**逼着**吐出该类型的某个值 → 含 gold 的段与 needle 抽出不同答案 → **gold 碎裂率 88%**。而 false_conflict 正是 E2 −4.8pp recall 的机制通道,所以接进门大概率让 recall 更差。**不采用。** S5 为真但不外推到两段以上;孤立探针高估了它,**池结构**才是破点。限制:两臂 denominator 不同(185 vs 237)→ 只用各臂 Wilson CI,未做配对检验。
+  三项里唯一统计确凿的是坏的那项。机制 = 预注册的担忧成立且远超预期:decoupled 的 Stage A 每题只命名**一个**目标类型,再套到全部 20 段;孤立探针里只有 needle + cf 两段所以无害,真实池里其余 18 条干扰段被**逼着**吐出该类型的某个值 → 含 gold 的段与 needle 抽出不同答案 → **gold 碎裂率 88%**。而 false_conflict 正是 E2 −4.8pp recall 的机制通道,所以接进门大概率让 recall 更差。**不采用。** S5 为真但不外推到两段以上;孤立探针高估了它,**池结构**才是破点。
+
+  **口径提醒(应对"分母不同"这个必然的质疑):** 三个指标都是条件性打分 —— missed 只在 needle 与 cf **都成簇**时打分,false 只在"需要 needle 成簇 + 窗口内另有含 gold 别名且成簇的段"时打分([cluster_eval.py:82](../../src/evidence_rag/evaluation/cluster_eval.py#L82))。decoupled 让更多段吐值,于是**两臂测的不是同一批题**。但这个质疑救不了结论:按固定 n=300 分母折算,**gold 碎裂的题数从约 88 涨到约 176**(≈ .29 → .59)—— 用绝对题数读比用 rate 读更干净,而且**更糟**。(denominator 由 Wilson CI 反推,±数题;raw 未回传,见 §6。)
 
 **这条链就是主线本身:**门给出机制收益 → 代价被归因到底层而非规则 → 归因指出的两条杠杆各自被实测裁定(lenient 等价成立,更强抽取不成立)。诊断本身还自我印证了两次:连我们自己的探针计分都栽在同一个 exact-string 坑里(S5),以及自己预注册的担忧被自己的数据坐实(S6)。两条被推翻的自家结论(S4、S5)全部以实测更正 —— rigor 是这条主线的底线,不是修辞。
 
@@ -153,7 +155,7 @@ SelectionResult
 
 1. **false_conflict ≈ .49,而且是结构性的。** 字符串不等就判矛盾,于是"同意但措辞不同"被判成分歧 → gold 碎裂 → 门误踢 → E2 的 −4.8pp recall 就是从这条通道流走的。lenient 只回收了 25%,剩下的是同义词、缩写、句法变体 —— 确定性规则**原理上**吃不到。
 2. **missed_conflict .31–.43(孪生崩塌),且已证明抽取层修不动。** S4 判"prompt 修不了"(后被部分推翻),S5 显示 8B + decoupled 在两段隔离下能腰斩,S6 证明那个收益在 20 段真实池里是靠制造假冲突换来的(false .49 → .88)。**这条路走到头了。**
-3. **单答案抽取无法弃权 —— 这是 1 和 2 的共同根因。** 每段都被逼着吐一个值,没有 UNKNOWN,任何"这段跟被问属性无关"的段都会被强行变成一个竞争答案。S6 的机制就是这一条被放大 18 倍。
+3. **弃权"有名无实" —— 这是 1 和 2 的共同根因。** 注意别把这条说过头:抽取 prompt 名义上**有** NONE 分支(`EXTRACT_PROMPT` 和 decoupled 的 Stage B 都写了"若段落未陈述则回 NONE"),3B baseline 也确实在用(E1 needle probe 里 visible 失败有 127 条是 NONE)。真实情况是:Stage B 先告诉模型"本题要的是 {target}",这个 priming 把 NONE 压掉了 → 18 条干扰段各吐一个值。**准确的说法是"弃权在抽取层没有一等地位:不被度量、也没有守门"** —— 没人报 abstention rate,所以它塌掉时没有任何东西拦住实验。S6 就是弃权无人看管的后果被放大 18 倍。
 
 ### 5.4 为什么"关系层"正对这个失效模式
 
@@ -161,7 +163,7 @@ Graph 2.0 把"边"从字符串规则换成关系预测,而且 **UNKNOWN / 不建
 
 对应到 §5.3 的三个缺口:
 
-- 缺口 3(不能弃权)→ 直接由 UNKNOWN 承接;Gate 0B 把 abstention rate 与 edge coverage 列为验收项。
+- 缺口 3(弃权有名无实)→ 关系层把 UNKNOWN 变成**一等输出**:不确定时必须弃权、不许强制建边,且 Gate 0B 把 abstention rate 与 edge coverage 设成**通过门槛**(non-UNKNOWN coverage ≥ .80、SUPPORT/REFUTES 各 ≥ .70)。差别不在"能不能弃权",而在弃权**是否被度量和守门**。
 - 缺口 1(false_conflict)→ 语义关系替代"字符串不等";"同意但措辞不同"应判 SUPPORTS 而非 REFUTES。
 - 缺口 2(missed_conflict)→ 孪生的 gold 与注入 replacement 在语义上是真矛盾,REFUTES 边应当抓到;Gate 0B 要求 CLAIM_REFUTES precision ≥ 0.85。
 
@@ -190,6 +192,36 @@ Graph 2.0 把"边"从字符串规则换成关系预测,而且 **UNKNOWN / 不建
 
 M0 是**预注册里程碑,不写 NLI 代码**。冻结四样东西:协议与三关系 schema;训练规模 2000 vs 500 的决定(现有 artifact 只有 500 个 train query,必须在看 dev 结果**之前**定);fresh sealed 600 的 manifest 与泄漏审计(query / 父页面 / answer entity / passage hash / synthetic family 五轴零重叠);power 与 MDE 计算(公式 + 输入参数 + 可复现脚本,并把 S6 的 false_conflict 护栏折进去作为新增 gate)。退出判据:provenance / hash 审计零违规。
 
+草案已落 **[M0_PROTOCOL_FREEZE.md](M0_PROTOCOL_FREEZE.md)**(状态 DRAFT — 未冻结)。它把 S1–S6 的教训写成三条新增守卫(G-FC false_conflict 护栏、G-AB 弃权必须被度量、G-PQ per-query 必须落盘),并把 §5.6 的收法选择立为 **D1**——阻塞其余全部条目。关键路径是 G-FC 的基线实测:它卡在 S6 的 per-query 数据没进仓库(见 §6 第 6、7 条)。
+
+### 5.8 现在的实现离当初的设想有多远
+
+TRAINING_PLAN 写于 2026-07-11(迁移草稿)。逐项对账:
+
+| 设想 | 现在(2026-07-29) | 状态 |
+|---|---|---|
+| NLI 关系层:`nli-deberta-v3-base` 预测三类关系 + UNKNOWN,每边带 confidence / 模型版本 / 输入 hash | 没有 NLI。conflict 边 = "字符串不等即矛盾"的确定性代理;边无 confidence、无 UNKNOWN | **整层未开工** |
+| 监督数据:ContractNLI official + VitaminC(revision-family 去污染) | 两个 adapter 都不存在,两个数据集从未加载 | 未开工(M1) |
+| `SAME_SOURCE` 由 `source_parent_id` 生成 | `document_id` 去重(同文档多 chunk 合一票);当前语料没有 source_parent 结构 | 降级实现 |
+| `CLAIM_SUPPORTS` 显式边 | 无,用簇内成员数当代理 | 未开工;E1-support 因缺 official supporting-fact 标注 BLOCKED |
+| 5 个 graph 特征(independent_support_count、contradiction_count、same_source_duplicate_count、answer_cluster_size、alternative_answer_entropy) | 只有 `independent_support` 一个整数 | 1 / 5 |
+| 决策器 = LightGBM LambdaRank + graph 特征(v2 vs v1 配对) | 手写四条件门,零学习器、零参数训练 | **方向性分歧,不是进度差**(见 §5.6) |
+| 主测试集 = fresh NIAH sealed 600 + 五轴泄漏审计 | `niah-injected`(dev split 2000 query 里注入 1479 题);**没有 sealed test** | 未开工 —— 目前**全部结论都在 dev 上** |
+| 外部验证 RAMDocs official 500 | 未接 | 未开工(M6) |
+| Gate 0A(provenance / hash / 不变量) | 等价物基本有:mutation log 可反演、五条注入不变量单测、run_manifest hash 守卫、injector 自校验 | 大致到位 |
+| Gate 0B(关系模型验收:precision ≥ .85 等) | 完全没有 —— 没有关系模型可验收 | 未开工 |
+| 统计:三 seed ensemble + grouped bootstrap + Holm | 配对随机化 + bootstrap CI 已有并在用;无 seed ensemble、无 grouped bootstrap、无 Holm | 部分到位 |
+| 里程碑 M0–M7 | **M0 尚未开始** | 0 / 8 |
+
+**怎么读这张对账表:** 我们**不是在建 TRAINING_PLAN 那个 Graph 2.0 然后落后了**,而是先把它的"独立票底座"用确定性规则整体做了一遍,并跑完 S1–S6 的诊断。这件事改写了 2.0 的两条前提:
+
+- 原计划隐含"要靠更强的选择器(学习型 + 图特征)才能降 harm"。实测:**规则门自己就降了 −11.2pp**,harm 不是需要学习器才能解决的问题 —— 代价在别处。
+- 原计划把 missed / false conflict 当作"上图之后自然会好"的收益项。实测:它们是 **.31–.43 / .49**,量级清楚,而且**抽取层修不动**(S6)。
+
+结果是 2.0 的立项理由从"图应该更好"变成"图必须修这两个具体缺口",范围也从"重训一个选择器"收窄成"换边的构造方式"。这是**设想被证据修正**,不是设想没实现。
+
+**但也要说实话:** 从 07-11 到 07-29 这 18 天,产出是 6 条 findings + 1 个确立的系统级修复,而 Graph 2.0 本体进度是 0(M0 未开始)。M0–M5 全跑完才有 C1 结论,8/20 报告前跑完是**真实的时间风险**;报告的可交付底线目前只能靠 S1–S6 这条诊断链,而不是靠 Graph 2.0 的正面结果。
+
 ---
 
 ## 6. 未闭合项(必须讲)
@@ -199,4 +231,6 @@ M0 是**预注册里程碑,不写 NLI 代码**。冻结四样东西:协议与三
 3. **false_conflict 从未被直接优化过。** 它是 E2 recall 代价的机制通道,S6 又证明它极易被推高;Graph 2.0 必须把它当一等护栏,而不是只盯 missed。
 4. **8B + decoupled 不进生产。** 它只活在评测 harness(`cluster_eval_cli` / `missed_conflict_probe_cli`),`selector/extraction.py` 保持单段 `EXTRACT_PROMPT` —— 这是 S6 之后的**决定**,不是待办。
 5. **E3(coverage on/off)与 E1-support(support 边准确率)仍 BLOCKED**,分别缺"互补压力数据"与"official supporting-fact 标注"。后者恰好是 Graph 2.0 的 CLAIM_SUPPORTS 边要补的那一块。
-6. **下一步 = Graph 2.0 M0**(预注册,无 NLI 代码),先解决 §5.6 的收法选择。
+6. **S6 的 raw 没回台账。** `results/` 被 `.gitignore` 排除,E1 的报告当初是 `git add -f` 强加进来的,S6 两臂的 `e1-cascade-*.json` 还只在 bp1 上 —— 按台账自己的规则("只存在于 `.out` 或散装 scp 文件里的结果不算已记录"),S6 目前**不算已记录**。
+7. **`cluster_eval_cli` 没有 per-case dump。** 探针在 1589a70 加了 `--dump`,cluster_eval 没有,只输出聚合 + Wilson CI。后果:S6 的 per-query 结果**已经没了**,想给 missed / recovery 补配对检验就得重跑整轮抽取(要 GPU)。而 TRAINING_PLAN §8/§11 明确要求报 per-query outcomes —— 这个洞不补,Graph 2.0 的统计协议一开始就不合规。补一个 `--dump` 是 CPU 级小改。
+8. **下一步 = Graph 2.0 M0**(预注册,无 NLI 代码),先解决 §5.6 的收法选择。

@@ -440,6 +440,123 @@ supporting-fact 标签);与 conflict 边(false/missed-conflict)、duplicate 边(
 
 ---
 
+## Graph 2.0 M0 — 预注册条目(BEFORE 已填,AFTER 待回填)
+
+协议 `g2-proto-1`([docs/selector/M0_PROTOCOL_FREEZE.md](selector/M0_PROTOCOL_FREEZE.md))。
+台账规则:提交前填目的/假设/**预期指标与方向**/精确命令/commit hash,拉回填 AFTER。
+**只存在于 `.out` 或散装 scp 文件里的结果不算已记录** —— S6 就是这么丢的,`results/` 被 gitignore,
+回传后须 `git add -f`。
+
+### R001 — G-FC 固定分母基线(关键路径)
+
+- **目的:** 测出 Graph 1.0-lenient 在**固定分母**口径下的 false_conflict 基线,据此填 M0 §3.5 的 δ。
+  这是 M0 从 DRAFT 转 FROZEN 的唯一剩余阻塞。
+- **假设:** 固定分母口径的 rate 与现行条件性口径不同(分母更大,因为不再要求其他段抽取成功),
+  但**两个口径都必须报**,以便与 S1–S6 的历史数字对照。
+- **预期方向:** 无方向性预期 —— 这是基线测量,不是对照。**任何"预期"在这里都是污染。**
+- **命令:**
+  ```
+  mkdir -p logs results && sbatch scripts/run_cluster_eval.slurm     runs/e2-gate-on/candidate_sets.jsonl runs/niah-injected/manifest.json     runs/niah-injected/provenance.jsonl results/r001-e1-baseline.json     ibm-granite/granite-4.1-3b single 0 results/r001-e1-baseline-dump.jsonl
+  ```
+  拉回后纯 CPU 重打分:
+  ```
+  python -m evidence_rag.evaluation.cluster_rescore_cli     --dump results/r001-e1-baseline-dump.jsonl     --output results/r001-gfc-baseline.json     --per-query results/r001-gfc-per-query.json
+  ```
+- **commit:** 10289bc(rescore 工具)/ 70fca84(`--dump`)/ 7c15460(固定分母判定)
+- **AFTER:** _待填 —— `lenient.fixed_false_conflict` 的 rate、n_scored、n_fixed_eligible,以及推出的 δ_
+
+### R001b — parent 碰撞率 + `support_unit=parent` 基线臂
+
+- **目的:** (a) 量出 top-20 里同 Wikipedia 条目的碰撞率;(b) 跑出与 Graph 2.0 同 `support_unit` 的
+  Graph 1.0-lenient 对照臂 —— 主对照两侧必须同单位,否则 SAME_SOURCE 修复的收益会混进 NLI 的账上。
+- **假设:** dpr-w100 是 100 词切分,检索倾向把同条目相邻 passage 一起召回,故碰撞非零。
+- **(a) 已测(2026-07-31,dev,纯 CPU):** `collision_rate = 0.931`(1862/2000)、
+  `mean_documents_per_window = 20.0` → `mean_parents_per_window = 16.4735`、`n_unresolved = 0`
+  (101479 文档全部解析出 parent,91492 个不同条目)。**假设成立,且远超预期:93% 的题受影响,
+  平均每窗口 20 段只对应 16.5 个真实来源。** `independent_support` 的虚增是普遍现象,不是边角情况。
+- **(a′) needle-parent 定向诊断(同次运行,commit a09f787):**
+  `needle_parent_inflation_rate = 0.328`(415 / 1264)、`cf_shares_needle_parent = 1261 / 1264`、
+  `n_injected_scored = 1264`。
+  - **1264 / 1479 = 0.854** 的 needle 在窗口内,与已知 `pool_hit ≈ 0.842` 一致 ——
+    独立口径的一致性核对通过,说明工具读的是同一批题。
+  - **0.328 是上界,不是实测虚增。** 该指标只说"同条目另一段**在窗口里**",不说它**抽出了等价答案
+    并落进 gold 簇**。真正落进 gold 簇需要抽取结果,那要 GPU,属 (b)。
+  - **3 例 `cf` 与 needle 不同 parent**(1264−1261)。成因:gold alias 恰好只出现在**标题段**,
+    mutation 因而改到了 title,孪生的 parent 随之变了。占比 0.24%,且**机制上惰性**
+    (cf 簇的 support 两种单位下都是 1),不修,但如实记录而非隐去。
+- **预期方向(预注册,2026-07-31 修订 —— 在 (b) 运行之前):** ~~原写"票差缩小 ⇒ 门 fire 更少 ⇒ harm↑ recall↑"~~
+  **该推导有误,只考虑了条件 3。** parent 单位让 support 单调变小,但它同时喂给两个方向相反的门条件:
+  - **条件 3**(`margin = winner − own ≥ margin`):两边都缩,差值**非单调**。竞争簇通常更大、缩得更多,
+    故票差多半缩小 ⇒ 门 fire **更少**。
+  - **条件 4**(`own ≤ support_cap`):own 缩小 ⇒ **更容易满足** ⇒ 更多候选变得**可踢**。
+    一个靠**同条目两段**撑到 support=2 的 gold 簇原本结构性不可踢,parent 单位下掉到 1 就可踢了。
+
+  **净方向不可先验推出。两个指标都报,不作方向性主张。**
+- **判读口径(事先固定):** 若 recall 经条件 4 那条通道下降,**那不是回归,是撤掉了假保护** ——
+  被撤掉的保护本来就是同一个来源被数了两次。这类 recall 下降必须**作为"修正"报告**,
+  并与"门真的误踢"造成的 recall 下降**分开计**。
+- **(a′) 之后收窄的预期(仍不作方向性主张,只把机制写细):**
+  - **harm 侧:** 门要踢掉毒需 `support(gold) − support(cf) ≥ 2` 且 `support(cf) ≤ 1`;
+    因 cf 簇恒为 1,等价于 **`support(gold) ≥ 3`**。原本靠 3 段以上撑到 ≥3 的题,若其中有同 parent 的,
+    parent 单位下会掉到 <3 ⇒ **门停火 ⇒ harm 上升**。(a′) 无法预判有多少题落在这里,因为它没测 gold 簇。
+  - **recall 侧:** gold 簇若靠**同条目两段**撑到 support=2,document 单位下 `2 > cap=1` 使 needle
+    **结构性不可踢**;parent 单位下掉到 1 ⇒ 变可踢 ⇒ **recall 下降**。0.328 说明这条通道的
+    **机会**在 1/3 的题上存在。
+  - **必须一起读的推论:** 若 (b) 观测到 harm 明显回弹向 gate-off 的 0.680,则 **S1 的 −11.2pp
+    有一部分是"同一篇条目被数多次"换来的记账收益,而非机制收益** —— 这必须写进报告,
+    不得只报"parent 单位下门更保守"了事。
+- **命令(前两条纯 CPU,登录节点即可):**
+  ```
+  python -m evidence_rag.cli.build_source_parent     --documents runs/niah-injected/documents.jsonl     --output runs/niah-injected/source_parent.jsonl
+
+  python -m evidence_rag.cli.parent_collision     --candidates runs/e2-gate-on/candidate_sets.jsonl     --parent-index runs/niah-injected/source_parent.jsonl --top-n 20
+
+  sbatch scripts/run_selector_gate.slurm     configs/experiments/niah_e2_gate_on_lenient_parent.toml     configs/experiments/niah_e2_gate_off.toml     runs/niah-injected/provenance.jsonl     runs/niah-injected/source_parent.jsonl
+  ```
+- **commit:** 5740d1b(sidecar)/ d6607b3(`support_unit`)/ b4ca71c(碰撞率 CLI)
+- **AFTER:** _待填 —— collision_rate、mean_parents_per_window、harm、conditional_document_recall_
+
+### R012 — Gate 0B 零训练 sweep(真实分叉点)
+
+- **目的:** 判定现成 checkpoint 是否够用。**过则接门(Plan 2),不过则启动 M0 §3.8 的训练路径。**
+- **假设:** `tals/albert-xlarge-vitaminc-mnli` 域对口(VitaminC 的对比结构 = injector 孪生的同构),
+  有机会直接过;通用 NLI 上界臂用于区分"域不匹配"与"能力不足"。
+- **预期指标与方向(预注册):** 三臂中至少一臂同时满足
+  `twin_refutes_accuracy ≥ .70` **且** `gold_supports_recall ≥ .85`(0B-2),
+  以及 0B-1 的五项阈值。**UNKNOWN 一律计失败** —— 全弃权的模型必须两项都挂。
+- **为什么三臂同场:** 只跑一臂时,未过 Gate 只能得出"albert 不够",**无法排除"任何零训练模型都不够"**。
+- **命令:** 见 `scripts/run_gate0b.slurm` 头部(含登录节点的模型预下载与两个 pair 文件的生成)。
+  ```
+  mkdir -p logs results/gate0b && sbatch scripts/run_gate0b.slurm
+  ```
+- **前置:** `runs/niah-train/` 的 artifact 必须已物化(0B-2 探针必须建在 **train** split 上)。
+- **commit:** be9dd2c(Gate 0B 指标 + runner)/ ddb5342(探针)/ b5dbb5d(VitaminC adapter)
+- **AFTER:** _待填 —— 每臂的 0B-1 五项与 0B-2 两项,以及分叉判定_
+
+### R011 — VitaminC adapter 与 revision-family 去污染 [DONE 2026-07-31]
+
+- **命令:** `python -m evidence_rag.cli.export_vitaminc --out-test data/gate0b/vitaminc_test.jsonl
+  --removed-log data/gate0b/vitaminc_decontamination.json`(登录节点,纯 CPU,约 5 秒)
+- **AFTER(实测):**
+
+| split | official | 去污染后 | 移除 |
+|---|---:|---:|---:|
+| train | 370653 | **369843** | 810 行 / **38 个 page** |
+| validation | 63054 | **62984** | 70 行 / **2 个 page** |
+| test | 55197 | **55197** | **0 —— official test 一行未动** ✅ |
+
+- **移除的 dev page:** `John Frusciante`、`Linkin Park`(两者均出现在 official test 中)。
+- **移除的 train page(38):** 含 `World War II`、`China`、`Aristotle`、`French Revolution`、`YouTube` 等。
+  `Linkin Park` 同时出现在两份移除清单里 —— 与实现一致(它在 test 中,故 dev 和 train 都要清)。
+- **判读:** VitaminC 的 official split **确实存在跨 split 的 revision-family 重叠**(38 个 page),
+  虽然量小(train 0.22% / dev 0.11%)。这条去污染步骤不是形式主义,它真的删掉了东西;
+  同时 official test 逐行未动,满足"test-preserving"的冻结要求。删除清单已存档
+  (`data/gate0b/vitaminc_decontamination.json`,注意 `/data/` 被 gitignore,须 `git add -f`)。
+- **未导出 train/dev 的去污染副本:** Gate 0B-1 只需 official test;去污染后的 train/dev 仅在
+  §3.8 训练路径被启动时才需要,届时加 `--out-train` / `--out-dev` 重跑即可(确定性,可复现)。
+
+---
+
 ## 本地(非 HPC)验证记录
 
 - 2026-07-20:selector 门实现全套单测 LOCAL 通过(tests/selector 32 + registration 9),

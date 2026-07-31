@@ -165,8 +165,8 @@ def test_summarize_all_none_is_unscored():
 
 def test_aggregate_counts_window_presence():
     cases = [
-        ClusterEvalCase("q1", True, True, True, None, True),
-        ClusterEvalCase("q2", True, False, None, False, False),
+        ClusterEvalCase("q1", True, True, True, None, True, True, False),
+        ClusterEvalCase("q2", True, False, None, False, False, False, None),
     ]
     report = aggregate(cases)
     assert report.n_cases == 2
@@ -174,6 +174,8 @@ def test_aggregate_counts_window_presence():
     assert report.cf_in_window == 1
     assert report.missed_conflict.n_scored == 1
     assert report.needle_gold_recovery.n_scored == 2
+    assert report.n_fixed_eligible == 1
+    assert report.fixed_false_conflict.n_scored == 1
 
 
 def test_selection_bias_counts_multi_canonical_key():
@@ -189,3 +191,94 @@ def test_selection_bias_counts_multi_canonical_key():
     assert bias.n_multi_key == 1
     assert bias.multi_key_rate == 1 / 3
     assert bias.skip_rate == (4 - 2) / 4
+
+
+def test_fixed_eligible_needs_needle_and_another_gold_alias_passage() -> None:
+    window = (
+        _cand("e_needle", "needle", "Kennedy won the race", 1),
+        _cand("e_other", "other", "Kennedy also appears here", 2),
+    )
+    case = evaluate_case(
+        window,
+        ("Kennedy", "Kennedy"),
+        query_id="q1",
+        needle_document_id="needle",
+        counterfactual_document_id="cf::needle",
+        gold_value="Kennedy",
+        gold_aliases=("Kennedy",),
+    )
+    assert case.fixed_eligible is True
+    assert case.fixed_false_conflict is False
+
+
+def test_fixed_eligible_is_false_without_a_second_gold_alias_passage() -> None:
+    window = (
+        _cand("e_needle", "needle", "Kennedy won the race", 1),
+        _cand("e_noise", "noise", "unrelated text", 2),
+    )
+    case = evaluate_case(
+        window,
+        ("Kennedy", "NONE"),
+        query_id="q1",
+        needle_document_id="needle",
+        counterfactual_document_id="cf::needle",
+        gold_value="Kennedy",
+        gold_aliases=("Kennedy",),
+    )
+    assert case.fixed_eligible is False
+    assert case.fixed_false_conflict is None
+
+
+def test_fixed_false_conflict_true_when_gold_alias_passage_lands_elsewhere() -> None:
+    window = (
+        _cand("e_needle", "needle", "Kennedy won the race", 1),
+        _cand("e_other", "other", "Kennedy also appears here", 2),
+    )
+    case = evaluate_case(
+        window,
+        ("Kennedy", "Nixon"),
+        query_id="q1",
+        needle_document_id="needle",
+        counterfactual_document_id="cf::needle",
+        gold_value="Kennedy",
+        gold_aliases=("Kennedy",),
+    )
+    assert case.fixed_false_conflict is True
+
+
+def test_abstention_never_creates_a_fixed_false_conflict() -> None:
+    """UNKNOWN/NONE counts as 'did not create a conflict' — frozen in the M0 G-FC guardrail."""
+    window = (
+        _cand("e_needle", "needle", "Kennedy won the race", 1),
+        _cand("e_other", "other", "Kennedy also appears here", 2),
+    )
+    case = evaluate_case(
+        window,
+        ("Kennedy", "NONE"),
+        query_id="q1",
+        needle_document_id="needle",
+        counterfactual_document_id="cf::needle",
+        gold_value="Kennedy",
+        gold_aliases=("Kennedy",),
+    )
+    assert case.fixed_eligible is True
+    assert case.fixed_false_conflict is False
+
+
+def test_fixed_false_conflict_false_when_needle_itself_abstains() -> None:
+    """Eligibility is system-independent, so an abstaining needle scores False, not None."""
+    window = (
+        _cand("e_needle", "needle", "Kennedy won the race", 1),
+        _cand("e_other", "other", "Kennedy also appears here", 2),
+    )
+    case = evaluate_case(
+        window,
+        ("NONE", "Kennedy"),
+        query_id="q1",
+        needle_document_id="needle",
+        counterfactual_document_id="cf::needle",
+        gold_value="Kennedy",
+        gold_aliases=("Kennedy",),
+    )
+    assert case.fixed_eligible is True
+    assert case.fixed_false_conflict is False

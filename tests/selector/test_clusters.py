@@ -90,3 +90,46 @@ def test_lenient_same_document_counts_once() -> None:
 def test_lenient_excludes_invalid_answers() -> None:
     window = (evidence("e1", "d1"), evidence("e2", "d2"))
     assert build_clusters_lenient(window, ("NONE", "it"), lenient_equivalent) == ()
+
+
+def test_same_parent_passages_are_one_vote() -> None:
+    """dpr-w100 splits one article into many document_ids; they are not independent sources."""
+    window = (evidence("e1", "d1"), evidence("e2", "d2"))
+    clusters = build_clusters(
+        window, ("Kennedy", "Kennedy"), parent_by_document={"d1": "page a", "d2": "page a"}
+    )
+    assert len(clusters) == 1
+    assert clusters[0].independent_support == 1
+
+
+def test_distinct_parents_still_count_separately() -> None:
+    window = (evidence("e1", "d1"), evidence("e2", "d2"))
+    clusters = build_clusters(
+        window, ("Kennedy", "Kennedy"), parent_by_document={"d1": "page a", "d2": "page b"}
+    )
+    assert clusters[0].independent_support == 2
+
+
+def test_default_is_document_unit_so_existing_behaviour_is_unchanged() -> None:
+    window = (evidence("e1", "d1"), evidence("e2", "d2"))
+    clusters = build_clusters(window, ("Kennedy", "Kennedy"))
+    assert clusters[0].independent_support == 2
+
+
+def test_unmapped_document_is_its_own_parent() -> None:
+    """A missing sidecar entry must never merge two distinct sources."""
+    window = (evidence("e1", "d1"), evidence("e2", "d2"))
+    clusters = build_clusters(window, ("Kennedy", "Kennedy"), parent_by_document={"d1": "page a"})
+    assert clusters[0].independent_support == 2
+
+
+def test_lenient_clustering_honours_the_parent_unit() -> None:
+    window = (evidence("e1", "d1"), evidence("e2", "d2"))
+    clusters = build_clusters_lenient(
+        window,
+        ("Apostle Paul", "paul"),
+        lenient_equivalent,
+        parent_by_document={"d1": "page a", "d2": "page a"},
+    )
+    assert len(clusters) == 1
+    assert clusters[0].independent_support == 1
