@@ -73,8 +73,7 @@ def test_decontaminate_never_moves_official_test() -> None:
     assert result.test == test
 
 
-def test_train_is_purged_against_the_kept_dev_not_the_raw_dev() -> None:
-    """A page dropped from dev for leaking into test must not be re-admitted into train."""
+def test_a_page_in_all_three_splits_is_purged_from_train_and_dev() -> None:
     result = decontaminate(
         train=to_pairs([_row("c1", "e1", "SUPPORTS", "leaky")]),
         dev=to_pairs([_row("c2", "e2", "SUPPORTS", "leaky")]),
@@ -83,3 +82,17 @@ def test_train_is_purged_against_the_kept_dev_not_the_raw_dev() -> None:
     assert result.train == ()
     assert result.dev == ()
     assert result.removed_train_groups == ("leaky",)
+
+
+def test_train_loses_a_page_shared_only_with_dev() -> None:
+    """Distinguishes the dev axis from the test axis: this page never touches test, so only the
+    train-vs-dev rule can remove it."""
+    result = decontaminate(
+        train=to_pairs([_row("c1", "e1", "SUPPORTS", "dev-only"),
+                        _row("c2", "e2", "SUPPORTS", "safe")]),
+        dev=to_pairs([_row("c3", "e3", "SUPPORTS", "dev-only")]),
+        test=to_pairs([_row("c4", "e4", "REFUTES", "elsewhere")]),
+    )
+    assert [pair.group for pair in result.train] == ["safe"]
+    assert [pair.group for pair in result.dev] == ["dev-only"]
+    assert result.removed_train_groups == ("dev-only",)

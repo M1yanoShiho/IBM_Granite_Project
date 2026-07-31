@@ -105,3 +105,34 @@ def test_a_model_that_abstains_everywhere_fails_both_gates() -> None:
     assert report.gold_supports_recall == 0.0
     assert report.unknown_rate == 1.0
     assert set(report.failures) == {"twin_refutes_accuracy", "gold_supports_recall"}
+
+
+def test_a_value_exactly_at_the_threshold_passes() -> None:
+    """Boundary semantics are >= not >. These gates decide whether weeks of training start, so
+    'exactly .70' must not silently fail. A mutation from < to <= survived without this."""
+    # 7 of 10 twin rows correct = .70 exactly; 17 of 20 gold rows = .85 exactly
+    kinds = ["cf_gold"] * 10 + ["needle_gold"] * 20
+    gold = [R] * 10 + [S] * 20
+    predicted = [R] * 7 + [U] * 3 + [S] * 17 + [U] * 3
+    report = task_report(kinds=kinds, gold=gold, predicted=predicted)
+    assert report.twin_refutes_accuracy == pytest.approx(0.70)
+    assert report.gold_supports_recall == pytest.approx(0.85)
+    assert report.passes is True
+
+
+def test_a_value_just_below_the_threshold_fails() -> None:
+    kinds = ["cf_gold"] * 10 + ["needle_gold"] * 20
+    gold = [R] * 10 + [S] * 20
+    predicted = [R] * 6 + [U] * 4 + [S] * 17 + [U] * 3
+    report = task_report(kinds=kinds, gold=gold, predicted=predicted)
+    assert report.twin_refutes_accuracy == pytest.approx(0.60)
+    assert report.failures == ("twin_refutes_accuracy",)
+
+
+def test_external_report_boundary_is_inclusive() -> None:
+    """non_unknown_coverage exactly .80 must pass."""
+    gold = [S] * 10 + [R] * 10
+    predicted = [S] * 8 + [U] * 2 + [R] * 8 + [U] * 2
+    report = external_report(gold=gold, predicted=predicted)
+    assert report.non_unknown_coverage == pytest.approx(0.80)
+    assert "non_unknown_coverage" not in report.failures

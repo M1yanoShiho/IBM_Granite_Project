@@ -59,8 +59,14 @@ def decontaminate(
     """Test-preserving revision-family decontamination.
 
     Official test is never moved or filtered. Dev loses any page that appears in test; train then
-    loses any page appearing in test OR in the KEPT dev — purging train against the raw dev would
-    re-admit a page that was just dropped from dev for leaking into test.
+    loses any page appearing in test or in dev.
+
+    Note on `kept_dev` below: using the kept dev rather than the raw dev makes no difference to
+    the result, because the pages that differ between them are exactly `dev & test`, which
+    `test_groups` already forbids. It is written this way only because "train must avoid every
+    page that survives downstream" is the property being expressed. Do not add a test claiming
+    the two formulations differ — they are provably equivalent, and such a test passes under
+    both, which is worse than no test.
     """
     test_groups = {pair.group for pair in test}
     removed_dev = sorted({pair.group for pair in dev} & test_groups)
