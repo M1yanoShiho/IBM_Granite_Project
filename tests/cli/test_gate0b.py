@@ -176,6 +176,22 @@ def test_both_tokenizer_paths_failing_raises_with_both_causes() -> None:
         _load_tokenizer(Broken, "any/model")
 
 
+def test_identical_failures_are_diagnosed_as_a_missing_backend() -> None:
+    """AutoTokenizer silently reuses the FAST class when the slow one cannot be imported, so
+    use_fast=False becomes a no-op and both attempts fail the same way. That signature means a
+    missing backend, not a broken checkpoint, and the error must say so."""
+
+    error = AttributeError("'NoneType' object has no attribute 'endswith'")
+
+    class NoSlowClass(_FakeTransformers):
+        class AutoTokenizer(_FakeTransformers.AutoTokenizer):
+            fast_error = error
+            slow_error = error
+
+    with pytest.raises(RuntimeError, match="sentencepiece"):
+        _load_tokenizer(NoSlowClass, "tals/albert-xlarge-vitaminc-mnli")
+
+
 def test_tokenizer_variant_is_recorded_in_the_sweep_output(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

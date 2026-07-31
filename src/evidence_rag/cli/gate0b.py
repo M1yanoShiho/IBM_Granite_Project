@@ -55,9 +55,21 @@ def _load_tokenizer(transformers: Any, model_id: str) -> tuple[Any, str]:
         try:
             return transformers.AutoTokenizer.from_pretrained(model_id, use_fast=False), "slow"
         except Exception as slow_error:
+            # AutoTokenizer silently falls back to the FAST class when the slow one cannot be
+            # imported, so use_fast=False is a no-op then and both attempts fail identically.
+            # That signature is worth naming: it means a missing backend, not a broken
+            # checkpoint, and the two look nothing alike to fix.
+            same_failure = repr(fast_error) == repr(slow_error)
+            hint = (
+                " both attempts failed identically, which means use_fast=False did not select a"
+                " different class — the slow tokenizer is unavailable, usually because"
+                " 'sentencepiece' is not installed"
+                if same_failure
+                else ""
+            )
             raise RuntimeError(
-                f"could not load a tokenizer for {model_id!r}; "
-                f"fast failed with {fast_error!r} and slow with {slow_error!r}"
+                f"could not load a tokenizer for {model_id!r};"
+                f" fast failed with {fast_error!r} and slow with {slow_error!r}.{hint}"
             ) from slow_error
 
 
