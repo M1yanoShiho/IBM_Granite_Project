@@ -45,6 +45,49 @@ class GateDecision:
     isolation_met: bool
 
 
+def gate_decision(
+    evidence_id: str,
+    answer: str,
+    clusters: Sequence[AnswerCluster],
+    cluster_by_member: Mapping[str, AnswerCluster],
+    *,
+    margin: int,
+    support_cap: int,
+) -> GateDecision:
+    """The frozen four-condition judgement (spec §7), as a pure function.
+
+    Module-level so that offline analysis scores the SAME code the production gate runs.
+    Re-implementing these conditions for analysis would let the two drift apart silently, which
+    is precisely the class of defect this project keeps finding.
+    """
+    has_valid_answer = is_valid_answer(answer)
+    own = cluster_by_member.get(evidence_id)
+    competitors = tuple(
+        cluster for cluster in clusters if own is not None and cluster.answer != own.answer
+    )
+    winner = max(competitors, key=lambda cluster: cluster.independent_support, default=None)
+    own_support = own.independent_support if own is not None else 0
+    winner_support = winner.independent_support if winner is not None else 0
+    has_competitor = winner is not None
+    difference = winner_support - own_support if has_competitor else 0
+    margin_met = has_competitor and difference >= margin
+    isolation_met = own_support <= support_cap
+    drop = has_valid_answer and has_competitor and margin_met and isolation_met
+    return GateDecision(
+        evidence_id=evidence_id,
+        action="drop" if drop else "keep",
+        answer=own.answer if own is not None else None,
+        own_support=own_support,
+        winner_answer=winner.answer if winner is not None else None,
+        winner_support=winner_support,
+        margin=difference,
+        has_valid_answer=has_valid_answer,
+        has_competitor=has_competitor,
+        margin_met=margin_met,
+        isolation_met=isolation_met,
+    )
+
+
 @dataclass(frozen=True)
 class GateResult:
     survivors: tuple[EvidenceCandidate, ...]
@@ -119,31 +162,13 @@ class GatedCorroborationSelector:
         clusters: tuple[AnswerCluster, ...],
         cluster_by_member: dict[str, AnswerCluster],
     ) -> GateDecision:
-        has_valid_answer = is_valid_answer(answer)
-        own = cluster_by_member.get(evidence_id)
-        competitors = tuple(
-            cluster for cluster in clusters if own is not None and cluster.answer != own.answer
-        )
-        winner = max(competitors, key=lambda cluster: cluster.independent_support, default=None)
-        own_support = own.independent_support if own is not None else 0
-        winner_support = winner.independent_support if winner is not None else 0
-        has_competitor = winner is not None
-        margin = winner_support - own_support if has_competitor else 0
-        margin_met = has_competitor and margin >= self.margin
-        isolation_met = own_support <= self.support_cap
-        drop = has_valid_answer and has_competitor and margin_met and isolation_met
-        return GateDecision(
-            evidence_id=evidence_id,
-            action="drop" if drop else "keep",
-            answer=own.answer if own is not None else None,
-            own_support=own_support,
-            winner_answer=winner.answer if winner is not None else None,
-            winner_support=winner_support,
-            margin=margin,
-            has_valid_answer=has_valid_answer,
-            has_competitor=has_competitor,
-            margin_met=margin_met,
-            isolation_met=isolation_met,
+        return gate_decision(
+            evidence_id,
+            answer,
+            clusters,
+            cluster_by_member,
+            margin=self.margin,
+            support_cap=self.support_cap,
         )
 
     def _gate(self, query: Query, candidates: CandidateSet) -> GateResult:
