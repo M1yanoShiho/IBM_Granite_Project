@@ -106,3 +106,84 @@ def test_top_n_truncates_the_window(
     report = json.loads(capsys.readouterr().out)
     assert report["mean_documents_per_window"] == 1.0
     assert report["n_queries_with_collision"] == 0
+
+
+def _provenance(tmp_path: Path, query_ids: tuple[str, ...] = ("q1",)) -> Path:
+    from evidence_rag.materializer.provenance import MutationRecord, write_provenance
+
+    path = tmp_path / "provenance.jsonl"
+    write_provenance(
+        path,
+        [
+            MutationRecord(
+                query_id=qid, needle_document_id="d1",
+                counterfactual_document_id="cf::d1", gold_value="Kennedy",
+                gold_alias_used="Kennedy", replacement_value="Nixon", string_class="name-1",
+                seed=42, char_span=(0, 7), text_hash_before="a", text_hash_after="b",
+                answer_bank_hash="h",
+            )
+            for qid in query_ids
+        ],
+    )
+    return path
+
+
+def _injected_candidates(tmp_path: Path, extra_document_id: str) -> Path:
+    """Window = needle d1, its counterfactual twin, and one more passage."""
+    path = tmp_path / "injected_sets.jsonl"
+    row = CandidateSet(
+        query_id="q1",
+        candidates=(
+            _candidate("e1", "d1", 1),
+            _candidate("e2", "cf::d1", 2),
+            _candidate("e3", extra_document_id, 3),
+        ),
+    )
+    path.write_text(row.model_dump_json() + "\n", encoding="utf-8")
+    return path
+
+
+def test_needle_parent_inflation_detected(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The gate's behaviour turns on whether the GOLD cluster was inflated, which the
+    window-wide rate cannot show. Here d9 is another passage of the needle's own article."""
+    index = _index(tmp_path, {"d1": "page a", "cf::d1": "page a", "d9": "page a"})
+    main([
+        "--candidates", str(_injected_candidates(tmp_path, "d9")),
+        "--parent-index", str(index),
+        "--provenance", str(_provenance(tmp_path)),
+    ])
+    report = json.loads(capsys.readouterr().out)
+    assert report["n_injected_scored"] == 1
+    assert report["needle_parent_inflated"] == 1
+    assert report["needle_parent_inflation_rate"] == 1.0
+    assert report["cf_shares_needle_parent"] == 1
+
+
+def test_counterfactual_twin_alone_is_not_inflation(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The twin shares the needle's parent BY CONSTRUCTION (it is a copy of that passage), so
+    counting it would report injector bookkeeping as corpus structure."""
+    index = _index(tmp_path, {"d1": "page a", "cf::d1": "page a", "d9": "page b"})
+    main([
+        "--candidates", str(_injected_candidates(tmp_path, "d9")),
+        "--parent-index", str(index),
+        "--provenance", str(_provenance(tmp_path)),
+    ])
+    report = json.loads(capsys.readouterr().out)
+    assert report["needle_parent_inflated"] == 0
+    assert report["needle_parent_inflation_rate"] == 0.0
+    assert report["cf_shares_needle_parent"] == 1
+
+
+def test_injected_diagnostics_absent_without_provenance(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    main([
+        "--candidates", str(_candidates(tmp_path)),
+        "--parent-index", str(_index(tmp_path, {"d1": "page a"})),
+    ])
+    report = json.loads(capsys.readouterr().out)
+    assert "needle_parent_inflation_rate" not in report
