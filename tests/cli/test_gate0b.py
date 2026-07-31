@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from evidence_rag.cli.gate0b import LABEL_ORDER, load_score_fn, main
+from evidence_rag.cli.gate0b import LABEL_ORDER, _load_tokenizer, load_score_fn, main
 
 
 def _write(path: Path, rows: list[dict[str, str]]) -> Path:
@@ -38,7 +38,7 @@ def _perfect_scorer(model_id: str):  # type: ignore[no-untyped-def]
             for premise, hypothesis in pairs
         ]
 
-    return score
+    return score, "fake"
 
 
 def test_runner_scores_every_model_in_one_sweep(
@@ -125,3 +125,66 @@ def test_label_order_matches_the_verified_id2label_of_each_checkpoint() -> None:
     )
     for order in LABEL_ORDER.values():
         assert sorted(order) == ["REFUTES", "SUPPORTS", "UNKNOWN"]
+
+
+class _FakeTransformers:
+    """Reproduces the observed failure: the fast tokenizer raises, the slow one loads."""
+
+    class AutoTokenizer:
+        fast_error: Exception | None = AttributeError(
+            "'NoneType' object has no attribute 'endswith'"
+        )
+        slow_error: Exception | None = None
+
+        @classmethod
+        def from_pretrained(cls, model_id: str, use_fast: bool = True):  # type: ignore[no-untyped-def]
+            if use_fast:
+                if cls.fast_error is not None:
+                    raise cls.fast_error
+                return "fast-tokenizer"
+            if cls.slow_error is not None:
+                raise cls.slow_error
+            return "slow-tokenizer"
+
+
+def test_tokenizer_falls_back_to_slow_and_reports_it() -> None:
+    """ALBERT ships no tokenizer.json, so the on-the-fly fast conversion fails. The fallback is
+    safe, but which variant ran must be reported — it feeds a go/no-go decision."""
+    tokenizer, variant = _load_tokenizer(_FakeTransformers, "tals/albert-xlarge-vitaminc-mnli")
+    assert tokenizer == "slow-tokenizer"
+    assert variant == "slow"
+
+
+def test_tokenizer_prefers_fast_when_it_works() -> None:
+    class Works(_FakeTransformers):
+        class AutoTokenizer(_FakeTransformers.AutoTokenizer):
+            fast_error = None
+
+    tokenizer, variant = _load_tokenizer(Works, "any/model")
+    assert tokenizer == "fast-tokenizer"
+    assert variant == "fast"
+
+
+def test_both_tokenizer_paths_failing_raises_with_both_causes() -> None:
+    """A checkpoint that loads under neither path must stop the sweep, not run untokenized."""
+
+    class Broken(_FakeTransformers):
+        class AutoTokenizer(_FakeTransformers.AutoTokenizer):
+            slow_error = OSError("no sentencepiece")
+
+    with pytest.raises(RuntimeError, match="could not load a tokenizer"):
+        _load_tokenizer(Broken, "any/model")
+
+
+def test_tokenizer_variant_is_recorded_in_the_sweep_output(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("evidence_rag.cli.gate0b.load_score_fn", _perfect_scorer)
+    output = tmp_path / "gate0b.json"
+    main([
+        "--task-pairs", str(_task_pairs(tmp_path)),
+        "--output", str(output),
+        "--models", "m1",
+    ])
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert payload["models"]["m1"]["tokenizer_variant"] == "fake"

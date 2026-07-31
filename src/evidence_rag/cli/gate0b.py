@@ -11,6 +11,7 @@ import importlib
 import json
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Any
 
 from evidence_rag.relations.gate0b import external_report, task_report
 from evidence_rag.relations.models import RelationLabel
@@ -38,10 +39,33 @@ LABEL_ORDER: dict[str, tuple[str, ...]] = {
 BATCH_SIZE = 32
 
 
-def load_score_fn(model_id: str) -> ScoreFn:
+def _load_tokenizer(transformers: Any, model_id: str) -> tuple[Any, str]:
+    """Return (tokenizer, variant).
+
+    Some sentencepiece checkpoints ship no tokenizer.json, so transformers converts the slow
+    tokenizer on the fly, and that conversion currently fails for ALBERT
+    (convert_slow_tokenizer hits vocab_file=None). The slow tokenizer reads the same
+    sentencepiece model and is a safe fallback, but WHICH one was used is returned and
+    recorded rather than swallowed: fast and slow tokenizers can differ on edge cases, and
+    this output feeds a go/no-go decision.
+    """
+    try:
+        return transformers.AutoTokenizer.from_pretrained(model_id), "fast"
+    except Exception as fast_error:
+        try:
+            return transformers.AutoTokenizer.from_pretrained(model_id, use_fast=False), "slow"
+        except Exception as slow_error:
+            raise RuntimeError(
+                f"could not load a tokenizer for {model_id!r}; "
+                f"fast failed with {fast_error!r} and slow with {slow_error!r}"
+            ) from slow_error
+
+
+def load_score_fn(model_id: str) -> tuple[ScoreFn, str]:
     """Load a HF sequence-classification checkpoint as a three-class scorer.
 
-    Seam for testing. Fails loudly on an unverified model id — see LABEL_ORDER.
+    Returns (scorer, tokenizer_variant). Seam for testing. Fails loudly on an unverified
+    model id — see LABEL_ORDER.
     """
     if model_id not in LABEL_ORDER:
         raise ValueError(
@@ -52,7 +76,7 @@ def load_score_fn(model_id: str) -> ScoreFn:
     transformers = importlib.import_module("transformers")
 
     order = LABEL_ORDER[model_id]
-    tokenizer = transformers.AutoTokenizer.from_pretrained(model_id)
+    tokenizer, tokenizer_variant = _load_tokenizer(transformers, model_id)
     model = transformers.AutoModelForSequenceClassification.from_pretrained(model_id)
     model.eval()
 
@@ -73,7 +97,7 @@ def load_score_fn(model_id: str) -> ScoreFn:
                 results.append({name: float(row[index]) for index, name in enumerate(order)})
         return results
 
-    return score
+    return score, tokenizer_variant
 
 
 def _read_pairs(path: Path) -> list[dict[str, str]]:
@@ -98,13 +122,13 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     models: dict[str, object] = {}
     for model_id in arguments.models:
-        predictor = NLIRelationPredictor(
-            score_fn=load_score_fn(model_id), model_version=model_id
-        )
+        score_fn, tokenizer_variant = load_score_fn(model_id)
+        predictor = NLIRelationPredictor(score_fn=score_fn, model_version=model_id)
         task_predictions = predictor.predict(
             [(row["premise"], row["hypothesis"]) for row in task_rows]
         )
         entry: dict[str, object] = {
+            "tokenizer_variant": tokenizer_variant,
             "task": dataclasses.asdict(
                 task_report(
                     kinds=[row["kind"] for row in task_rows],
