@@ -463,7 +463,17 @@ supporting-fact 标签);与 conflict 边(false/missed-conflict)、duplicate 边(
   python -m evidence_rag.evaluation.cluster_rescore_cli     --dump results/r001-e1-baseline-dump.jsonl     --output results/r001-gfc-baseline.json     --per-query results/r001-gfc-per-query.json
   ```
 - **commit:** 10289bc(rescore 工具)/ 70fca84(`--dump`)/ 7c15460(固定分母判定)
-- **AFTER:** _待填 —— `lenient.fixed_false_conflict` 的 rate、n_scored、n_fixed_eligible,以及推出的 δ_
+- **AFTER(2026-07-31,job 18225682,COMPLETED,elapsed 02:55:40):**
+  - **G-FC 基线 = `lenient.fixed_false_conflict` 0.4355**(429/985,Wilson CI [0.4049, 0.4667])。
+    条件性口径对照 0.5132(429/836)——**分子相同,差异全在分母**。
+  - `exact.fixed_false_conflict` 0.5046(497/985);条件性 0.5945(497/836)。同样是分子相同。
+  - 其余指标(exact):missed .38576、false .59450、recovery .50870;
+    (lenient):missed .42189、false .51316、recovery .63133。
+  - **rerun-stability(白捡的证据,M0 §5.4 要求):** exact 三项与历史 E1 复现到**小数点后 4 位**
+    (.386/.594/.509)。同池、greedy、同硬件 → 无随机源的说法被实测支持。
+  - δ 回填见 M0 §3.5:暂定 .05,非配对 MDE 近似 .063(power .80),**待 R003 的配对 MDE 确认后才算冻结**。
+  - 产物:`results/r001-e1-baseline.json`、`r001-gfc-baseline.json`、`r001-gfc-per-query.json`
+    (dump 5MB 不入库,由记录命令确定性重建)。
 
 ### R001b — parent 碰撞率 + `support_unit=parent` 基线臂
 

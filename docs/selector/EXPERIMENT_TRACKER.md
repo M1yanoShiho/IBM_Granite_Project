@@ -21,7 +21,7 @@
 | Run | M | 工作与系统 | 数据 / split | 优先级 | 状态 | Git commit | Seed | Host / Job | Outputs | Gate / metric | Interpretation |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | R000 | M0 | 冻结 protocol/schema/splits（`g2-proto-1`） | 全部 | MUST | RUNNING | ddb5342 | — | — | [M0_PROTOCOL_FREEZE.md](M0_PROTOCOL_FREEZE.md) | hash / leakage audit | 决定全部拍板；状态 DRAFT，等 R001 的 δ 才能转 FROZEN |
-| R001 | M0 | **G-FC 固定分母基线**：带 `--dump` 跑一轮 3B+single E1，再离线 `cluster_rescore_cli` | `runs/niah-injected` | MUST | TODO | 10289bc | deterministic | — | — | 基线 false_conflict + δ | **关键路径**：工具已就位，只差一次 GPU 轮次 |
+| R001 | M0 | **G-FC 固定分母基线**：带 `--dump` 跑一轮 3B+single E1，再离线 `cluster_rescore_cli` | `runs/niah-injected` | MUST | **DONE** | 10289bc | greedy（无随机源） | BluePebble / 18225682 | `results/r001-gfc-baseline.json` | **fixed_false_conflict 0.4355**（429/985，CI [.405,.467]） | 基线已得；δ 暂定 .05 待 R003 配对 MDE。附带拿到 rerun-stability：exact 三项与历史 E1 复现到 4 位小数 |
 | R001b | M0 | parent 碰撞率 **(a) DONE** + Graph 1.0-lenient 的 `support_unit=parent` 基线臂 **(b) TODO** | `runs/niah-injected` | MUST | **PARTIAL** | d6607b3 / 2b946a0 | 13 | bp1 login (a) | (a) stdout，见 hpc-run-log | (a) **collision_rate 0.931**（1862/2000）；20.0 doc → 16.47 parent；unresolved 0；**needle_parent_inflation 0.328**（415/1264，上界） | (a) 缺陷普遍存在，非边角；(b) **不作方向性主张** —— 原预注册（门 fire 更少 ⇒ harm↑recall↑）只考虑了条件 3，漏了条件 4 使 `own≤cap` 更易满足，已于运行前修正 |
 | R002 | M0 | ~~冻结 NIAH train 500 或 2000~~ | — | — | **N/A** | — | — | — | — | — | 已消解：D1=A + 零训练 ⇒ 无 Selector 训练 |
 | R003 | M0 | paired Monte Carlo 样本量 sensitivity + G-FC 的 MDE | NIAH dev | MUST | TODO | — | frozen in run | — | — | power / MDE | 依赖 R001；δ = max(0.05, MDE) |
