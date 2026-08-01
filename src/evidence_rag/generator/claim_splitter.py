@@ -6,8 +6,12 @@ from evidence_rag.generator.json_parsing import parse_json_object
 from evidence_rag.generator.models import Claim, ClaimSpan
 
 SPLIT_PROMPT = (
-    "Split the answer into atomic, self-contained factual claims. Resolve pronouns "
-    "without adding information. Return JSON only in this shape: "
+    "Split the answer into atomic, self-contained factual claims that could each "
+    "be checked against source documents. Resolve pronouns without adding "
+    "information. Skip any sentence that only describes the answer itself or where "
+    "its information came from (e.g. 'this is based on...', 'the information is "
+    "sourced from...') rather than asserting a fact about the world. Return JSON "
+    "only in this shape: "
     '{{"claims":[{{"source_text":"exact contiguous text from the answer",'
     '"text":"self-contained claim"}}]}}.\n\nAnswer:\n{answer}'
 )
