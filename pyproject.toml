@@ -7,7 +7,12 @@ name = "evidence-rag"
 version = "0.1.0"
 description = "Clean Retriever-Selector-Generator pipeline"
 requires-python = ">=3.11,<3.12"
-dependencies = ["pydantic>=2.7,<3"]
+dependencies = [
+    "accelerate>=1.14.0",
+    "anthropic>=0.120.2",
+    "pydantic>=2.7,<3",
+    "python-multipart>=0.0.32",
+]
 
 [project.optional-dependencies]
 benchmark = ["ir-datasets==0.5.11"]
@@ -28,6 +33,7 @@ relations = ["datasets>=2,<5", "sentencepiece>=0.1.99,<0.3"]
 # The default RuleBasedEntityExtractor needs nothing beyond the stdlib, and the
 # NLI verifier reuses the 'granite' extra's transformers/torch.
 verification = ["spacy>=3.7,<4"]
+ui = ["fastapi>=0.110,<1", "uvicorn[standard]>=0.29,<1"]
 dev = [
   "build>=1.2,<2",
   "mypy>=1.10,<2",
