@@ -567,6 +567,46 @@ supporting-fact 标签);与 conflict 边(false/missed-conflict)、duplicate 边(
 
 ---
 
+## G3 — 基线对照:verified vs 生成时引用(方法头条主张)
+
+**状态:** READY——三件套齐:代码(entity_check 修复 `c75e991` + runner
+`scripts/g3_baseline_comparison.py`)、slurm(`scripts/run_g3_baseline.slurm`)、本条目。
+**commit hash:`68b51ae`**。**先决修复已做并验证**:entity_check 假否决(审计实测 60%)—— 15 个
+已标注 stratum-B 项中 8/9 假否决在修复后通过 entity、真 swap(item-10 Sobers≠Gooch)仍否;
+ClaimSplitter source_text 逐字约束已放宽(`872ed61`)、over-split meta 句已在 SPLIT_PROMPT 抑制。
+
+**BEFORE(预注册):**
+
+- 目的:检验方法的**头条主张** ——「后验验证产生的引用,比模型生成时自报的引用更忠实」。三臂同 query、
+  同 Granite、同已选证据,只变后处理:baseline(`GraniteGenerator` 生成时引用+兜底)/ verify-only
+  (draft→verify→repair,关掉 completeness/recheck)/ verified-full(全链)。第三臂是**消融**:把
+  「忠实(丢无支撑)」与「完整(找补缺口)」两项贡献分开,否则改进无法归因。
+- 判官:**MiniCheck(非 TRUE、非 TRUE 衍生、非 ALCE 的 TRUE 指标)**—— verified 臂的引用是 TRUE 选的,
+  用 TRUE 评分是循环。MiniCheck 比 TRUE 弱(G1 召回 0.620 vs 0.747),是对**两臂同样**施加的保守判官,
+  绝对值是下限、对照公平。另有 ~40 项人工盲审(跨 baseline/verified),与自动数并列;若显著不一致以人工为准。
+- **诚实预期 + 失败判据:** 预期 verified 臂引用精度 > baseline(baseline 兜底会强引 evidence[0],精度低)。
+  **失败判据(预注册):若在「两臂都作答」子集上 verified 的引用精度不显著高于 baseline,则头条主张不成立**——
+  无论其他数字如何。同时诚实预期 verified **coverage 更低**(会弃答);故三轴必须**同时**报,单报引用精度是误导。
+  verified 若靠「删掉大部分答案」换引用精度,会在 answer correctness(ASQA STR-EM)上暴露。
+- 预期指标 + 方向:①coverage(非空答案率;baseline 也有 `_is_unknown_answer` 弃答路径,一并报);
+  ②MiniCheck 引用 precision/recall(答作答题);③answer correctness(ASQA STR-EM vs gold short answers)。
+  **核心对照:两臂都作答子集上的引用精度**(去掉弃答混淆),配对 p 值 + CI。verify-only vs verified-full 的
+  delta = completeness 环节单独贡献。统计**复用 `evidence_rag.evaluation.paired_metric_cli`**(按 query_id 配对、
+  均值差、随机化 p、bootstrap CI;None 值自动只留两臂都作答的题),不另写显著性实现。
+- 精确命令(登录节点先取 MiniCheck + 查 ≥300 产量,再 sbatch;Granite-3b/TRUE 已缓存):
+  ```
+  export HF_HOME=/user/work/$USER/hf_cache
+  hf download lytang/MiniCheck-Flan-T5-Large
+  mkdir -p logs results/g3 && sbatch scripts/run_g3_baseline.slurm \
+    docs/generator/g3-baseline-comparison-hpc.md results/g3
+  ```
+- Seed:`--seed 13 --limit 400 --top-k 5`(目标 ≥300 题作头条)。
+- 数据合规:只用 ALCE/ASQA;**HotpotQA / RGB / MuSiQue-Full 从不加载**(留最终 held-out,冻结后此实验复跑作终值)。
+
+**AFTER:** 未运行。
+
+---
+
 ## 本地(非 HPC)验证记录
 
 - 2026-07-20:selector 门实现全套单测 LOCAL 通过(tests/selector 32 + registration 9),
