@@ -603,7 +603,32 @@ ClaimSplitter source_text 逐字约束已放宽(`872ed61`)、over-split meta 句
 - Seed:`--seed 13 --limit 400 --top-k 5`(目标 ≥300 题作头条)。
 - 数据合规:只用 ALCE/ASQA;**HotpotQA / RGB / MuSiQue-Full 从不加载**(留最终 held-out,冻结后此实验复跑作终值)。
 
-**AFTER:** 未运行。
+**AFTER(2026-08-01,job `18238790`,a100,400 题,判官 MiniCheck):**
+
+- Raw:结果 `docs/generator/g3-baseline-comparison-hpc.md`;三臂报告 + 人工盲审 dump 在
+  `results/g3/`(本地 `local/raw-results/{baseline,verify-only,verified-full}-report.json`、
+  `g3-human-subsample.jsonl`、`g3-baseline-18238790.out`)。
+- **三轴表(coverage / STR-EM correctness / 引用 precision·recall(作答题) / 作答数):**
+  baseline **0.932 / 0.273 / 0.602·0.646 / 373**;verify-only 0.552 / 0.189 / **0.762·0.862** / 218;
+  verified-full 0.331 / 0.128 / 0.575·0.736 / 125。baseline 自身弃答 6.8%(非恒 1.0)。
+- **配对(两臂都作答子集,MiniCheck,随机化 p + bootstrap CI):**
+  - **verify-only vs baseline 引用精度 +0.090(0.764 vs 0.674),p=0.010,CI[+0.021,+0.158],n=215**;
+    recall +0.130,p=0.0002。
+  - **verified-full vs baseline 引用精度 −0.107(0.578 vs 0.685),p=0.034,n=123**。
+  - verified-full vs verify-only(completeness 贡献):精度 −0.228(p=0)、recall −0.149(p=0.0006)、
+    coverage −0.212(p=0)、correctness −0.057(p=0)—— **每一轴皆负**。
+- **头条判定(对照预注册失败判据):**
+  - **头条主张对「忠实半」(verify-only)成立**:后验验证的引用显著比生成时更忠实(+0.090 精度,p=0.010)。
+  - **对「完整系统」(verified-full)不成立** —— 触发预注册失败判据(引用精度不高反低于 baseline,p=0.034)。
+  - **completeness/recheck 环节是净负**(消融证明):recheck 追加的片段引用 MiniCheck 判不支持,拉低精度;
+    missing-required-fact 弃答把 coverage 砍半。**结论:关闭/重设 completeness/recheck,价值在 verify-only。**
+  - 精度增益有代价:verify-only 用 coverage(0.552 vs 0.932)与 correctness(0.189 vs 0.273)换来 +0.090 精度——
+    三轴必须同报,真实定位是「在更小的自选作答集上给更忠实的引用」。
+- **报告项 6(entity_check 修复对 stratum-B):** 本轮用修复后的 entity_check;对 15 个已标注 stratum-B 项验证
+  **8/9 假否决修复后通过 entity**、真 swap 仍否、1 边界翻转(Victoria)。未修则 verify 臂会多丢支持型 claim、
+  低估方法。
+- **待办:** 人工盲审 ~40 项(`g3-human-subsample.jsonl` 已产出,含隐藏 arm + MiniCheck 判)尚未评审 ——
+  与 MiniCheck 自动数并列后可坐实/修正上述精度差(若显著不一致以人工为准)。
 
 ---
 
