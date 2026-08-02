@@ -63,7 +63,10 @@ from evidence_rag.generator.granite import GraniteGenerator, GraniteLLMClient  #
 from evidence_rag.generator.models import RequiredFactCoverage  # noqa: E402
 from evidence_rag.generator.nli import NLIModel, build_nli_model  # noqa: E402
 from evidence_rag.generator.repair import AnswerRepairer  # noqa: E402
-from evidence_rag.generator.verified import VerifiedGenerator  # noqa: E402
+from evidence_rag.generator.verified import (  # noqa: E402
+    VerifiedGenerator,
+    strip_unconfirmed_disclosure,
+)
 from evidence_rag.generator.verifier import Verifier  # noqa: E402
 
 YEAR_RE = re.compile(r"\b(1[89]\d\d|20\d\d)\b")
@@ -260,19 +263,24 @@ def score_arm(
     for query_id, result in arm_results.items():
         case = cases_by_id[query_id]
         answered = bool(result.answer.strip())
+        # Every metric reads the answer WITHOUT its disclosure sentence. The
+        # disclosure names the unconfirmed fact, so leaving it in would let its
+        # wording score a spurious STR-EM match, and would make each citation
+        # entail a longer answer -- both only in the partial-answering arm.
+        scored_answer = strip_unconfirmed_disclosure(result.answer)
         metrics: dict[str, float | None] = {
             "coverage": 1.0 if answered else 0.0,
-            "answer_correctness": str_em(result.answer, case.gold_answers),
+            "answer_correctness": str_em(scored_answer, case.gold_answers),
         }
         if answered:
             cited = set(result.cited_evidence_ids)
             cited_texts = [item.text for item in case.selected.evidence if item.evidence_id in cited]
             if cited_texts:
                 metrics["citation_precision"] = sum(
-                    1.0 for text in cited_texts if _supports(judge, text, result.answer)
+                    1.0 for text in cited_texts if _supports(judge, text, scored_answer)
                 ) / len(cited_texts)
                 metrics["citation_recall"] = (
-                    1.0 if _supports(judge, "\n".join(cited_texts), result.answer) else 0.0
+                    1.0 if _supports(judge, "\n".join(cited_texts), scored_answer) else 0.0
                 )
             else:  # contract makes this impossible for a non-empty answer, but guard
                 metrics["citation_precision"] = None

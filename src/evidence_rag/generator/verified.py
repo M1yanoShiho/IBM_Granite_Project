@@ -52,6 +52,19 @@ def is_unconfirmed_disclosure(sentence: str) -> bool:
     return sentence.strip().startswith(UNCONFIRMED_DISCLOSURE_PREFIX)
 
 
+def strip_unconfirmed_disclosure(answer: str) -> str:
+    """The answer with its disclosure sentence removed.
+
+    **Correctness scoring (STR-EM) must read this, not the raw answer.** The
+    disclosure *names the unconfirmed fact*, so whenever that wording shares
+    tokens with a gold short answer it produces a spurious exact-match -- and only
+    in the partial-answering arm, which is precisely where a spurious gain would
+    flatter the change. The disclosure is always the trailing part of the answer.
+    """
+    index = answer.find(UNCONFIRMED_DISCLOSURE_PREFIX)
+    return answer[:index].strip() if index >= 0 else answer
+
+
 class DraftProducer(Protocol):
     def generate(
         self,

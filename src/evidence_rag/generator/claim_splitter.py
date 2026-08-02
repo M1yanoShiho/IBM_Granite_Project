@@ -65,7 +65,10 @@ duplication actually seen in the G3 data ("West Germany won the World Cup in 195
 inside "... in 1954 and again in 1974") but not semantic restatement
 ("Adipose tissue exists in multiple locations" vs a claim listing them, which
 share only 2 content tokens). Catching the latter needs entailment between
-claims, which is a verifier-sized cost on every draft."""
+claims: at 3-5 claims per query that is ~20 ordered pairs, a few seconds against
+the existing ~9.6 s/example -- a real increment, but not prohibitive. It is left
+unimplemented because it does not move the headline, not because it is too
+expensive."""
 
 
 def _is_meta_narrative(text: str) -> bool:

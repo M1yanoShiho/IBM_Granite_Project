@@ -98,6 +98,27 @@ def test_score_arm_precision_below_one_when_a_citation_is_unsupported() -> None:
     assert rep["per_case"][0]["metrics"]["citation_precision"]["value"] == 0.5
 
 
+def test_str_em_does_not_read_the_disclosure_sentence() -> None:
+    """Measurement integrity: the disclosure NAMES the unconfirmed fact, so if its
+    wording shares tokens with the gold short answer it would score a spurious
+    match -- and only in the partial-answering arm, exactly where a false gain
+    would flatter the change."""
+    from evidence_rag.generator.verified import format_unconfirmed_disclosure
+
+    gold = (("1997",),)
+    confirmed = "The band formed in Seattle."
+    # the unconfirmed required fact happens to contain the gold answer token
+    disclosure = format_unconfirmed_disclosure(("It released its debut in 1997",))
+    full_answer = f"{confirmed} {disclosure}"
+
+    # raw answer would match on the leaked token ...
+    assert g3.str_em(full_answer, gold) == 1.0
+    # ... and the scorer must not see it
+    assert g3.str_em(g3.strip_unconfirmed_disclosure(full_answer), gold) == 0.0
+    # an answer with no disclosure is untouched
+    assert g3.strip_unconfirmed_disclosure(confirmed) == confirmed
+
+
 def test_build_arms_constructs_all_three_without_loading() -> None:
     class FakeLLM:
         def generate(self, prompt: str) -> str:
