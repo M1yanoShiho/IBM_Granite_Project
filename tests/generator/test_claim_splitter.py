@@ -154,6 +154,82 @@ def test_claim_splitter_rejects_claim_without_required_text_fields() -> None:
         ClaimSplitter(llm=llm).split("Revenue rose.")
 
 
+def test_claim_splitter_drops_meta_narrative_claims() -> None:
+    # "the information is sourced from..." talks about the answer, not the world
+    answer = "The festival ended on November 16. The information is sourced from the 2015 event details."
+    llm = FakeLLM(
+        [
+            '{"claims":['
+            '{"source_text":"The festival ended on November 16.","text":"The festival ended on November 16."},'
+            '{"source_text":"The information is sourced from the 2015 event details.",'
+            '"text":"The information is sourced from the 2015 event details."}]}',
+            '{"results":[{"claim_id":"claim-1","faithful":true}]}',
+        ]
+    )
+
+    claims = ClaimSplitter(llm=llm).split(answer)
+
+    assert [c.text for c in claims] == ["The festival ended on November 16."]
+    # the faithfulness call only ever saw the surviving claim
+    assert "sourced from" not in llm.prompts[1]
+
+
+def test_claim_splitter_drops_claims_with_an_unresolved_subject() -> None:
+    # "This film ..." is not self-contained: nothing downstream knows which film
+    answer = "The movie is titled Sunshine. This film aired on NBC in 1973."
+    llm = FakeLLM(
+        [
+            '{"claims":['
+            '{"source_text":"The movie is titled Sunshine.","text":"The movie is titled Sunshine."},'
+            '{"source_text":"This film aired on NBC in 1973.","text":"This film aired on NBC in 1973."}]}',
+            '{"results":[{"claim_id":"claim-1","faithful":true}]}',
+        ]
+    )
+
+    claims = ClaimSplitter(llm=llm).split(answer)
+
+    assert [c.text for c in claims] == ["The movie is titled Sunshine."]
+
+
+def test_claim_splitter_drops_a_restatement_subsumed_by_a_more_specific_claim() -> None:
+    """The shape actually observed in the G3 data: overlapping claim spans that
+    duplicated text in the repaired answer ("West Germany won the World Cup in
+    1954 West Germany won the World Cup in 1954 and again in 1974.")."""
+    answer = "West Germany won the World Cup in 1954 and again in 1974."
+    llm = FakeLLM(
+        [
+            '{"claims":['
+            '{"source_text":"West Germany won the World Cup in 1954","text":"West Germany won the World Cup in 1954."},'
+            '{"source_text":"West Germany won the World Cup in 1954 and again in 1974.",'
+            '"text":"West Germany won the World Cup in 1954 and again in 1974."}]}',
+            '{"results":[{"claim_id":"claim-2","faithful":true}]}',
+        ]
+    )
+
+    claims = ClaimSplitter(llm=llm).split(answer)
+
+    assert len(claims) == 1
+    assert "1974" in claims[0].text  # the more specific claim is the one kept
+
+
+def test_claim_splitter_keeps_distinct_claims_about_the_same_subject() -> None:
+    # guard against the redundancy rule being too eager
+    answer = "Sunshine aired on NBC in 1973. Sunshine starred Cliff DeYoung and Cristina Raines."
+    llm = FakeLLM(
+        [
+            '{"claims":['
+            '{"source_text":"Sunshine aired on NBC in 1973.","text":"Sunshine aired on NBC in 1973."},'
+            '{"source_text":"Sunshine starred Cliff DeYoung and Cristina Raines.",'
+            '"text":"Sunshine starred Cliff DeYoung and Cristina Raines."}]}',
+            '{"results":[{"claim_id":"claim-1","faithful":true},{"claim_id":"claim-2","faithful":true}]}',
+        ]
+    )
+
+    claims = ClaimSplitter(llm=llm).split(answer)
+
+    assert len(claims) == 2
+
+
 def test_claim_splitter_rejects_faithfulness_output_without_results_array() -> None:
     llm = FakeLLM(
         [

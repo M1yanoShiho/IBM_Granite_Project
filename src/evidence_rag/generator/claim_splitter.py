@@ -32,6 +32,82 @@ _MIN_SENTENCE_OVERLAP = 0.3
 sentence before we anchor to it; below this the claim is treated as unlocatable
 and skipped (a genuinely off-answer claim, not a paraphrase)."""
 
+# --- over-split suppression -------------------------------------------------
+# The audit found three kinds of claim that are not answers to the question:
+# meta-narrative about the answer itself, fragments whose subject was never
+# resolved, and restatements of another claim. They inflate the unsupported and
+# abstention rates, multiply entity_check comparisons, and lengthen answers --
+# which feeds the citation-dilution problem directly.
+
+_META_NARRATIVE = re.compile(
+    r"\b(?:"
+    r"the (?:answer|information|evidence|passage|document|source|text|context)s?\b"
+    r"|this (?:answer|information|statement)\b"
+    r"|(?:is|was|are|were) (?:sourced|derived|taken) from"
+    r"|comes from the"
+    r"|according to the (?:evidence|passage|document|source|text|context)"
+    r"|mentioned in the (?:answer|evidence|passage|document|text)"
+    r")",
+    re.IGNORECASE,
+)
+
+_UNRESOLVED_SUBJECT = re.compile(
+    r"^(?:it|its|this|that|these|those|they|them|their|he|him|his|she|her)\b",
+    re.IGNORECASE,
+)
+
+_REDUNDANT_COVERAGE = 0.8
+"""A claim is a restatement when this share of its content tokens already appears
+in a strictly more specific claim.
+
+Known limit: this is *lexical* subsumption, so it catches the overlapping-span
+duplication actually seen in the G3 data ("West Germany won the World Cup in 1954"
+inside "... in 1954 and again in 1974") but not semantic restatement
+("Adipose tissue exists in multiple locations" vs a claim listing them, which
+share only 2 content tokens). Catching the latter needs entailment between
+claims, which is a verifier-sized cost on every draft."""
+
+
+def _is_meta_narrative(text: str) -> bool:
+    """Talks about the answer or where it came from, rather than asserting a fact."""
+    return bool(_META_NARRATIVE.search(text))
+
+
+def _has_unresolved_subject(text: str) -> bool:
+    """Opens with a pronoun or demonstrative the splitter failed to resolve.
+
+    A2's own contract is 'atomic, self-contained ... resolve pronouns', so
+    "This film aired on NBC in 1973" is a splitter failure: nothing downstream can
+    tell which film, and the verifier cannot check it against evidence.
+    """
+    return bool(_UNRESOLVED_SUBJECT.match(text.strip()))
+
+
+def _drop_over_split(
+    pending: list[tuple[str, str, str, ClaimSpan]],
+) -> list[tuple[str, str, str, ClaimSpan]]:
+    """Keep only atomic claims that could actually answer something."""
+    kept = [
+        item
+        for item in pending
+        if not _is_meta_narrative(item[2]) and not _has_unresolved_subject(item[2])
+    ]
+    tokens = [_content_tokens(item[2]) for item in kept]
+    result: list[tuple[str, str, str, ClaimSpan]] = []
+    for index, item in enumerate(kept):
+        mine = tokens[index]
+        if mine:
+            subsumed = any(
+                other_index != index
+                and len(tokens[other_index]) > len(mine)
+                and len(mine & tokens[other_index]) / len(mine) >= _REDUNDANT_COVERAGE
+                for other_index in range(len(kept))
+            )
+            if subsumed:
+                continue
+        result.append(item)
+    return result
+
 
 def _content_tokens(text: str) -> set[str]:
     return {
@@ -122,6 +198,10 @@ class ClaimSplitter:
             pending.append((claim_id, source_text, claim_text, span))
             cursor = span.end
 
+        # suppress over-split claims BEFORE the faithfulness call: they are not
+        # answers, so spending a check on them is waste, and letting them through
+        # lengthens the answer and multiplies entity_check comparisons.
+        pending = _drop_over_split(pending)
         if not pending:
             return ()
 

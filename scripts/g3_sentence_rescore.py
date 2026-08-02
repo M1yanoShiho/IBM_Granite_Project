@@ -47,6 +47,7 @@ for _p in (REPO_ROOT / "src", REPO_ROOT / "scripts"):
         sys.path.insert(0, str(_p))
 
 from alce_metrics import ScoredExample, compute_citation_metrics  # noqa: E402, I001
+from evidence_rag.generator.verified import is_unconfirmed_disclosure  # noqa: E402
 
 CITE_RE = re.compile(r"\[(\d+)")
 STOPWORDS = frozenset(
@@ -188,6 +189,13 @@ def _score_parts(
         if start < 0:
             start = search_from
         search_from = start + len(sentence)
+        if is_unconfirmed_disclosure(sentence):
+            # Partial answering (Task 4) appends a "Not confirmed from the provided
+            # documents: ..." sentence. It is meta-text about the answer and carries
+            # no citation by construction, so scoring it would count a
+            # guaranteed-unsupported sentence against recall -- exactly the
+            # answer-length dilution sentence-level scoring exists to remove.
+            continue
         owner = next((part for begin, end, part in bounds if begin <= start < end), None)
         if owner is None:
             refs: tuple[str, ...] = ()
