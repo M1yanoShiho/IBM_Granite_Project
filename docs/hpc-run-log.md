@@ -683,6 +683,97 @@ SUPPORTS 类。同一算式在 deberta 侧给出负下界(即空),故该下界�
 
 ---
 
+## G3 — 基线对照:verified vs 生成时引用(方法头条主张)
+
+**状态:** READY——三件套齐:代码(entity_check 修复 `c75e991` + runner
+`scripts/g3_baseline_comparison.py`)、slurm(`scripts/run_g3_baseline.slurm`)、本条目。
+**commit hash:`68b51ae`**。**先决修复已做并验证**:entity_check 假否决(审计实测 60%)—— 15 个
+已标注 stratum-B 项中 8/9 假否决在修复后通过 entity、真 swap(item-10 Sobers≠Gooch)仍否;
+ClaimSplitter source_text 逐字约束已放宽(`872ed61`)、over-split meta 句已在 SPLIT_PROMPT 抑制。
+
+**BEFORE(预注册):**
+
+- 目的:检验方法的**头条主张** ——「后验验证产生的引用,比模型生成时自报的引用更忠实」。三臂同 query、
+  同 Granite、同已选证据,只变后处理:baseline(`GraniteGenerator` 生成时引用+兜底)/ verify-only
+  (draft→verify→repair,关掉 completeness/recheck)/ verified-full(全链)。第三臂是**消融**:把
+  「忠实(丢无支撑)」与「完整(找补缺口)」两项贡献分开,否则改进无法归因。
+- 判官:**MiniCheck(非 TRUE、非 TRUE 衍生、非 ALCE 的 TRUE 指标)**—— verified 臂的引用是 TRUE 选的,
+  用 TRUE 评分是循环。MiniCheck 比 TRUE 弱(G1 召回 0.620 vs 0.747),是对**两臂同样**施加的保守判官,
+  绝对值是下限、对照公平。另有 ~40 项人工盲审(跨 baseline/verified),与自动数并列;若显著不一致以人工为准。
+- **诚实预期 + 失败判据:** 预期 verified 臂引用精度 > baseline(baseline 兜底会强引 evidence[0],精度低)。
+  **失败判据(预注册):若在「两臂都作答」子集上 verified 的引用精度不显著高于 baseline,则头条主张不成立**——
+  无论其他数字如何。同时诚实预期 verified **coverage 更低**(会弃答);故三轴必须**同时**报,单报引用精度是误导。
+  verified 若靠「删掉大部分答案」换引用精度,会在 answer correctness(ASQA STR-EM)上暴露。
+- 预期指标 + 方向:①coverage(非空答案率;baseline 也有 `_is_unknown_answer` 弃答路径,一并报);
+  ②MiniCheck 引用 precision/recall(答作答题);③answer correctness(ASQA STR-EM vs gold short answers)。
+  **核心对照:两臂都作答子集上的引用精度**(去掉弃答混淆),配对 p 值 + CI。verify-only vs verified-full 的
+  delta = completeness 环节单独贡献。统计**复用 `evidence_rag.evaluation.paired_metric_cli`**(按 query_id 配对、
+  均值差、随机化 p、bootstrap CI;None 值自动只留两臂都作答的题),不另写显著性实现。
+- 精确命令(登录节点先取 MiniCheck + 查 ≥300 产量,再 sbatch;Granite-3b/TRUE 已缓存):
+  ```
+  export HF_HOME=/user/work/$USER/hf_cache
+  hf download lytang/MiniCheck-Flan-T5-Large
+  mkdir -p logs results/g3 && sbatch scripts/run_g3_baseline.slurm \
+    docs/generator/g3-baseline-comparison-hpc.md results/g3
+  ```
+- Seed:`--seed 13 --limit 400 --top-k 5`(目标 ≥300 题作头条)。
+- 数据合规:只用 ALCE/ASQA;**HotpotQA / RGB / MuSiQue-Full 从不加载**(留最终 held-out,冻结后此实验复跑作终值)。
+
+**AFTER(2026-08-01,job `18238790`,a100,400 题,判官 MiniCheck):**
+
+- Raw:结果 `docs/generator/g3-baseline-comparison-hpc.md`;三臂报告 + 人工盲审 dump 在
+  `results/g3/`(本地 `local/raw-results/{baseline,verify-only,verified-full}-report.json`、
+  `g3-human-subsample.jsonl`、`g3-baseline-18238790.out`)。
+- **三轴表(coverage / STR-EM correctness / 引用 precision·recall(作答题) / 作答数):**
+  baseline **0.932 / 0.273 / 0.602·0.646 / 373**;verify-only 0.552 / 0.189 / **0.762·0.862** / 218;
+  verified-full 0.331 / 0.128 / 0.575·0.736 / 125。baseline 自身弃答 6.8%(非恒 1.0)。
+- **配对(两臂都作答子集,MiniCheck,随机化 p + bootstrap CI):**
+  - **verify-only vs baseline 引用精度 +0.090(0.764 vs 0.674),p=0.010,CI[+0.021,+0.158],n=215**;
+    recall +0.130,p=0.0002。
+  - **verified-full vs baseline 引用精度 −0.107(0.578 vs 0.685),p=0.034,n=123**。
+  - verified-full vs verify-only(completeness 贡献):精度 −0.228(p=0)、recall −0.149(p=0.0006)、
+    coverage −0.212(p=0)、correctness −0.057(p=0)—— **每一轴皆负**。
+- **头条判定(对照预注册失败判据):**
+  - **头条主张对「忠实半」(verify-only)成立**:后验验证的引用显著比生成时更忠实(+0.090 精度,p=0.010)。
+  - **对「完整系统」(verified-full)不成立** —— 触发预注册失败判据(引用精度不高反低于 baseline,p=0.034)。
+  - **completeness/recheck 环节是净负**(消融证明):recheck 追加的片段引用 MiniCheck 判不支持,拉低精度;
+    missing-required-fact 弃答把 coverage 砍半。**结论:关闭/重设 completeness/recheck,价值在 verify-only。**
+  - 精度增益有代价:verify-only 用 coverage(0.552 vs 0.932)与 correctness(0.189 vs 0.273)换来 +0.090 精度——
+    三轴必须同报,真实定位是「在更小的自选作答集上给更忠实的引用」。
+- **报告项 6(entity_check 修复对 stratum-B):** 本轮用修复后的 entity_check;对 15 个已标注 stratum-B 项验证
+  **8/9 假否决修复后通过 entity**、真 swap 仍否、1 边界翻转(Victoria)。未修则 verify 臂会多丢支持型 claim、
+  低估方法。
+- **待办:** 人工盲审 ~40 项(`g3-human-subsample.jsonl` 已产出,含隐藏 arm + MiniCheck 判)尚未评审 ——
+  与 MiniCheck 自动数并列后可坐实/修正上述精度差(若显著不一致以人工为准)。
+
+**后续分析(follow-up,非新实验;job `18240137`,2026-08-02):**
+
+指南原计划纯用 G3 dump 再分析、不跑新作业,但核实后 dump 只有 `query_id` + 4 个聚合指标与最终
+答案/引用 —— **gaps、引用来源、弃答成因、TRUE 概率四样均未留存**,故经批准用插桩版重跑 verified-full
+(`scripts/g3_diagnosis.py`,`src/` 零改动,全脚本侧 wrapper)。贪心解码确定性,**完美复现 G3**:
+378 完成 / 253 弃答 / **125 作答**,与 G3 的 125/378 一致 —— 故结论可直接套用到上表数字。
+详见 `docs/generator/g3-followup-diagnosis.md`。
+
+- **false-gap 假设被推翻:** 真实数据 **43/654 = 0.066**(MiniCheck 召回校正上界 0.106),而 G2 的
+  0.786 own-fact coverage 隐含 ~0.214。**gap 检测器基本是对的**(~93% 正确),重调它只能触及 6.6%。
+- **精度暴跌不是 recheck 引用质量:** draft 源 0.539 vs recheck 源 0.435,delta 0.103,**置换检验
+  p=0.184 不显著**。真正机制是**答案长度稀释**——同一批 draft 引用按 **claim 级判为 0.869**,按
+  **整答案级判仅 0.539**;recheck 给 105/125 作答例追加片段,答案中位长 60→97 字符。baseline 答案短
+  (中位 54)、引用少(1.24/题),answer-level 指标系统性偏袒它。**G3 的 −0.228/−0.107 应读作部分是
+  度量伪影**,待人工裁定。
+- **弃答洪水不是假 gap 造成:** 251/253 走 completeness 路径,但其中**全部触发 gap 皆假的仅 9/251
+  = 0.036**(至少一个假 8.4%)。真因是 **recheck 在真实 gap 上只有 38.3% 找得到**(234/611),叠加
+  **any-fact-missing 即弃答**的全有全无策略 + 平均 1.80 必填事实/题 → 63% 弃答是算术必然。
+- **决策表:证据分裂到两行,不强行归一** —— coverage 伤害属第 2 行(须重设,但要改的是**弃答策略**
+  而非 gap 检测器);precision 伤害属第 3 行(度量/判官局限,待 Task 4 人工定夺);第 1 行(假 gap)
+  **被证否**。
+- **Task 5 扫描:** 阈值 0.05→0.90 上 coverage 0.579→0.474、claim 级精度 0.815→0.921,**平滑单调无断崖**,
+  生产点 0.50 在曲线中不特殊(非事后挑选的有利点)。**但该曲线是 claim 级**,baseline 无法放上同一坐标
+  (其答案从不切分为 claim,claim 级精度无定义);若要合图需对每个阈值的 repaired 答案再做一遍
+  answer-level 判定(短作业,建议与后续 GPU 工作打包)。
+
+---
+
 ## 本地(非 HPC)验证记录
 
 - 2026-07-20:selector 门实现全套单测 LOCAL 通过(tests/selector 32 + registration 9),
