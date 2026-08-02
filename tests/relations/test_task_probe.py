@@ -1,5 +1,10 @@
 from evidence_rag.materializer.provenance import MutationRecord
-from evidence_rag.relations.claims import HYPOTHESIS_TEMPLATE, build_hypothesis
+from evidence_rag.relations.claims import (
+    HYPOTHESIS_FORMS,
+    HYPOTHESIS_TEMPLATE,
+    build_hypothesis,
+    build_question_answer,
+)
 from evidence_rag.relations.models import RelationLabel
 from evidence_rag.relations.task_probe import (
     CF_GOLD,
@@ -105,6 +110,46 @@ def test_skips_a_record_whose_query_is_missing() -> None:
         records=(_record(),), question_by_query={}, text_by_document=_TEXTS
     )
     assert pairs == ()
+
+
+def test_question_answer_form_drops_the_meta_frame() -> None:
+    """The frozen template asserts something ABOUT a question; this form asserts the answer
+    directly. Isolating that single difference is the whole point of the §2.4 ablation."""
+    assert build_question_answer("who won?", "Kennedy") == "who won? Kennedy."
+
+
+def test_question_answer_form_supplies_a_missing_question_mark() -> None:
+    """NQ questions arrive with no terminal punctuation at all."""
+    assert build_question_answer("who won", "Kennedy") == "who won? Kennedy."
+
+
+def test_question_answer_form_collapses_repeated_terminal_punctuation() -> None:
+    assert build_question_answer("who won???", "Kennedy") == "who won? Kennedy."
+
+
+def test_hypothesis_forms_registry_names_both_deterministic_forms() -> None:
+    """The form name is recorded in the Gate 0B report, so the registry is the protocol
+    record of which arms exist."""
+    assert HYPOTHESIS_FORMS["template"] is build_hypothesis
+    assert HYPOTHESIS_FORMS["question_answer"] is build_question_answer
+
+
+def test_probe_pairs_use_the_selected_hypothesis_form() -> None:
+    pairs = build_probe_pairs(
+        records=(_record(),),
+        question_by_query=_QUESTIONS,
+        text_by_document=_TEXTS,
+        hypothesis_form=build_question_answer,
+    )
+    assert {pair.hypothesis for pair in pairs} == {"who won? Kennedy.", "who won? Nixon."}
+
+
+def test_probe_pairs_default_to_the_frozen_template() -> None:
+    """Omitting the form must not silently change the pre-registered main arm."""
+    pairs = build_probe_pairs(
+        records=(_record(),), question_by_query=_QUESTIONS, text_by_document=_TEXTS
+    )
+    assert all(pair.hypothesis.startswith('The answer to the question "') for pair in pairs)
 
 
 def test_multiple_records_are_emitted_independently() -> None:

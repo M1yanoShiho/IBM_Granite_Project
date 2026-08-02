@@ -526,7 +526,7 @@ supporting-fact 标签);与 conflict 边(false/missed-conflict)、duplicate 边(
 - **commit:** 5740d1b(sidecar)/ d6607b3(`support_unit`)/ b4ca71c(碰撞率 CLI)
 - **AFTER:** _待填 —— collision_rate、mean_parents_per_window、harm、conditional_document_recall_
 
-### R012 — Gate 0B 零训练 sweep(真实分叉点)
+### R012 — Gate 0B 零训练 sweep(真实分叉点) [DONE 2026-08-02]
 
 - **目的:** 判定现成 checkpoint 是否够用。**过则接门(Plan 2),不过则启动 M0 §3.8 的训练路径。**
 - **假设:** `tals/albert-xlarge-vitaminc-mnli` 域对口(VitaminC 的对比结构 = injector 孪生的同构),
@@ -541,7 +541,123 @@ supporting-fact 标签);与 conflict 边(false/missed-conflict)、duplicate 边(
   ```
 - **前置:** `runs/niah-train/` 的 artifact 必须已物化(0B-2 探针必须建在 **train** split 上)。
 - **commit:** be9dd2c(Gate 0B 指标 + runner)/ ddb5342(探针)/ b5dbb5d(VitaminC adapter)
-- **AFTER:** _待填 —— 每臂的 0B-1 五项与 0B-2 两项,以及分叉判定_
+- **AFTER(实测):**
+
+**Job:** `18235972` COMPLETED / 00:37:34 / exit 0:0。提交行(`sacct -j 18235972 -o SubmitLine%200`):
+`sbatch scripts/run_gate0b.slurm data/gate0b/task_pairs.jsonl data/gate0b/vitaminc_test.jsonl results/gate0b/sweep-full.json`。
+同批另有三个作业不产出结果,一并记录以免日后被误读为"结果丢失":`18231280` FAILED 02:15
+(tokenizer/backend/GPU,对应 `f09440d`、`4af4986`、`af293d6` 三个 fix)、`18235953` FAILED 00:31
+(踩 slurm 的 `none` 哨兵未接线 bug,见下)、`18235954` 提交后即撤。
+**Raw:** `results/gate0b/sweep-full.json`(`git add -f` 已提交)。
+
+**两臂七项(n_external=55197,n_task=5888):**
+
+| 指标(阈值) | albert-xlarge-vitaminc | DeBERTa-v3-large-mnli |
+|---|---:|---:|
+| 0B-1 refutes_precision (≥.85) | .903 | .913 |
+| 0B-1 macro_f1 (≥.80) | **.922** | **.758** ✗ |
+| 0B-1 non_unknown_coverage (≥.80) | .872 | **.675** ✗ |
+| 0B-1 support_coverage (≥.70) | .951 | .798 |
+| 0B-1 refutes_coverage (≥.70) | .894 | **.543** ✗ |
+| 0B-2 twin_refutes_accuracy (≥.70) | **.674** ✗ | **.638** ✗ |
+| 0B-2 gold_supports_recall (≥.85) | **.192** ✗ | **.794** ✗ |
+| (参考)unknown_rate | .482 | .176 |
+
+**分叉判定:FAIL。** 无一臂七项全过。按预注册,接门(Plan 2)不成立,**M0 §3.8 训练路径进入待启动状态**——
+但**启动前有两道未清的障碍**:(1) hypothesis 形式可能是测量伪影(R012b,见下);(2) 预注册三臂缺了
+MiniCheck-FT5(见下)。在被证明有测量缺陷的探针上、且未跑完预注册臂就开训,会把缺陷训进模型。
+
+**预注册与实跑的不一致(记录,不回改 BEFORE):** BEFORE 与 `M0_PROTOCOL_FREEZE.md` §3.1 写的是**三臂同场**,
+实跑只有两臂。缺的是**对照臂 MiniCheck-FT5(770M,LLM-AggreFact <1B SOTA)**。两个原因叠加:
+`scripts/run_gate0b.slurm` 的第 4 位置参数 `MODELS` 是死变量(model id 硬编码在 python 调用里);
+更根本的是 §3.1 自己注明该臂"**二分类,需否定 claim 双向探测,单独一步**",而 `gate0b.py::load_score_fn`
+只有三类 argmax 路径、`LABEL_ORDER` 对未登记 id 直接抛错 —— **即使 `MODELS` 接了线,MiniCheck 也上不了场**,
+它需要一条尚未实现的双向打分通路。
+
+**这个缺口对结论的影响必须写明:** 现有两臂确实构成 BEFORE 所要的"域对口 vs 通用 NLI 上界"对照,
+故"albert 不够"以外的推理成立。但 MiniCheck-FT5 恰恰是三臂中**唯一为 document-grounded verification
+专门训练**的一臂,也是 §3.1 判定最可能过关的一臂。因此本轮**不足以支撑"任何零训练模型都不够"**这一族级断言,
+只能支撑"两类通用/域内 NLI checkpoint 都不够"。族级断言须待 MiniCheck 臂补齐后才能下。
+
+**两类失败性质不同,必须分开读:**
+
+1. **`twin_refutes_accuracy` 是跨臂一致的失败**(.674 / .638,同量级同方向)。这正是 BEFORE 所要的信号:
+   不是"albert 这个 checkpoint 不够",而是零训练 NLI 这一族在孪生判别上都不够。与 `task_probe.py`
+   docstring 记的"三轮抽取层工作没能修好"同指一处。
+2. **`gold_supports_recall` 的 .192 vs .794 不自洽,不可作能力读数。** albert 在 VitaminC official test 上
+   macro_f1 .922、非弃权覆盖 .872,换到探针最容易的一类(needle 文档确实支持 gold claim)掉到 .192,
+   且被一个 0B-1 挂三项的臂以 4.1 倍碾过。能力不足是两臂同向退,不是这个形状。
+
+**排除的三个机制(均有实测,非推测):**
+
+- **截断**:两臂 `model_max_length` 均 512,premise token 中位数 150/140、p95 188/170、最长 275/272,
+  `frac_over_cap` 均为 **0.000**。无任何 premise 被截断。
+- **标签序错配**:albert 正是用 `gate0b.py::LABEL_ORDER` 现有映射拿到 0B-1 macro_f1 .922。
+  排列错了不可能有 .92。
+- **`gold_value` 被 `canonicalize_answer` 改坏**(曾疑为主因):claim 中的 answer 串
+  **97.6% 逐字出现在 premise 中**(`cf_replacement` 为 100%)。hypothesis→premise 内容词覆盖
+  探针 .524 vs VitaminC .597,仅差 7pp。别名/释义错配不足以解释 4 倍差距。
+
+**指向 hypothesis 形式的证据(由本文件 raw 数据直接算出,非假设):** 四类各 1472 条。albert 侧,
+UNKNOWN 总数 `.48234×5888 = 2840`;twin 判对 `.67357×2944 = 1983` ⇒ twin 上 UNKNOWN ≤ 961;
+needle_gold 判对 `.19158×1472 = 282` ⇒ 其上 UNKNOWN ≤ 1190。故
+
+> **cf_replacement 上的 UNKNOWN ≥ 2840 − 961 − 1190 = 689 = 46.8%**
+
+`cf_replacement` 是干净对照组:answer 串 100% 逐字在 premise 中,无别名问题、无截断、标签无误。
+albert 在它上面至少弃权 46.8%,说明 SUPPORTS 侧的塌陷**不是 needle_gold 特有的**,而是覆盖整个
+SUPPORTS 类。同一算式在 deberta 侧给出负下界(即空),故该下界只对 albert 成立——这一点要如实写。
+
+设计文档 §3.2 原文预见了这个洞:"一个在 VitaminC official test 上过关的模型,完全可能在
+**NQ 段落 + 模板 hypothesis** 上无用"。0B-2 这一层就是为抓它而建,它抓到了。剩下的问题是那句话里的
+"模板 hypothesis"是可改的设计选择还是任务固有属性 —— 这是 R012b。
+
+**写给 `docs/results-summary.md` 的发现草稿:** 零训练关系判别的 Gate 0B 未过。域对口 checkpoint
+(albert-xlarge-vitaminc)在 VitaminC official test 上 macro-F1 .922、五项阈值全过,但在任务形状的
+探针上 gold-supports recall 仅 .192,而在同一探针上被一个域外通用 NLI 模型以 4.1 倍超过。截断、
+标签序、答案规范化三项机制均经实测排除;由弃权率可导出该模型在**词面完全匹配的干净对照对**上
+仍弃权 ≥46.8%,说明塌陷来自 hypothesis 的**句式**而非证据。孪生判别失败则跨两臂一致(.674/.638),
+是独立于此的第二个失败。结论:0B-1 式的外部效度**不能**外推到任务效度,两层验收缺一不可。
+**须同时声明的范围限制:** 预注册三臂中的 MiniCheck-FT5(唯一为 document-grounded verification
+专训的一臂)因缺少双向打分通路而未上场,故本轮不支撑"任何零训练模型都不够"的族级断言。
+
+### R012b — hypothesis 形式消融(R012 的归因实验)[PRE-REGISTERED 2026-08-02]
+
+> **编号说明:** 本条目原拟编 R013,与 `EXPERIMENT_TRACKER.md` 已占用的 R013(fine-tuned Relation
+> Builder,seed 13,CONDITIONAL 于 R012 未过)冲突 —— 撞的恰是本实验要决定是否启动的那件事。
+> 依 R011b 的既有后缀惯例改为 `R012b`。
+
+- **状态:** BEFORE 已锁,代码在做。本条目在**看到任何新数字之前**写定。
+- **目的:** 判定 R012 中 SUPPORTS 侧塌陷是 hypothesis 形式造成的测量伪影,还是零训练 NLI 的能力上限。
+  这直接决定 M0 §3.8 训练路径是否启动——在一个被证明有测量缺陷的探针上训练,会把缺陷训进模型。
+- **预注册依据:** 设计文档 §2.4 已把 QA2D 式转换器(Chen, Choi & Durrett, Findings of EMNLP 2021)
+  列为 Gate 0B 上的**预注册消融**。本条目执行它,并补一级确定性中间形式使归因可分解。
+- **三级阶梯(每级只移除一个变量):**
+
+  | form | hypothesis | 相对上一级移除了 |
+  |---|---|---|
+  | `template`(冻结主口径) | `The answer to the question "{q}" is {a}.` | — |
+  | `question_answer` | `{q}? {a}.` | 元指称框架 |
+  | `qa2d` | 融合后的陈述句 | question 的表层回声 |
+
+- **预期指标与方向(预注册):** 主判据是 albert 的 `gold_supports_recall`。
+  - `question_answer` 即显著回升 ⇒ 元指称框架是主因;
+  - 须到 `qa2d` 才回升 ⇒ question 表层回声是主因;
+  - **三级都不动 ⇒ 形式不是主因,R012 的 FAIL 按能力不足读,立即启动 §3.8。**
+- **事先固定的判读纪律(这条比结果重要):**
+  1. **R012 的 FAIL 是预注册主结果,不因本轮改写。** 报告中两轮并列,标明先后。
+  2. albert 的 `twin_refutes_accuracy` 距阈值仅 2.6pp,本轮**有可能把它顶过 .70**。若发生,
+     **不得宣布 Gate 0B 通过**;须写作"在修正后的 hypothesis 形式下重测通过",并标注这是第二次测量。
+  3. `qa2d` 引入 seq2seq 非确定性,故 claim 一律在**登录节点 greedy 预生成到缓存**,
+     缓存文件随结果一同提交;compute 节点只读缓存,不加载生成模型。
+  4. **缓存缺键硬失败,禁止回落 template。** 回落会把 template 行混进 qa2d 臂,悄悄污染对照。
+- **新增诊断:** `gate0b --dump` 逐 pair 预测。R012 只能导出 albert 在 `cf_replacement` 上
+  ≥46.8% 的**下界**(deberta 侧该下界为空),dump 之后四类各自的混淆矩阵是实测值,
+  可直接验证"塌陷覆盖整个 SUPPORTS 类"这一断言。
+- **同批修复的两个 slurm 缺陷**(已由 R012 暴露):`EXTERNAL_ARG` 算了不用,导致 task-only 快通道
+  (5888 对,本层承载 go/no-go 阈值)一提交就崩;`MODELS` 为死变量,导致预注册的第三臂无法上场。
+- **命令:** _待填 —— 依赖 QA2D checkpoint 选定与登录节点预下载_
+- **commit:** _待填_
 
 ### R011 — VitaminC adapter 与 revision-family 去污染 [DONE 2026-07-31]
 

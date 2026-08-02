@@ -9,12 +9,12 @@ import argparse
 import dataclasses
 import importlib
 import json
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
 from evidence_rag.relations.gate0b import external_report, task_report
-from evidence_rag.relations.models import RelationLabel
+from evidence_rag.relations.models import RelationLabel, RelationPrediction
 from evidence_rag.relations.predictor import NLIRelationPredictor, ScoreFn
 
 # NLI heads order their classes differently and the mapping is per checkpoint. A wrong order
@@ -128,12 +128,66 @@ def _read_pairs(path: Path) -> list[dict[str, str]]:
     ]
 
 
+class _ScoreRecorder:
+    """Wraps a scorer and keeps the raw class probabilities of its most recent call.
+
+    A RelationPrediction carries only the winning class's probability, and re-running the scorer
+    to recover the other two would double GPU time on a 55k-pair tier, so they are captured in
+    flight. The predictor calls the scorer once per tier with the whole list.
+    """
+
+    def __init__(self, score_fn: ScoreFn) -> None:
+        self._score_fn = score_fn
+        self.scores: list[Mapping[str, float]] = []
+
+    def __call__(self, pairs: Sequence[tuple[str, str]]) -> Sequence[Mapping[str, float]]:
+        self.scores = list(self._score_fn(pairs))
+        return self.scores
+
+
+def _dump_rows(
+    *,
+    model_id: str,
+    tier: str,
+    rows: Sequence[Mapping[str, str]],
+    predictions: Sequence[RelationPrediction],
+    scores: Sequence[Mapping[str, float]],
+) -> list[dict[str, Any]]:
+    """One record per scored pair.
+
+    `kind` is the breakdown the dump exists for. External rows have no kind and say so with null
+    rather than dropping the key, so every line of the file shares one schema.
+    """
+    dumped: list[dict[str, Any]] = []
+    for row, prediction, scored in zip(rows, predictions, scores, strict=True):
+        record: dict[str, Any] = {
+            "model_id": model_id,
+            "tier": tier,
+            "kind": row.get("kind"),
+            "gold": row["label"],
+            "predicted": prediction.label.value,
+            "probabilities": {label.value: float(scored[label.value]) for label in RelationLabel},
+            "premise_hash": prediction.premise_hash,
+            "hypothesis_hash": prediction.hypothesis_hash,
+        }
+        if "query_id" in row:
+            record["query_id"] = row["query_id"]
+        dumped.append(record)
+    return dumped
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Gate 0B sweep")
     parser.add_argument("--task-pairs", required=True, type=Path, help="0B-2 probe jsonl")
     parser.add_argument("--external-pairs", type=Path, help="0B-1 VitaminC official test jsonl")
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--models", nargs="+", required=True)
+    parser.add_argument(
+        "--dump",
+        type=Path,
+        help="optional jsonl of per-pair predictions, one line per (model, pair). Diagnostic "
+        "only: the --output aggregate is byte-identical with and without it.",
+    )
     return parser
 
 
@@ -142,13 +196,29 @@ def main(argv: Sequence[str] | None = None) -> int:
     task_rows = _read_pairs(arguments.task_pairs)
     external_rows = _read_pairs(arguments.external_pairs) if arguments.external_pairs else []
 
+    dump_path: Path | None = arguments.dump
+    dumped: list[dict[str, Any]] = []
+
     models: dict[str, object] = {}
     for model_id in arguments.models:
         score_fn, tokenizer_variant = load_score_fn(model_id)
-        predictor = NLIRelationPredictor(score_fn=score_fn, model_version=model_id)
+        recorder = _ScoreRecorder(score_fn) if dump_path is not None else None
+        predictor = NLIRelationPredictor(
+            score_fn=score_fn if recorder is None else recorder, model_version=model_id
+        )
         task_predictions = predictor.predict(
             [(row["premise"], row["hypothesis"]) for row in task_rows]
         )
+        if recorder is not None:
+            dumped.extend(
+                _dump_rows(
+                    model_id=model_id,
+                    tier="task",
+                    rows=task_rows,
+                    predictions=task_predictions,
+                    scores=recorder.scores,
+                )
+            )
         entry: dict[str, object] = {
             "tokenizer_variant": tokenizer_variant,
             "task": dataclasses.asdict(
@@ -163,6 +233,16 @@ def main(argv: Sequence[str] | None = None) -> int:
             external_predictions = predictor.predict(
                 [(row["premise"], row["hypothesis"]) for row in external_rows]
             )
+            if recorder is not None:
+                dumped.extend(
+                    _dump_rows(
+                        model_id=model_id,
+                        tier="external",
+                        rows=external_rows,
+                        predictions=external_predictions,
+                        scores=recorder.scores,
+                    )
+                )
             entry["external"] = dataclasses.asdict(
                 external_report(
                     gold=[RelationLabel(row["label"]) for row in external_rows],
@@ -178,6 +258,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     }
     arguments.output.parent.mkdir(parents=True, exist_ok=True)
     arguments.output.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    if dump_path is not None:
+        dump_path.parent.mkdir(parents=True, exist_ok=True)
+        dump_path.write_text(
+            "".join(json.dumps(record, sort_keys=True) + "\n" for record in dumped),
+            encoding="utf-8",
+        )
     print(json.dumps(payload, sort_keys=True))
     return 0
 

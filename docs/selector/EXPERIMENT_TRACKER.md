@@ -4,7 +4,11 @@
 
 **Plan:** [TRAINING_PLAN.md](TRAINING_PLAN.md) + [Graph 2.0 设计](../superpowers/specs/2026-07-30-graph-2.0-relation-layer-design.md) + [Plan 1](../superpowers/plans/2026-07-30-graph-2.0-plan-1-foundation.md)
 
-**Current state:** Plan 1 代码全部落地。已完成的纯 CPU Run：**R011**（VitaminC 去污染）、**R001b(a)**（parent 碰撞率 0.931）。等待中：R001（GPU，job 18225682 排队）、R011b（等 `runs/niah-train` 物化）、R012（等 R011b）。
+**Current state:** Plan 1 代码全部落地。已完成：**R011**（VitaminC 去污染）、**R001b(a)**（parent 碰撞率 0.931）、**R001**（G-FC 基线 0.4355，job 18225682）、**R012**（Gate 0B，job 18235972，**判定 FAIL**）。
+
+**§3.8 训练路径尚不能启动**，卡在两件事上：(1) **R012b** —— R012 的 SUPPORTS 塌陷疑为 hypothesis 形式造成的测量伪影，在有缺陷的探针上开训会把缺陷训进模型；(2) **预注册三臂缺 MiniCheck-FT5** —— 需要一条尚未实现的二分类双向打分通路，缺它则"任何零训练模型都不够"的族级断言无法成立。
+
+**R011b 需补台账**：探针实际已物化并被 18235972 消费（`n_pairs` 5888，由 sweep JSON 反证），但 tracker 行仍是 TODO 且 `n_skipped_records` 未记录——须从当时 `export_task_probe` 的 stdout 补齐，不得倒推。
 
 **D1 = A**（只升级边与票的构造，门的四条件不动）。**D2 已消解**（D1=A 下选择器无参数，零训练路线下关系模型也不训）。
 
@@ -28,7 +32,8 @@
 | R010 | M1 | ~~ContractNLI adapter sanity~~ | — | — | **DROPPED** | — | — | — | — | — | 17 假设×607 NDA，与任务无结构相似性；v1 迁移 −0.134。理由见 M0 §3.0 |
 | R011 | M1 | VitaminC adapter 与 revision-family decontamination | official test（+去污染 train/dev） | MUST | **DONE** | b5dbb5d | deterministic | bp1 login | `data/gate0b/vitaminc_decontamination.json` | test 55197 **未动**；train −810 行/38 page；dev −70 行/2 page | official split 确有跨 split family 重叠（量小但非零），去污染非形式主义；test-preserving 满足 |
 | R011b | M1 | Gate 0B-2 探针构造（mutation log → 四类确定性对） | NIAH **train** split | MUST | TODO | ddb5342 | deterministic | — | — | n_pairs / n_skipped | 必须用 train，不得用 dev |
-| R012 | M1 | **零训练 Relation Builder sweep（三臂同场）** | VitaminC official test + 0B-2 探针 | MUST | TODO | be9dd2c | model default | — | — | 0B-1 五项 + 0B-2 两项 | **真实分叉点**：过则接门，不过则启动训练路径 |
+| R012 | M1 | **零训练 Relation Builder sweep（三臂同场）** | VitaminC official test + 0B-2 探针 | MUST | **DONE** | be9dd2c | model default | bp1 / 18235972 | `results/gate0b/sweep-full.json` | **Gate FAIL**：albert 0B-1 五项全过、0B-2 twin .674 / gold-supports **.192**；DeBERTa 0B-1 挂三项、0B-2 .638 / .794 | **实跑只有两臂**——预注册的 MiniCheck-FT5 需二分类双向打分通路，`load_score_fn` 无此路径故从未上场，**族级断言（"任何零训练模型都不够"）不成立**。twin 失败跨臂一致可信；SUPPORTS 塌陷疑为 hypothesis 形式伪影（干净对照组 `cf_replacement` 弃权 ≥46.8%）⇒ 先跑 R012b 再决定 §3.8。详见 [hpc-run-log R012](../hpc-run-log.md) |
+| R012b | M1 | hypothesis 形式消融（`template` / `question_answer` / `qa2d` 三级阶梯） | 0B-2 探针（NIAH **train**） | MUST | TODO | — | greedy（QA2D 于登录节点预生成到缓存） | — | — | albert `gold_supports_recall` 的回升幅度 | R012 的归因实验，执行设计 §2.4 的预注册 QA2D 消融并补一级确定性中间形式。**三级都不动 ⇒ 塌陷按能力不足读，启动 §3.8**。R012 的 FAIL 是主结果，不因本轮改写；若 twin 被顶过 .70 只能记作第二次测量 |
 | R013 | M1 | fine-tuned Relation Builder | 去污染 VitaminC train/dev + NIAH-train 域适配 | CONDITIONAL | TODO | — | 13 | — | — | per-class F1 | 仅当 R012 未过才启动（M0 §3.8） |
 | R014 | M1 | fine-tuned Relation Builder | 同上 | CONDITIONAL | TODO | — | 42 | — | — | per-class F1 | 同上；训练路径启动时三 seed 条款恢复生效 |
 | R015 | M1 | fine-tuned Relation Builder | 同上 | CONDITIONAL | TODO | — | 73 | — | — | per-class F1 | 同上 |

@@ -20,7 +20,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
 from evidence_rag.materializer.provenance import MutationRecord
-from evidence_rag.relations.claims import build_hypothesis
+from evidence_rag.relations.claims import HypothesisForm, build_hypothesis
 from evidence_rag.relations.models import RelationLabel
 
 NEEDLE_GOLD = "needle_gold"
@@ -53,9 +53,13 @@ def build_probe_pairs(
     records: Sequence[MutationRecord],
     question_by_query: Mapping[str, str],
     text_by_document: Mapping[str, str],
+    hypothesis_form: HypothesisForm = build_hypothesis,
 ) -> tuple[ProbePair, ...]:
     """Records whose query or either document is missing are skipped, not partially emitted —
-    a half-built probe would silently change the denominators Gate 0B is judged on."""
+    a half-built probe would silently change the denominators Gate 0B is judged on.
+
+    `hypothesis_form` defaults to the frozen §2.4 template so that omitting it cannot silently
+    move the pre-registered main arm; the other rungs exist for the R012b form ablation."""
     pairs: list[ProbePair] = []
     for record in records:
         question = question_by_query.get(record.query_id)
@@ -63,8 +67,8 @@ def build_probe_pairs(
         cf_text = text_by_document.get(record.counterfactual_document_id)
         if question is None or needle_text is None or cf_text is None:
             continue
-        gold_claim = build_hypothesis(question, record.gold_value)
-        replacement_claim = build_hypothesis(question, record.replacement_value)
+        gold_claim = hypothesis_form(question, record.gold_value)
+        replacement_claim = hypothesis_form(question, record.replacement_value)
         family = synthetic_family(record)
         for premise, hypothesis, label, kind in (
             (needle_text, gold_claim, RelationLabel.SUPPORTS, NEEDLE_GOLD),
