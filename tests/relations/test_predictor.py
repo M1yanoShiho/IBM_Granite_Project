@@ -1,7 +1,14 @@
 import pytest
 
 from evidence_rag.relations.models import RelationLabel
-from evidence_rag.relations.predictor import NLIRelationPredictor, ScoreFn, text_hash
+from evidence_rag.relations.predictor import (
+    NLIRelationPredictor,
+    ScoreFn,
+    fingerprinted_version,
+    require_fingerprinted_version,
+    text_hash,
+    weight_fingerprint,
+)
 
 
 def _scores(mapping: dict[tuple[str, str], dict[str, float]]) -> ScoreFn:
@@ -101,3 +108,38 @@ def test_confidence_comes_from_the_winning_class_not_always_supports() -> None:
     ).predict([("p", "h")])[0]
     assert unknown.label is RelationLabel.UNKNOWN
     assert unknown.confidence == pytest.approx(0.7)
+
+
+def test_fingerprint_separates_checkpoints_that_differ_only_in_weight_VALUES() -> None:
+    """The poison case. Two fine-tuning seeds of one architecture share every parameter name,
+    shape and dtype and differ only in the numbers. A `model_version` that does not hash the
+    values lets the edge cache serve seed 13's edges under seed 42's name, which would silently
+    void the three-seed clause (M0 §5.4 / tracker R013-R015) with no metric able to notice."""
+    seed13 = (("encoder.weight|(2, 2)|float32", b"\x01\x02\x03\x04"),)
+    seed42 = (("encoder.weight|(2, 2)|float32", b"\x01\x02\x03\x05"),)
+    assert weight_fingerprint(seed13) != weight_fingerprint(seed42)
+
+
+def test_fingerprint_is_deterministic_and_order_independent() -> None:
+    """Two runs of the same checkpoint must hit the same cache entry, and `state_dict()` order
+    is not contractual."""
+    parts = (("a|(1,)|float32", b"\x00"), ("b|(1,)|float32", b"\x01"))
+    assert weight_fingerprint(parts) == weight_fingerprint(tuple(reversed(parts)))
+
+
+def test_fingerprinted_version_keeps_the_model_id_readable() -> None:
+    assert fingerprinted_version("tals/albert", "0123456789abcdef") == (
+        "tals/albert@0123456789abcdef"
+    )
+
+
+def test_a_hand_written_model_version_is_rejected() -> None:
+    """Defence in depth: the real fix is deriving the version from the weights, but a future
+    caller can still hand-write a label, so anything not carrying a fingerprint is refused."""
+    with pytest.raises(ValueError, match="not fingerprinted"):
+        require_fingerprinted_version("relation-builder-v1")
+
+
+def test_a_fingerprinted_version_is_accepted_and_returned() -> None:
+    version = fingerprinted_version("tals/albert", "0123456789abcdef")
+    assert require_fingerprinted_version(version) == version

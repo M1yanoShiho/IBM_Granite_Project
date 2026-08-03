@@ -9,13 +9,18 @@ import argparse
 import dataclasses
 import importlib
 import json
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
 from evidence_rag.relations.gate0b import external_report, task_report
 from evidence_rag.relations.models import RelationLabel, RelationPrediction
-from evidence_rag.relations.predictor import NLIRelationPredictor, ScoreFn
+from evidence_rag.relations.predictor import (
+    NLIRelationPredictor,
+    ScoreFn,
+    fingerprinted_version,
+    weight_fingerprint,
+)
 
 # NLI heads order their classes differently and the mapping is per checkpoint. A wrong order
 # silently swaps REFUTES and SUPPORTS while every number stays plausible, so unknown ids are
@@ -73,11 +78,25 @@ def _load_tokenizer(transformers: Any, model_id: str) -> tuple[Any, str]:
             ) from slow_error
 
 
-def load_score_fn(model_id: str) -> tuple[ScoreFn, str]:
+def _weight_buffers(model: Any) -> Iterator[tuple[str, bytes]]:
+    """Adapt a torch model's parameters to the torch-free `weight_fingerprint` input.
+
+    Name, shape and dtype ride in the spec string and the values ride in the bytes, so two
+    fine-tuning seeds — identical in every field except the numbers — cannot collide.
+    """
+    for name, tensor in model.state_dict().items():
+        spec = f"{name}|{tuple(tensor.shape)}|{tensor.dtype}"
+        yield spec, tensor.detach().cpu().contiguous().numpy().tobytes()
+
+
+def load_score_fn(model_id: str) -> tuple[ScoreFn, str, str]:
     """Load a HF sequence-classification checkpoint as a three-class scorer.
 
-    Returns (scorer, tokenizer_variant). Seam for testing. Fails loudly on an unverified
-    model id — see LABEL_ORDER.
+    Returns (scorer, tokenizer_variant, model_version). `model_version` is derived from the
+    checkpoint weights, never from the id alone: the id is a name two different checkpoints
+    can share, and it lands on every edge and every dump row.
+
+    Seam for testing. Fails loudly on an unverified model id — see LABEL_ORDER.
     """
     if model_id not in LABEL_ORDER:
         raise ValueError(
@@ -92,12 +111,15 @@ def load_score_fn(model_id: str) -> tuple[ScoreFn, str]:
     model = transformers.AutoModelForSequenceClassification.from_pretrained(model_id)
     model.eval()
 
+    # Before .to(device): the parameters are still on CPU, so this costs no PCIe transfer.
+    model_version = fingerprinted_version(model_id, weight_fingerprint(_weight_buffers(model)))
+
     # Without this the job holds a GPU and runs on CPU anyway. ALBERT-xlarge is far heavier than
     # its 59M parameter count suggests — 24 layers share one weight set, so the compute is that
     # of a 24-layer hidden-2048 model — and on CPU it simply looks like a hang.
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model.to(device)
-    print(f"[gate0b] {model_id} on {device} (tokenizer: {tokenizer_variant})", flush=True)
+    print(f"[gate0b] {model_version} on {device} (tokenizer: {tokenizer_variant})", flush=True)
 
     def score(pairs: Sequence[tuple[str, str]]) -> list[dict[str, float]]:
         results: list[dict[str, float]] = []
@@ -119,7 +141,7 @@ def load_score_fn(model_id: str) -> tuple[ScoreFn, str]:
                 print(f"[gate0b] {model_id} {start}/{len(pairs)}", flush=True)
         return results
 
-    return score, tokenizer_variant
+    return score, tokenizer_variant, model_version
 
 
 def _read_pairs(path: Path) -> list[dict[str, str]]:
@@ -201,10 +223,10 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     models: dict[str, object] = {}
     for model_id in arguments.models:
-        score_fn, tokenizer_variant = load_score_fn(model_id)
+        score_fn, tokenizer_variant, model_version = load_score_fn(model_id)
         recorder = _ScoreRecorder(score_fn) if dump_path is not None else None
         predictor = NLIRelationPredictor(
-            score_fn=score_fn if recorder is None else recorder, model_version=model_id
+            score_fn=score_fn if recorder is None else recorder, model_version=model_version
         )
         task_predictions = predictor.predict(
             [(row["premise"], row["hypothesis"]) for row in task_rows]

@@ -3,7 +3,13 @@ from pathlib import Path
 
 import pytest
 
-from evidence_rag.cli.gate0b import LABEL_ORDER, _load_tokenizer, load_score_fn, main
+from evidence_rag.cli.gate0b import (
+    LABEL_ORDER,
+    _load_tokenizer,
+    _weight_buffers,
+    load_score_fn,
+    main,
+)
 
 
 def _write(path: Path, rows: list[dict[str, str]]) -> Path:
@@ -38,7 +44,7 @@ def _perfect_scorer(model_id: str):  # type: ignore[no-untyped-def]
             for premise, hypothesis in pairs
         ]
 
-    return score, "fake"
+    return score, "fake", "fake@0123456789abcdef"
 
 
 def _external_pairs(tmp_path: Path) -> Path:
@@ -230,7 +236,7 @@ def _always_unknown_scorer(model_id: str):  # type: ignore[no-untyped-def]
     def score(pairs):  # type: ignore[no-untyped-def]
         return [{"SUPPORTS": 0.1, "REFUTES": 0.2, "UNKNOWN": 0.7} for _ in pairs]
 
-    return score, "fake"
+    return score, "fake", "fake@0123456789abcdef"
 
 
 def test_dump_writes_one_row_per_model_and_pair(
@@ -339,3 +345,36 @@ def test_dump_creates_its_parent_directory(
         "--models", "m1",
     ])
     assert len(_read_jsonl(dump)) == 3
+
+
+def test_weight_buffers_fold_name_shape_and_dtype_into_the_hashed_spec() -> None:
+    """Two fine-tuning seeds share every name, shape and dtype, so the VALUES have to reach the
+    hash. Shape and dtype ride along in the spec so a reshape or a dtype change cannot produce
+    the same fingerprint from the same bytes."""
+
+    class _Tensor:
+        shape = (2, 2)
+        dtype = "float32"
+
+        def detach(self) -> "_Tensor":
+            return self
+
+        def cpu(self) -> "_Tensor":
+            return self
+
+        def contiguous(self) -> "_Tensor":
+            return self
+
+        def numpy(self) -> "_Tensor":
+            return self
+
+        def tobytes(self) -> bytes:
+            return b"\x01\x02\x03\x04"
+
+    class _Model:
+        def state_dict(self) -> dict[str, "_Tensor"]:
+            return {"encoder.weight": _Tensor()}
+
+    assert list(_weight_buffers(_Model())) == [
+        ("encoder.weight|(2, 2)|float32", b"\x01\x02\x03\x04")
+    ]

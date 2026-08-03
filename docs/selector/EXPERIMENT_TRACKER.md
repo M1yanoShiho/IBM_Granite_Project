@@ -1,12 +1,14 @@
 # Graph-Assisted Evidence Selector 2.0 — Experiment Tracker
 
-**Protocol:** `g2-proto-1`（[M0_PROTOCOL_FREEZE.md](M0_PROTOCOL_FREEZE.md)，状态 DRAFT — 待 R001 的 δ 后转 FROZEN）
+**Protocol:** `g2-proto-2`（[M0_PROTOCOL_FREEZE.md](M0_PROTOCOL_FREEZE.md)，状态 DRAFT — 待 R001 的 δ 后转 FROZEN）
+
+**版本沿革：** `g2-proto-1` → `g2-proto-2`（2026-08-03，修订案 A1：关系判定改二分类支持判断）。A1 是**在 R012 判 FAIL 之后**提出的事后修订，其时间线、利益冲突声明与阈值防护条款见 M0 §9，**批准不消除该披露**。R012 的三类 FAIL 仍是预注册主结果，永久保留。
 
 **Plan:** [TRAINING_PLAN.md](TRAINING_PLAN.md) + [Graph 2.0 设计](../superpowers/specs/2026-07-30-graph-2.0-relation-layer-design.md) + [Plan 1](../superpowers/plans/2026-07-30-graph-2.0-plan-1-foundation.md)
 
 **Current state:** Plan 1 代码全部落地。已完成：**R011**（VitaminC 去污染）、**R001b(a)**（parent 碰撞率 0.931）、**R001**（G-FC 基线 0.4355，job 18225682）、**R012**（Gate 0B，job 18235972，**判定 FAIL**）。
 
-**§3.8 训练路径尚不能启动**，卡在两件事上：(1) **R012b** —— R012 的 SUPPORTS 塌陷疑为 hypothesis 形式造成的测量伪影，在有缺陷的探针上开训会把缺陷训进模型；(2) **预注册三臂缺 MiniCheck-FT5** —— 需要一条尚未实现的二分类双向打分通路，缺它则"任何零训练模型都不够"的族级断言无法成立。
+**§3.8 训练路径尚不能启动**，卡在两件事上：(1) **R012b** —— R012 的 SUPPORTS 塌陷疑为 hypothesis 形式造成的测量伪影，在有缺陷的探针上开训会把缺陷训进模型；(2) **预注册三臂缺 MiniCheck-FT5** —— 缺它则"任何零训练模型都不够"的族级断言无法成立。**注：g2-proto-2 生效后这一臂反而最顺** —— 它原生二分类，正是修订后的输出空间，不再需要双向探测；且它是本项目实测最优的验证器（2Wiki atomic .917）。M0 §9.8 指定它为 A1 的出样检验之一。
 
 **R011b 状态存疑，须补台账。** 探针实际已物化并被 18235972 消费，但**它是用一条与文档不符、且从未入台账的命令建的**：所有文档都写 `runs/niah-train/`，而该路径不可能产出任何一对（探针需要反事实文档与 mutation log，两者只在注入后存在）。2026-08-03 用真实路径 `runs/niah-train-injected/` 重导 rung 2 得 `n_pairs 5888 / n_records 1472 / n_skipped_records 0`，与 sweep 的 `n_task_pairs` 吻合，故 `n_skipped_records = 0` 对 rung 1 同样成立（跳过与 hypothesis 形式无关）。状态保持 TODO 而非 DONE——按本文件规则，没有台账条目的运行不算已记录。**并须确认 `runs/niah-train/` 是否存在**：在此之前，"探针必须建在 train split 上"这条冻结要求无法仅凭文档核验。
 
@@ -32,7 +34,7 @@
 | R010 | M1 | ~~ContractNLI adapter sanity~~ | — | — | **DROPPED** | — | — | — | — | — | 17 假设×607 NDA，与任务无结构相似性；v1 迁移 −0.134。理由见 M0 §3.0 |
 | R011 | M1 | VitaminC adapter 与 revision-family decontamination | official test（+去污染 train/dev） | MUST | **DONE** | b5dbb5d | deterministic | bp1 login | `data/gate0b/vitaminc_decontamination.json` | test 55197 **未动**；train −810 行/38 page；dev −70 行/2 page | official split 确有跨 split family 重叠（量小但非零），去污染非形式主义；test-preserving 满足 |
 | R011b | M1 | Gate 0B-2 探针构造（mutation log → 四类确定性对） | NIAH **train** split | MUST | TODO | ddb5342 | deterministic | — | — | n_pairs / n_skipped | 必须用 train，不得用 dev |
-| R012 | M1 | **零训练 Relation Builder sweep（三臂同场）** | VitaminC official test + 0B-2 探针 | MUST | **DONE** | be9dd2c | model default | bp1 / 18235972 | `results/gate0b/sweep-full.json` | **Gate FAIL**：albert 0B-1 五项全过、0B-2 twin .674 / gold-supports **.192**；DeBERTa 0B-1 挂三项、0B-2 .638 / .794 | **实跑只有两臂**——预注册的 MiniCheck-FT5 需二分类双向打分通路，`load_score_fn` 无此路径故从未上场，**族级断言（"任何零训练模型都不够"）不成立**。twin 失败跨臂一致可信；SUPPORTS 塌陷疑为 hypothesis 形式伪影（干净对照组 `cf_replacement` 弃权 ≥46.8%）⇒ 先跑 R012b 再决定 §3.8。详见 [hpc-run-log R012](../hpc-run-log.md) |
+| R012 | M1 | **零训练 Relation Builder sweep（三臂同场）** | VitaminC official test + 0B-2 探针 | MUST | **DONE** | be9dd2c | model default | bp1 / 18235972 | `results/gate0b/sweep-full.json` | **Gate FAIL**：albert 0B-1 五项全过、0B-2 twin .674 / gold-supports **.192**；DeBERTa 0B-1 挂三项、0B-2 .638 / .794 | **实跑只有两臂**——预注册的 MiniCheck-FT5 需二分类双向打分通路，`load_score_fn` 无此路径故从未上场，**族级断言（"任何零训练模型都不够"）不成立**。~~twin 失败跨臂一致可信~~ **← 已由 R012b rung 2 证伪（albert .7602 越过阈值）：跨臂一致不蕴含能力上限，两臂共用了同一个有缺陷的 hypothesis 形式**。SUPPORTS 塌陷同为形式伪影（干净对照组 `cf_replacement` 弃权实测 64.0%）。详见 [hpc-run-log R012](../hpc-run-log.md) |
 | R012b | M1 | hypothesis 形式消融（`template` / `question_answer` / `qa2d` 三级阶梯） | 0B-2 探针（NIAH **train**） | MUST | TODO | — | greedy（QA2D 于登录节点预生成到缓存） | — | — | albert `gold_supports_recall` 的回升幅度 | R012 的归因实验，执行设计 §2.4 的预注册 QA2D 消融并补一级确定性中间形式。**三级都不动 ⇒ 塌陷按能力不足读，启动 §3.8**。R012 的 FAIL 是主结果，不因本轮改写；若 twin 被顶过 .70 只能记作第二次测量 |
 | R013 | M1 | fine-tuned Relation Builder | 去污染 VitaminC train/dev + NIAH-train 域适配 | CONDITIONAL | TODO | — | 13 | — | — | per-class F1 | 仅当 R012 未过才启动（M0 §3.8） |
 | R014 | M1 | fine-tuned Relation Builder | 同上 | CONDITIONAL | TODO | — | 42 | — | — | per-class F1 | 同上；训练路径启动时三 seed 条款恢复生效 |
@@ -48,7 +50,7 @@
 | R033 | M3 | Graph+ML | NIAH dev | MUST | TODO | — | 13 | — | — | harmful / recall / NDCG | — |
 | R034 | M3 | Graph+ML | NIAH dev | MUST | TODO | — | 42 | — | — | harmful / recall / NDCG | — |
 | R035 | M3 | Graph+ML | NIAH dev | MUST | TODO | — | 73 | — | — | harmful / recall / NDCG | — |
-| R036 | M3 | CLAIM_REFUTES 消融 | NIAH dev | MUST | TODO | — | 13/42/73 | — | — | delta vs full | — |
+| R036 | M3 | ~~CLAIM_REFUTES 消融~~ | — | — | **N/A** | — | — | — | — | — | 经 g2-proto-2（M0 §9.7）消解：关系模型不再产出 REFUTES，`conflict_mode=refutes_edge` 臂失去可执行性，本消融无实质含义。如 A1 日后被推翻则本行恢复 |
 | R037 | M3 | SAME_SOURCE 消融 | NIAH dev | MUST | TODO | — | 13/42/73 | — | — | delta vs full | — |
 | R038 | M3 | shuffled-Graph 负控 | NIAH dev | MUST | TODO | — | frozen set | — | — | delta vs v1 | 不应复现 Graph 收益 |
 | R039 | M3 | 冻结 primary ensemble | NIAH dev | MUST | TODO | — | 13/42/73 | — | — | config / hash | fresh test 不选 seed |
