@@ -54,8 +54,13 @@ def main() -> int:
     unambiguous = [r for r in records if len(r.get("gold_readings", [])) <= 1]
     rng.shuffle(ambiguous)
     rng.shuffle(unambiguous)
-    half = args.items // 2
+    # ASQA contains only ambiguous questions, so the unambiguous bucket is empty
+    # there; fill from whichever bucket has items rather than under-sampling.
+    half = min(len(ambiguous), args.items // 2)
     chosen = ambiguous[:half] + unambiguous[: args.items - half]
+    if len(chosen) < args.items:
+        remaining = [r for r in ambiguous + unambiguous if r not in chosen]
+        chosen += remaining[: args.items - len(chosen)]
     rng.shuffle(chosen)
 
     lines: list[str] = []
