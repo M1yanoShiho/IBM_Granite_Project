@@ -8,7 +8,7 @@
 
 **§3.8 训练路径尚不能启动**，卡在两件事上：(1) **R012b** —— R012 的 SUPPORTS 塌陷疑为 hypothesis 形式造成的测量伪影，在有缺陷的探针上开训会把缺陷训进模型；(2) **预注册三臂缺 MiniCheck-FT5** —— 需要一条尚未实现的二分类双向打分通路，缺它则"任何零训练模型都不够"的族级断言无法成立。
 
-**R011b 需补台账**：探针实际已物化并被 18235972 消费（`n_pairs` 5888，由 sweep JSON 反证），但 tracker 行仍是 TODO 且 `n_skipped_records` 未记录——须从当时 `export_task_probe` 的 stdout 补齐，不得倒推。
+**R011b 状态存疑，须补台账。** 探针实际已物化并被 18235972 消费，但**它是用一条与文档不符、且从未入台账的命令建的**：所有文档都写 `runs/niah-train/`，而该路径不可能产出任何一对（探针需要反事实文档与 mutation log，两者只在注入后存在）。2026-08-03 用真实路径 `runs/niah-train-injected/` 重导 rung 2 得 `n_pairs 5888 / n_records 1472 / n_skipped_records 0`，与 sweep 的 `n_task_pairs` 吻合，故 `n_skipped_records = 0` 对 rung 1 同样成立（跳过与 hypothesis 形式无关）。状态保持 TODO 而非 DONE——按本文件规则，没有台账条目的运行不算已记录。**并须确认 `runs/niah-train/` 是否存在**：在此之前，"探针必须建在 train split 上"这条冻结要求无法仅凭文档核验。
 
 **D1 = A**（只升级边与票的构造，门的四条件不动）。**D2 已消解**（D1=A 下选择器无参数，零训练路线下关系模型也不训）。
 

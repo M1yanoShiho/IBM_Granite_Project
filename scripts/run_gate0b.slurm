@@ -18,30 +18,35 @@
 #     --out-test data/gate0b/vitaminc_test.jsonl \
 #     --removed-log data/gate0b/vitaminc_decontamination.json
 #   python -m evidence_rag.cli.export_task_probe \
-#     --manifest runs/niah-train/manifest.json \
-#     --provenance runs/niah-train/provenance.jsonl \
+#     --manifest runs/niah-train-injected/manifest.json \
+#     --provenance runs/niah-train-injected/provenance.jsonl \
 #     --output data/gate0b/task_pairs.jsonl
 #
 # NOTE the probe manifest points at the TRAIN split. Building it from dev or the sealed test
 # would put the acceptance set and the evaluation set on the same queries.
 #
+# The directory is niah-train-INJECTED, not niah-train. The probe needs the counterfactual
+# documents and the mutation log, and neither exists before injection — the pre-injection
+# directory cannot produce a single pair. This header said `runs/niah-train/` until 2026-08-03;
+# that command never worked, which is how R011b came to be run off the record. See R012 AFTER.
+#
 # R012b (hypothesis-form ablation, design §2.4) needs two more pair files. Rungs 1 and 2 are
 # pure CPU; rung 3 must be pre-generated HERE because compute nodes are HF-offline and a
 # seq2seq converter is not deterministic — the cache makes the arm reproducible and auditable.
 #   python -m evidence_rag.cli.export_task_probe \
-#     --manifest runs/niah-train/manifest.json \
-#     --provenance runs/niah-train/provenance.jsonl \
+#     --manifest runs/niah-train-injected/manifest.json \
+#     --provenance runs/niah-train-injected/provenance.jsonl \
 #     --output data/gate0b/task_pairs_qa.jsonl \
 #     --hypothesis-form question_answer
 #   hf download <VERIFIED_QA2D_CHECKPOINT_ID>          # id is NOT settled — see below
 #   python -m evidence_rag.cli.export_qa2d \
-#     --manifest runs/niah-train/manifest.json \
-#     --provenance runs/niah-train/provenance.jsonl \
+#     --manifest runs/niah-train-injected/manifest.json \
+#     --provenance runs/niah-train-injected/provenance.jsonl \
 #     --output data/gate0b/qa2d_cache.jsonl \
 #     --model <VERIFIED_QA2D_CHECKPOINT_ID>
 #   python -m evidence_rag.cli.export_task_probe \
-#     --manifest runs/niah-train/manifest.json \
-#     --provenance runs/niah-train/provenance.jsonl \
+#     --manifest runs/niah-train-injected/manifest.json \
+#     --provenance runs/niah-train-injected/provenance.jsonl \
 #     --output data/gate0b/task_pairs_qa2d.jsonl \
 #     --hypothesis-form qa2d --qa2d-cache data/gate0b/qa2d_cache.jsonl
 #

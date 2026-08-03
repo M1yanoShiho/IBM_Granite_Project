@@ -579,11 +579,27 @@ MiniCheck-FT5(见下)。在被证明有测量缺陷的探针上、且未跑完�
 专门训练**的一臂,也是 §3.1 判定最可能过关的一臂。因此本轮**不足以支撑"任何零训练模型都不够"**这一族级断言,
 只能支撑"两类通用/域内 NLI checkpoint 都不够"。族级断言须待 MiniCheck 臂补齐后才能下。
 
+**第二处记录缺陷:探针的构造命令从未被正确记录(2026-08-03 发现)。** 本条目 BEFORE 的"前置"写
+`runs/niah-train/`,`scripts/run_gate0b.slurm` 的 header 与 Plan 1 第 3036 行同样如此。**该路径跑不出任何一对**:
+探针需要 `counterfactual_document_id` 指向的文档与 mutation log,两者都只在**注入之后**存在。
+实际可用的是 `runs/niah-train-injected/`——2026-08-03 用它导出 rung 2 得
+`{n_pairs: 5888, n_records: 1472, n_skipped_records: 0}`,与本轮 sweep 的 `n_task_pairs` 5888 逐字吻合,
+证明 18235972 消费的探针也来自同一来源。**即当初建探针用的是一条与文档不符、且未入台账的命令**——
+R011b 是 M1 里唯一没有台账条目的一步,这个缺陷因此无人发现。slurm header 已改正(BEFORE 不回改)。
+**待办:** R011b 补台账;确认 `runs/niah-train/` 究竟是否存在,若存在须说明它与 `-injected` 的关系,
+因为"探针必须建在 train split 上"这条冻结要求目前无法仅凭文档核验。
+
 **两类失败性质不同,必须分开读:**
 
-1. **`twin_refutes_accuracy` 是跨臂一致的失败**(.674 / .638,同量级同方向)。这正是 BEFORE 所要的信号:
-   不是"albert 这个 checkpoint 不够",而是零训练 NLI 这一族在孪生判别上都不够。与 `task_probe.py`
-   docstring 记的"三轮抽取层工作没能修好"同指一处。
+1. ~~**`twin_refutes_accuracy` 是跨臂一致的失败**(.674 / .638,同量级同方向)。这正是 BEFORE 所要的信号:
+   不是"albert 这个 checkpoint 不够",而是零训练 NLI 这一族在孪生判别上都不够。~~
+
+   **[2026-08-03 撤回 —— 本条已被 R012b rung 2 证伪。]** 换用 `question_answer` 形式后,albert 的
+   `twin_refutes_accuracy` 升至 **.760,越过 .70 阈值**。跨臂一致并不蕴含"能力上限":两臂在 rung 1 上
+   一起低,是因为它们**共用同一个有缺陷的 hypothesis 形式**,而不是因为任务超出零训练模型的能力。
+   正确的表述是:**孪生判别在冻结模板下对两臂都不可达,但对 albert 在去掉元指称后可达**。
+   与 `task_probe.py` docstring 记的"三轮抽取层工作没能修好"仍同指一处——只是现在有一个 59M 的
+   现成 checkpoint 做到了 .76,这本身比 Gate 的成败更值得写进报告。
 2. **`gold_supports_recall` 的 .192 vs .794 不自洽,不可作能力读数。** albert 在 VitaminC official test 上
    macro_f1 .922、非弃权覆盖 .872,换到探针最容易的一类(needle 文档确实支持 gold claim)掉到 .192,
    且被一个 0B-1 挂三项的臂以 4.1 倍碾过。能力不足是两臂同向退,不是这个形状。
@@ -597,6 +613,25 @@ MiniCheck-FT5(见下)。在被证明有测量缺陷的探针上、且未跑完�
 - **`gold_value` 被 `canonicalize_answer` 改坏**(曾疑为主因):claim 中的 answer 串
   **97.6% 逐字出现在 premise 中**(`cf_replacement` 为 100%)。hypothesis→premise 内容词覆盖
   探针 .524 vs VitaminC .597,仅差 7pp。别名/释义错配不足以解释 4 倍差距。
+
+**大小写:对 albert 为空,对 deberta 是实打实的减分(实测 `do_lower_case`)。**
+`tals/albert-xlarge-vitaminc-mnli` → `True`,`MoritzLaurer/DeBERTa-v3-large-...` → `False`。
+`canonicalize_answer` 会把 answer 串小写,而 premise 保留原始大小写,于是:
+
+- albert 是 **uncased**,premise 与 hypothesis 一起被小写 ⇒ 该伪影**对塌陷的那一臂完全不可见**。
+  故"改用 `gold_alias_used` 原始串"这一变量**无需作为消融臂**,它对 .192 不可能有解释力。
+- deberta 是 **cased**,却在**每一对**上收到 premise/hypothesis 大小写不匹配的输入。
+
+推论必须写清:**.192 vs .794 的 4.1 倍是差距的下界而非上界** —— 免疫伪影的一臂拿 .192,
+被伪影拖累的一臂拿 .794。这加强而非削弱"塌陷来自句式不来自证据"的读法。同时 deberta 的 .794 是
+**被压低的地板**,距 `gold_supports_recall` 阈值仅 5.6pp,大小写修正后有可能过该项(twin .638 仍不过,
+Gate 判定不变)。
+
+**前向风险(记录,当前不构成偏差):** `build_hypothesis` 目前全仓库只有 `task_probe.py` 一个非测试调用者,
+`relations/` 下尚无 `clustering.py`/`graph.py`,故这不是"探针偏离生产路径"——生产路径还没建。
+但 `selector/clusters.py:100` 把簇代表答案设为 `canonicalize_answer(...)`;若将来 claim 由簇代表构造,
+小写化会传进 hypothesis,届时每个 cased 模型(含 QA2D 的 T5/BART、以及 §3.8 训好的 Relation Builder)
+都吃同一份减分。接关系层时须一并决定 claim 文本取原始抽取串还是簇规范键。
 
 **指向 hypothesis 形式的证据(由本文件 raw 数据直接算出,非假设):** 四类各 1472 条。albert 侧,
 UNKNOWN 总数 `.48234×5888 = 2840`;twin 判对 `.67357×2944 = 1983` ⇒ twin 上 UNKNOWN ≤ 961;
@@ -614,10 +649,13 @@ SUPPORTS 类。同一算式在 deberta 侧给出负下界(即空),故该下界�
 
 **写给 `docs/results-summary.md` 的发现草稿:** 零训练关系判别的 Gate 0B 未过。域对口 checkpoint
 (albert-xlarge-vitaminc)在 VitaminC official test 上 macro-F1 .922、五项阈值全过,但在任务形状的
-探针上 gold-supports recall 仅 .192,而在同一探针上被一个域外通用 NLI 模型以 4.1 倍超过。截断、
+探针上 gold-supports recall 仅 .192,而在同一探针上被一个域外通用 NLI 模型以 4.1 倍超过——且因前者
+uncased、后者 cased 而后者独自承担了小写化减分,**该倍数是下界**。截断、
 标签序、答案规范化三项机制均经实测排除;由弃权率可导出该模型在**词面完全匹配的干净对照对**上
-仍弃权 ≥46.8%,说明塌陷来自 hypothesis 的**句式**而非证据。孪生判别失败则跨两臂一致(.674/.638),
-是独立于此的第二个失败。结论:0B-1 式的外部效度**不能**外推到任务效度,两层验收缺一不可。
+仍弃权 ≥46.8%,说明塌陷来自 hypothesis 的**句式**而非证据。**孪生判别的失败(.674/.638)同样是形式造成的**:
+换掉 hypothesis 句式后 albert 升至 .760 并越过阈值(R012b rung 2),故不可读作能力上限——
+本草稿初版曾把它写成"跨两臂一致的真信号",已撤回。结论:0B-1 式的外部效度**不能**外推到任务效度,
+两层验收缺一不可;且**一个探针的 hypothesis 句式本身就能造出跨臂一致的假失败**,跨臂一致不足以证明能力上限。
 **须同时声明的范围限制:** 预注册三臂中的 MiniCheck-FT5(唯一为 document-grounded verification
 专训的一臂)因缺少双向打分通路而未上场,故本轮不支撑"任何零训练模型都不够"的族级断言。
 
@@ -651,13 +689,106 @@ SUPPORTS 类。同一算式在 deberta 侧给出负下界(即空),故该下界�
   3. `qa2d` 引入 seq2seq 非确定性,故 claim 一律在**登录节点 greedy 预生成到缓存**,
      缓存文件随结果一同提交;compute 节点只读缓存,不加载生成模型。
   4. **缓存缺键硬失败,禁止回落 template。** 回落会把 template 行混进 qa2d 臂,悄悄污染对照。
+  5. **不设大小写臂。** 实测 albert `do_lower_case=True`,小写化对主判据那一臂可证无影响(见 R012 AFTER);
+     加这一臂只会稀释阶梯。**但 rung 3 的输出大小写不受控**:输入是小写的 question 与 answer,
+     而 seq2seq 是否恢复大小写取决于 checkpoint,无法先验断定。故**缓存生成后必须先量再读**——
+     统计 `qa2d_cache.jsonl` 中输出串相对输入的大小写变化率,写进本条目的 AFTER。
+     若 rung 3 输出确为 cased 而 rung 1/2 为小写,则 rung 3 相对前两级**多变了大小写这一个变量**,
+     其增量不得整份记到 QA2D 头上;此时需补一个"QA2D 输出强制小写"的对照才能拆开两者。
 - **新增诊断:** `gate0b --dump` 逐 pair 预测。R012 只能导出 albert 在 `cf_replacement` 上
   ≥46.8% 的**下界**(deberta 侧该下界为空),dump 之后四类各自的混淆矩阵是实测值,
   可直接验证"塌陷覆盖整个 SUPPORTS 类"这一断言。
 - **同批修复的两个 slurm 缺陷**(已由 R012 暴露):`EXTERNAL_ARG` 算了不用,导致 task-only 快通道
   (5888 对,本层承载 go/no-go 阈值)一提交就崩;`MODELS` 为死变量,导致预注册的第三臂无法上场。
-- **命令:** _待填 —— 依赖 QA2D checkpoint 选定与登录节点预下载_
+- **命令(rung 1/2 可跑;rung 3 待 QA2D checkpoint 选定):**
+  ```
+  # 登录节点,纯 CPU。注意是 niah-train-INJECTED,见 R012 AFTER 的路径更正
+  PYTHONPATH=src python -m evidence_rag.cli.export_task_probe \
+    --manifest runs/niah-train-injected/manifest.json \
+    --provenance runs/niah-train-injected/provenance.jsonl \
+    --output data/gate0b/task_pairs_qa.jsonl --hypothesis-form question_answer
+
+  ARMS="tals/albert-xlarge-vitaminc-mnli MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli"
+  sbatch scripts/run_gate0b.slurm data/gate0b/task_pairs.jsonl    none \
+    results/gate0b/sweep-template.json "$ARMS" results/gate0b/dump-template.jsonl
+  sbatch scripts/run_gate0b.slurm data/gate0b/task_pairs_qa.jsonl none \
+    results/gate0b/sweep-qa.json       "$ARMS" results/gate0b/dump-qa.jsonl
+  ```
+- **rung 2 pair 文件已物化(2026-08-03,登录节点):**
+  `{"hypothesis_form": "question_answer", "n_pairs": 5888, "n_records": 1472, "n_skipped_records": 0}`
+  —— 与 rung 1 的分母逐字相同,两级之间**只差 hypothesis 形式**这一个变量。
 - **commit:** _待填_
+- **AFTER(rung 1/2 实测,2026-08-03;rung 3 未跑):**
+
+**Jobs:** `18246568`、`18246569`,均 COMPLETED,00:07:56 / 00:07:25,exit 0:0。
+(两者与 template/qa 的对应关系未记录,可由 `grep -l sweep-template logs/gate0b-1824656*.out` 补。)
+**Raw:** `results/gate0b/sweep-{template,qa}.json`、`results/gate0b/dump-{template,qa}.jsonl`。
+**复现检查:** rung 1 的 task 层与全量 sweep(18235972)**逐位一致**(.1916/.6736/.4823 与 .7942/.6376/.1758),
+确认该通路确定性无问题,且 `EXTERNAL_ARG` 修复后 task-only 快通道可用(8 分钟 vs 全量 37 分钟)。
+
+**0B-2 两项:**
+
+| 臂 | rung | twin_refutes_acc (≥.70) | gold_supports_recall (≥.85) | unknown_rate |
+|---|---|---:|---:|---:|
+| albert | 1 `template` | .6736 ✗ | .1916 ✗ | .4823 |
+| albert | 2 `question_answer` | **.7602 ✓** | .3635 ✗ | .2858 |
+| DeBERTa | 1 | .6376 ✗ | .7942 ✗ | .1758 |
+| DeBERTa | 2 | .5547 ✗ | .6651 ✗ | .2884 |
+
+**四类混淆矩阵(predicted 分布,S/R/U):**
+
+| 臂 / rung | needle_gold | cf_replacement | cf_gold | needle_replacement |
+|---|---|---|---|---|
+| albert / 1 | .192/.168/.641 | .187/.173/.640 | .004/.629/.367 | .000/.718/.282 |
+| albert / 2 | .363/.276/.361 | .357/.315/.329 | .024/.735/.240 | .001/.785/.213 |
+| DeBERTa / 1 | .794/.088/.118 | .681/.196/.123 | .234/.515/.251 | .029/.760/.211 |
+| DeBERTa / 2 | .665/.099/.236 | .532/.243/.226 | .154/.471/.375 | .044/.639/.317 |
+
+**判读:**
+
+1. **形式是真因,幅度很大,方向因臂而异。** albert 从 rung 1 到 rung 2:gold_supports **+17.2pp**、
+   twin **+8.7pp** 并越过阈值、unknown **−19.7pp**。DeBERTa 反向:两项各退 12.9pp / 8.3pp。
+2. **阶梯设计有缺陷,须如实记录。** BEFORE 称"每级只移除一样东西",**不成立**:rung 1 是合语法的
+   元指称陈述句,rung 2 去了元指称**但也不再是陈述句**,rung 3 才是"−元指称 +合语法"。
+   rung 2 一次动了两个变量,两臂反向正由此解释(albert 吃"去元指称"红利,DeBERTa 吃"失去句法"的亏)。
+   **这使 rung 3 更重要,不是更不重要**——它是唯一未被占据的那一格。
+3. **albert 在两类 SUPPORTS 上不作区分。** needle_gold 与 cf_replacement 的预测分布逐位对齐
+   (rung 1 差 ≤.005,rung 2 差 ≤.006),而 DeBERTa 差 11.3pp。R012 AFTER 推的 ≥46.8% 下界
+   实测为 **64.0%**——方向对,但严重低估。
+4. **两臂失败模式互补,不是同一个。** albert 的 SUPPORTS 预测精度极高(孪生对上误判 SUPPORTS
+   仅 .004/.000,rung 2 .024/.001),问题是纯粹的召回不足;DeBERTa 召回好但**栽在孪生上**
+   (cf_gold 误判 SUPPORTS 达 .234 / .154)。真正的"孪生判别失败"只发生在 DeBERTa 身上。
+5. **rung 2 的红利有代价:** albert 在真支持证据上判 REFUTES 由 .168 升至 **.276**,
+   即部分召回是从弃权挪成了误判反证。
+6. **cf_gold 系统性难于 needle_replacement,四种组合无一例外**(.629/.718、.735/.785、
+   .515/.760、.471/.639)。两者都是"值被换掉"的反证对,差别在于 cf_gold 的文档是被篡改的那一份。
+   该不对称尚未解释,单独列为待查。
+7. **对门的后果:** `gold_supports_recall .363` 下,图会稀疏到凑不出 `support(gold) ≥ 3`,
+   **该 checkpoint 即使 twin 过关也撑不起 `independent_support`**。
+8. **premise 侧无缺陷(实测空结果,2026-08-03)。** 按 CSV 转义残留(`""`)与 premise 长度分桶,
+   albert / needle_gold / rung 2 的 SUPPORTS 率为:带转义残留 .369(n=899)vs 干净 .354(n=573);
+   长于中位数(634 字符).362(n=729)vs 短 .365(n=743)。**两个对比均远小于 1 个标准误**
+   (差异 SE ≈ .026),且带残留的一桶反而略高。**premise 文本质量与长度都不解释 `.363`。**
+
+   合并 1–8 与 R012 AFTER 的排除项:截断、标签序、答案规范化、大小写、premise 质量、premise 长度
+   **全部实测排除**;hypothesis 形式**已证实有效**。**测量缺陷侧只剩 rung 3 一个未测变量** ——
+   rung 3 之后,该量级即应作为能力读数。
+
+   附带刻画:结合判读 3(needle_gold 与 cf_replacement 逐位对齐),albert 对 SUPPORTS 的判定
+   **对所有已试输入特征均不敏感**。它并非随机(对真 REFUTES 仅 .024 判 SUPPORTS,说明确在读关系),
+   但在真 SUPPORTS 类内部,无任何已试变量能预测它承诺哪一部分。
+
+**二分类事后重分析(2026-08-03):**
+twin 改判"预测 != SUPPORTED"后,albert .9980 / .9871,DeBERTa .8689 / .9008,**四种组合全过**;
+`gold_supports_recall` 不变,**四种组合仍全部未过**。
+
+**该读数目前没有协议依据。** 对应的修订案(A1,关系判定改二分类)已起草但**尚未并入本仓库**,
+正在单独评审中,故 `M0_PROTOCOL_FREEZE.md` 仍是 `g2-proto-1`、§2.1 的三类口径仍然有效。
+在 A1 批准并合入之前:**三类口径是唯一有效的 Gate 0B 判定**,上述二分类数字只能作为探索性重分析,
+必须与三类口径并列呈现且标注事后性质,不得单独作为 Gate 0B 结果。A1 合入后本段改为引用其章节号。
+
+**尚未完成:** rung 3(QA2D)未跑,阻塞于 checkpoint 未选定;其 AFTER 须先报缓存的大小写变化率(见判读纪律 5)。
+premise 侧诊断(CSV 转义残留 `""`、半句起始)未跑,是当前最便宜的一项。
 
 ### R011 — VitaminC adapter 与 revision-family 去污染 [DONE 2026-07-31]
 
