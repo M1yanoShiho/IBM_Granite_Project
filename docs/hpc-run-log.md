@@ -36,9 +36,22 @@
   # 提交:
   mkdir -p logs runs/ocr-smoke && sbatch scripts/run_ingest_ocr_smoke.slurm
   ```
-- Git commit:待 OCR 特性(feat(ingestion))提交后填其 hash 并在 bp1 `git pull`。
+- Git commit:2a63edd(feat(ingestion): OCR embedded PDF figures)。
 
-**AFTER:** 未运行。<!-- 填:job id、OCR SMOKE PASS/FAIL、raw = runs/ocr-smoke/out/documents.jsonl -->
+**AFTER(2026-08-04,job 18258588,gpu:rtx_3090:1,bp1-gpu030;首次尝试 job 18258455 因
+`sentence-transformers/all-MiniLM-L6-v2`(Docling HybridChunker 默认 tokenizer)未在
+登录节点预取,离线模式下 `LocalEntryNotFoundError` 失败;补 `hf download` 后重跑通过):**
+- raw:`runs/ocr-smoke/out/documents.jsonl`(未 push,本地 bp1 上)。`document_count`=2
+  (1 image + 1 pdf)。image 源文档 caption 正确复述 sentinel("...REVENUE 2024 42 PERCENT
+  GROWTH...");`Text in image:` 段落存在,OCR 命中 sentinel 数字 `42`。
+- **OCR SMOKE: PASS。** 判据(§BEFORE)达成——caption 与图内 OCR 均生效,新增的
+  PDF 内嵌图表处理链路(Docling converter → extract_pictures → Vision caption →
+  OCR 追加)在真实模型下端到端跑通,非 test fake。
+- 已知environment 坑,供下次复用此脚本时参考:(1) 项目要求 Python 3.11(<3.12,>=3.11),
+  登录节点默认加载的 3.12.3 装不上 `evidence-rag`,需手动 `module load languages/python/3.11.15`
+  重建 venv;(2) Docling HybridChunker 的默认 tokenizer(`all-MiniLM-L6-v2`)未被脚本注释
+  里列出的预取步骤覆盖,离线模式下会因缺模型报错,需额外 `hf download sentence-transformers/all-MiniLM-L6-v2`。
+  两坑均与本次功能验证结论无关,已通过重试规避,不影响 PASS 结论。
 
 ---
 
