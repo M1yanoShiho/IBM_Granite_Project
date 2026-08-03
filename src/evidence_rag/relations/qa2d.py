@@ -24,6 +24,9 @@ from pathlib import Path
 QUESTION_FIELD = "question"
 ANSWER_FIELD = "answer"
 DECLARATIVE_FIELD = "declarative"
+# Provenance: which checkpoint and which input template produced the row.
+MODEL_FIELD = "model"
+TEMPLATE_FIELD = "template"
 
 CacheKey = tuple[str, str]
 
@@ -61,14 +64,36 @@ class Qa2dLookup:
 
 
 def load_qa2d_cache(path: Path) -> Qa2dLookup:
-    """Read the JSONL cache written by `evidence_rag.cli.export_qa2d`."""
+    """Read the JSONL cache written by `evidence_rag.cli.export_qa2d`.
+
+    Rows carry the checkpoint and the input template that produced them, and a cache mixing
+    either is refused. The cache IS the rung-3 arm's input, and a file half-regenerated with a
+    different converter is shape-identical to a correct one — the same failure class the edge
+    cache's weight-derived `model_version` exists to prevent. Averaging two transforms under one
+    arm name is not detectable from the metrics.
+
+    Rows written before provenance existed carry neither field; they are read, because refusing
+    them would only push someone to delete the guard, but they cannot be mixed with rows that do.
+    """
     declarative_by_pair: dict[CacheKey, str] = {}
+    provenance: dict[str, str] = {}
     for line_number, line in enumerate(
         Path(path).read_text(encoding="utf-8").splitlines(), start=1
     ):
         if not line.strip():
             continue
         row = json.loads(line)
+        for field, noun in ((MODEL_FIELD, "checkpoints"), (TEMPLATE_FIELD, "templates")):
+            value = row.get(field)
+            if value is None:
+                continue
+            seen = provenance.setdefault(field, str(value))
+            if seen != str(value):
+                raise ValueError(
+                    f"QA2D cache at {path}:{line_number} mixes two {noun}: "
+                    f"{seen!r} then {value!r}. Regenerate the whole cache from one checkpoint "
+                    "rather than appending to it."
+                )
         key = cache_key(row[QUESTION_FIELD], row[ANSWER_FIELD])
         declarative = str(row[DECLARATIVE_FIELD])
         previous = declarative_by_pair.get(key)

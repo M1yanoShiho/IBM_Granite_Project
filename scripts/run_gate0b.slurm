@@ -38,23 +38,31 @@
 #     --provenance runs/niah-train-injected/provenance.jsonl \
 #     --output data/gate0b/task_pairs_qa.jsonl \
 #     --hypothesis-form question_answer
-#   hf download <VERIFIED_QA2D_CHECKPOINT_ID>          # id is NOT settled — see below
+#   hf download MarkS/bart-base-qa2d                   # ~558MB, AFL-3.0, verified 2026-08-03
 #   python -m evidence_rag.cli.export_qa2d \
 #     --manifest runs/niah-train-injected/manifest.json \
 #     --provenance runs/niah-train-injected/provenance.jsonl \
 #     --output data/gate0b/qa2d_cache.jsonl \
-#     --model <VERIFIED_QA2D_CHECKPOINT_ID>
+#     --model MarkS/bart-base-qa2d
 #   python -m evidence_rag.cli.export_task_probe \
 #     --manifest runs/niah-train-injected/manifest.json \
 #     --provenance runs/niah-train-injected/provenance.jsonl \
 #     --output data/gate0b/task_pairs_qa2d.jsonl \
 #     --hypothesis-form qa2d --qa2d-cache data/gate0b/qa2d_cache.jsonl
 #
-# TWO things a human must verify before rung 3 produces a reportable number, neither of which
-# any code here can catch: (a) the checkpoint id actually resolves and is a question+answer ->
-# statement converter; (b) the input format that checkpoint's card specifies matches what
-# export_qa2d::qa2d_input builds. A format mismatch does NOT crash — it yields fluent sentences
-# that are not the QA2D transform, and the arm then measures something nobody named.
+# The checkpoint was chosen on 2026-08-03 over domenicrosati/question_converter-3b, which has no
+# declared licence, no published evaluation, and does not load under this project's pinned
+# torch < 2.6. Evidence and the rejection reasons are in the run log under R012b.
+#
+# The input format is no longer a human obligation: export_qa2d::INPUT_TEMPLATE registers the
+# verified format per checkpoint and refuses an unregistered id BEFORE it touches the Hub, the
+# same discipline gate0b::LABEL_ORDER applies to label orders. A wrong format would not crash —
+# it yields fluent sentences that are not the QA2D transform — so it is enforced, not documented.
+#
+# READ THE REPORT LINE BEFORE READING THE RUNG-3 DELTA. export_qa2d prints
+# `non_initial_uppercase_rate`: questions and answers both arrive lowercased, so any capital past
+# position 0 came from the converter. If that rate is high, rung 3 varies casing as well as
+# sentence form and its increment cannot be attributed to form alone (R012b 判读纪律 5).
 #
 # Submit from the project root. Positional args, all optional, in order:
 #   TASK_PAIRS  EXTERNAL_PAIRS  OUTPUT  MODELS  DUMP

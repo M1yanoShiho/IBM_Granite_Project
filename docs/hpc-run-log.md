@@ -630,8 +630,13 @@ Gate 判定不变)。
 **前向风险(记录,当前不构成偏差):** `build_hypothesis` 目前全仓库只有 `task_probe.py` 一个非测试调用者,
 `relations/` 下尚无 `clustering.py`/`graph.py`,故这不是"探针偏离生产路径"——生产路径还没建。
 但 `selector/clusters.py:100` 把簇代表答案设为 `canonicalize_answer(...)`;若将来 claim 由簇代表构造,
-小写化会传进 hypothesis,届时每个 cased 模型(含 QA2D 的 T5/BART、以及 §3.8 训好的 Relation Builder)
-都吃同一份减分。接关系层时须一并决定 claim 文本取原始抽取串还是簇规范键。
+小写化会传进 hypothesis,届时每个 cased 模型都吃同一份减分。接关系层时须一并决定 claim 文本
+取原始抽取串还是簇规范键。
+
+**收窄(2026-08-03,实测):** 本段原把"QA2D 的 T5/BART"也列为受害者,**过度外推了**。
+实测 `MarkS/bart-base-qa2d` 只把句首字母大写、专有名词保持输入的小写(`Howard jones` /
+`donny hathaway`),即它**不会重新引入 premise/hypothesis 的大小写错配**,rung 3 不吃这份减分。
+前向风险对**未来由簇代表构造 claim** 的那条路径仍然成立,与 rung 3 无关。
 
 **指向 hypothesis 形式的证据(由本文件 raw 数据直接算出,非假设):** 四类各 1472 条。albert 侧,
 UNKNOWN 总数 `.48234×5888 = 2840`;twin 判对 `.67357×2944 = 1983` ⇒ twin 上 UNKNOWN ≤ 961;
@@ -717,6 +722,64 @@ uncased、后者 cased 而后者独自承担了小写化减分,**该倍数是下
 - **rung 2 pair 文件已物化(2026-08-03,登录节点):**
   `{"hypothesis_form": "question_answer", "n_pairs": 5888, "n_records": 1472, "n_skipped_records": 0}`
   —— 与 rung 1 的分母逐字相同,两级之间**只差 hypothesis 形式**这一个变量。
+- **rung 3 的 QA2D checkpoint 已选定(2026-08-03 核实):`MarkS/bart-base-qa2d`。**
+  上面"命令"标题里的"rung 3 待 QA2D checkpoint 选定"按**不回改 BEFORE** 的惯例保留原文,以本条为准。
+
+  | 候选 | 规模 | licence | 已发表评测 | 本环境可加载 |
+  |---|---|---|---|---|
+  | **`MarkS/bart-base-qa2d`(选定)** | BART-base(~140M) | **AFL-3.0** | model card 报 QA2D testset **BLEU 78.878**,对照 2019 年 2-Encoder Pointer-Gen 基线 **74.05** | 是 |
+  | `domenicrosati/question_converter-3b`(弃) | T5-3B | **未声明** | **无** | **否** |
+
+  **送进模型的输入格式逐字为 `question: {question} answer: {answer}`**(取自 model card 的用法示例)。
+  弃用臂的格式是 `{question} </s> {answer}`,训练数据为 Demszky et al. 2018 的 QA2D 三元组(71.1k),
+  两种格式不通用 —— 换 checkpoint 必须同时换格式。
+
+  **弃用 3B 的三个理由各自独立成立,三条都记:**(1) model card **未声明 licence**,而本工作要进受评报告;
+  (2) **没有任何已发表评测数字**;(3) **在本项目钉住的 `torch < 2.6` 下根本加载不了**,抛
+  `ValueError: Due to a serious vulnerability issue in torch.load ... we now require users to upgrade
+  torch to at least v2.6`,而升 torch 在本仓库被禁(会打断别处的 safetensors 加载)。第三条暴露之前
+  已下载 **22.8 GB**(bin + safetensors),成本记在此处以免日后重复踩。
+
+  **选定依据是 30 对真实数据的过目检查,不是测量。** 取本项目自己的探针
+  `data/gate0b/task_pairs.jsonl` 中 `kind == needle_gold` 的 30 对(seed 0),用 rung 3 缓存生成将要用的
+  同一套 greedy 解码(`do_sample=False, num_beams=1`)跑过一遍 —— **看到的就是将来会被缓存的那些串**。
+  代表性输出:
+
+  ```
+  when did they stop making the half dollar / 2002
+    -> "They stopped making the half dollar in 2002 ."
+  who sings no one ever is to blame / howard jones
+    -> "Howard jones sings no one ever is to blame ."
+  when does star trek discovery season 2 air / 2019
+    -> "Star trek discovery season 2 airs in 2019 ."
+  which layer of the atmosphere is the ozone layer located / stratosphere
+    -> "The ozone layer is located in the stratosphere ."
+  who is the original singer of this christmas / american soul musician donny hathaway
+    -> "The original singer of this christmas is american soul musician donny hathaway ."
+  ```
+
+  动词形态是真的在变(`stop -> stopped`、`air -> airs`、`is located in`),**故这是 QA2D 变换,不是模板拼接**。
+
+  **判读标准在看到输出之前就定死了**,三条全部满足:(1) 输出是把 question 内容融进去的陈述句 —— 满足;
+  (2) 只复读 answer 或回声输入 —— 未出现;(3) 流畅但丢掉 question 的关键实体 —— 未实质出现,
+  30 例中最差的两例是 `young and the restless` → `young and restless`(掉一个冠词),以及
+  `how many episodes are in season 1 the good doctor / 18` → `In season 1 the good doctor is 18 episodes .`
+  (别扭,内容完整)。**n=30 只支持"变换确实在发生、格式正确"这一条**;
+  **不支持任何"该模型准确"的定量断言,本条目没有测量生成质量。**
+
+  **大小写:这兑现了判读纪律 5 的预测,不兑现它的测量要求。** BART 只把句首词大写,专有名词沿用输入里的
+  小写(`Howard jones`、`donny hathaway`);rung 1 的冻结模板同样以大写 `The` 起头。故预期 rung 3 相对
+  rung 1 **基本只差句式这一个变量**。**但这是 30 例过目得到的预期,不是那项测量** —— 判读纪律 5 要求的
+  "缓存生成后统计输出串相对输入的大小写变化率、写进本条目 AFTER"仍未做,
+  **rung 3 的增量在该比率报出之前不得读**。
+
+  **两处残留表层伪影,各自的处置(在此声明以便审计):**
+  1. **句号前多一个空格**(`"... in 2002 ."`),来自 BART 的 detokenise;rung 1/2 没有。
+     **处置:在 `export_qa2d` 里规范化掉**——只折叠句末标点紧邻其前的空白,不动别处。
+     否则 rung 3 会额外带一个与被测变量无关的表层差异。
+  2. **ISO 日期漏进句子**(`"was held in 1967-08-08 ."`),来自 `canonicalize_answer` 对日期的转换。
+     **处置:不动。** 它在三级阶梯上完全相同(三级共用同一份 answer 串),不构成混淆;
+     规范化它反而会改掉三级共享的输入。
 - **commit:** _待填_
 - **AFTER(rung 1/2 实测,2026-08-03;rung 3 未跑):**
 
@@ -794,8 +857,14 @@ twin 改判"预测 != SUPPORTED"后,albert .9980 / .9871,DeBERTa .8689 / .9008,*
   该曲线**已污染,不得用于选定 θ**。
 - **代码尚未按 §9.1 改动**,`relations/` 仍以三类运行,故本条目的三类数字保持可复现。
 
-**尚未完成:** rung 3(QA2D)未跑,阻塞于 checkpoint 未选定;其 AFTER 须先报缓存的大小写变化率(见判读纪律 5)。
-premise 侧诊断(CSV 转义残留 `""`、半句起始)未跑,是当前最便宜的一项。
+**尚未完成:** rung 3(QA2D)未跑。**checkpoint 不再是阻塞项** —— 2026-08-03 已选定
+`MarkS/bart-base-qa2d`(依据、弃用臂、两处表层伪影的处置见上)。现存阻塞项换成三件:
+QA2D 缓存尚未生成、rung 3 pair 文件尚未物化、这两条命令尚未入台账(上面的"命令"块只覆盖 rung 1/2)。
+其 AFTER 须先报缓存的大小写变化率(见判读纪律 5)才能读 rung 3 的增量。
+**更正(2026-08-03):** 本行原写"premise 侧诊断未跑"。**不准确** —— CSV 转义残留与 premise 长度
+两个分桶已于同日跑完,均为实测空结果,见本条 AFTER 判读 8。真正未测的只有**"半句起始"**这一项,
+且须先说明:dpr-w100 按 100 词切分,**绝大多数 passage 本就从半句开始**,该分桶很可能没有对照组,
+届时应报告为"无足够变异,不可判读",而不是当作又一个空结果。
 
 ### R011 — VitaminC adapter 与 revision-family 去污染 [DONE 2026-07-31]
 

@@ -110,3 +110,38 @@ def test_lookup_is_usable_as_the_probe_hypothesis_form(tmp_path: Path) -> None:
         "Kennedy won the 1960 election.",
         "Nixon won the 1960 election.",
     }
+
+
+def test_a_cache_mixing_two_checkpoints_is_rejected(tmp_path: Path) -> None:
+    """Same hazard class as the edge cache's `model_version`: the cache is the artefact rung 3
+    consumes, and a file regenerated with a different checkpoint or template is shape-identical
+    to a correct one. Provenance on every row makes a partial regeneration loud instead of
+    silent — the arm would otherwise measure two transforms averaged together."""
+    path = tmp_path / "qa2d.jsonl"
+    path.write_text(
+        json.dumps({"question": "q1", "answer": "a1", "declarative": "A1 is q1.",
+                    "model": "MarkS/bart-base-qa2d", "template": "question: {question} answer: {answer}"})
+        + "\n"
+        + json.dumps({"question": "q2", "answer": "a2", "declarative": "A2 is q2.",
+                      "model": "some/other-converter", "template": "question: {question} answer: {answer}"})
+        + "\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="two checkpoints"):
+        load_qa2d_cache(path)
+
+
+def test_a_cache_mixing_two_templates_is_rejected(tmp_path: Path) -> None:
+    """One checkpoint fed two formats produces two different transforms under one name."""
+    path = tmp_path / "qa2d.jsonl"
+    path.write_text(
+        json.dumps({"question": "q1", "answer": "a1", "declarative": "A1 is q1.",
+                    "model": "MarkS/bart-base-qa2d", "template": "question: {question} answer: {answer}"})
+        + "\n"
+        + json.dumps({"question": "q2", "answer": "a2", "declarative": "A2 is q2.",
+                      "model": "MarkS/bart-base-qa2d", "template": "{question} </s> {answer}"})
+        + "\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="two templates"):
+        load_qa2d_cache(path)

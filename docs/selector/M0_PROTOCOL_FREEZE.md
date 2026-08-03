@@ -600,7 +600,27 @@ rung 2 由 .3635 升至 .7799(2.15×)。即该 checkpoint 的失败**不是"判�
 - [x] `EXPERIMENT_TRACKER.md` 的 Protocol 行同步改版本号,R036 标 N/A —— **2026-08-03 完成**
 - [x] R012b 的 AFTER 中两种口径并列 —— **2026-08-03 完成**
 - [ ] `relations/models.py` 的输出空间与 `relations/gate0b.py` 的指标实现按 §9.1 修改(TDD)
-      —— **未完成。** 波及 `predictor.py` 的三类 tie-break、`gate0b.py` 的 `LABEL_ORDER`
-      三元组、`task_probe.py` 的 REFUTES 标签、`vitaminc.py` 的标签映射与 `graph.py`。
-      在此之前 `relations/` 按三类运行,R012 的三类读数保持可复现。
+      —— **未完成,且按 §9.10a 必须推迟。** 波及 `predictor.py` 的三类 tie-break、
+      `gate0b.py` 的 `LABEL_ORDER` 三元组、`task_probe.py` 的 REFUTES 标签、
+      `vitaminc.py` 的标签映射与 `graph.py`。
+
+### 9.10a 代码改动的排序约束:必须在 R012b 阶梯跑完之后 [2026-08-03]
+
+**§9.1 的代码改动不得在 R012b rung 3 完成之前落地。** 这不是保守,是它会**破坏 R012b 自身的可比性**:
+
+1. **已生成的 pair 文件会失效。** `task_probe.py` 为孪生对产出 `REFUTES` 标签,而
+   `gate0b.py` 以 `RelationLabel(row["label"])` 读回。输出空间一改,现有
+   `data/gate0b/task_pairs.jsonl` 与 `task_pairs_qa.jsonl` 直接解析失败 ⇒
+   **rung 3 将不得不建在与 rung 1/2 不同的 pair 文件上**。而该阶梯的全部意义在于
+   三级之间**只有 hypothesis 形式一个变量**。
+2. **rung 1/2 已在三类 argmax 下跑完**(job 18246568 / 18246569)。rung 3 若在二分类下跑,
+   twin 指标两边口径不同,增量无法解读。
+3. **R012 是预注册主结果**,其三类读数须保持可原地复现,不应退化为"需 checkout 旧 commit"。
+
+**正确顺序:** rung 3 在现行三类实现下跑完 → 三级阶梯完整 → 再落地 §9.1 →
+之后如需二分类读数,**从各 rung 的 `dump-*.jsonl` 重算**(重算与"模型原生二分类"在
+collapse 语义下等价,且不动任何已产生的实验数据)。
+
+**例外:** 若 MiniCheck 臂(§9.8 的出样检验之一)先行就绪,它**原生二分类**,应作为独立臂
+单独报告,不并入 R012b 的三级阶梯比较。
 - [ ] G 模块就后端与阈值复用达成一致(负责人:待定)
