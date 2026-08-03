@@ -896,7 +896,61 @@ DeBERTa 是 cased 模型,故两个门指标**建在系统性不同的输入分�
 (replacement 逐字 substituted 进 cf 文档)却反而更低(DeBERTa rung 1 .681 vs needle_gold .794),
 说明大小写不是主导因素。但它是一个**此前从未被声明、且坐在门指标内部**的系统性差异 ⇒ 立 R012d。
 
-**尚未完成:** rung 3(QA2D)未跑。**checkpoint 不再是阻塞项** —— 2026-08-03 已选定
+**rung 3 实测(job 18257977,COMPLETED):三级阶梯完整。**
+Raw:`results/gate0b/sweep-qa2d.json`、`dump-qa2d.jsonl`。
+
+| rung | 臂 | twin(≥.70) | gold(≥.85) | unknown | twin(二分类) |
+|---|---|---:|---:|---:|---:|
+| 1 `template` | albert | .6736 | .1916 | .4823 | .9980 |
+| 2 `question_answer` | albert | **.7602 ✓** | .3635 | .2858 | .9871 |
+| 3 `qa2d` | albert | .5312 | **.5360** | .3680 | .9586 |
+| 1 `template` | DeBERTa | .6376 | **.7942** | .1758 | .8689 |
+| 2 `question_answer` | DeBERTa | .5547 | .6651 | .2884 | .9008 |
+| 3 `qa2d` | DeBERTa | .5187 | .5870 | .3511 | .9222 |
+
+**对预注册问题的回答:形式是主因,且远强于 rung 2 所显示。** albert 的
+`gold_supports_recall` 沿阶梯**单调上升 .1916 → .3635 → .5360**,**2.80 倍**,唯一变量是
+hypothesis 那句话。**`.1916` 就此确定不是能力读数。** 但 `.5360` 距 `.85` 仍差 **31.4pp**,
+**形式也不解释全部。**
+
+**BEFORE 的三种预设情形都没命中 —— 实际结果是两个指标反向:**
+
+- albert 的 twin **在 rung 3 崩了**:.6736 → **.7602(过阈值)** → **.5312**。
+- DeBERTa **两项单调下降**:gold .7942 → .6651 → .5870;twin .6376 → .5547 → .5187。
+
+⇒ **不存在任何一种 hypothesis 形式使两个门指标同时变好。** 使 SUPPORTS 召回最高的形式,
+恰好使 REFUTES 承诺最低。这比"形式是/不是主因"信息量更大,应作为本条目的主发现之一。
+
+**机制(albert rung 2 → rung 3,分 kind 的预测迁移):**
+
+| kind | ΔSUPPORTS | ΔREFUTES | ΔUNKNOWN |
+|---|---:|---:|---:|
+| needle_gold | **+17.3** | −12.5 | −4.8 |
+| cf_replacement | **+17.4** | −15.0 | −2.5 |
+| cf_gold | +3.9 | **−25.4** | **+21.6** |
+| needle_replacement | +1.9 | **−20.3** | **+18.6** |
+
+**REFUTES 预测在四类上全线下跌。** QA2D 产出的是良构陈述句,而元指称模板与 `q? a.` 片段都不是;
+喂进一句像样的断言,模型更不愿判"矛盾"、更愿判"蕴含或中立" ⇒ **决策边界整体朝 SUPPORTS/中立移动**。
+在 SUPPORTS 对上是红利,在孪生对上就是 REFUTES→UNKNOWN 的流失。
+
+**要写准的一点:albert 并非被孪生骗了。** rung 3 的 cf_gold 假 SUPPORTS 仅 **.063**、
+needle_replacement 仅 **.020**,它是**弃权**。故 `twin_bin` 仍有 .9586 而三类 twin 掉到 .5312。
+
+**Gate 判定:六格无一通过,判定不变。** 最好的 twin 是 albert rung 2 的 .7602(其 gold 仅 .3635);
+最好的 gold 是 DeBERTa rung 1 的 .7942(其 twin 仅 .6376)。**没有任何一格两项同时过。**
+按已生效的 **g2-proto-2 二分类口径**读:twin 六格全过(.8689–.9980),**唯一约束仍是
+`gold_supports_recall`,最好的一格仍是 DeBERTa rung 1 的 .7942,差 5.6pp**。
+**即:对最接近通过的那一臂,形式消融在每一级都使其更糟。**
+
+**三级一致的刻画:** albert 的 needle_gold 与 cf_replacement 在 rung 3 依然逐位对齐
+(.536/.151/.313 vs .531/.165/.304)。**三级全程,albert 从未在 SUPPORTS 类内部作出区分。**
+
+**尚未完成:** ~~rung 3(QA2D)未跑~~ —— **已于 2026-08-03 完成(job 18257977),见上。**
+剩余:R012d(答案串大小写对照)未跑,是 §3.8 之前最后一个杠杆,且正对着现在唯一的约束
+(DeBERTa 的 .7942 建在 100% 小写答案的分母上,而它是 cased 模型)。以下关于 checkpoint 的记录保留备查。
+
+**旧文(2026-08-03 之前):** rung 3(QA2D)未跑。**checkpoint 不再是阻塞项** —— 2026-08-03 已选定
 `MarkS/bart-base-qa2d`(依据、弃用臂、两处表层伪影的处置见上)。现存阻塞项换成三件:
 QA2D 缓存尚未生成、rung 3 pair 文件尚未物化、这两条命令尚未入台账(上面的"命令"块只覆盖 rung 1/2)。
 其 AFTER 须先报缓存的大小写变化率(见判读纪律 5)才能读 rung 3 的增量。
@@ -937,8 +991,17 @@ QA2D 缓存尚未生成、rung 3 pair 文件尚未物化、这两条命令尚未
      当时的结论**外推过头了**,本条目即为更正。
 - **前置:** 无新代码依赖;`gold_alias_used` 已在 `MutationRecord` 上(`provenance.py:21`),
   `task_probe.py` 只需读另一个字段。须加测试钉住"用的是 alias 不是 canonical"。
-- **命令:** _待填_
-- **commit:** _待填_
+- **命令(代码已就位,2026-08-04):**
+  ```
+  # 登录节点,纯 CPU。--gold-answer surface 是本轮唯一变量,hypothesis 形式仍用冻结模板
+  PYTHONPATH=src python -m evidence_rag.cli.export_task_probe     --manifest runs/niah-train-injected/manifest.json     --provenance runs/niah-train-injected/provenance.jsonl     --output data/gate0b/task_pairs_surface.jsonl --gold-answer surface
+
+  ARMS="tals/albert-xlarge-vitaminc-mnli MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli"
+  sbatch scripts/run_gate0b.slurm data/gate0b/task_pairs_surface.jsonl none     results/gate0b/sweep-surface.json "$ARMS" results/gate0b/dump-surface.jsonl
+  ```
+  `--gold-answer` 默认 `canonical`,有测试钉住"省略即与预注册主臂逐字节相同";
+  报告行回显 `gold_answer_source`,作为该 pair 文件属于哪个变体的协议记录。
+- **commit:** _待填(代码随本轮提交)_
 - **AFTER:** _待填 —— 两臂 × 两项;**先报 albert 的阴性对照是否成立,再读 DeBERTa**_
 
 ### R011 — VitaminC adapter 与 revision-family 去污染 [DONE 2026-07-31]

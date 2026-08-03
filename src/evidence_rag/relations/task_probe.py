@@ -18,6 +18,7 @@ same configuration met a real 20-passage pool.
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from typing import Literal
 
 from evidence_rag.materializer.provenance import MutationRecord
 from evidence_rag.relations.claims import HypothesisForm, build_hypothesis
@@ -27,6 +28,13 @@ NEEDLE_GOLD = "needle_gold"
 CF_REPLACEMENT = "cf_replacement"
 CF_GOLD = "cf_gold"
 NEEDLE_REPLACEMENT = "needle_replacement"
+
+# R012d. `gold_value` is `canonicalize_answer` output (lowercased); `gold_alias_used` is the
+# raw string the injector verified in the needle document. Measured 2026-08-03: gold claims
+# are 100% lowercase while replacement claims are 67.8% cased, so the two gate metrics sit on
+# different casing distributions and a cased model eats the difference. "canonical" is the
+# default because R012 and R012b all ran on it and must stay reproducible.
+GoldAnswerSource = Literal["canonical", "surface"]
 
 TWIN_REFUTES = (CF_GOLD, NEEDLE_REPLACEMENT)
 GOLD_SUPPORTS = (NEEDLE_GOLD,)
@@ -54,6 +62,7 @@ def build_probe_pairs(
     question_by_query: Mapping[str, str],
     text_by_document: Mapping[str, str],
     hypothesis_form: HypothesisForm = build_hypothesis,
+    gold_answer_source: GoldAnswerSource = "canonical",
 ) -> tuple[ProbePair, ...]:
     """Records whose query or either document is missing are skipped, not partially emitted —
     a half-built probe would silently change the denominators Gate 0B is judged on.
@@ -67,7 +76,10 @@ def build_probe_pairs(
         cf_text = text_by_document.get(record.counterfactual_document_id)
         if question is None or needle_text is None or cf_text is None:
             continue
-        gold_claim = hypothesis_form(question, record.gold_value)
+        gold_answer = (
+            record.gold_value if gold_answer_source == "canonical" else record.gold_alias_used
+        )
+        gold_claim = hypothesis_form(question, gold_answer)
         replacement_claim = hypothesis_form(question, record.replacement_value)
         family = synthetic_family(record)
         for premise, hypothesis, label, kind in (
