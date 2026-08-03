@@ -17,42 +17,58 @@ between them:
 | Query transformations | LLM rewrites or decomposes the query (Query2Doc, HyDE, Decompose) before retrieving |
 | Configuration-driven selection | Any retriever, including combinations, chosen via one config file |
 
-Evaluation was also extended from a single recall metric to **nDCG**, **Recall@K**, and **MRR**,
-so retriever variants can be compared more precisely.
+Evaluation reports **MRR**, **Recall**, and **Recall@{5,10,20}** (`src/evidence_rag/evaluation/scoring.py`),
+so retriever variants can be compared precisely.
 
 **Status:** all four implemented; unit tests exist per retriever (`tests/retriever/`);
-config-driven construction verified end-to-end for `bm25`, `strong-bm25`, `hybrid`. Passing
-tests proves correctness, not performance — that distinction matters for R2 below.
+config-driven construction verified end-to-end for `bm25`, `strong-bm25`, `hybrid`.
 
 ---
 
-## R2 - StrongBM25 vs BM25 benchmark (SciFact, paired comparison)
+## R2 - Full benchmark: 8 retrievers × 3 datasets (SciFact, NQ, 2Wiki)
 
-Same corpus, same query set, same evaluation code — only the retriever implementation changes.
+Run by MengW7, 2026-07-29–31 (commit `886cc8f`), full results in
+[`docs/retriever/eval-results.md`](../eval-results.md) — includes base matrices for all three
+datasets, a convex-α sweep, a BM25/RRF hyperparameter sweep, and paired significance tests
+(randomization, p-values). This supersedes an earlier version of this report that cited a
+pre-refactor, unverified SciFact CSV as if it were current-architecture output — it wasn't
+(caught during a later review; see git history). The numbers below are real, current-architecture
+output; SciFact table shown in full, NQ/2Wiki summarized (full tables in the linked doc).
 
-| Retriever | nDCG@10 | Recall@10 | MRR | ms / query |
-|---|---|---|---|---|
-| BM25 (baseline) | 0.636 | 0.756 | 0.604 | 12.8 |
-| StrongBM25 | 0.649 | 0.770 | 0.617 | 8.7 |
+**SciFact base matrix:**
 
-**Conclusions**
+| Retriever | MRR | R@10 | Recall |
+|---|---|---|---|
+| BM25 | 0.608 | 0.756 | 0.861 |
+| StrongBM25 | 0.611 | 0.760 | 0.862 |
+| Hybrid (RRF) | 0.707 | 0.863 | 0.947 |
+| Hybrid (Convex) | 0.723 | 0.857 | 0.945 |
+| GraniteDense | 0.718 | 0.863 | 0.940 |
+| Query2Doc | 0.649 | 0.824 | 0.922 |
+| HyDE | 0.700 | 0.862 | 0.961 |
+| Decompose | 0.558 | 0.709 | 0.843 |
 
-1. **StrongBM25 wins on every axis measured** — nDCG@10 +1.3pp, Recall@10 +1.4pp, MRR +1.3pp,
-   and 32% lower latency, on the same paired queries.
-2. **The tuned parameters are not ours** — k1=0.9, b=0.4 are the published Anserini/BEIR
-   defaults, not values we grid-searched. We adopted an established baseline rather than tune
-   our own, so the win is attributable to a known, reproducible configuration.
-3. **Latency improvement is a side effect of the stopword-filtered analyzer** (fewer, shorter
-   posting lists), not a deliberate speed optimization — worth noting since it wasn't the
-   original goal.
+**Conclusions (corrected from the earlier version of this report)**
 
-**Gap, stated plainly:** Hybrid, Dense (Granite embeddings), and Decompose retrievers are built
-and pass their unit tests, so we know they behave correctly — but none of them have been run
-through this same paired benchmark. Only StrongBM25 has been proven against a baseline with real
-numbers; the other three are implementation claims, not performance claims.
+1. **StrongBM25 vs BM25 is not a reliable win.** Paired significance test: not significant on
+   SciFact (Δ +0.0027 MRR, p=0.78) or NQ (Δ −0.0004 MRR, p=0.92); significant but small on 2Wiki
+   (Δ +0.0146 MRR, p<0.0001). The earlier report claimed a clear win on all axes — that claim came
+   from stale, pre-refactor data and should be discarded.
+2. **Hybrid (RRF) reliably and substantially outperforms StrongBM25 on all three datasets**,
+   significant on both MRR and Recall@10 every time (e.g. SciFact Δ +0.096 MRR p<0.0001; NQ
+   Δ +0.071 MRR p<0.0001; 2Wiki Δ +0.025 MRR p<0.0001). This is the strongest, most consistent
+   result in the whole matrix.
+3. **Decompose significantly underperforms StrongBM25 on every dataset**, and catastrophically on
+   2Wiki (Δ −0.388 MRR, p<0.0001 — 2Wiki is multi-hop, and splitting a multi-hop query into
+   independent sub-queries appears to destroy the cross-hop signal). This is a genuine, measured
+   failure mode, not a hypothesis — see "The open question" below.
+4. **Query2Doc and HyDE are dataset-dependent**, not uniformly good or bad — e.g. Query2Doc beats
+   StrongBM25 significantly on SciFact/NQ MRR but loses significantly on 2Wiki MRR (Δ −0.022,
+   p<0.0001) while still winning on 2Wiki Recall@10 (Δ +0.011, p=0.0002).
 
-**Decision: StrongBM25 adopted as the current default sparse retriever. Benchmarking Hybrid,
-Dense, and Decompose against it is the top-priority next task (see Next steps).**
+**Decision: Hybrid (RRF) is the strongest general-purpose retriever measured so far and is the
+recommended default when latency budget allows running two arms. Decompose should not be used on
+multi-hop-style corpora without further work (see Next steps).**
 
 ---
 
@@ -68,6 +84,13 @@ file formats into plain text, so the retriever only ever faces one uniform inter
 - **Unified handling** — one entry point processes mixed folders of text/PDF/image files, with
   caching to avoid re-processing unchanged sources.
 
+**OCR-smoke result (2026-08-04, job `18258588`, PASS — full entry in `docs/hpc-run-log.md`):**
+the embedded-figure caption + in-figure OCR path was run end to end on real models (Docling +
+Granite Vision, not test fakes). A sentinel string painted only inside a test figure
+(`REVENUE 2024 42 PERCENT`) was correctly recovered in both the Vision caption and the OCR'd
+`Text in image:` section — proving the new ingestion path actually works, not just that it runs
+without crashing.
+
 ### Current limitations
 
 | Limitation | Risk |
@@ -81,47 +104,53 @@ file formats into plain text, so the retriever only ever faces one uniform inter
 
 ## The open question
 
-We can prove StrongBM25 outperforms baseline BM25. We cannot yet say whether Hybrid, Dense, or
-Decompose outperform StrongBM25, underperform it, or land somewhere in between — passing unit
-tests confirms the code runs correctly, but says nothing about retrieval quality. Until R2's
-benchmark is repeated for these three, "we built four new retrievers" and "we improved retrieval"
-are two different claims, and only the first one is currently backed by evidence.
+The benchmark question from the previous version of this report is answered: Hybrid (RRF)
+reliably beats StrongBM25 by a wide margin on all three datasets; Decompose reliably loses,
+worst on multi-hop (2Wiki). The open question now is **why Decompose fails so badly on 2Wiki
+specifically** — is splitting a multi-hop query into independent sub-queries fundamentally
+incompatible with multi-hop retrieval (in which case Decompose should be gated off for
+multi-hop-style corpora), or is it a fixable prompting/merging issue (e.g. the RRF fusion across
+sub-queries losing the dependency between hops)? We don't know yet; this needs its own targeted
+investigation rather than being lumped in with the base matrix.
 
 A related, unresolved risk on the ingestion side: hallucinated image captions are indistinguishable
-from real evidence once they enter the retriever's candidate pool. We don't yet know how often this
-happens on our actual corpus, or how much it would inflate apparent retrieval quality on
-image-heavy documents versus just adding noise — this needs measurement, not assumption, and it's
-a cross-module question since the Generator stage is what ultimately trusts (or doesn't) the
-retrieved caption.
+from real evidence once they enter the retriever's candidate pool. The OCR-smoke test above proves
+the happy path works on a clean synthetic figure; it says nothing about hallucination rate on real,
+messy documents. We don't yet know how often this happens on our actual corpus, or how much it
+would inflate apparent retrieval quality on image-heavy documents versus just adding noise — this
+needs measurement, not assumption, and it's a cross-module question since the Generator stage is
+what ultimately trusts (or doesn't) the retrieved caption.
 
 ---
 
 ## Current work — addressing latest feedback (Bharat Arora, 2026-07-26)
 
-- **Bringing actual numbers next time:** R2 above is the first response — a real, paired
-  benchmark instead of an implementation claim. Extending the same benchmark to Hybrid, Dense,
-  and Decompose is in progress.
-- **Hallucinated-caption risk:** acknowledged (see Current limitations / open question above),
-  not yet mitigated. Scheduling a sync with the Generator student, since the risk spans both
-  modules — retriever surfaces the caption, generator decides how much to trust it.
-- **Recursive scanning / silent file failures:** reprioritized from "future work" to urgent,
-  ahead of any dataset scale-up, per feedback.
-- **Performance at larger corpus sizes:** not yet started; added below as new future work, given
-  the enterprise-scale angle in the brief.
+- **Bringing actual numbers next time:** done, substantially — R2 above is a full 3-dataset ×
+  8-variant matrix with significance tests, not a single paired comparison. The gap now is
+  narrower and more specific: understanding *why* Decompose fails on 2Wiki, and reconciling
+  the two retriever docs (done, in this update).
+- **Hallucinated-caption risk:** OCR path now verified to work functionally (R3), but hallucination
+  *rate* on real documents is still unmeasured. Still needs a sync with the Generator student,
+  since the risk spans both modules.
+- **Recursive scanning / silent file failures:** not yet fixed. Still urgent, ahead of any
+  dataset scale-up.
+- **Performance at larger corpus sizes:** not yet started.
 
 ---
 
 ## Next steps
 
-1. **Benchmark Hybrid, Dense, and Decompose against StrongBM25 on SciFact** — same paired setup as
-   R2. This is the headline experiment and it has not been run.
+1. **Investigate why Decompose fails on 2Wiki** — isolate whether the failure is in query
+   splitting, sub-query retrieval, or RRF re-merging; decide whether Decompose should be gated
+   off for multi-hop corpora or is fixable.
 2. **Fix recursive directory scanning and silent file failures** — before dataset scale-up makes
    gaps harder to detect and diagnose.
-3. **De-risk hallucinated captions as evidence** — constrain caption prompts, rely on downstream
-   corroboration so lossy/hallucinated captions carry less weight; requires the cross-module sync
-   noted above.
+3. **Measure hallucinated-caption rate on real (non-synthetic) documents** — the OCR-smoke PASS
+   proves the mechanism works, not that captions are trustworthy at scale; requires the
+   cross-module sync with Generator noted above.
 4. **Test retrieval performance at larger corpus sizes** — check how latency and index build time
-   scale well past our current benchmark scale, before it becomes a blocker.
+   scale well past our current benchmark scale (SciFact 300 docs, NQ/2Wiki 2000), before it
+   becomes a blocker.
 5. Configurable chunking, to better support structured documents (tables/sections) instead of
    fixed-length splits.
 6. Broaden ingestion robustness: wider format coverage (docx/pptx/html via Docling), OCR quality
