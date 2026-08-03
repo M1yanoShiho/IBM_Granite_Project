@@ -167,3 +167,70 @@ above points the same way as the automatic number, but that is for the reviewer 
 confirm, not for this report to assume.
 
 Stopped for review, as the guide requires.
+
+---
+
+## Human spot check: passes its own criterion, but measures a different property
+
+20 blind items, seed 13. Verdicts: **reasonable 15, partly 3, not reasonable 2**
+→ **0.750**, above the pre-registered human threshold of 0.60.
+
+So the two gate criteria disagree: automatic **0.556 (fail)**, human **0.750 (pass)**.
+The pre-registration anticipated disagreement and said the human governs — but it
+anticipated a *specific* kind: MiniCheck missing genuine correspondences and so
+under-crediting the analyzer. That is **not** what happened here.
+
+### The two instruments asked different questions
+
+- The packet asked: *are these reasonable things a complete answer must cover?*
+- The automatic metric asked: *does this requirement correspond to an actual ASQA
+  disambiguation?*
+
+Cross-tabulating the same 20 items against the match data shows how far apart
+those are: **32 of the 58 requirements (55.2%) in the human-checked sample match
+no gold reading at all**, and in five items — K02, K04, K11, K16, K19 — *every*
+requirement matched nothing. Two of those five (K04, K19) were nonetheless judged
+"reasonable", because they are perfectly sensible answer-quality items:
+
+```
+K04  What is the oldest version of microsoft windows?
+     - must indicate whether this version is still supported or discontinued   [0 gold matches]
+     - must provide relevant historical context about the release              [0 gold matches]
+K11  Why did the st louis cardinals move to arizona?
+     - must clarify how the move affected the fan base and community           [0 gold matches]
+```
+
+They are reasonable. They are also exactly the shape that damages the pipeline: a
+plausible obligation the retrieved evidence was never going to satisfy becomes an
+unsatisfiable gap → a failed recheck → a disclosure or abstention. Plausibility is
+not the property that makes a requirement safe to drive the mechanism;
+correspondence to something answerable is.
+
+### Where the human and the automatic metric agree
+
+The adjudicator independently flagged **answer-guessing in 5 of 20 items** (K02,
+K05, K11, K16, K18) — "assert an answer the analyzer could not know". That is the
+same forbidden category the automatic pass found, reached from content alone.
+Worse, one of those guesses is factually wrong: K05 asserts "I Fooled Around and
+Fell in Love" was "sung by The Isley Brothers" (it is Elvin Bishop). So the
+analyzer does not merely guess — it guesses incorrectly and would inject that into
+the Generator's input.
+
+### Reading
+
+The disagreement does not show the analyzer being under-credited. It shows that
+the human criterion, as worded, does not discriminate the failure mode. On the
+property that matters for the experiment — do the requirements correspond to
+readings the evidence can satisfy — both instruments point the same way: 44.4%
+invented overall, 55.2% unmatched within the human-checked sample, and
+answer-guessing confirmed by hand in a quarter of the items.
+
+**Recommendation: treat the gate as failed** and fall back to Route A, reporting
+the rule-based domain limit as the finding. Recorded as a recommendation, not a
+decision — the guide reserves this call for review.
+
+A limitation worth carrying into the write-up: this packet's question was about
+plausibility, and plausibility is what the analyzer is good at (0.750). A future
+checklist audit should ask whether each requirement is *answerable from the kind
+of evidence the system retrieves*, which is the property that governs downstream
+behaviour.
