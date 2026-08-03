@@ -1096,6 +1096,41 @@ ClaimSplitter source_text 逐字约束已放宽(`872ed61`)、over-split meta 句
 
 ---
 
+## G5 — verify-and-annotate 重设计(三臂标定)
+
+**状态:** 代码就绪(`generator/verify_annotate.py`,commit `bcfc842`)。
+**这是设计变更而非缺陷修复,故 BEFORE 在运行前写入并提交。**
+
+**BEFORE(预注册):**
+
+- 背景:现方法是**过滤器**(生成→验证→删除失败者),而过滤器按构造就是拿召回换精度 ——
+  实测引用精度 0.762(baseline 0.602),但 coverage 0.552(0.932)、correctness 0.189(0.273)。
+  TRUE 标定召回 0.747,即**约四分之一真正有支撑的声明被漏判**;在删除策略下这些变成
+  **被摧毁的正确内容**,正是 correctness 缺口的主因。
+- 变更:**标注而非删除**。三分路由 —— 蕴含且实体一致→保留并附**已验证**引用;蕴含但实体冲突→
+  丢弃(二分类后端下实体冲突是唯一具体的矛盾信号);两者皆非→**保留并标注 unverified、不附引用**。
+  验证走**引用路由 + 强制回退全扫描**(模型常内容对而索引错,无回退会因错标引用误删真陈述)。
+- completeness 作为运行时机制**退休**(三次 checklist 构造均失败:gold 派生测错对象、规则式
+  0.2% 词表命中率、单遍 LLM 44.4% 无对应且违反自身提示词断言假事实)。综合性下沉为 draft 提示词的
+  **软目标**,评估侧仍由 qa_pairs STR-EM 度量。**这是有量化归因的、有范围的负面结果,须在写作中明说,
+  不得悄悄移除。**
+- 三臂(≥400 标定题):`baseline`(两种引用惯例)/ `verify-only`(删除,即现published方法,消融项)/
+  `verify-annotate`(本重设计)。**保留 verify-only 才能把 coverage 的恢复归因到 delete→annotate 这一改动。**
+- **预期方向 + 失败判据(预注册):**
+  > 预期:coverage 与 correctness 向 baseline 回升;**已引用声明**上的引用精度维持在 verify-only 附近;
+  > 引用召回下降(标注句无引用,这是本设计**有意付出的代价,不得隐藏**)。
+  > **失败判据:若已引用声明的引用精度退回 baseline 水平**(说明标注策略让未验证内容以"已引用"身份混入),
+  > **或 coverage 相对 verify-only 没有改善**,则重设计失败。
+- 度量规则:引用精度**只在已引用声明上计算**,标注声明既不进分子也不进分母;引用召回按**全部答案句**计,
+  故标注句会拉低它。ALCE 句级 + MiniCheck 为独立判官;**TRUE 是生产验证器,永不担任判官**。
+- 纪律:**预注册后冻结**,不得为移动数字而调提示词或阈值。不重写未蕴含的声明(与 RARR 的
+  retrieve-and-revise 重叠,且重写内容是新生成的、需再验证,破坏单轮纪律)—— 记为 future work。
+- 数据合规:只用 ALCE/ASQA;**HotpotQA / RGB / MuSiQue-Full 从不加载**。
+
+**AFTER:** 未运行。
+
+---
+
 ## 本地(非 HPC)验证记录
 
 - 2026-07-20:selector 门实现全套单测 LOCAL 通过(tests/selector 32 + registration 9),
