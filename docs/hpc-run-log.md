@@ -857,6 +857,45 @@ twin 改判"预测 != SUPPORTED"后,albert .9980 / .9871,DeBERTa .8689 / .9008,*
   该曲线**已污染,不得用于选定 θ**。
 - **代码尚未按 §9.1 改动**,`relations/` 仍以三类运行,故本条目的三类数字保持可复现。
 
+**QA2D 缓存已生成 + 判读纪律 5 的测量已执行(2026-08-03):**
+`{"model": "MarkS/bart-base-qa2d", "n_pairs": 2944, "n_unique": 2944, "non_initial_uppercase_rate": 0.301}`。
+rung 3 的 pair 文件同日物化(`n_pairs 5888 / n_records 1472 / n_skipped_records 0`,与 rung 1/2 分母逐字相同),
+job **18257977** 已提交。
+
+**判读:应急条款不触发,rung 3 与 rung 1/2 在大小写上可比。** 把 0.301 按输入是否已带大小写拆开:
+
+| | n | 输出出现非句首大写 |
+|---|---:|---:|
+| 输入已带大小写 | 998 | **.867** |
+| 输入全小写 | 1946 | **.011** |
+
+**转换器不重新加大小写** —— 输入小写时输出 98.9% 保持小写。那 0.301 几乎全部来自输入自带,
+而输入是三个 rung 共享的。故纪律 5 的"若 rung 3 输出确为 cased…需补强制小写对照"**不适用**。
+
+**指标设计缺陷(记录,由本轮暴露):** `non_initial_uppercase_rate` 把"转换器引入的大小写"与
+"输入自带的大小写"混进一个数,**它并不回答纪律 5 要问的问题**——0.301 曾被(本文件作者)读成
+"转换器重新加了大小写",是错的,拆桶后才看清。该指标须改为按输入桶分别报告;在改之前,
+**单看这个总数会误导**。
+
+**由此暴露的一个更大的、写在冻结指标里的不对称(2026-08-03):**
+
+| kind | 答案串含大写 |
+|---|---:|
+| needle_gold | **.000** |
+| cf_gold | **.000** |
+| cf_replacement | **.678** |
+| needle_replacement | **.678** |
+
+`gold_value` 经 `canonicalize_answer` 变小写,而 `replacement_value` 是 `answer_bank` 从语料选的
+**原始串**(规范化只用于过滤比较,不做替换)。于是 **`gold_supports_recall` 的分母 100% 是小写答案**,
+而 **`twin_refutes_accuracy` 的两半不同质**(cf_gold 全小写,needle_replacement 67.8% 带大写)。
+DeBERTa 是 cased 模型,故两个门指标**建在系统性不同的输入分布上**。
+
+**范围要写准:** 该不对称**三个 rung 完全一样**(答案串同源),故**不污染阶梯比较**,rung 3 的读数有效;
+它污染的是**同一 rung 内的跨指标与跨臂比较**。也不夸大其解释力:cf_replacement 大小写匹配更好
+(replacement 逐字 substituted 进 cf 文档)却反而更低(DeBERTa rung 1 .681 vs needle_gold .794),
+说明大小写不是主导因素。但它是一个**此前从未被声明、且坐在门指标内部**的系统性差异 ⇒ 立 R012d。
+
 **尚未完成:** rung 3(QA2D)未跑。**checkpoint 不再是阻塞项** —— 2026-08-03 已选定
 `MarkS/bart-base-qa2d`(依据、弃用臂、两处表层伪影的处置见上)。现存阻塞项换成三件:
 QA2D 缓存尚未生成、rung 3 pair 文件尚未物化、这两条命令尚未入台账(上面的"命令"块只覆盖 rung 1/2)。
@@ -865,6 +904,42 @@ QA2D 缓存尚未生成、rung 3 pair 文件尚未物化、这两条命令尚未
 两个分桶已于同日跑完,均为实测空结果,见本条 AFTER 判读 8。真正未测的只有**"半句起始"**这一项,
 且须先说明:dpr-w100 按 100 词切分,**绝大多数 passage 本就从半句开始**,该分桶很可能没有对照组,
 届时应报告为"无足够变异,不可判读",而不是当作又一个空结果。
+
+### R012d — 答案串大小写对照(把大小写从门指标里拆出来)[PRE-REGISTERED 2026-08-03]
+
+> **编号:** R012c 已在 MiniCheck-FT5 臂的任务简报中被指定占用,故本条目编 R012d。
+
+- **状态:** BEFORE 已锁。**本条目写定于 job 18257977(rung 3)结果被读取之前**,时间戳即为证据;
+  该 job 的任何数字都未参与本条目的设计。
+- **动机(实测,见 R012b AFTER):** `gold_value` 经 `canonicalize_answer` 小写化,而 `replacement_value`
+  是原始串。⇒ `gold_supports_recall` 的分母 **100% 小写答案**,`twin_refutes_accuracy` 的两半不同质。
+  DeBERTa 是 cased 模型,且它的 `.7942` 是四种组合里**距 `.85` 阈值最近的一个(差 5.6pp)**。
+- **目的:** 判定 DeBERTa 的 `gold_supports_recall` 是否被"claim 用小写答案、premise 是正常大小写"
+  这一系统性错配压低。这是唯一还可能把它推过阈值、且**不涉及改指标或调阈值**的机制。
+- **操作(只动一个变量):** 重建探针,gold claim 改用 `record.gold_alias_used`
+  ——**即 needle 文档中真实出现的原始串**——替代规范化的 `gold_value`。replacement claim 不动
+  (它本来就是原始串,且已逐字 substituted 进 cf 文档)。**hypothesis 形式不动**,仍用冻结模板(rung 1)。
+- **范围:** rung 1 为主臂;rung 2 可顺带跑(确定性、零成本)。**rung 3 不跑** ——
+  QA2D 缓存以 (question, answer) 为键,改答案串即需重新生成缓存,那会同时动两个变量。
+- **预期指标与方向(预注册):**
+  1. **DeBERTa 的 `gold_supports_recall` 上升。** 若大小写错配是真实减分,移除它应当抬高该项。
+  2. **albert 的 `gold_supports_recall` 不动(容忍 ±1pp)。** —— **这是内建的阴性对照。**
+     albert 实测 `do_lower_case=True`,它把 premise 与 hypothesis 一起小写,**大小写对它可证不可见**。
+     **若 albert 明显移动,说明本次操作改变了大小写以外的东西,实验无效,须先查因再读 DeBERTa。**
+  3. `twin_refutes_accuracy` 两臂均可能变动(cf_gold 那一半的答案串被改),**不作方向性主张**。
+- **事先固定的判读纪律:**
+  1. **本轮无论结果如何,Gate 0B 的判定不变。** 即使 DeBERTa 越过 `.85`,那也是**第三个探针变体上的
+     第三次测量**,须与 R012 的预注册主结果、R012b 的形式阶梯**三者并列**呈现,
+     并标明各自的探针版本。**不得称"Gate 0B 通过"**(与 M0 §9.6 第 2 条、§9.5a 同一纪律)。
+  2. **不得借此引入阈值**(M0 §9.5a 仍然生效)。
+  3. 本条目**修正**了我先前的一个判断:2026-08-03 早些时候曾以"albert uncased ⇒ 大小写可证无效"
+     为由主张不设大小写臂。**该推理只对 albert 成立**,而 DeBERTa 是 cased 且是最接近阈值的一臂 ——
+     当时的结论**外推过头了**,本条目即为更正。
+- **前置:** 无新代码依赖;`gold_alias_used` 已在 `MutationRecord` 上(`provenance.py:21`),
+  `task_probe.py` 只需读另一个字段。须加测试钉住"用的是 alias 不是 canonical"。
+- **命令:** _待填_
+- **commit:** _待填_
+- **AFTER:** _待填 —— 两臂 × 两项;**先报 albert 的阴性对照是否成立,再读 DeBERTa**_
 
 ### R011 — VitaminC adapter 与 revision-family 去污染 [DONE 2026-07-31]
 
