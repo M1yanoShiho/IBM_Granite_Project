@@ -912,6 +912,46 @@ ClaimSplitter source_text 逐字约束已放宽(`872ed61`)、over-split meta 句
 
 ---
 
+## G4 — checklist 重建(Route B:LLM 分析器)与其验证门
+
+**状态:** 分析器已实现(`GraniteQueryAnalyzer`,commit `2c81708`,含 Route A 底线修复)。
+**本条目的 BEFORE 在看到任何验证数字之前写入并提交** —— 这是第三版 checklist 构造,
+前两版(gold 派生的背景注记、规则式关键词袋)都失败且**自动指标全都看不出来**,只有人工
+审阅和逐条看输出才发现。所以本轮的结构是**先建 → 按分析器自身标准验证 → 通过门 → 才跑实验**,
+绝不从下游结果反推分析器质量。
+
+**BEFORE(预注册):**
+
+- 目的:规则式分析器无法知道一个问题有多种读法(预判歧义需要世界知识),所以 completeness
+  机制从未得到公平检验。Route B 用 LLM 仅从**问题文本**构造 checklist,输出**覆盖义务**
+  (「答案必须指明男子国际纪录保持者」)而非断言(「Ali Daei 保持纪录」)。
+- **输入硬约束:** 分析器只见问题文本。**不得**接触 gold 长答案、`qa_pairs`、标注者字段、
+  检索证据 —— `QueryChecklist` 是 Generator 的**输入**,任何 gold 派生都是 oracle 泄漏
+  (即上一轮的缺陷 #2)。`qa_pairs` 仅用于**评估侧**验证。
+- **验证门(在看数字前定死):**
+  > **checklist 精度 ≥ 0.60**(生成的 requirement 中,能对应到真实 gold 去歧义读法的比例),
+  > **且**人工抽检(~20 项,盲)中被判「合理」的比例 **≥ 0.60**。
+  > 两项**任一不达标 → 分析器不适合驱动实验**:回退到 Route A 结果,并把
+  > 「规则式 checklist 构造在开放域受限」作为结论如实报告。
+- 门为何设在精度而非召回:**虚假 requirement → 虚假缺口 → 虚假弃答**,正是此前损害
+  `verified-full` 的机制;漏掉一个读法只是少测,不会制造伤害。召回照报但不设门。
+- **诚实预期:** 语义匹配用 MiniCheck,其召回仅 0.620,会**漏判**真实对应,因此自动精度是
+  **下限**,可能低估分析器。故并列人工抽检;若两者显著分歧,以人工为准。另:过于笼统的
+  requirement 会匹配上多个 gold 读法从而虚高精度,单列「匹配 >1 个 gold」的诊断项。
+- **诚实预期(结果方向):** 规则式分析器在开放域产出空 checklist 是**领域限制而非缺陷**;
+  即便 Route B 通过门,`verified-full` 相对 `verify-only` **无显著贡献**仍是完全可能且
+  **合法可报告**的结果 —— completeness 机制的价值取决于 checklist 质量,不是必须被工程掉的失败。
+- 下游判据(沿用上一版指南,不变):
+  > completeness 机制有效,当且仅当 `verified-full` 在 **qa_pairs STR-EM 覆盖**上显著优于
+  > `verify-only`,且引用精度无显著下降。
+- 纪律:分析器**通过门即冻结**,不得为了下游数字好看而迭代提示词。可陈述的缺陷(如
+  「checklist 漏掉了被比较的一方」)才是修改理由;「改措辞能抬高 completeness 差值」是调参,越界。
+- 数据合规:只用 ALCE/ASQA;**HotpotQA / RGB / MuSiQue-Full 从不加载**。
+
+**AFTER:** 未运行。
+
+---
+
 ## 本地(非 HPC)验证记录
 
 - 2026-07-20:selector 门实现全套单测 LOCAL 通过(tests/selector 32 + registration 9),
