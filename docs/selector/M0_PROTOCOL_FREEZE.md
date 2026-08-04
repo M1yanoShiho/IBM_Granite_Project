@@ -601,10 +601,17 @@ rung 2 由 .3635 升至 .7799(2.15×)。即该 checkpoint 的失败**不是"判�
 - [x] 项目负责人批准并将本文件版本号改为 `g2-proto-2` —— **2026-08-03 完成**
 - [x] `EXPERIMENT_TRACKER.md` 的 Protocol 行同步改版本号,R036 标 N/A —— **2026-08-03 完成**
 - [x] R012b 的 AFTER 中两种口径并列 —— **2026-08-03 完成**
-- [ ] `relations/models.py` 的输出空间与 `relations/gate0b.py` 的指标实现按 §9.1 修改(TDD)
-      —— **未完成,且按 §9.10a 必须推迟。** 波及 `predictor.py` 的三类 tie-break、
-      `gate0b.py` 的 `LABEL_ORDER` 三元组、`task_probe.py` 的 REFUTES 标签、
-      `vitaminc.py` 的标签映射与 `graph.py`。
+- [x] `relations/models.py` 的输出空间与 `relations/gate0b.py` 的指标实现按 §9.1 修改(TDD)
+      —— **2026-08-04 完成**(commit `221c34a`)。§9.10a 的推迟条件在 rung 3 与 R012d 收口后清空,
+      随即落地。波及 `predictor.py` 的 tie-break、`gate0b.py` 的 `LABEL_ORDER` 折叠、
+      `task_probe.py` 的孪生标签与 `graph.py`,均已改;**`vitaminc.py` 与 `external_report`
+      逐字节未动** —— 0B-1 按 §9.11 挂起。
+      **折叠取 max 而非求和**(求和等价于 `S > .5`,是被 §9.5a 禁止的阈值);
+      该等价性已由 `cli/recompute_binary --against` 对四个 dump 八格全部实证复现。
+- [ ] G 模块就后端与阈值复用达成一致(负责人:待定)
+
+**本清单曾于 2026-08-04 一度过时** —— 上面第 4 项在实现已落地、且同文件 §9.11 已记录该事实之后,
+仍写着"未完成,必须推迟"。由 MiniCheck 臂的实现者发现并报告,本行为其更正记录。
 
 ### 9.11 0B-1 挂起,待修订案 A2 [裁决 2026-08-04]
 
@@ -662,4 +669,3 @@ collapse 语义下等价,且不动任何已产生的实验数据)。
 
 **例外:** 若 MiniCheck 臂(§9.8 的出样检验之一)先行就绪,它**原生二分类**,应作为独立臂
 单独报告,不并入 R012b 的三级阶梯比较。
-- [ ] G 模块就后端与阈值复用达成一致(负责人:待定)

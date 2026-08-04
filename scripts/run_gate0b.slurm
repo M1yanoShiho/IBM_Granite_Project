@@ -11,6 +11,7 @@
 #   export HF_HOME=/user/work/$USER/hf_cache
 #   hf download tals/albert-xlarge-vitaminc-mnli
 #   hf download MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli
+#   hf download lytang/MiniCheck-Flan-T5-Large        # R012c, ~3.1GB, verified 2026-08-04
 #
 # Also on the login node — build the two pair files (both are pure CPU):
 #   export PYTHONPATH=src
@@ -80,6 +81,31 @@
 #   sbatch scripts/run_gate0b.slurm data/gate0b/task_pairs.jsonl none \
 #     results/gate0b/sweep-task-only.json "tals/albert-xlarge-vitaminc-mnli" \
 #     results/gate0b/dump-task-only.jsonl
+#
+# R012c — the MiniCheck-FT5 arm (M0 §3.1's never-run third arm, and §9.8's out-of-sample check
+# on A1). It is NATIVELY BINARY, so per §9.10a it is reported as an INDEPENDENT arm and must not
+# be folded into R012b's three-rung ladder — that ladder varies hypothesis form only, and adding
+# this arm would vary model and label space at the same time. It runs all three forms anyway,
+# because R012b measured form moving gold_supports_recall 2.8x: a single-form failure here could
+# not support the family-level claim this arm exists to settle.
+#
+# EXTERNAL_PAIRS is "none" and not by convenience — 0B-1 is suspended pending amendment A2
+# (M0 §9.11, tracker R020 BLOCKED), so this tier carries the whole gate.
+#   ARM="lytang/MiniCheck-Flan-T5-Large"
+#   for RUNG in template:task_pairs qa:task_pairs_qa qa2d:task_pairs_qa2d; do
+#     sbatch scripts/run_gate0b.slurm "data/gate0b/${RUNG#*:}.jsonl" none \
+#       "results/gate0b/sweep-minicheck-${RUNG%%:*}.json" "$ARM" \
+#       "results/gate0b/dump-minicheck-${RUNG%%:*}.jsonl"
+#   done
+#
+# The pair files must be the POST-A1 ones: twin rows carry NOT_SUPPORTED, and pre-A1 files label
+# them REFUTES. gate0b reads gold back with RelationLabel(row["label"]), which still parses the
+# old value, so a stale file would not crash — it would just be the wrong probe version. Rebuild
+# all three with the export_task_probe commands above before submitting.
+#
+# gpu:1 is still right for this arm despite max_length=2048: a 0B-2 premise is a single ~100-word
+# passage and padding is to the batch longest, so sequences are ~150 tokens, not 2048. The arm is
+# 770M seq2seq, inference only, one decoder step per pair.
 #SBATCH --job-name=gate0b
 #SBATCH --account=coms039904
 #SBATCH --partition=gpu

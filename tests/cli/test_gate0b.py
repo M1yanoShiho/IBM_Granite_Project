@@ -11,6 +11,10 @@ from evidence_rag.cli.gate0b import (
     load_score_fn,
     main,
 )
+from evidence_rag.relations.minicheck import (
+    MINICHECK_FLAN_T5_LARGE,
+    VERIFIED_BINARY_PROTOCOLS,
+)
 
 
 def _write(path: Path, rows: list[dict[str, str]]) -> Path:
@@ -208,6 +212,74 @@ def test_load_score_fn_rejects_an_unverified_checkpoint() -> None:
     plausible, so guessing is not an option."""
     with pytest.raises(ValueError, match="no verified label order"):
         load_score_fn("some/unknown-model")
+
+
+def test_load_score_fn_names_both_registries_when_an_id_is_in_neither() -> None:
+    """There are now two ways to be verified and an id must fail against both.
+
+    A message naming only LABEL_ORDER would send whoever hits it to add a three-name order for a
+    checkpoint that has no classes to order — which is exactly the fabrication the binary path
+    exists to prevent.
+    """
+    with pytest.raises(ValueError, match="no verified binary protocol"):
+        load_score_fn("some/unknown-model")
+
+
+def test_a_natively_binary_checkpoint_never_gets_a_three_class_label_order() -> None:
+    """The registries are disjoint, and this is the guard that keeps them so.
+
+    MiniCheck is a `T5ForConditionalGeneration` with no `id2label`. Adding it to LABEL_ORDER
+    would require inventing a REFUTES/UNKNOWN split it cannot express, and `_collapse_to_binary`
+    would then read those invented columns and return a number for them.
+    """
+    assert MINICHECK_FLAN_T5_LARGE not in LABEL_ORDER
+    assert not set(LABEL_ORDER) & set(VERIFIED_BINARY_PROTOCOLS)
+
+
+def test_load_score_fn_dispatches_each_checkpoint_to_its_own_loader(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Dispatch is by registry membership, not by a name heuristic."""
+    monkeypatch.setattr(
+        "evidence_rag.cli.gate0b._load_three_class_score_fn",
+        lambda model_id: ("three-class", model_id, "v"),
+    )
+    monkeypatch.setattr(
+        "evidence_rag.cli.gate0b._load_binary_score_fn",
+        lambda model_id: ("binary", model_id, "v"),
+    )
+    assert load_score_fn("tals/albert-xlarge-vitaminc-mnli")[0] == "three-class"
+    assert load_score_fn(MINICHECK_FLAN_T5_LARGE)[0] == "binary"
+
+
+def test_the_binary_arm_scores_through_the_unchanged_metrics_code(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A natively-binary arm and a three-class arm in ONE sweep, reported identically.
+
+    This is the seam the arm was designed around (M0 §9.10a's exception): the binary checkpoint
+    is reported as an independent arm, but `task_report` and its thresholds do not learn that it
+    exists. Both entries must therefore carry the same report fields — if the binary arm needed
+    its own metric keys, the two dicts would differ here.
+    """
+    monkeypatch.setattr("evidence_rag.cli.gate0b.load_score_fn", _perfect_scorer)
+    output = tmp_path / "sweep.json"
+    assert (
+        main(
+            [
+                "--task-pairs", str(_task_pairs(tmp_path)),
+                "--output", str(output),
+                "--models", "tals/albert-xlarge-vitaminc-mnli", MINICHECK_FLAN_T5_LARGE,
+            ]
+        )
+        == 0
+    )
+    models = json.loads(output.read_text(encoding="utf-8"))["models"]
+    assert set(models) == {"tals/albert-xlarge-vitaminc-mnli", MINICHECK_FLAN_T5_LARGE}
+    three_class, binary = (models[name]["task"] for name in models)
+    assert three_class.keys() == binary.keys()
+    assert "twin_not_supported_accuracy" in binary
+    assert "gold_supports_recall" in binary
 
 
 def test_label_order_matches_the_verified_id2label_of_each_checkpoint() -> None:

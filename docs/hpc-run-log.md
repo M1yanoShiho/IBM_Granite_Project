@@ -998,6 +998,104 @@ M0 §9.10a 裁定 R012 / R012b 的二分类读数**从 dump 重算,不重跑**,�
 twin 项在八格中介于 .8635–.9983,全部通过。该表由 `cli/recompute_binary` 机器产出,
 第三方可用同一条命令复算,不依赖本文件的手工誊录。
 
+### R012c — MiniCheck-FT5 臂(§3.1 预注册第三臂 + §9.8 的 A1 出样检验)[PRE-REGISTERED 2026-08-04]
+
+> **编号:** R013/R014/R015 已被 fine-tuned Relation Builder 的三个 seed 占用(CONDITIONAL,见
+> `EXPERIMENT_TRACKER.md`),R012b 为 hypothesis 形式消融,R012d 为答案串 canonical/surface 对照。
+> R012c 自 2026-08-03 起已在 R012d 条目中记为"已由 MiniCheck-FT5 臂占用",本条目认领该编号。
+
+- **状态:** BEFORE 已锁,代码已就位(TDD,测试先行)。本条目写定于本臂产出任何数字之前。
+- **双重身份(与其它 R012x 的关键差别):**
+  1. **§3.1 预注册三臂中从未上场的一臂。** R012 实跑只有两臂,故"任何零训练模型都不够"这一
+     **族级断言至今不成立** —— 而 §3.1 写明,该区分正是 §3.8 训练路径是否启动的唯一依据。
+  2. **§9.8 指定的两项 A1 出样检验之一。** A1 由 albert / DeBERTa 两臂的数据促成,故那两臂
+     **不能**验证它;本臂的数字在 A1 起草时并不存在。§9.8 原文:
+     **"若出样结果与本修订预期相悖,以出样结果为准。"** 即本臂被明文授予推翻 A1 的权力,
+     **故本臂不得朝"与 A1 一致"的方向调整任何东西**。
+- **此前跑不了的真实原因(与任务简报所述不同,记录以免重犯):** 简报称阻塞在"二分类需否定 claim
+  双向探测"。A1 落地(`221c34a`)后输出空间即为二分类,该阻塞**已消失,无双向探测可写**。
+  真正的阻塞是**架构**:本 checkpoint 是 `T5ForConditionalGeneration`,`load_score_fn` 的
+  `AutoModelForSequenceClassification` 根本打不开它,且它**没有 id2label**,`LABEL_ORDER` 对它无意义。
+  设计文档 §3.1(第 168 行)"MiniCheck 的二分类要靠否定 claim 反推 REFUTES,等于在关系层塞进一个
+  未验证构造"**是 A1 之前的推理,已被 A1 作废** —— 二分类即是修订后的输出空间,无 REFUTES 需要反推,
+  故本臂不含任何否定 claim 构造。该句应视为 pre-A1 记录,不再是对本臂的约束。
+- **预期指标与方向(预注册,可证伪):** 主判据仍是 §9.1 的联合门 —— `gold_supports_recall ≥ .85`
+  与 `twin_not_supported_accuracy ≥ .70` **同时**满足,阈值一个不动。
+  1. **本臂的 `gold_supports_recall` 应显著高于同 rung 的 albert / DeBERTa。** 依据:三臂中只有它
+     是**专为 document-grounded 支持判断训练**的,而 0B-2 正是该任务形状。
+  2. **rung 排序预期 `qa2d` > `question_answer` > `template`。** 依据:MiniCheck 的训练 claim 是
+     陈述句,rung 1 的元指称模板离其训练分布最远。**该方向与 albert 相反**(albert twin 峰值在
+     rung 2、rung 3 崩到 .5312),故这是一个可被数据打脸的预测,不是事后叙述。
+  3. `twin_not_supported_accuracy` 预期高但**不作选型判据** —— §9.5 已承认它在二分类下近饱和,
+     退化为下限守卫。
+- **事先固定的判读纪律:**
+  1. **不得引入阈值(§9.5a 仍然生效)。** 本臂原生二分类,argmax 即其参考实现的 `raw_prob > .5`,
+     是 checkpoint 自带的决策规则而非对着 Gate 结果调出的自由参数;任何偏离 .5 的 θ 须另开 A2。
+  2. **若本臂也卡在 `gold_supports_recall`** ⇒ 族级断言成立,且 A1 的出样检验通过
+     (即"A1 未制造任何通过者"得到独立证据),§3.8 可启动。
+  3. **若本臂过门** ⇒ **§3.8 不得启动**,且 R012 的"零训练不够"读数被本臂推翻,
+     族级结论须以本臂为准重写。这是本臂唯一可能的高价值负结果,不得因它不方便而淡化。
+  3b. **"更强核查器"与"需要训练"是两个结论,设计文档已预注册该区分**(设计文档 §3.1 第 169 行:
+     "若 albert 明显输给 MiniCheck,结论是'需要更强核查器'而非'需要训练'——这个区分决定 §3.6 是否启动")。
+     故**即便本臂未过门**,只要它明显优于 albert / DeBERTa,§3.8 的立论就从"零训练模型不够"退为
+     "这两个零训练模型不够",训练路径的依据相应减弱,须在报告中如实分开写。
+  4. **若二分类在本臂上暴露出三类才能捕捉的东西**(例如弃权与反对的混同在本臂上产生了
+     albert/DeBERTa 看不到的后果),须依 §9.8 如实提出 A1 可能有误,而不是绕开。
+  5. **独立臂报告,不并入 R012b 三级阶梯**(§9.10a 例外条款):并入会同时变动模型与标签空间两个变量。
+  6. **0B-1 不跑**(`EXTERNAL_PAIRS=none`):该层已于 2026-08-04 挂起待 A2(§9.11,tracker R020 BLOCKED)。
+- **checkpoint 核实(2026-08-04,三处独立来源,均记于 `relations/minicheck.py` 模块 docstring):**
+  - `https://huggingface.co/api/models/lytang/MiniCheck-Flan-T5-Large` → `architectures:
+    ["T5ForConditionalGeneration"]`、`model_type: "t5"`、**无 `id2label`**。§3.1 写作 "MiniCheck-FT5
+    (770M)";Flan-T5-Large 为 780M,card 自述 "best fact-checking model with size < 1B",与 §3.1 的
+    "LLM-AggreFact <1B SOTA" 对应。Hub id 为 `MiniCheck-Flan-T5-Large`,"FT5" 是协议的简称。
+  - 打分协议取自该 repo 的 `minicheck_web/inference.py` 与 `github.com/Liyan06/MiniCheck`:
+    `predict: {doc}</s>{claim}` 单序列、`decoder_input_ids=zeros` 单步、读 token id `3`/`209`
+    (源码注释 "# 3 for no support and 209 for support")、仅对该两列 softmax、index 1 = support、
+    `max_model_len=2048`。论文:Tang, Laban & Durrett, EMNLP 2024(arXiv:2404.10774)。
+  - **label id 实测(本地 transformers 5.10.2):`convert_tokens_to_ids(["0","1"])` = `[632, 536]`,
+    两者都不是 label id**;而 `encode("0")` = `[3, 632, 1]`、`encode("1")` = `[209, 1]`。
+    即 3/209 是两个 label **字符串的首 token**(T5 词表有 `▁1` 而无 `▁0`,故 "0" 拆成裸 `▁` 加数字)。
+    **按 token 文本查表会静默打分到两个无关词表项且不报错** —— 故代码按 `encode(text)[0]` 推导,
+    并与记录值对拍,不一致即硬失败。这是 `LABEL_ORDER` 纪律在本臂上的对应物。
+- **前置:** pair 文件须是 **A1 之后**重建的三份(twin 行标 `NOT_SUPPORTED`);pre-A1 文件标 `REFUTES`
+  且**仍能解析**(`RelationLabel` 保留该成员),故不会崩,只会是错的探针版本 —— 必须显式重建。
+- **方向冒烟(2026-08-04,本地真实权重,4 对手工样本):** `4/4` 方向正确,
+  支持对 `P(SUPPORTS)` = .9748 / .9733,孪生对 = .0122 / .0057,且用的是 **rung 1 冻结模板**。
+  `model_version` = `lytang/MiniCheck-Flan-T5-Large@f4f447f5877fc162`(权重指纹;
+  **bp1 上应复现同一指纹,不同即说明下到了不同的 checkpoint**);tokenizer 走 fast 路径。
+  **纪律声明:这不是结果。** 4 对样本由我手工构造、不属于 0B-2 探针,样本量与构造方式都不足以
+  对任何门指标发言;它只排除"label id 取反"这一类**结构性**错误(该错误会让一切照常运行且数字合理)。
+  本条目的**预注册方向写定于该冒烟产出之前**,顺序保留于此以备核。真实读数一律以 sbatch 的三个
+  rung 为准。
+- **命令:**
+  ```
+  # 登录节点(有网,一次性)
+  export HF_HOME=/user/work/$USER/hf_cache
+  hf download lytang/MiniCheck-Flan-T5-Large          # ~3.1GB
+
+  # 三份 pair 文件(A1 之后重建;rung 3 需先有 qa2d_cache.jsonl,见 R012b)
+  export PYTHONPATH=src
+  P="--manifest runs/niah-train-injected/manifest.json --provenance runs/niah-train-injected/provenance.jsonl"
+  python -m evidence_rag.cli.export_task_probe $P --output data/gate0b/task_pairs.jsonl
+  python -m evidence_rag.cli.export_task_probe $P --output data/gate0b/task_pairs_qa.jsonl \
+    --hypothesis-form question_answer
+  python -m evidence_rag.cli.export_task_probe $P --output data/gate0b/task_pairs_qa2d.jsonl \
+    --hypothesis-form qa2d --qa2d-cache data/gate0b/qa2d_cache.jsonl
+
+  # 三个 rung,各自独立 job(0B-1 挂起,故 EXTERNAL_PAIRS=none)
+  ARM="lytang/MiniCheck-Flan-T5-Large"
+  for RUNG in template:task_pairs qa:task_pairs_qa qa2d:task_pairs_qa2d; do
+    sbatch scripts/run_gate0b.slurm "data/gate0b/${RUNG#*:}.jsonl" none \
+      "results/gate0b/sweep-minicheck-${RUNG%%:*}.json" "$ARM" \
+      "results/gate0b/dump-minicheck-${RUNG%%:*}.jsonl"
+  done
+  ```
+  报告 headline 时必须同时写明该 pair 文件的 `hypothesis_form`(exporter 回显该字段)。
+- **commit:** _待填(代码随本轮提交:`relations/minicheck.py` + `cli/gate0b.py` 双注册表分发 + 测试)_
+- **AFTER:** _待跑_
+
+---
+
 ### R012d — 答案串 canonical vs surface 对照 [PRE-REGISTERED 2026-08-03,DONE 2026-08-04]
 
 > **标题已更正(2026-08-04):** 原题为"大小写对照",不准确 —— 见 AFTER 缺陷记录 1。

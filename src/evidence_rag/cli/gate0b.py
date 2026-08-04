@@ -20,6 +20,13 @@ from pathlib import Path
 from typing import Any
 
 from evidence_rag.relations.gate0b import external_report, task_report
+from evidence_rag.relations.minicheck import (
+    VERIFIED_BINARY_PROTOCOLS,
+    build_input,
+    protocol_for,
+    resolve_label_token_ids,
+    to_scores,
+)
 from evidence_rag.relations.models import PREDICTED_LABELS, RelationLabel, RelationPrediction
 from evidence_rag.relations.predictor import (
     NLIRelationPredictor,
@@ -140,23 +147,43 @@ def _weight_buffers(model: Any) -> Iterator[tuple[str, bytes]]:
 
 
 def load_score_fn(model_id: str) -> tuple[ScoreFn, str, str]:
-    """Load a HF sequence-classification checkpoint as a BINARY scorer (A1 §9.1).
+    """Load a checkpoint as a BINARY scorer (A1 §9.1), by whichever route it was verified on.
 
-    The checkpoint's head is still three-class; `_collapse_to_binary` reduces each row to
-    SUPPORTS / NOT_SUPPORTED before it leaves this function, so the collapse happens in exactly
-    one place and `NLIRelationPredictor` only ever sees the amended output space.
+    Two routes exist because the arms are not the same shape of model, and neither can be made
+    to stand in for the other:
+
+      * a three-class sequence-classification head, registered in `LABEL_ORDER` and reduced by
+        `_collapse_to_binary` (albert, DeBERTa);
+      * a natively-binary checkpoint, registered in `relations.minicheck` with its verified
+        prompt format and label token ids (MiniCheck-FT5, M0 §3.1 / §9.8).
 
     Returns (scorer, tokenizer_variant, model_version). `model_version` is derived from the
     checkpoint weights, never from the id alone: the id is a name two different checkpoints
     can share, and it lands on every edge and every dump row.
 
-    Seam for testing. Fails loudly on an unverified model id — see LABEL_ORDER.
+    Seam for testing. Fails loudly on a model id verified in neither registry.
     """
-    if model_id not in LABEL_ORDER:
-        raise ValueError(
-            f"no verified label order for {model_id!r}; inspect config.id2label and add it "
-            "to LABEL_ORDER before running the gate"
-        )
+    if model_id in LABEL_ORDER:
+        return _load_three_class_score_fn(model_id)
+    if model_id in VERIFIED_BINARY_PROTOCOLS:
+        return _load_binary_score_fn(model_id)
+    raise ValueError(
+        f"{model_id!r} is verified in neither checkpoint registry: no verified label order "
+        "(three-class head — inspect config.id2label and add it to LABEL_ORDER) and no "
+        "verified binary protocol (natively-binary head — record its prompt format and label "
+        "token ids in relations.minicheck.VERIFIED_BINARY_PROTOCOLS). Add it to the ONE that "
+        "matches its architecture; a three-name order for a model with no classes to order is "
+        "a fabrication, not a workaround."
+    )
+
+
+def _load_three_class_score_fn(model_id: str) -> tuple[ScoreFn, str, str]:
+    """Load a HF sequence-classification checkpoint as a BINARY scorer (A1 §9.1).
+
+    The checkpoint's head is still three-class; `_collapse_to_binary` reduces each row to
+    SUPPORTS / NOT_SUPPORTED before it leaves this function, so the collapse happens in exactly
+    one place and `NLIRelationPredictor` only ever sees the amended output space.
+    """
     torch = importlib.import_module("torch")
     transformers = importlib.import_module("transformers")
 
@@ -191,6 +218,76 @@ def load_score_fn(model_id: str) -> tuple[ScoreFn, str, str]:
                 logits = model(**encoded).logits
             for row in torch.softmax(logits.float().cpu(), dim=-1).tolist():
                 results.append(_collapse_to_binary([float(value) for value in row], order))
+            if start % (BATCH_SIZE * 20) == 0:
+                print(f"[gate0b] {model_id} {start}/{len(pairs)}", flush=True)
+        return results
+
+    return score, tokenizer_variant, model_version
+
+
+def _load_binary_score_fn(model_id: str) -> tuple[ScoreFn, str, str]:
+    """Load a natively-binary checkpoint as a scorer, with no collapse in the path.
+
+    Three things differ from the three-class route, and each of them is silent if wrong:
+
+      1. `AutoModelForSeq2SeqLM`, not `AutoModelForSequenceClassification` — this checkpoint is a
+         `T5ForConditionalGeneration` and the classification loader cannot open it at all. That
+         one is loud; the other two are not.
+      2. ONE sequence built by `build_input`, not a (premise, hypothesis) pair. The tokenizer
+         would accept a pair argument here and encode something the checkpoint was never tuned
+         on.
+      3. A single decoder step, reading the two label columns resolved from the tokenizer. The
+         model emits a full vocabulary distribution and any two columns of it would softmax to a
+         plausible-looking pair.
+
+    `max_length` comes from the protocol (2048) rather than the tokenizer default. The probe's
+    premises are single ~100-word passages, so nothing truncates either way — but the value is
+    part of what was verified, and it will start to matter the first time this scorer sees a
+    real pool.
+    """
+    protocol = protocol_for(model_id)
+    torch = importlib.import_module("torch")
+    transformers = importlib.import_module("transformers")
+
+    tokenizer, tokenizer_variant = _load_tokenizer(transformers, model_id)
+    # Before the weights load: a tokenizer that disagrees with the recorded ids means the wrong
+    # checkpoint, and there is no reason to spend a download finding that out afterwards.
+    negative_id, positive_id = resolve_label_token_ids(protocol, tokenizer.encode)
+    model = transformers.AutoModelForSeq2SeqLM.from_pretrained(model_id)
+    model.eval()
+
+    model_version = fingerprinted_version(model_id, weight_fingerprint(_weight_buffers(model)))
+
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    model.to(device)
+    print(
+        f"[gate0b] {model_version} on {device} (tokenizer: {tokenizer_variant}, "
+        f"binary head, label ids {negative_id}/{positive_id})",
+        flush=True,
+    )
+
+    def score(pairs: Sequence[tuple[str, str]]) -> list[dict[str, float]]:
+        results: list[dict[str, float]] = []
+        for start in range(0, len(pairs), BATCH_SIZE):
+            batch = pairs[start : start + BATCH_SIZE]
+            encoded = tokenizer(
+                [build_input(protocol, premise, hypothesis) for premise, hypothesis in batch],
+                max_length=protocol.max_input_length,
+                truncation=True,
+                padding=True,
+                return_tensors="pt",
+            )
+            encoded = {key: value.to(device) for key, value in encoded.items()}
+            # One decode step from the start token: the checkpoint answers with its first
+            # generated token, so the whole prediction lives at position 0.
+            decoder_input_ids = torch.zeros(
+                (encoded["input_ids"].size(0), 1), dtype=torch.long, device=device
+            )
+            with torch.no_grad():
+                logits = model(**encoded, decoder_input_ids=decoder_input_ids).logits
+            label_logits = logits.squeeze(1)[:, [negative_id, positive_id]].float().cpu()
+            for row in torch.softmax(label_logits, dim=-1).tolist():
+                results.append(to_scores(float(row[1])))
             if start % (BATCH_SIZE * 20) == 0:
                 print(f"[gate0b] {model_id} {start}/{len(pairs)}", flush=True)
         return results
