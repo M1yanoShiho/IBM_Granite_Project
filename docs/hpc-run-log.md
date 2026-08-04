@@ -93,6 +93,9 @@
 
 **AFTER(2026-08-04,job 18259143,gpu:rtx_3090:1,bp1-gpu030,两臂各 2000/2000):**
 
+- raw(已按台账规则 `git add -f` 拉回,不再只存在于 bp1):
+  `results/r1-2wiki-decompose-per-case.json`、`results/r1-2wiki-strong-bm25-per-case.json`
+  (各 2000 条 per_case;`.gitattributes` 已豁免行尾转换,保证字节级可复现)。
 - **复现:逐位精确。** 两臂 5 个指标与 MengW7(886cc8f)**小数点后 4 位全部一致**:
   decompose MRR .5702 / R@5 .4716 / R@10 .5491 / R@20 .6506 / Recall .7610;
   strong-bm25 .9580 / .6766 / .7222 / .7468 / .7678。Δ MRR = **−0.3878**,与预注册一致。
