@@ -1057,8 +1057,16 @@ twin 项在八格中介于 .8635–.9983,全部通过。该表由 `cli/recompute
     即 3/209 是两个 label **字符串的首 token**(T5 词表有 `▁1` 而无 `▁0`,故 "0" 拆成裸 `▁` 加数字)。
     **按 token 文本查表会静默打分到两个无关词表项且不报错** —— 故代码按 `encode(text)[0]` 推导,
     并与记录值对拍,不一致即硬失败。这是 `LABEL_ORDER` 纪律在本臂上的对应物。
-- **前置:** pair 文件须是 **A1 之后**重建的三份(twin 行标 `NOT_SUPPORTED`);pre-A1 文件标 `REFUTES`
-  且**仍能解析**(`RelationLabel` 保留该成员),故不会崩,只会是错的探针版本 —— 必须显式重建。
+- **前置(2026-08-04 更正):** ~~pair 文件须是 A1 之后重建的三份…必须显式重建。~~
+  **本条说过头了,且照它执行会造成不可逆损失。** 实测:`task_report` **根本不读 gold 列**
+  (A1 后两个指标都对 SUPPORTS 定义,gold 仅作 arity 守卫),故 pre-A1 与 post-A1 的 pair 文件
+  **产出逐字相同的报告** —— 重建对正确性无任何收益。而原命令块写的是**原地重建**,
+  那会**覆盖 R012 与 R012b rung 1 实际消费过的历史输入**,而 `/data/` 被 gitignore,覆盖即永久丢失。
+
+  **改为:直接复用现有三份 pair 文件。** 除"零收益且有损失"外还有一条更强的理由 ——
+  **用与 albert / DeBERTa 完全相同的输入文件,是三臂可比性的最强保证**;而 `export_task_probe`
+  自那三轮之后已有改动(新增 `--gold-answer`、fixture 语义更正),重建就得额外证明 premise 与
+  hypothesis 未变。复用则无需证明。若仍要 post-A1 版本的 artifact,**必须写到新路径**,不得覆盖。
 - **方向冒烟(2026-08-04,本地真实权重,4 对手工样本):** `4/4` 方向正确,
   支持对 `P(SUPPORTS)` = .9748 / .9733,孪生对 = .0122 / .0057,且用的是 **rung 1 冻结模板**。
   `model_version` = `lytang/MiniCheck-Flan-T5-Large@f4f447f5877fc162`(权重指纹;
@@ -1073,14 +1081,18 @@ twin 项在八格中介于 .8635–.9983,全部通过。该表由 `cli/recompute
   export HF_HOME=/user/work/$USER/hf_cache
   hf download lytang/MiniCheck-Flan-T5-Large          # ~3.1GB
 
-  # 三份 pair 文件(A1 之后重建;rung 3 需先有 qa2d_cache.jsonl,见 R012b)
+  # pair 文件不重建 —— 复用 R012b 三个 rung 用过的那三份(见更正后的「前置」),
+  # 三份均已在 bp1 上:task_pairs.jsonl / task_pairs_qa.jsonl / task_pairs_qa2d.jsonl
+
+  # 提交前先验权重指纹,免得下错 checkpoint 要用三个 job 的代价才发现
   export PYTHONPATH=src
-  P="--manifest runs/niah-train-injected/manifest.json --provenance runs/niah-train-injected/provenance.jsonl"
-  python -m evidence_rag.cli.export_task_probe $P --output data/gate0b/task_pairs.jsonl
-  python -m evidence_rag.cli.export_task_probe $P --output data/gate0b/task_pairs_qa.jsonl \
-    --hypothesis-form question_answer
-  python -m evidence_rag.cli.export_task_probe $P --output data/gate0b/task_pairs_qa2d.jsonl \
-    --hypothesis-form qa2d --qa2d-cache data/gate0b/qa2d_cache.jsonl
+  python -c "
+from transformers import AutoModelForSeq2SeqLM
+from evidence_rag.cli.gate0b import _weight_buffers
+from evidence_rag.relations.predictor import fingerprinted_version, weight_fingerprint
+mid='lytang/MiniCheck-Flan-T5-Large'
+got=fingerprinted_version(mid, weight_fingerprint(_weight_buffers(AutoModelForSeq2SeqLM.from_pretrained(mid))))
+print(got); assert got.endswith('@f4f447f5877fc162'), 'checkpoint 与核实时不同,先查再跑'"
 
   # 三个 rung,各自独立 job(0B-1 挂起,故 EXTERNAL_PAIRS=none)
   ARM="lytang/MiniCheck-Flan-T5-Large"
