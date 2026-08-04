@@ -41,12 +41,21 @@
 **AFTER(2026-08-04,job 18258588,gpu:rtx_3090:1,bp1-gpu030;首次尝试 job 18258455 因
 `sentence-transformers/all-MiniLM-L6-v2`(Docling HybridChunker 默认 tokenizer)未在
 登录节点预取,离线模式下 `LocalEntryNotFoundError` 失败;补 `hf download` 后重跑通过):**
-- raw:`runs/ocr-smoke/out/documents.jsonl`(未 push,本地 bp1 上)。`document_count`=2
+- raw:`results/ocr-smoke-documents.jsonl`(已按台账规则 `git add -f` 拉回)。`document_count`=2
   (1 image + 1 pdf)。image 源文档 caption 正确复述 sentinel("...REVENUE 2024 42 PERCENT
   GROWTH...");`Text in image:` 段落存在,OCR 命中 sentinel 数字 `42`。
 - **OCR SMOKE: PASS。** 判据(§BEFORE)达成——caption 与图内 OCR 均生效,新增的
   PDF 内嵌图表处理链路(Docling converter → extract_pictures → Vision caption →
   OCR 追加)在真实模型下端到端跑通,非 test fake。
+- **⚠️ 读 raw 时发现一个被断言漏掉的真实缺陷(PASS 仍成立,但断言太弱):**
+  OCR 把 `2023 TO 2024` 识别成 **`2023 T0 2024`**(字母 O → 数字 0),而 **Vision caption
+  识别正确**(`GROWTH 2023 TO 2024`)。三点后果:(a) 这是在**干净高对比度合成图**上发生的
+  字符级错误 → 真实扫描件只会更差,把"Scanned PDFs depend entirely on OCR quality,可能
+  静默降级"这条限制从猜测变成**实证**;(b) 冒烟断言只查 sentinel 数字 `42`,而 `42` 恰好
+  识别正确,故**这类字符错误当前测不出来**——若要守住,断言需覆盖整条 sentinel 字符串;
+  (c) OCR 文本会进入**可检索的文档正文**,故查询 `2023 to 2024` 可能匹配不上 `2023 T0 2024`,
+  且同一份文档内 caption 与 OCR 互相矛盾(检索/生成阶段无从判断该信哪个)。
+  **此发现只有读 raw 才能看到**(`.out` 只截前 400 字符),正是台账"raw 必须拉回"规则的价值。
 - 已知environment 坑,供下次复用此脚本时参考:(1) 项目要求 Python 3.11(<3.12,>=3.11),
   登录节点默认加载的 3.12.3 装不上 `evidence-rag`,需手动 `module load languages/python/3.11.15`
   重建 venv;(2) Docling HybridChunker 的默认 tokenizer(`all-MiniLM-L6-v2`)未被脚本注释
