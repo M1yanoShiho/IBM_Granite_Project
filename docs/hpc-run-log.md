@@ -174,7 +174,23 @@
 - Git commit:0bb9262(feat(retriever): optional original-query fusion arm for decompose);
   Seed:7;top_k=50;base=strong-bm25、k=60(与基线臂完全一致,唯一变量=`include_original`)。
 
-**AFTER:** 未运行。<!-- 填:job id、MRR/R@5/R@10/recall、vs decompose 的 p 值、落在哪个分支(回升/需加权/recall 权衡/机制错) -->
+**AFTER(2026-08-04,job 18265982,gpu:rtx_3090:1,bp1-gpu030,2000/2000,walltime ~1h):**
+
+- decompose-orig:MRR **.7155** / R@5 .5727 / R@10 .6639 / R@20 .7371 / Recall **.7675**。
+  配对检验 vs decompose 基线臂:MRR **+0.1453 p=0.0000**、R@10 **+0.1148 p=0.0000**,n=2000。
+- **主预期命中,且是显著的:** MRR 大幅回升(.5702→.7155)、recall 基本不动(+0.0065)——
+  与预注册一致。修法方向由 R1 的机制推断而来,数据支持该推断。
+- **但同时命中预注册的替代结果 (a):幅度不足,需加权。** 只回收了 **37%** 的 MRR 差距
+  (原 .3878,回收 .1453)。各深度回收比例:MRR 37% < R@5 49% < R@10 66% < **R@20 90%**——
+  **越深回收越彻底、越靠榜首回收越少**。这正是"1 票 vs N 票"稀释的指纹:原始 query 那一臂
+  能可靠把 gold 拉回前 20,却抢不回 rank 1。故等权加入方向对但不够,下一步应**给原始臂加权**。
+- **反向加强 R1 的诊断:** 修法后 Recall .7675 与 strong-bm25 的 .7678 仅差 .0003——
+  候选池质量已经等同,差的**纯粹是排序**,与 R1"排序失败非检索失败"完全一致。
+- **⚠️ 实用结论(必须如实报告):修完仍明显不如直接用 strong-bm25**(.7155 vs .9580)。
+  即在 2Wiki 这类多跳语料上,decompose **即使修好融合也不划算**——本修法补回的是**自伤**,
+  没有让 decompose 变得有竞争力。R1 说"不必对多跳整体 gate off"是就"池子没坏"而言;
+  就"该不该用"而言,**当前证据支持在多跳上仍优先用 strong-bm25**。
+- raw:`results/r2-2wiki-decompose-orig-per-case.json`(已 `git add -f` 拉回)。
 
 ---
 
