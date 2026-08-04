@@ -124,6 +124,52 @@ def test_persisted_load_rejects_parameter_drift(tmp_path: Path) -> None:
         build_retriever(config("bm25", k1=1.2, b=0.75), snapshot, index_directory=tmp_path)
 
 
+def test_decompose_include_original_must_be_boolean() -> None:
+    with pytest.raises(ValueError, match="'include_original' must be a boolean"):
+        build_retriever(
+            config("decompose", base={"name": "bm25"}, include_original="yes"),
+            corpus(),
+        )
+
+
+def test_decompose_default_records_no_include_original_key(tmp_path: Path) -> None:
+    # `parameters` is bound into the index signature, so emitting the key at its
+    # default would invalidate every decompose index written before the option
+    # existed. Absent must keep meaning False.
+    manifest = prepare_retriever_index(
+        config("decompose", base={"name": "strong-bm25"}), corpus(), tmp_path
+    )
+    assert "include_original" not in manifest.parameters
+
+
+def test_decompose_records_include_original_when_enabled(tmp_path: Path) -> None:
+    manifest = prepare_retriever_index(
+        config("decompose", base={"name": "strong-bm25"}, include_original=True),
+        corpus(),
+        tmp_path,
+    )
+    assert manifest.parameters["include_original"] is True
+
+
+def test_decompose_include_original_drift_is_rejected(tmp_path: Path) -> None:
+    snapshot = corpus()
+    prepare_retriever_index(
+        config("decompose", base={"name": "strong-bm25"}, include_original=True),
+        snapshot,
+        tmp_path,
+    )
+
+    # Enabling the extra fusion arm changes retrieval, so an index built with it must
+    # not be silently reused by a run without it. (The mismatch is raised before any
+    # LLM is constructed, so this needs no model.)
+    with pytest.raises(ValueError, match="parameters mismatch"):
+        build_retriever(
+            config("decompose", base={"name": "strong-bm25"}),
+            snapshot,
+            index_directory=tmp_path,
+        )
+
+
 def test_manifest_implementation_matches_registry(tmp_path: Path) -> None:
     snapshot = corpus()
     manifest = prepare_retriever_index(config("bm25"), snapshot, tmp_path)

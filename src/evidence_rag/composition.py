@@ -91,6 +91,12 @@ def _optional_positive_int(name: str, value: object) -> int | None:
     return None if value is None else _positive_int(name, value)
 
 
+def _flag(name: str, value: object) -> bool:
+    if not isinstance(value, bool):
+        raise ValueError(f"retriever parameter {name!r} must be a boolean")
+    return value
+
+
 def _unit_float(name: str, value: object) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ValueError(f"retriever parameter {name!r} must be a number")
@@ -171,14 +177,20 @@ def _wrapper_parameters(parameters: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _decompose_parameters(parameters: Mapping[str, Any]) -> dict[str, Any]:
-    _reject_unknown(parameters, {"base", "k", "pool_size"})
+    _reject_unknown(parameters, {"base", "k", "pool_size", "include_original"})
     if "base" not in parameters:
         raise ValueError("retriever wrapper requires a 'base' retriever config")
-    return {
+    normalised = {
         "base": _normalise_nested(parameters["base"], "base"),
         "k": _positive_int("k", parameters.get("k", DEFAULT_RRF_K)),
         "pool_size": _optional_positive_int("pool_size", parameters.get("pool_size")),
     }
+    # Only recorded when enabled: `parameters` is bound into the index signature, so
+    # emitting the key unconditionally would change every existing decompose index's
+    # expected parameters and reject caches written before this option existed.
+    if _flag("include_original", parameters.get("include_original", False)):
+        normalised["include_original"] = True
+    return normalised
 
 
 def _normalise_retriever(config: ModuleConfig) -> tuple[str, str, dict[str, Any]]:
@@ -233,7 +245,13 @@ def _construct_retriever(
         return Query2DocRetriever(base, llm)
     if name == "hyde":
         return HyDERetriever(base, llm)
-    return DecomposingRetriever(base, llm, k=parameters["k"], pool_size=parameters["pool_size"])
+    return DecomposingRetriever(
+        base,
+        llm,
+        k=parameters["k"],
+        pool_size=parameters["pool_size"],
+        include_original=bool(parameters.get("include_original", False)),
+    )
 
 
 def prepare_retriever_index(

@@ -121,6 +121,42 @@
 
 ---
 
+## R-2wiki-decompose-orig — 把原始 query 加回融合臂(R1 诊断出的机制的直接修法)
+
+**状态:** READY——三件套齐(代码 `include_original` 开关 + config
+`configs/experiments/retr_2wiki_decompose-orig.toml` + 本条目);**本条目在跑之前写**。
+承接 R1(results-summary):崩塌是 RRF 排序失败,不是检索失败。
+
+**BEFORE(预注册):**
+
+- 目的/假设:R1 定位到 `DecomposingRetriever` 只融合子查询,**原始 query 从不进融合**
+  (仅 LLM 空输出时作 fallback);而 strong-bm25 用完整 query 在 **92.7%** 的 case 上把 gold
+  排第 1。把原始 query 作为**一个额外融合臂**加回 → 该 ranking 重新参与 RRF → 被降级的
+  gold 应回到高位。
+- 预期指标 + 方向:**MRR 大幅回升**(baseline decompose .5702;strong-bm25 .9580 是上界参照,
+  预期落在两者之间、显著高于 .5702);**recall 基本不动**(top-50 本就只差 −0.7pp,没有可回收的
+  空间);R@5/R@10 应回升最多(降级伤害在浅层最重)。判定=对 decompose 基线臂配对显著性
+  (`scripts/retriever_significance.sh 2wiki`,新增 pair `decompose-orig vs decompose`)。
+- **诚实的替代结果(必须接受并如实报告):** (a) 若 MRR 只小幅回升,说明原始 query 那一臂被
+  N 个子查询臂的 RRF 质量稀释(1 票 vs N 票),则修法方向对但**需要加权**而非等权加入;
+  (b) 若 recall **下降**,说明挤占了子查询召回的多样性,是真实权衡而非免费收益;
+  (c) 若几乎不动,则 R1 的机制推断错,需回头重看融合。三种都不是 bug,是不同结论。
+- 兼容性:`include_original` **默认 False**,且**默认时不写入 index 参数**,故 MengW7 已记录的
+  全部结果与已有 index cache 均不受影响(有回归测试守卫)。
+- 精确命令(数据集已物化于 `runs/twowiki`,LLM 已预取):
+  ```
+  mkdir -p logs runs && sbatch scripts/run_retriever_eval.slurm \
+    configs/experiments/retr_2wiki_decompose-orig.toml
+  # 回来后(登录节点,CPU,秒级):
+  scripts/retriever_significance.sh 2wiki
+  ```
+- Git commit:待本次改动提交后填;Seed:7;top_k=50;base=strong-bm25、k=60(与基线臂完全一致,
+  唯一变量=`include_original`)。
+
+**AFTER:** 未运行。<!-- 填:job id、MRR/R@5/R@10/recall、vs decompose 的 p 值、落在哪个分支(回升/需加权/recall 权衡/机制错) -->
+
+---
+
 ## E2 — gate-on/off 配对 selector 对照(spec §12 主对照)
 
 **状态:** READY——三件套齐(configs + slurm + 本条目,commit 3c37d4c)。只差登录节点下 dpr-w100 + granite 后跑。

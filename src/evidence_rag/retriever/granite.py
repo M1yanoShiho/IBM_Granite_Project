@@ -256,6 +256,18 @@ class DecomposingRetriever:
     independently against the base retriever and the ranked lists are fused with
     Reciprocal Rank Fusion. If the LLM returns nothing usable, falls back to
     retrieving the original query unchanged.
+
+    ``include_original`` adds the *unmodified* query as one more fusion arm. It is
+    off by default because every recorded result predates it (see
+    ``docs/retriever/eval-results.md``), but on multi-hop corpora the default is
+    known to lose ranking quality: on 2Wiki, decompose scores MRR .570 against
+    strong-BM25's .958 while top-50 recall is untouched (−0.7pp), i.e. the gold
+    document stays in the pool and is merely demoted — RRF sums ``1/(k+rank)``
+    across arms, so a document ranking highly for exactly one sub-question (which
+    is what a multi-hop gold *is*) is overtaken by documents ranking mediocrely
+    across all of them. Fusing the original query re-injects the ranking that put
+    gold first in 92.7% of those cases. See the R1 finding in
+    ``docs/results-summary.md``.
     """
 
     def __init__(
@@ -266,6 +278,7 @@ class DecomposingRetriever:
         *,
         k: int = DEFAULT_RRF_K,
         pool_size: int | None = None,
+        include_original: bool = False,
     ) -> None:
         if pool_size is not None and pool_size <= 0:
             raise ValueError("pool_size must be positive")
@@ -274,6 +287,7 @@ class DecomposingRetriever:
         self.prompt_template = prompt_template
         self.k = k
         self.pool_size = pool_size
+        self.include_original = include_original
 
     def _subqueries(self, query: Query) -> tuple[str, ...]:
         raw = self.generator.generate(self.prompt_template.format(question=query.text))
@@ -282,7 +296,11 @@ class DecomposingRetriever:
             for line in raw.splitlines()
             if (cleaned := line.strip().lstrip("-*0123456789.()[] ").strip())
         )
-        return subqueries or (query.text,)
+        if not subqueries:
+            return (query.text,)
+        if self.include_original and query.text not in subqueries:
+            return (query.text, *subqueries)
+        return subqueries
 
     def retrieve(self, query: Query, top_k: int) -> CandidateSet:
         if top_k <= 0:
