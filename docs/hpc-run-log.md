@@ -1113,10 +1113,18 @@ print(got); assert got.endswith('@f4f447f5877fc162'), 'checkpoint 与核实时�
     而不是一条关于 CVE 的、看不出真因的消息。**失败时不得靠放宽这个参数来"修"**。
   - **本约束今日第二次咬人**(第一次:QA2D 的 `question_converter-3b`,同样死在 torch<2.6,
     见 R012b 的 checkpoint 选型)。凡 `hf download` 抓到 `pytorch_model.bin` 的 repo 都要过这一关。
-  - **跨模块的假设冲突,须知晓:** `src/evidence_rag/generator/nli.py:230` 反向使用
-    `use_safetensors=False`,并注明"the .bin path needs torch >= 2.6 …, **which the deployment
-    already has**"。即 **G 模块假设 torch ≥ 2.6,而 S 模块在 bp1 上实测 torch < 2.6**。
-    两个模块对同一约束的假设相反;哪一个描述的是真实部署环境,须与 G 模块对齐后写死一处。
+  - ~~**跨模块的假设冲突,须知晓:** …哪一个描述的是真实部署环境,须与 G 模块对齐后写死一处。~~
+    **[同日更正 —— 本条为事实性错误。]** 两个模块**跑在不同账号的不同 venv 里**,不存在冲突:
+    本轮 verifier triage 的产物记于 `/user/work/**ri25947**/IBM_Granite_Project/`(见本文件
+    2026-07-28 那条 AFTER),而 Gate 0B 跑在 `/user/work/**uz25020**/venv`。
+    `generator/nli.py:230` 那句"the deployment already has torch >= 2.6"指的是前者,它是对的。
+  - **"升 torch 会打断 safetensors 加载"这一说法亦无实证支持,反被同一条记录否证:**
+    ri25947 的 venv 由 2.5.1 升至 `2.6.0+cu124` 时,记录明写"**granite 两臂 safetensors 不受影响**"。
+    `pyproject.toml` 钉的是 `torch>=2,<3`,**并不禁止 2.6**。故"跟 G 对齐(升 torch)"技术上可行。
+  - **但本轮不升,理由是实验控制而非技术:** R012 / R012b / R012d **全部在当前 torch 下跑完**。
+    此刻升级会使 MiniCheck 臂运行在与它要对比的三臂**不同的 torch 上**,给一组极力控制变量的
+    对比引入一个无谓的新变量。而 `use_safetensors=True` 已经解决了真实问题且零成本。
+    **仅当日后确需加载只有 `.bin` 的 checkpoint 时才升,届时须与 G 模块同步版本并重跑受影响的臂。**
 - **预检失效的教训:** 本条目的指纹预检**本应在花 job 之前拦住它**,实际是预检失败后三个 job
   仍被提交(18264967/68/69)。预检只有在"失败即停"被执行时才有价值。
 - **commit:** _待填(代码随本轮提交:`relations/minicheck.py` + `cli/gate0b.py` 双注册表分发 + 测试)_
