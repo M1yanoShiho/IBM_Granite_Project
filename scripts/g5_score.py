@@ -122,11 +122,9 @@ def main() -> int:
             json.dumps({"per_case": extra["per_case"]}), encoding="utf-8"
         )
 
-        def mean(key: str) -> float | None:
+        def mean(key: str, cases: list[dict[str, Any]] = extra["per_case"]) -> float | None:
             values = [
-                c["metrics"][key]["value"]
-                for c in extra["per_case"]
-                if c["metrics"].get(key) is not None
+                c["metrics"][key]["value"] for c in cases if c["metrics"].get(key) is not None
             ]
             return sum(values) / len(values) if values else None
 
