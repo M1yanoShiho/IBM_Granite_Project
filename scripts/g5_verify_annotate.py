@@ -84,7 +84,7 @@ def main() -> int:
                 if errors[name] <= 3:
                     print(f"[warn] {name} {case.query_id}: {type(exc).__name__}", flush=True)
                 continue
-            results[name][case.query_id] = {
+            record: dict[str, Any] = {
                 "query_id": case.query_id,
                 "question": case.question,
                 "answer": generation.answer,
@@ -95,6 +95,26 @@ def main() -> int:
                 ],
                 "gold_answers": [list(a) for a in case.gold_answers],
             }
+            if name == "verify-annotate":
+                # exact sentence -> verified citation, so citation precision does
+                # not rest on the flat list; plus the entity-conflict drops, which
+                # are now the only path that destroys content.
+                record["routing"] = [
+                    {
+                        "claim_id": r.claim_id,
+                        "outcome": r.outcome,
+                        "sentence": r.sentence,
+                        "citation": r.citation,
+                        "claim_text": r.claim_text,
+                        "declared_indices": list(r.declared_indices),
+                        "declared_verified": r.declared_verified,
+                        "rescued_by_scan": r.rescued_by_scan,
+                        "conflict_evidence_id": r.conflict_evidence_id,
+                        "conflict_detail": list(r.conflict_detail),
+                    }
+                    for r in generator.last_routings
+                ]
+            results[name][case.query_id] = record
         if n % 25 == 0:
             elapsed = time.perf_counter() - started
             print(f"[gen] {n}/{len(cases)}  ({elapsed / n:.1f}s/case)", flush=True)

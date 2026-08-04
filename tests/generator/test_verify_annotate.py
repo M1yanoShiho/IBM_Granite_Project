@@ -213,6 +213,54 @@ def test_answer_keeps_verified_and_annotated_claims_together() -> None:
     assert "[1]" not in result.answer and "[2]" not in result.answer
 
 
+def test_routing_records_the_exact_sentence_to_citation_mapping() -> None:
+    """Citation precision is the headline metric, so it must rest on the real
+    per-sentence mapping rather than on the flat citation list, which is only
+    exactly recoverable in ~70% of answers."""
+    answer = "Revenue rose 8% [1]. Costs fell sharply [2]."
+    draft = DraftAnswer(
+        query_id="q",
+        answer_text=answer,
+        claims=(
+            _claim("claim-1", "Revenue rose 8%.", 0, 20),
+            _claim("claim-2", "Costs fell sharply.", 21, 44),
+        ),
+    )
+    selected = SelectedEvidenceSet(
+        query_id="q",
+        evidence=(evidence("ev-1", "Revenue rose 8%.", 1), evidence("ev-2", "Unrelated.", 2)),
+    )
+    generator = VerifyAnnotateGenerator(
+        draft_generator=FixedDraft(draft),
+        verifier=CitationRoutedVerifier(
+            ScriptedNLI({("Revenue rose 8%.", "Revenue rose 8%.")}), StubEntityChecker()
+        ),
+    )
+    generator.generate(
+        Query(query_id="q", text="what?"),
+        QueryChecklist(query_id="q", focus="f", required_facts=()),
+        selected,
+    )
+
+    mapping = {r.sentence: r.citation for r in generator.last_routings}
+    assert mapping["Revenue rose 8%."] == "ev-1"
+    assert mapping[f"Costs fell sharply. {UNVERIFIED_MARKER}"] is None
+
+
+def test_entity_conflict_records_the_offending_evidence_for_audit() -> None:
+    """Entity conflict is now the only path that destroys content, so the drop has
+    to be auditable: which passage caused it, and which entities clashed."""
+    selected = SelectedEvidenceSet(query_id="q", evidence=(evidence("ev-1", "Globex rose 8%."),))
+    nli = ScriptedNLI({("Globex rose 8%.", "Acme rose 8%.")})
+    verifier = CitationRoutedVerifier(nli, StubEntityChecker(inconsistent={"Globex rose 8%."}))
+
+    routing = verifier.route(_claim("claim-1", "Acme rose 8%.", 0, 13), "Acme rose 8%.", selected)
+
+    assert routing.outcome == "dropped_entity_conflict"
+    assert routing.conflict_evidence_id == "ev-1"
+    assert routing.claim_text == "Acme rose 8%."
+
+
 def test_zero_verified_claims_abstains_to_preserve_the_contract() -> None:
     draft = DraftAnswer(
         query_id="q",

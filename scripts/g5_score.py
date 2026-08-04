@@ -57,6 +57,13 @@ def build(records: list[dict[str, Any]]) -> tuple[list[ScoredExample], dict[str,
             "answer_correctness": str_em(strip_unverified_marker(answer), gold),
         }
         if answered:
+            # Exact per-sentence mapping when the arm recorded it; the flat-list
+            # convention only as a fallback for arms that cannot.
+            exact = {
+                r["sentence"]: r["citation"]
+                for r in record.get("routing", [])
+                if r.get("sentence")
+            }
             sentences: list[str] = []
             citations: list[tuple[str, ...]] = []
             for raw in sent_split(answer):
@@ -64,6 +71,12 @@ def build(records: list[dict[str, Any]]) -> tuple[list[ScoredExample], dict[str,
                 if is_unverified_annotation(raw):
                     annotated += 1
                     refs: tuple[str, ...] = ()
+                elif exact:
+                    matched = next(
+                        (c for s, c in exact.items() if c and raw.strip() and raw.strip() in s),
+                        None,
+                    )
+                    refs = (matched,) if matched and matched in docs else ()
                 else:
                     refs = cited
                 sentences.append(remove_citations(strip_unverified_marker(raw)).strip())
