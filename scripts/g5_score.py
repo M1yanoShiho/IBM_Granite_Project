@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -40,6 +41,18 @@ from evidence_rag.generator.verify_annotate import (  # noqa: E402
 )
 
 ARMS = ("baseline", "verify-only", "verify-annotate")
+
+_MATCH_NOISE = re.compile(r"\[\d+\]|[^\w\s]")
+
+
+def _match_key(text: str) -> str:
+    """Normalised form for aligning a recorded routing entry to an answer sentence.
+
+    Citation markers, punctuation and case are stripped because the two strings
+    come from different stages: routing records the raw claim span, the answer
+    sentence has been reassembled with its terminator restored.
+    """
+    return " ".join(_MATCH_NOISE.sub(" ", strip_unverified_marker(text)).lower().split())
 
 
 def build(records: list[dict[str, Any]]) -> tuple[list[ScoredExample], dict[str, Any]]:
@@ -60,7 +73,7 @@ def build(records: list[dict[str, Any]]) -> tuple[list[ScoredExample], dict[str,
             # Exact per-sentence mapping when the arm recorded it; the flat-list
             # convention only as a fallback for arms that cannot.
             exact = {
-                r["sentence"]: r["citation"]
+                _match_key(r["sentence"]): r["citation"]
                 for r in record.get("routing", [])
                 if r.get("sentence")
             }
@@ -72,8 +85,13 @@ def build(records: list[dict[str, Any]]) -> tuple[list[ScoredExample], dict[str,
                     annotated += 1
                     refs: tuple[str, ...] = ()
                 elif exact:
+                    # Match on normalised text, and in BOTH directions: a routing
+                    # entry records the raw claim span, which stops at the claim's
+                    # last word, while the answer sentence carries its terminator
+                    # -- so neither string reliably contains the other.
+                    key = _match_key(raw)
                     matched = next(
-                        (c for s, c in exact.items() if c and raw.strip() and raw.strip() in s),
+                        (c for s, c in exact.items() if c and s and (s in key or key in s)),
                         None,
                     )
                     refs = (matched,) if matched and matched in docs else ()
