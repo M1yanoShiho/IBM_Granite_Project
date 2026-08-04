@@ -26,7 +26,6 @@ _STOPWORDS = frozenset(
     "from has have had also his her their he she they there which who whom but not into than "
     "then when while about over under after before".split()
 )
-_SENTENCE_RE = re.compile(r"[^.!?]*[.!?]+|\S[^.!?]*$")
 _MIN_SENTENCE_OVERLAP = 0.3
 """Minimum share of the claim's content tokens that must appear in an answer
 sentence before we anchor to it; below this the claim is treated as unlocatable
@@ -56,20 +55,9 @@ _UNRESOLVED_SUBJECT = re.compile(
     re.IGNORECASE,
 )
 
-_REDUNDANT_COVERAGE = 0.8
-"""A claim is a restatement when this share of its content tokens already appears
-in a strictly more specific claim.
-
-Known limit: this is *lexical* subsumption, so it catches the overlapping-span
-duplication actually seen in the G3 data ("West Germany won the World Cup in 1954"
-inside "... in 1954 and again in 1974") but not semantic restatement
-("Adipose tissue exists in multiple locations" vs a claim listing them, which
-share only 2 content tokens). Catching the latter needs entailment between
-claims: at 3-5 claims per query that is ~20 ordered pairs, a few seconds against
-the existing ~9.6 s/example -- a real increment, but not prohibitive. It is left
-unimplemented because it does not move the headline, not because it is too
-expensive."""
-
+_NON_TERMINAL_ABBREVIATIONS = frozenset(
+    {"dr", "mr", "mrs", "ms", "prof", "sr", "jr", "st", "vs", "etc"}
+)
 
 def _is_meta_narrative(text: str) -> bool:
     """Talks about the answer or where it came from, rather than asserting a fact."""
@@ -89,25 +77,26 @@ def _has_unresolved_subject(text: str) -> bool:
 def _drop_over_split(
     pending: list[tuple[str, str, str, ClaimSpan]],
 ) -> list[tuple[str, str, str, ClaimSpan]]:
-    """Keep only atomic claims that could actually answer something."""
+    """Remove non-answers and true duplicates without guessing entailment.
+
+    A longer claim is not automatically a better claim: it may combine the
+    shorter fact with a distinct date, number, or entity. Lexical subsumption
+    therefore cannot safely choose between them. Only claims with the same
+    normalized token sequence are duplicates here; uncertain cases remain
+    visible for faithfulness and evidence verification.
+    """
     kept = [
         item
         for item in pending
         if not _is_meta_narrative(item[2]) and not _has_unresolved_subject(item[2])
     ]
-    tokens = [_content_tokens(item[2]) for item in kept]
     result: list[tuple[str, str, str, ClaimSpan]] = []
-    for index, item in enumerate(kept):
-        mine = tokens[index]
-        if mine:
-            subsumed = any(
-                other_index != index
-                and len(tokens[other_index]) > len(mine)
-                and len(mine & tokens[other_index]) / len(mine) >= _REDUNDANT_COVERAGE
-                for other_index in range(len(kept))
-            )
-            if subsumed:
-                continue
+    seen: set[tuple[str, ...]] = set()
+    for item in kept:
+        key = tuple(re.findall(r"[a-z0-9]+", item[2].casefold()))
+        if key in seen:
+            continue
+        seen.add(key)
         result.append(item)
     return result
 
@@ -121,19 +110,49 @@ def _content_tokens(text: str) -> set[str]:
 
 
 def _sentence_spans(text: str) -> list[tuple[int, int]]:
-    return [
-        (match.start(), match.end())
-        for match in _SENTENCE_RE.finditer(text)
-        if match.group().strip()
-    ]
+    """Return sentence offsets without splitting common abbreviations or decimals."""
+    spans: list[tuple[int, int]] = []
+    start = 0
+    for index, character in enumerate(text):
+        if character not in ".!?":
+            continue
+        if character == ".":
+            previous = text[index - 1] if index else ""
+            following = text[index + 1] if index + 1 < len(text) else ""
+            if previous.isdigit() and following.isdigit():
+                continue
+            if previous.isupper() and following.isupper():
+                continue
+            if re.search(r"(?:\b[A-Z]\.)+[A-Z]$", text[start:index]):
+                continue
+            word_match = re.search(r"([A-Za-z]+)$", text[start:index])
+            if (
+                word_match is not None
+                and word_match.group(1).casefold() in _NON_TERMINAL_ABBREVIATIONS
+            ):
+                continue
+        end = index + 1
+        if text[start:end].strip():
+            spans.append((start, end))
+        start = end
+        while start < len(text) and text[start].isspace():
+            start += 1
+    if text[start:].strip():
+        spans.append((start, len(text)))
+    return spans
 
 
 def _locate_span(answer_text: str, source_text: str, claim_text: str, cursor: int) -> ClaimSpan | None:
-    """Find the answer region this claim came from, at or after ``cursor``.
+    """Find the answer region this claim came from.
 
-    1. exact substring (verbatim ``source_text``) -- unchanged fast path;
-    2. otherwise the best token-overlapping answer sentence, if the overlap
-       clears ``_MIN_SENTENCE_OVERLAP``; else ``None`` (claim is skipped).
+    1. exact substring (verbatim ``source_text``) at or after ``cursor``;
+    2. otherwise the best token-overlapping answer sentence anywhere in the
+       answer, if the overlap clears ``_MIN_SENTENCE_OVERLAP``; else ``None``.
+
+    The fallback deliberately permits several atomic claims to share one source
+    sentence. A paraphrased first claim may anchor the whole sentence and advance
+    ``cursor`` past it; treating that cursor as a hard fallback boundary would
+    silently discard every later claim extracted from the same sentence.
     """
     exact = answer_text.find(source_text, cursor)
     if exact >= 0:
@@ -144,8 +163,6 @@ def _locate_span(answer_text: str, source_text: str, claim_text: str, cursor: in
     best_overlap = 0.0
     best_span: tuple[int, int] | None = None
     for start, end in _sentence_spans(answer_text):
-        if end <= cursor:
-            continue
         sentence_tokens = _content_tokens(answer_text[start:end])
         if not sentence_tokens:
             continue
@@ -198,7 +215,10 @@ class ClaimSplitter:
                 # the faithfulness self-check below and the verifier are the layers
                 # that judge whether a located claim is actually right.
                 continue
-            pending.append((claim_id, source_text, claim_text, span))
+            # Faithfulness is defined against what A1 actually wrote, not against
+            # the splitter's own (often paraphrased) ``source_text`` field.
+            located_source = answer_text[span.start : span.end]
+            pending.append((claim_id, located_source, claim_text, span))
             cursor = span.end
 
         # suppress over-split claims BEFORE the faithfulness call: they are not

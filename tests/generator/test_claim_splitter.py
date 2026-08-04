@@ -95,6 +95,82 @@ def test_claim_splitter_anchors_paraphrased_source_text_to_a_sentence() -> None:
     assert answer[claims[0].span.start : claims[0].span.end] == answer
 
 
+def test_claim_splitter_keeps_abbreviations_and_decimals_in_one_fallback_span() -> None:
+    answer = "Dr. Smith reported growth of 3.14 percent. Revenue remained stable."
+    llm = FakeLLM(
+        [
+            '{"claims":[{"source_text":"Dr Smith reported 3.14% growth.",'
+            '"text":"Dr. Smith reported growth of 3.14 percent."}]}',
+            '{"results":[{"claim_id":"claim-1","faithful":true}]}',
+        ]
+    )
+
+    claims = ClaimSplitter(llm=llm).split(answer)
+
+    assert len(claims) == 1
+    assert answer[claims[0].span.start : claims[0].span.end] == (
+        "Dr. Smith reported growth of 3.14 percent."
+    )
+
+
+def test_claim_splitter_keeps_initialisms_in_one_fallback_span() -> None:
+    answer = "The U.S. team won the tournament. Revenue remained stable."
+    llm = FakeLLM(
+        [
+            '{"claims":[{"source_text":"The US team was victorious.",'
+            '"text":"The U.S. team won the tournament."}]}',
+            '{"results":[{"claim_id":"claim-1","faithful":true}]}',
+        ]
+    )
+
+    claims = ClaimSplitter(llm=llm).split(answer)
+
+    assert len(claims) == 1
+    assert answer[claims[0].span.start : claims[0].span.end] == (
+        "The U.S. team won the tournament."
+    )
+
+
+def test_faithfulness_checks_claim_against_the_located_answer_span() -> None:
+    answer = "Pfizer's revenue increased by eight percent this year."
+    llm = FakeLLM(
+        [
+            '{"claims":[{"source_text":"Revenue rose 8%.",'
+            '"text":"Pfizer revenue rose by 8% this year."}]}',
+            '{"results":[{"claim_id":"claim-1","faithful":true}]}',
+        ]
+    )
+
+    ClaimSplitter(llm=llm).split(answer)
+
+    faithfulness_prompt = llm.prompts[1]
+    assert answer in faithfulness_prompt
+    assert '"source_text": "Revenue rose 8%."' not in faithfulness_prompt
+
+
+def test_claim_splitter_can_anchor_two_paraphrased_claims_to_one_sentence() -> None:
+    answer = "Pfizer raised revenue and launched Product X."
+    llm = FakeLLM(
+        [
+            '{"claims":['
+            '{"source_text":"Revenue grew at Pfizer.","text":"Pfizer raised revenue."},'
+            '{"source_text":"Pfizer introduced Product X.",'
+            '"text":"Pfizer launched Product X."}]}',
+            '{"results":['
+            '{"claim_id":"claim-1","faithful":true},'
+            '{"claim_id":"claim-2","faithful":true}]}',
+        ]
+    )
+
+    claims = ClaimSplitter(llm=llm).split(answer)
+
+    assert [claim.text for claim in claims] == [
+        "Pfizer raised revenue.",
+        "Pfizer launched Product X.",
+    ]
+    assert all(answer[claim.span.start : claim.span.end] == answer for claim in claims)
+
+
 def test_claim_splitter_skips_unlocatable_claim() -> None:
     # a source_text that overlaps no answer sentence is dropped, not fatal, and
     # no faithfulness call is made because nothing was located
@@ -191,10 +267,14 @@ def test_claim_splitter_drops_claims_with_an_unresolved_subject() -> None:
     assert [c.text for c in claims] == ["The movie is titled Sunshine."]
 
 
-def test_claim_splitter_drops_a_restatement_subsumed_by_a_more_specific_claim() -> None:
-    """The shape actually observed in the G3 data: overlapping claim spans that
-    duplicated text in the repaired answer ("West Germany won the World Cup in
-    1954 West Germany won the World Cup in 1954 and again in 1974.")."""
+def test_claim_splitter_does_not_prefer_a_compound_claim_over_an_atomic_claim() -> None:
+    """Lexical length is not evidence of better decomposition.
+
+    The longer claim adds a second date and therefore a second fact. A2 must not
+    silently delete the atomic 1954 claim merely because most of its tokens also
+    occur in the compound claim; uncertain non-equivalent claims stay observable
+    for downstream verification.
+    """
     answer = "West Germany won the World Cup in 1954 and again in 1974."
     llm = FakeLLM(
         [
@@ -202,14 +282,18 @@ def test_claim_splitter_drops_a_restatement_subsumed_by_a_more_specific_claim() 
             '{"source_text":"West Germany won the World Cup in 1954","text":"West Germany won the World Cup in 1954."},'
             '{"source_text":"West Germany won the World Cup in 1954 and again in 1974.",'
             '"text":"West Germany won the World Cup in 1954 and again in 1974."}]}',
-            '{"results":[{"claim_id":"claim-2","faithful":true}]}',
+            '{"results":['
+            '{"claim_id":"claim-1","faithful":true},'
+            '{"claim_id":"claim-2","faithful":true}]}',
         ]
     )
 
     claims = ClaimSplitter(llm=llm).split(answer)
 
-    assert len(claims) == 1
-    assert "1974" in claims[0].text  # the more specific claim is the one kept
+    assert [claim.text for claim in claims] == [
+        "West Germany won the World Cup in 1954.",
+        "West Germany won the World Cup in 1954 and again in 1974.",
+    ]
 
 
 def test_claim_splitter_keeps_distinct_claims_about_the_same_subject() -> None:
