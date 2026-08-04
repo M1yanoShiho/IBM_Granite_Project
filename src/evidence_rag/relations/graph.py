@@ -128,6 +128,21 @@ class QueryLocalGraph:
     ) -> None:
         if conflict_mode not in ("distinct_cluster", "refutes_edge"):
             raise ValueError("conflict_mode must be 'distinct_cluster' or 'refutes_edge'")
+        if conflict_mode == "refutes_edge":
+            # M0 §9.7. The implementation below is intact and correct; what it needs no longer
+            # exists. Failing here rather than in `competing_clusters` is deliberate: this arm
+            # would otherwise run to completion and report an empty competitor set for every
+            # candidate, which reads as "the ablation suppresses all dropping" rather than "the
+            # arm is unrunnable" — a wrong finding, not a wrong number. Kept rather than deleted
+            # so the arm returns intact if A1 is ever overturned.
+            raise ValueError(
+                "conflict_mode='refutes_edge' is not executable under protocol g2-proto-2: "
+                "amendment A1 made the relation model binary (SUPPORTS / NOT_SUPPORTED), so no "
+                "REFUTES edge is ever produced and this arm's competing-cluster condition can "
+                "never be met. EXPERIMENT_TRACKER R036 is marked N/A for the same reason. Use "
+                "conflict_mode='distinct_cluster' (the primary mode, which never read REFUTES), "
+                "or reinstate three-class prediction under a new amendment first."
+            )
         self.passages = tuple(passages)
         self.edges = tuple(edges)
         self.conflict_mode = conflict_mode
@@ -135,9 +150,11 @@ class QueryLocalGraph:
             passage.passage_id: passage.source_parent_id for passage in self.passages
         }
 
-        # One pass over the edges. Only SUPPORTS edges vote: a REFUTES or UNKNOWN edge is
-        # recorded — abstention has to stay measurable (M0 §3.6, G-AB) — but casts nothing, so a
-        # passage that declines to commit can never be dropped (design §2.3).
+        # One pass over the edges. Only SUPPORTS edges vote: a NOT_SUPPORTED edge (or a REFUTES /
+        # UNKNOWN one read back from a pre-A1 cache) is recorded — abstention has to stay
+        # measurable (M0 §3.6, G-AB) — but casts nothing, so a passage that declines to commit
+        # can never be dropped (design §2.3). This is why A1's narrowing of the output space does
+        # not touch `independent_support`: it only ever counted the SUPPORTS side.
         supporters: dict[str, list[str]] = {}
         self._supported_claims: dict[str, set[str]] = {}
         self._refuted_claims: dict[str, set[str]] = {}
@@ -230,11 +247,13 @@ class QueryLocalGraph:
         no extra entailment check belongs here — that is what keeps this structurally parallel to
         Graph 1.0, with the edge construction as the only variable.
 
-        `refutes_edge` (ablation): the competing cluster must additionally hold a REFUTES edge
-        toward the candidate's claim, emitted by one of its own members. "The candidate's claim"
-        is read here as a claim the candidate SUPPORTS — the narrower of the readings the frozen
-        text admits, chosen so this arm stays strictly stricter than the primary one and the
-        failure direction stays pointed at silence.
+        `refutes_edge` (ablation): UNREACHABLE under protocol g2-proto-2 — the constructor
+        refuses that mode (M0 §9.7). The branch is retained verbatim against A1 being overturned:
+        the competing cluster must additionally hold a REFUTES edge toward the candidate's claim,
+        emitted by one of its own members. "The candidate's claim" is read here as a claim the
+        candidate SUPPORTS — the narrower of the readings the frozen text admits, chosen so this
+        arm stays strictly stricter than the primary one and the failure direction stays pointed
+        at silence.
         """
         own = self.own_cluster(passage_id)
         if own is None:

@@ -65,12 +65,19 @@ def _graph(
     claim_clusters: Sequence[Sequence[ClaimNode]],
     *,
     supports: Iterable[tuple[str, str]] = (),
+    not_supported: Iterable[tuple[str, str]] = (),
     refutes: Iterable[tuple[str, str]] = (),
     unknown: Iterable[tuple[str, str]] = (),
     conflict_mode: ConflictMode = "distinct_cluster",
 ) -> QueryLocalGraph:
+    # `refutes` and `unknown` build edges the relation model no longer emits after A1. They stay
+    # available because the graph must keep reading historical/cached edges unchanged.
     edges = (
         tuple(_edge(passage, claim, RelationLabel.SUPPORTS) for passage, claim in supports)
+        + tuple(
+            _edge(passage, claim, RelationLabel.NOT_SUPPORTED)
+            for passage, claim in not_supported
+        )
         + tuple(_edge(passage, claim, RelationLabel.REFUTES) for passage, claim in refutes)
         + tuple(_edge(passage, claim, RelationLabel.UNKNOWN) for passage, claim in unknown)
     )
@@ -221,44 +228,43 @@ def test_distinct_cluster_mode_needs_no_refutes_edge_and_no_entailment_check() -
     assert tuple(cluster.cluster_id for cluster in graph.competing_clusters("p2")) == ("c1",)
 
 
-def test_refutes_edge_mode_demands_a_refutes_edge_from_the_competing_cluster() -> None:
-    """Ablation arm (M0 §2.2): a competing cluster additionally needs a member holding a REFUTES
-    edge toward the candidate's claim. Stricter than the primary mode, so the same pool that
-    fires under `distinct_cluster` must go quiet here without such an edge."""
+def test_refutes_edge_arm_is_refused_under_A1_rather_than_going_silently_empty() -> None:
+    """M0 §9.7: A1 costs this ablation arm its executability, because the relation model no
+    longer emits REFUTES and the arm's whole condition is a REFUTES edge.
+
+    Left alone it would not crash — it would return NO competing cluster for every candidate,
+    so the gate would never fire and the arm would read as "the ablation removes all dropping"
+    instead of "this arm cannot be run". That is a wrong experimental conclusion, not a wrong
+    number, so it has to be refused at construction and the refusal has to name the amendment.
+    """
     passages = (_passage("p1", "parent-a"), _passage("p2", "parent-b"))
     paris, lyon = _claim("c1", "Paris"), _claim("c2", "Lyon")
-    supports = (("p1", "c1"), ("p2", "c2"))
-
-    silent = _graph(passages, ((paris,), (lyon,)), supports=supports, conflict_mode="refutes_edge")
-    assert silent.competing_clusters("p1") == ()
-
-    contested = _graph(
-        passages,
-        ((paris,), (lyon,)),
-        supports=supports,
-        refutes=(("p2", "c1"),),
-        conflict_mode="refutes_edge",
-    )
-    assert tuple(cluster.cluster_id for cluster in contested.competing_clusters("p1")) == ("c2",)
+    with pytest.raises(ValueError, match="g2-proto-2"):
+        _graph(
+            passages,
+            ((paris,), (lyon,)),
+            supports=(("p1", "c1"), ("p2", "c2")),
+            conflict_mode="refutes_edge",
+        )
 
 
-def test_refutes_edge_mode_ignores_a_refutation_from_a_non_member() -> None:
-    """The REFUTES edge has to come from a MEMBER of the competing cluster. A bystander that
-    supports nothing can object to c's claim without lending its objection to any cluster."""
-    passages = (
-        _passage("p1", "parent-a"),
-        _passage("p2", "parent-b"),
-        _passage("bystander", "parent-z"),
-    )
+def test_a_not_supported_edge_is_recorded_but_casts_no_vote() -> None:
+    """Verifies rather than assumes that A1 leaves `independent_support` alone: it counts only
+    SUPPORTS, so renaming the other side of the output space cannot move it. The edge is still
+    stored, because abstention has to stay measurable (M0 §3.6, G-AB)."""
+    passages = (_passage("p1", "parent-a"), _passage("noise", "parent-z"))
     paris, lyon = _claim("c1", "Paris"), _claim("c2", "Lyon")
     graph = _graph(
         passages,
         ((paris,), (lyon,)),
-        supports=(("p1", "c1"), ("p2", "c2")),
-        refutes=(("bystander", "c1"),),
-        conflict_mode="refutes_edge",
+        supports=(("p1", "c1"),),
+        not_supported=(("noise", "c1"), ("noise", "c2")),
     )
-    assert graph.competing_clusters("p1") == ()
+    assert graph.clusters[0].independent_support == 1
+    assert graph.takes_position("noise") is False
+    assert graph.own_cluster("noise") is None
+    assert all("noise" not in cluster.member_ids for cluster in graph.clusters)
+    assert len(graph.edges) == 3
 
 
 def test_build_predicts_every_passage_claim_pair_in_one_batch() -> None:

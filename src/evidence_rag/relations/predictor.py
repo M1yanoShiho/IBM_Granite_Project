@@ -2,9 +2,15 @@
 
 argmax is the PRIMARY head: there is no confidence threshold anywhere on the path that can drop
 a candidate, so the gate carries no absolute cross-domain scale. That is the property separating
-this design from credibility-threshold arbitration, and it is why UNKNOWN is a predicted class
-rather than "score below tau". Threshold gating exists only as a pre-registered remedy if Gate
-0B REFUTES precision falls short, and invoking it must be declared in the report.
+this design from credibility-threshold arbitration, and it is why NOT_SUPPORTED is a predicted
+class rather than "score below tau". Threshold gating exists only as a pre-registered remedy if
+Gate 0B REFUTES precision falls short, and invoking it must be declared in the report.
+
+A1 (g2-proto-2) narrowed the output space from three classes to two and did NOT weaken the
+sentence above. M0 §9.5a is explicit that A1's scope is argmax only, that a threshold may not be
+introduced on the back of it, and that the pre-registered remedy's trigger — REFUTES precision
+below .85 — was never met (measured .9026 / .9127). Binary argmax still contains no threshold;
+introducing one requires a separate amendment.
 """
 
 import hashlib
@@ -12,15 +18,19 @@ import re
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from typing import Protocol
 
-from evidence_rag.relations.models import RelationLabel, RelationPrediction
+from evidence_rag.relations.models import PREDICTED_LABELS, RelationLabel, RelationPrediction
 
 ScoreFn = Callable[[Sequence[tuple[str, str]]], Sequence[Mapping[str, float]]]
 
-# Ties resolve toward UNKNOWN, never toward SUPPORTS. A SUPPORTS edge is what makes a candidate
-# droppable at all, so a coin-flip tie must not create one: the design's failure direction is
-# silence (spec §7.1). Ties are near-impossible with float softmax, but the rule must still be
-# deterministic and stated rather than falling out of enum declaration order.
-_TIE_BREAK_ORDER = (RelationLabel.UNKNOWN, RelationLabel.REFUTES, RelationLabel.SUPPORTS)
+# Ties resolve toward NOT_SUPPORTED, never toward SUPPORTS. A SUPPORTS edge is what makes a
+# candidate droppable at all, so a coin-flip tie must not create one: the design's failure
+# direction is silence (spec §7.1, M0 §2.4). Ties are near-impossible with float softmax, but the
+# rule must still be deterministic and stated rather than falling out of enum declaration order.
+# `PREDICTED_LABELS` is already in tie-break order, so the two cannot drift apart.
+_TIE_BREAK_ORDER = PREDICTED_LABELS
+
+# Emitting one of these would mean a scorer is still speaking the pre-A1 three-class contract.
+_SCHEMA_ONLY = (RelationLabel.REFUTES, RelationLabel.UNKNOWN)
 
 
 def text_hash(text: str) -> str:
@@ -85,9 +95,16 @@ class NLIRelationPredictor:
         scored = self.score_fn(list(pairs))
         predictions: list[RelationPrediction] = []
         for (premise, hypothesis), scores in zip(pairs, scored, strict=True):
-            for label in RelationLabel:
+            for label in PREDICTED_LABELS:
                 if label.value not in scores:
                     raise ValueError(f"missing relation class in scores: {label.value}")
+            for label in _SCHEMA_ONLY:
+                if label.value in scores:
+                    raise ValueError(
+                        f"scores carry {label.value}, which is not emitted by the relation model "
+                        "under A1 (g2-proto-2): collapse a three-class head into "
+                        "SUPPORTS/NOT_SUPPORTED at the checkpoint adapter, not here"
+                    )
             best = max(_TIE_BREAK_ORDER, key=lambda label: scores[label.value])
             predictions.append(
                 RelationPrediction(
