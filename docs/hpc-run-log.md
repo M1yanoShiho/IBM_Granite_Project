@@ -55,6 +55,46 @@
 
 ---
 
+## R-2wiki-decompose — decompose 在多跳上崩塌的复现 + per-case 定位
+
+**状态:** RUNNING(job 18259143 已提交,**本条目在读任何数字之前写**;三件套:现有
+`scripts/run_retriever_eval.slurm` + `configs/experiments/retr_2wiki_{decompose,strong-bm25}.toml`
++ 本条目)。诚实说明:预注册**晚于提交**(提交时未先写),但早于看结果,故假设未被数据污染。
+
+**BEFORE(预注册):**
+
+- 背景:MengW7 的 3 数据集矩阵(`docs/retriever/eval-results.md`,commit 886cc8f)测到
+  2Wiki 上 decompose MRR **0.5702** vs strong-bm25 **0.9580**(Δ **−0.3878**,p<0.0001),
+  是整个矩阵里唯一的灾难级退化(SciFact 只 −0.052、NQ −0.047)。但 `runs/` 被 gitignore,
+  per-case raw 只在 MengW7 自己的 `/user/work` 下,无法查看 → 本次在 jp25459 下**重跑两臂**
+  取 per-case,而非新方法实验。
+- 目的/假设:2Wiki 是多跳。decompose 把 query 拆成**互相独立**的子查询、各自检索再 RRF 合并;
+  独立检索丢掉**跨跳依赖**(第二跳依赖第一跳答出的实体)→ 子查询各自召回"局部像、全局错"的段落,
+  RRF 再把这些排到真正的多跳 gold 之上。
+- 预期指标 + 方向:(a) **复现**:decompose MRR ≈ 0.57、strong-bm25 ≈ 0.958(±噪声);
+  (b) **per-case 形状**:失败**集中**在 strong-bm25 命中(gold rank 1)而 decompose 把 gold
+  排低/排出的 case 上。**诚实的替代假设(须排除)**:若退化是**均匀**的(decompose 到处略差、
+  不集中在多跳难例),则根因在合并/拆分 prompt 本身,而非"多跳依赖"这个解释——两种形状指向
+  不同修法,不能只看聚合 MRR 区分。
+- 判定:失败集中于 strong-bm25 成功 case → decompose 主动有害,对多跳型语料应 gate off;
+  退化均匀 → 查 RRF 合并与子查询 prompt。
+- 精确命令:
+  ```
+  # 登录节点(一次性):
+  pip install pandas pyarrow && hf download ibm-granite/granite-4.1-3b
+  python -m evidence_rag.materializer.twowiki_cli --output runs/twowiki
+  #   → documents 11585 / queries 2000 / gold_cases 2000(与 MengW7 同规模)
+  # 提交:
+  mkdir -p logs runs && sbatch scripts/run_retriever_eval.slurm \
+    configs/experiments/retr_2wiki_decompose.toml \
+    configs/experiments/retr_2wiki_strong-bm25.toml
+  ```
+- Git commit:9191acf;Seed:7(config `[run] seed`);top_k=50。
+
+**AFTER:** 未回填。<!-- 填:job 18259143 两臂 MRR/R@10、是否复现 −0.388、per-case 形状(集中 vs 均匀)、判定 -->
+
+---
+
 ## E2 — gate-on/off 配对 selector 对照(spec §12 主对照)
 
 **状态:** READY——三件套齐(configs + slurm + 本条目,commit 3c37d4c)。只差登录节点下 dpr-w100 + granite 后跑。
