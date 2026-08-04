@@ -972,7 +972,10 @@ QA2D 缓存尚未生成、rung 3 pair 文件尚未物化、这两条命令尚未
 且须先说明:dpr-w100 按 100 词切分,**绝大多数 passage 本就从半句开始**,该分桶很可能没有对照组,
 届时应报告为"无足够变异,不可判读",而不是当作又一个空结果。
 
-### R012d — 答案串大小写对照(把大小写从门指标里拆出来)[PRE-REGISTERED 2026-08-03]
+### R012d — 答案串 canonical vs surface 对照 [PRE-REGISTERED 2026-08-03,DONE 2026-08-04]
+
+> **标题已更正(2026-08-04):** 原题为"大小写对照",不准确 —— 见 AFTER 缺陷记录 1。
+> **BEFORE 正文一字未改**,更正只以本行与 AFTER 呈现。
 
 > **编号:** R012c 已在 MiniCheck-FT5 臂的任务简报中被指定占用,故本条目编 R012d。
 
@@ -1015,7 +1018,59 @@ QA2D 缓存尚未生成、rung 3 pair 文件尚未物化、这两条命令尚未
   `--gold-answer` 默认 `canonical`,有测试钉住"省略即与预注册主臂逐字节相同";
   报告行回显 `gold_answer_source`,作为该 pair 文件属于哪个变体的协议记录。
 - **commit:** _待填(代码随本轮提交)_
-- **AFTER:** _待填 —— 两臂 × 两项;**先报 albert 的阴性对照是否成立,再读 DeBERTa**_
+- **AFTER(实测,2026-08-04):**
+
+**Job:** `18259086` COMPLETED。**Raw:** `results/gate0b/sweep-surface.json`、`dump-surface.jsonl`。
+pair 文件 `{"gold_answer_source": "surface", "hypothesis_form": "template", "n_pairs": 5888,
+"n_records": 1472, "n_skipped_records": 0}` —— 分母与 rung 1 逐字相同。
+
+**按预注册顺序读:**
+
+**① 内建精确对照(超出预注册,更强):** `cf_replacement` 的 1472 对在两个 pair 文件中逐字节相同
+(其 premise 与 hypothesis 都不受 `--gold-answer` 影响),故预测**必须**一致。实测
+**2944 条比对,预测不同 0 条** ⇒ 操作精确地只动了 gold claim,贪心解码的确定性一并验证。
+
+**② albert 阴性对照:按预注册标准通过。** `gold_supports_recall` .1916 → .1984,
+**Δ +0.68pp,在 ±1pp 容忍内**。
+
+**③ DeBERTa:预注册方向被证伪。**
+
+| 臂 | 指标 | canonical | surface | Δpp |
+|---|---|---:|---:|---:|
+| albert | gold_supports_recall | .1916 | .1984 | **+0.68** |
+| albert | twin_refutes_accuracy | .6736 | .6736 | +0.00 |
+| DeBERTa | gold_supports_recall | **.7942** | **.7792** | **−1.49** |
+| DeBERTa | twin_refutes_accuracy | .6376 | .6291 | −0.85 |
+
+预注册写的是"DeBERTa 的 `gold_supports_recall` 上升",**实测下降**。
+
+**配对检验(事后,未预注册 —— 如实标注):** McNemar on `needle_gold`,n=1472。
+albert 仅canonical对 2 / 仅surface对 12,χ²=5.79,**p≈.0162**;
+DeBERTa 仅canonical对 30 / 仅surface对 8,χ²=11.61,**p≈.0007**。**两者均显著,方向相反。**
+
+**量级必须与显著性一起写:** DeBERTa 38 对不一致中净负 22 条 = −1.49pp,**而它需要 +5.6pp**。
+**显著,但方向反了、且量级差一个数量级。** 该杠杆为空,无含糊余地。
+
+**三条如实记录的缺陷,均属本条目设计者(即本文件作者):**
+
+1. **本条目命名不准。** 标题写"大小写对照",实际是 **canonical vs surface 对照**:
+   `canonicalize_answer` 除小写外还去冠词、去首尾标点、日期转 ISO、数字展开。
+   **DeBERTa 的结果不可单独归因于大小写。**
+2. **阴性对照按预注册通过,但它其实在报警。** albert 对大小写不可感知,却显著改善(p≈.0162)
+   ⇒ 操作确实触达了非大小写成分,albert 的 +0.68pp 即该成分的效应量。
+   **但 McNemar 是事后跑的**,用事后检验推翻预注册的通过判定本身即事后操作,
+   故**正式判定仍为"按预注册标准通过"**,该观察并列记录、不改判定。
+3. **反向结果只作提示,不作确立。** surface 使无大小写感知的臂变好、使 cased 臂变差;
+   两臂在此唯一的相关差异是大小写敏感性,故大小写*看起来*是 DeBERTa 那份代价的来源。
+   但这是跨模型比较,预设了"非大小写成分对两模型效应相同",**站不住,不予确立**。
+
+**结论:测量缺陷侧到此穷尽。** 九项机制全部实测:截断、标签序、答案规范化、大小写、
+premise 质量、premise 长度、hypothesis 形式、argmax 记账、canonical-vs-surface。
+**DeBERTa 的 `.7942` 自此可作能力读数**,§3.8 训练路径在测量这一侧的启动理由已经干净。
+
+**本条目不建立的东西(须与结论同时声明):** MiniCheck-FT5 仍未上场。它是 M0 §3.1 预注册三臂之一、
+本项目实测最优的验证器、且是 M0 §9.8 指定的 A1 出样检验之一。**故"任何零训练模型都不够"的
+族级断言依然不成立**,§3.8 可启动但不得携带该断言。
 
 ### R011 — VitaminC adapter 与 revision-family 去污染 [DONE 2026-07-31]
 
