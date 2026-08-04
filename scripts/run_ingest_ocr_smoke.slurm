@@ -60,7 +60,13 @@ python -m evidence_rag.cli.ingest \
 echo "=== verify an image-source document carries OCR'd in-figure text ==="
 python - <<'PY'
 import json
+import re
 import sys
+
+sys.path.insert(0, "scripts")
+# Single source of truth: the same constants the generator paints into the figure,
+# so the gate cannot drift from the image it is checking.
+from make_ocr_smoke_pdf import FIGURE_LINES  # noqa: E402
 
 docs = [json.loads(line) for line in open("runs/ocr-smoke/out/documents.jsonl")]
 images = [d for d in docs if (d.get("metadata") or {}).get("source_type") == "image"]
@@ -70,16 +76,40 @@ for d in images:
     print("-" * 60)
     print(d["text"][:400])
 
-def ocr_part(text: str) -> str:
-    marker = "Text in image:"
-    return text.split(marker, 1)[1] if marker in text else ""
+MARKER = "Text in image:"
 
-# The sentinel "REVENUE 2024 42 PERCENT" lives only in the figure, never in the
-# PDF body -- so its digits appearing in an image doc's OCR section prove OCR ran.
-passed = any(
-    "42" in ocr_part(d["text"]) and "Text in image:" in d["text"]
-    for d in images
-)
+
+def ocr_part(text: str) -> str:
+    return text.split(MARKER, 1)[1] if MARKER in text else ""
+
+
+def flat(text: str) -> str:
+    """Collapse whitespace so OCR line breaks and column spacing do not matter."""
+    return re.sub(r"\s+", " ", text).strip().upper()
+
+
+primary, secondary = FIGURE_LINES[0], FIGURE_LINES[1]
+
+# GATE: the whole primary sentinel line, verbatim. It exists only in the figure,
+# never in the PDF body, so recovering it proves the OCR path ran -- and requiring
+# the full string (not just the digits "42") means single-character OCR damage on
+# this line fails the job instead of slipping through.
+passed = any(primary in flat(ocr_part(d["text"])) for d in images)
+
+# REPORT ONLY: the secondary line is checked but does NOT gate. EasyOCR is known to
+# misread it as "2023 T0 2024" (letter O as zero) even on this clean, high-contrast
+# synthetic figure -- an accuracy limitation of the OCR engine, not a regression in
+# our ingestion path, which is what this smoke test is for. Gating on it would leave
+# the job permanently red, and a permanently red test stops being read at all. So it
+# is surfaced on every run instead, because that OCR text lands in the retrievable
+# document body: a query spelling it correctly will not match the mangled form.
+for d in images:
+    ocr = flat(ocr_part(d["text"]))
+    if ocr and secondary not in ocr:
+        print("-" * 60)
+        print(f"WARNING: secondary sentinel not recovered verbatim: {secondary!r}")
+        print(f"         OCR section read: {ocr!r}")
+
 print("=" * 60)
 print("OCR SMOKE:", "PASS" if passed else "FAIL")
 sys.exit(0 if passed else 1)

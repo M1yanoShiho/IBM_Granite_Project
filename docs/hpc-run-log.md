@@ -56,6 +56,13 @@
   (c) OCR 文本会进入**可检索的文档正文**,故查询 `2023 to 2024` 可能匹配不上 `2023 T0 2024`,
   且同一份文档内 caption 与 OCR 互相矛盾(检索/生成阶段无从判断该信哪个)。
   **此发现只有读 raw 才能看到**(`.out` 只截前 400 字符),正是台账"raw 必须拉回"规则的价值。
+- **已据此加强断言(2026-08-04,未重跑):** 门从"含数字 `42`"改为**要求整条主 sentinel
+  逐字命中**(`REVENUE 2024 42 PERCENT`,已用本条 raw 离线验证仍 PASS);第二行
+  (`GROWTH 2023 TO 2024 18 PERCENT`)**只报警不拦门**并打印 OCR 原文。分开的理由:第二行
+  的 `T0` 是 EasyOCR 的**精度**问题,不是本 ingestion 路径的回归(本测试的职责是后者),
+  拿它当硬门会让作业永久红,而永久红的测试会被无视。sentinel 常量改为从
+  `scripts/make_ocr_smoke_pdf.py` import,避免门与被检图两处写死后走样。
+  **本条 AFTER 的 PASS 记录仍以当时的弱断言为准。**
 - 已知environment 坑,供下次复用此脚本时参考:(1) 项目要求 Python 3.11(<3.12,>=3.11),
   登录节点默认加载的 3.12.3 装不上 `evidence-rag`,需手动 `module load languages/python/3.11.15`
   重建 venv;(2) Docling HybridChunker 的默认 tokenizer(`all-MiniLM-L6-v2`)未被脚本注释
