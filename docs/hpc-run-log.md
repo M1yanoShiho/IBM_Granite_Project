@@ -972,6 +972,32 @@ QA2D 缓存尚未生成、rung 3 pair 文件尚未物化、这两条命令尚未
 且须先说明:dpr-w100 按 100 词切分,**绝大多数 passage 本就从半句开始**,该分桶很可能没有对照组,
 届时应报告为"无足够变异,不可判读",而不是当作又一个空结果。
 
+### §9.10a 等价性验证 — 四个 dump 全部复现 [2026-08-04]
+
+M0 §9.10a 裁定 R012 / R012b 的二分类读数**从 dump 重算,不重跑**,并声称该重算与"模型原生二分类"
+等价。该主张此前只是断言。`cli/recompute_binary --against` 以 `gold_supports_recall` 为不变量
+(A1 §9.1 把它钉为不变)逐个核对,**四个 dump 全部通过,无一抛错**:
+
+| 探针变体 / 臂 | `gold_supports_recall` | `twin_not_supported` |
+|---|---:|---:|
+| template / DeBERTa | .794158 | .868886 |
+| template / albert | .191576 | .997962 |
+| question_answer / DeBERTa | .665082 | .900815 |
+| question_answer / albert | .363451 | .987092 |
+| qa2d / DeBERTa | .586957 | .922215 |
+| qa2d / albert | .536005 | .958560 |
+| surface / DeBERTa | .779212 | **.863451** |
+| surface / albert | .198370 | **.998302** |
+
+(后两行的 twin 二分类值为本次首次计算。)全部与各自 sweep 已发表的三类读数一致到浮点精度,
+**故折叠方式(取 max、即 argmax 重标签)得到实证确认** —— 若按求和实现,`gold_supports_recall`
+会因 `.5` 阈值而移动,八条中任何一条都会抛错。
+
+**由此得到的整体形状:八格的 `failures` 全部且仅为 `["gold_supports_recall"]`。**
+在 g2-proto-2 下 Gate 0B 的成败**塌缩为单一指标**,其最优值为 DeBERTa/template 的 **.7942**(差 5.6pp);
+twin 项在八格中介于 .8635–.9983,全部通过。该表由 `cli/recompute_binary` 机器产出,
+第三方可用同一条命令复算,不依赖本文件的手工誊录。
+
 ### R012d — 答案串 canonical vs surface 对照 [PRE-REGISTERED 2026-08-03,DONE 2026-08-04]
 
 > **标题已更正(2026-08-04):** 原题为"大小写对照",不准确 —— 见 AFTER 缺陷记录 1。
