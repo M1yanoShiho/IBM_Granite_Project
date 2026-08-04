@@ -564,3 +564,57 @@ def test_a_0b1_report_carries_its_own_health_warning_in_the_payload(
         "--models", "m1",
     ])
     assert "external_tier_status" not in json.loads(task_only.read_text(encoding="utf-8"))
+
+
+def _fake_transformers(recorder: dict[str, object]):  # type: ignore[no-untyped-def]
+    """A transformers stand-in that records how the weights were asked for."""
+
+    class _Tokenizer:
+        def encode(self, text: str) -> list[int]:
+            return {"0": [3, 632, 1], "1": [209, 1]}[text]
+
+    class _Model:
+        def eval(self) -> None: ...
+        def to(self, device: str) -> None: ...
+        def state_dict(self) -> dict[str, object]:
+            return {}
+
+    class _Auto:
+        @staticmethod
+        def from_pretrained(model_id: str, **kwargs: object):  # type: ignore[no-untyped-def]
+            recorder.update(kwargs)
+            return _Model()
+
+    class _Tok:
+        @staticmethod
+        def from_pretrained(model_id: str, **kwargs: object) -> _Tokenizer:
+            return _Tokenizer()
+
+    return type(
+        "FakeTransformers", (), {"AutoModelForSeq2SeqLM": _Auto, "AutoTokenizer": _Tok}
+    )
+
+
+def test_weights_are_demanded_as_safetensors_not_left_to_resolution(
+    monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """This project pins torch < 2.6, and transformers refuses to torch.load a `.bin` under that
+    pin (CVE-2025-32434). A repo carrying BOTH formats resolved to the `.bin` on the cluster even
+    with the safetensors file already cached, so the load died on a message about a CVE rather
+    than about this checkpoint — and it died AFTER the download, not before. Asking for
+    safetensors explicitly makes the safe path the only path, and turns "this repo ships no
+    safetensors" into what the error actually says.
+    """
+    recorder: dict[str, object] = {}
+    fake = _fake_transformers(recorder)
+
+    def _import(name: str):  # type: ignore[no-untyped-def]
+        if name == "transformers":
+            return fake
+        if name == "torch":
+            return type("FakeTorch", (), {"cuda": type("c", (), {"is_available": staticmethod(lambda: False)})})
+        raise AssertionError(name)
+
+    monkeypatch.setattr("evidence_rag.cli.gate0b.importlib.import_module", _import)
+    load_score_fn("lytang/MiniCheck-Flan-T5-Large")
+    assert recorder.get("use_safetensors") is True

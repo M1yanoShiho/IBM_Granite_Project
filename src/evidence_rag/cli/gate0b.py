@@ -189,7 +189,17 @@ def _load_three_class_score_fn(model_id: str) -> tuple[ScoreFn, str, str]:
 
     order = LABEL_ORDER[model_id]
     tokenizer, tokenizer_variant = _load_tokenizer(transformers, model_id)
-    model = transformers.AutoModelForSequenceClassification.from_pretrained(model_id)
+    # use_safetensors=True, not left to resolution: this project pins torch < 2.6, and
+    # transformers refuses to torch.load a `.bin` under that pin (CVE-2025-32434). A repo
+    # shipping BOTH formats resolved to the `.bin` on the cluster even with safetensors
+    # already cached, so the load died on a message about a CVE rather than about this
+    # checkpoint, and it died after the download rather than before. Demanding safetensors
+    # makes the safe path the only path and turns "this repo ships no safetensors" into
+    # what the error says. Do NOT "fix" a failure here by relaxing this — the fix is either
+    # a checkpoint with safetensors or a protocol decision to move off the pinned torch.
+    model = transformers.AutoModelForSequenceClassification.from_pretrained(
+        model_id, use_safetensors=True
+    )
     model.eval()
 
     # Before .to(device): the parameters are still on CPU, so this costs no PCIe transfer.
@@ -253,7 +263,15 @@ def _load_binary_score_fn(model_id: str) -> tuple[ScoreFn, str, str]:
     # Before the weights load: a tokenizer that disagrees with the recorded ids means the wrong
     # checkpoint, and there is no reason to spend a download finding that out afterwards.
     negative_id, positive_id = resolve_label_token_ids(protocol, tokenizer.encode)
-    model = transformers.AutoModelForSeq2SeqLM.from_pretrained(model_id)
+    # use_safetensors=True, not left to resolution: this project pins torch < 2.6, and
+    # transformers refuses to torch.load a `.bin` under that pin (CVE-2025-32434). A repo
+    # shipping BOTH formats resolved to the `.bin` on the cluster even with safetensors
+    # already cached, so the load died on a message about a CVE rather than about this
+    # checkpoint, and it died after the download rather than before. Demanding safetensors
+    # makes the safe path the only path and turns "this repo ships no safetensors" into
+    # what the error says. Do NOT "fix" a failure here by relaxing this — the fix is either
+    # a checkpoint with safetensors or a protocol decision to move off the pinned torch.
+    model = transformers.AutoModelForSeq2SeqLM.from_pretrained(model_id, use_safetensors=True)
     model.eval()
 
     model_version = fingerprinted_version(model_id, weight_fingerprint(_weight_buffers(model)))

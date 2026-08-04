@@ -1103,6 +1103,22 @@ print(got); assert got.endswith('@f4f447f5877fc162'), 'checkpoint 与核实时�
   done
   ```
   报告 headline 时必须同时写明该 pair 文件的 `hypothesis_form`(exporter 回显该字段)。
+- **地雷(2026-08-04,提交后才发现,已修):`torch < 2.6` 下必须显式要求 safetensors。**
+  bp1 上 `hf download lytang/MiniCheck-Flan-T5-Large` 抓下 17 个文件含 `pytorch_model.bin`,
+  随后 `from_pretrained` **解析到了 `.bin`**,在 `check_torch_load_is_safe()` 上抛
+  `CVE-2025-32434`(torch 需 ≥ 2.6)。**即使 `model.safetensors` 随后也落了盘,重跑仍失败** ——
+  说明这不是环境问题,是代码没有指定格式。
+  - **修法:** `cli/gate0b.py` 两处 `from_pretrained` 均加 `use_safetensors=True`(含测试)。
+    这使安全路径成为唯一路径,且把"这个 repo 没有 safetensors"变成错误信息真正说的那句话,
+    而不是一条关于 CVE 的、看不出真因的消息。**失败时不得靠放宽这个参数来"修"**。
+  - **本约束今日第二次咬人**(第一次:QA2D 的 `question_converter-3b`,同样死在 torch<2.6,
+    见 R012b 的 checkpoint 选型)。凡 `hf download` 抓到 `pytorch_model.bin` 的 repo 都要过这一关。
+  - **跨模块的假设冲突,须知晓:** `src/evidence_rag/generator/nli.py:230` 反向使用
+    `use_safetensors=False`,并注明"the .bin path needs torch >= 2.6 …, **which the deployment
+    already has**"。即 **G 模块假设 torch ≥ 2.6,而 S 模块在 bp1 上实测 torch < 2.6**。
+    两个模块对同一约束的假设相反;哪一个描述的是真实部署环境,须与 G 模块对齐后写死一处。
+- **预检失效的教训:** 本条目的指纹预检**本应在花 job 之前拦住它**,实际是预检失败后三个 job
+  仍被提交(18264967/68/69)。预检只有在"失败即停"被执行时才有价值。
 - **commit:** _待填(代码随本轮提交:`relations/minicheck.py` + `cli/gate0b.py` 双注册表分发 + 测试)_
 - **AFTER:** _待跑_
 
