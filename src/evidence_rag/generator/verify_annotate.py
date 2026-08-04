@@ -85,9 +85,15 @@ def declared_indices(answer_text: str, claim: Claim) -> tuple[int, ...]:
     because a model puts its citation at the end of the sentence while the
     splitter's span often stops at the claim's own last word.
     """
-    end = claim.span.end
-    match = SENTENCE_END.search(answer_text, end)
-    stop = match.end() if match else len(answer_text)
+    stop = claim.span.end
+    # Only reach forward when the span stops mid-sentence. The splitter now
+    # anchors paraphrased claims to whole sentences, terminator included, and
+    # extending past that would swallow the NEXT sentence's citations and credit
+    # them to this claim -- which would corrupt the declared-citation survival
+    # rate, one of the numbers this design is reported on.
+    if not answer_text[claim.span.start : claim.span.end].rstrip().endswith((".", "!", "?")):
+        match = SENTENCE_END.search(answer_text, claim.span.end)
+        stop = match.end() if match else len(answer_text)
     seen: list[int] = []
     for raw in CITATION_RE.findall(answer_text[claim.span.start : stop]):
         index = int(raw)

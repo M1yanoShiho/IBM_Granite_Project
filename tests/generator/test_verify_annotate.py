@@ -100,6 +100,16 @@ def test_declared_indices_reads_to_the_end_of_the_sentence() -> None:
     assert declared_indices(answer, claim) == (2, 3)
 
 
+def test_declared_indices_does_not_bleed_into_the_next_sentence() -> None:
+    """The splitter anchors paraphrased claims to whole sentences, terminator
+    included. Reaching past that would credit the NEXT sentence's citations to
+    this claim and corrupt the declared-citation survival rate."""
+    answer = "Ethan Winters is the protagonist [3]. The game launched in 2017 [1]."
+    whole_sentence = _claim("claim-1", "Ethan Winters is the protagonist.", 0, 37)
+
+    assert declared_indices(answer, whole_sentence) == (3,)
+
+
 def test_declared_indices_is_empty_when_the_model_cited_nothing() -> None:
     assert declared_indices("Revenue rose 8%.", _claim("c", "x", 0, 15)) == ()
 
