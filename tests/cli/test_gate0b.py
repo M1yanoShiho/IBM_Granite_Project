@@ -5,10 +5,15 @@ import pytest
 
 from evidence_rag.cli.gate0b import (
     LABEL_ORDER,
+    _collapse_to_binary,
     _load_tokenizer,
     _weight_buffers,
     load_score_fn,
     main,
+)
+from evidence_rag.relations.minicheck import (
+    MINICHECK_FLAN_T5_LARGE,
+    VERIFIED_BINARY_PROTOCOLS,
 )
 
 
@@ -20,27 +25,36 @@ def _write(path: Path, rows: list[dict[str, str]]) -> Path:
 
 
 def _task_pairs(tmp_path: Path) -> Path:
+    """Twin rows carry NOT_SUPPORTED, the A1 gold label emitted by `task_probe.build_probe_pairs`.
+
+    The external fixture below still carries REFUTES: 0B-1 reads VitaminC official gold and A1
+    §9.1 changed only the 0B-2 metric, so the two tiers deliberately speak different label sets.
+    """
     return _write(
         tmp_path / "task.jsonl",
         [
             {"premise": "Kennedy won", "hypothesis": "the answer is Kennedy",
              "label": "SUPPORTS", "group": "g1", "kind": "needle_gold", "query_id": "q1"},
             {"premise": "Nixon won", "hypothesis": "the answer is Kennedy",
-             "label": "REFUTES", "group": "g1", "kind": "cf_gold", "query_id": "q1"},
+             "label": "NOT_SUPPORTED", "group": "g1", "kind": "cf_gold", "query_id": "q1"},
             {"premise": "Kennedy won", "hypothesis": "the answer is Nixon",
-             "label": "REFUTES", "group": "g1", "kind": "needle_replacement", "query_id": "q1"},
+             "label": "NOT_SUPPORTED", "group": "g1", "kind": "needle_replacement",
+             "query_id": "q1"},
         ],
     )
 
 
 def _perfect_scorer(model_id: str):  # type: ignore[no-untyped-def]
-    """Predicts SUPPORTS when the premise's subject appears in the hypothesis, else REFUTES."""
+    """SUPPORTS when the premise's subject appears in the hypothesis, else NOT_SUPPORTED.
+
+    Speaks A1's binary contract, which is what `load_score_fn` returns after collapsing a
+    checkpoint's three classes."""
 
     def score(pairs):  # type: ignore[no-untyped-def]
         return [
-            {"SUPPORTS": 1.0, "REFUTES": 0.0, "UNKNOWN": 0.0}
+            {"SUPPORTS": 1.0, "NOT_SUPPORTED": 0.0}
             if premise.split()[0] in hypothesis
-            else {"SUPPORTS": 0.0, "REFUTES": 1.0, "UNKNOWN": 0.0}
+            else {"SUPPORTS": 0.0, "NOT_SUPPORTED": 1.0}
             for premise, hypothesis in pairs
         ]
 
@@ -81,7 +95,7 @@ def test_runner_scores_every_model_in_one_sweep(
     payload = json.loads(output.read_text(encoding="utf-8"))
     assert set(payload["models"]) == {"m1", "m2", "m3"}
     assert payload["n_task_pairs"] == 3
-    assert payload["models"]["m1"]["task"]["twin_refutes_accuracy"] == 1.0
+    assert payload["models"]["m1"]["task"]["twin_not_supported_accuracy"] == 1.0
     assert payload["models"]["m1"]["task"]["gold_supports_recall"] == 1.0
     assert payload["models"]["m1"]["task"]["failures"] == []
 
@@ -121,7 +135,76 @@ def test_external_tier_is_scored_when_supplied(
     ])
     payload = json.loads(output.read_text(encoding="utf-8"))
     assert payload["models"]["m1"]["external"]["n"] == 2
-    assert payload["models"]["m1"]["external"]["failures"] == []
+
+
+def test_0b1_is_UNRUNNABLE_after_A1_and_this_test_records_it_rather_than_fixing_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """OPEN PROTOCOL GAP — needs a human ruling, do not "fix" this test.
+
+    A1 §9.1 changes the 0B-2 metric and says NOTHING about 0B-1, but three of 0B-1's five frozen
+    thresholds are defined on the three-class space. Feeding VitaminC official gold (SUPPORTS /
+    REFUTES / NEI) to a model that can only emit SUPPORTS / NOT_SUPPORTED gives, on a scorer
+    that is perfectly correct about the underlying relation:
+
+        refutes_precision    0.0  -> automatic FAIL (the model can never predict REFUTES)
+        refutes_coverage     0.0  -> automatic FAIL (same)
+        macro_f1             0.5  -> automatic FAIL (REFUTES f1 is structurally 0, capping it)
+        non_unknown_coverage 1.0  -> VACUOUS PASS   (the model can never predict UNKNOWN)
+        support_coverage     1.0  -> the only threshold still measuring anything
+
+    The vacuous pass is the dangerous one: it reports .80+ forever while measuring nothing.
+
+    `external_report`, its thresholds and `vitaminc.py` are deliberately left exactly as they
+    were — inventing a gold mapping here would be deciding an unapproved protocol question, and
+    §9.5a's pre-registered threshold remedy is triggered by "REFUTES precision < .85", which
+    cannot even be evaluated once REFUTES is unreachable.
+    """
+    monkeypatch.setattr("evidence_rag.cli.gate0b.load_score_fn", _perfect_scorer)
+    output = tmp_path / "gate0b.json"
+    main([
+        "--task-pairs", str(_task_pairs(tmp_path)),
+        "--external-pairs", str(_external_pairs(tmp_path)),
+        "--output", str(output),
+        "--models", "m1",
+    ])
+    external = json.loads(output.read_text(encoding="utf-8"))["models"]["m1"]["external"]
+    assert external["refutes_precision"] == 0.0
+    assert external["refutes_coverage"] == 0.0
+    assert external["macro_f1"] == 0.5
+    assert external["non_unknown_coverage"] == 1.0
+    assert external["support_coverage"] == 1.0
+    assert sorted(external["failures"]) == ["macro_f1", "refutes_coverage", "refutes_precision"]
+
+
+def test_three_class_logits_collapse_by_max_so_binary_argmax_equals_relabelling() -> None:
+    """THE load-bearing case. A1 §9.10a says recomputing the binary reading from a dump is
+    equivalent to a natively-binary model, and the dump only carries the three-class ARGMAX. So
+    the collapse must be the one that makes `argmax(SUPPORTS, NOT_SUPPORTED)` identical to
+    `argmax(SUPPORTS, REFUTES, UNKNOWN)` followed by relabelling — that is max, not sum.
+
+    Here they disagree: max keeps SUPPORTS (.40 > .35), sum flips to NOT_SUPPORTED (.60 > .40).
+    Summing would silently impose a threshold at P(SUPPORTS) > .5, which is the very thing
+    §9.5a forbids, and it would move `gold_supports_recall`, which §9.1's change table pins as
+    UNCHANGED. The published binary twin readings (.9980 / .9871 / .8689 / .9008) reproduce
+    under max and not under sum.
+    """
+    assert _collapse_to_binary((0.40, 0.35, 0.25), ("SUPPORTS", "REFUTES", "UNKNOWN")) == {
+        "SUPPORTS": 0.40,
+        "NOT_SUPPORTED": 0.35,
+    }
+
+
+def test_collapse_reads_the_per_checkpoint_label_order() -> None:
+    """DeBERTa's head is (entailment, neutral, contradiction), so position 1 is UNKNOWN and
+    position 2 is REFUTES. Collapsing positionally instead of by verified name would swap
+    REFUTES and UNKNOWN — invisible after the collapse, but it corrupts the recorded
+    confidence."""
+    order = LABEL_ORDER["MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli"]
+    assert _collapse_to_binary((0.1, 0.2, 0.7), order) == {
+        "SUPPORTS": 0.1,
+        "NOT_SUPPORTED": 0.7,
+    }
 
 
 def test_load_score_fn_rejects_an_unverified_checkpoint() -> None:
@@ -129,6 +212,74 @@ def test_load_score_fn_rejects_an_unverified_checkpoint() -> None:
     plausible, so guessing is not an option."""
     with pytest.raises(ValueError, match="no verified label order"):
         load_score_fn("some/unknown-model")
+
+
+def test_load_score_fn_names_both_registries_when_an_id_is_in_neither() -> None:
+    """There are now two ways to be verified and an id must fail against both.
+
+    A message naming only LABEL_ORDER would send whoever hits it to add a three-name order for a
+    checkpoint that has no classes to order — which is exactly the fabrication the binary path
+    exists to prevent.
+    """
+    with pytest.raises(ValueError, match="no verified binary protocol"):
+        load_score_fn("some/unknown-model")
+
+
+def test_a_natively_binary_checkpoint_never_gets_a_three_class_label_order() -> None:
+    """The registries are disjoint, and this is the guard that keeps them so.
+
+    MiniCheck is a `T5ForConditionalGeneration` with no `id2label`. Adding it to LABEL_ORDER
+    would require inventing a REFUTES/UNKNOWN split it cannot express, and `_collapse_to_binary`
+    would then read those invented columns and return a number for them.
+    """
+    assert MINICHECK_FLAN_T5_LARGE not in LABEL_ORDER
+    assert not set(LABEL_ORDER) & set(VERIFIED_BINARY_PROTOCOLS)
+
+
+def test_load_score_fn_dispatches_each_checkpoint_to_its_own_loader(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Dispatch is by registry membership, not by a name heuristic."""
+    monkeypatch.setattr(
+        "evidence_rag.cli.gate0b._load_three_class_score_fn",
+        lambda model_id: ("three-class", model_id, "v"),
+    )
+    monkeypatch.setattr(
+        "evidence_rag.cli.gate0b._load_binary_score_fn",
+        lambda model_id: ("binary", model_id, "v"),
+    )
+    assert load_score_fn("tals/albert-xlarge-vitaminc-mnli")[0] == "three-class"
+    assert load_score_fn(MINICHECK_FLAN_T5_LARGE)[0] == "binary"
+
+
+def test_the_binary_arm_scores_through_the_unchanged_metrics_code(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A natively-binary arm and a three-class arm in ONE sweep, reported identically.
+
+    This is the seam the arm was designed around (M0 §9.10a's exception): the binary checkpoint
+    is reported as an independent arm, but `task_report` and its thresholds do not learn that it
+    exists. Both entries must therefore carry the same report fields — if the binary arm needed
+    its own metric keys, the two dicts would differ here.
+    """
+    monkeypatch.setattr("evidence_rag.cli.gate0b.load_score_fn", _perfect_scorer)
+    output = tmp_path / "sweep.json"
+    assert (
+        main(
+            [
+                "--task-pairs", str(_task_pairs(tmp_path)),
+                "--output", str(output),
+                "--models", "tals/albert-xlarge-vitaminc-mnli", MINICHECK_FLAN_T5_LARGE,
+            ]
+        )
+        == 0
+    )
+    models = json.loads(output.read_text(encoding="utf-8"))["models"]
+    assert set(models) == {"tals/albert-xlarge-vitaminc-mnli", MINICHECK_FLAN_T5_LARGE}
+    three_class, binary = (models[name]["task"] for name in models)
+    assert three_class.keys() == binary.keys()
+    assert "twin_not_supported_accuracy" in binary
+    assert "gold_supports_recall" in binary
 
 
 def test_label_order_matches_the_verified_id2label_of_each_checkpoint() -> None:
@@ -230,11 +381,12 @@ def test_tokenizer_variant_is_recorded_in_the_sweep_output(
     assert payload["models"]["m1"]["tokenizer_variant"] == "fake"
 
 
-def _always_unknown_scorer(model_id: str):  # type: ignore[no-untyped-def]
-    """Disagrees with every gold label, so gold and predicted cannot be confused for each other."""
+def _always_not_supported_scorer(model_id: str):  # type: ignore[no-untyped-def]
+    """Abstains on every pair. Under A1 abstention and contradiction are the same output, so
+    this also stands in for the old always-UNKNOWN degenerate model."""
 
     def score(pairs):  # type: ignore[no-untyped-def]
-        return [{"SUPPORTS": 0.1, "REFUTES": 0.2, "UNKNOWN": 0.7} for _ in pairs]
+        return [{"SUPPORTS": 0.3, "NOT_SUPPORTED": 0.7} for _ in pairs]
 
     return score, "fake", "fake@0123456789abcdef"
 
@@ -284,10 +436,10 @@ def test_dump_rows_carry_tier_kind_query_id_and_class_probabilities(
     assert [row["query_id"] for row in task] == ["q1", "q1", "q1"]
     assert [row["kind"] for row in external] == [None, None]
     assert all("query_id" not in row for row in external)
-    assert [row["gold"] for row in task] == ["SUPPORTS", "REFUTES", "REFUTES"]
-    assert [row["predicted"] for row in task] == ["SUPPORTS", "REFUTES", "REFUTES"]
-    assert task[0]["probabilities"] == {"SUPPORTS": 1.0, "REFUTES": 0.0, "UNKNOWN": 0.0}
-    assert task[1]["probabilities"] == {"SUPPORTS": 0.0, "REFUTES": 1.0, "UNKNOWN": 0.0}
+    assert [row["gold"] for row in task] == ["SUPPORTS", "NOT_SUPPORTED", "NOT_SUPPORTED"]
+    assert [row["predicted"] for row in task] == ["SUPPORTS", "NOT_SUPPORTED", "NOT_SUPPORTED"]
+    assert task[0]["probabilities"] == {"SUPPORTS": 1.0, "NOT_SUPPORTED": 0.0}
+    assert task[1]["probabilities"] == {"SUPPORTS": 0.0, "NOT_SUPPORTED": 1.0}
 
 
 def test_dump_records_the_prediction_and_not_a_second_copy_of_gold(
@@ -295,7 +447,7 @@ def test_dump_records_the_prediction_and_not_a_second_copy_of_gold(
 ) -> None:
     """A perfect scorer makes gold and predicted identical on every row, so a dump that echoed
     the gold label back would still look correct. This pins the two to different sources."""
-    monkeypatch.setattr("evidence_rag.cli.gate0b.load_score_fn", _always_unknown_scorer)
+    monkeypatch.setattr("evidence_rag.cli.gate0b.load_score_fn", _always_not_supported_scorer)
     dump = tmp_path / "dump.jsonl"
     main([
         "--task-pairs", str(_task_pairs(tmp_path)),
@@ -305,10 +457,10 @@ def test_dump_records_the_prediction_and_not_a_second_copy_of_gold(
         "--models", "m1",
     ])
     rows = _read_jsonl(dump)
-    assert {row["gold"] for row in rows} == {"SUPPORTS", "REFUTES"}
-    assert {row["predicted"] for row in rows} == {"UNKNOWN"}
+    assert {row["gold"] for row in rows} == {"SUPPORTS", "NOT_SUPPORTED", "REFUTES"}
+    assert {row["predicted"] for row in rows} == {"NOT_SUPPORTED"}
     assert all(
-        row["probabilities"] == {"SUPPORTS": 0.1, "REFUTES": 0.2, "UNKNOWN": 0.7} for row in rows
+        row["probabilities"] == {"SUPPORTS": 0.3, "NOT_SUPPORTED": 0.7} for row in rows
     )
 
 
@@ -378,3 +530,91 @@ def test_weight_buffers_fold_name_shape_and_dtype_into_the_hashed_spec() -> None
     assert list(_weight_buffers(_Model())) == [
         ("encoder.weight|(2, 2)|float32", b"\x01\x02\x03\x04")
     ]
+
+
+def test_a_0b1_report_carries_its_own_health_warning_in_the_payload(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The 0B-1 numbers are meaningless under g2-proto-2 but they are still emitted, because the
+    pending ruling needs to see them. Meaningless numbers that travel without a marker get read
+    as results — this project has already lost a day to output that looked like other output. So
+    the warning rides inside the artefact rather than in a log line someone may not scroll to.
+
+    This does NOT pick between the ruling's options; it only refuses to let the numbers travel
+    silently. Remove it when 0B-1 is amended, not before.
+    """
+    monkeypatch.setattr("evidence_rag.cli.gate0b.load_score_fn", _perfect_scorer)
+    output = tmp_path / "sweep.json"
+    main([
+        "--task-pairs", str(_task_pairs(tmp_path)),
+        "--external-pairs", str(_external_pairs(tmp_path)),
+        "--output", str(output),
+        "--models", "m1",
+    ])
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert "external_tier_status" in payload
+    assert "g2-proto-2" in payload["external_tier_status"]
+    assert "not runnable" in payload["external_tier_status"].lower()
+
+    monkeypatch.setattr("evidence_rag.cli.gate0b.load_score_fn", _perfect_scorer)
+    task_only = tmp_path / "task_only.json"
+    main([
+        "--task-pairs", str(_task_pairs(tmp_path)),
+        "--output", str(task_only),
+        "--models", "m1",
+    ])
+    assert "external_tier_status" not in json.loads(task_only.read_text(encoding="utf-8"))
+
+
+def _fake_transformers(recorder: dict[str, object]):  # type: ignore[no-untyped-def]
+    """A transformers stand-in that records how the weights were asked for."""
+
+    class _Tokenizer:
+        def encode(self, text: str) -> list[int]:
+            return {"0": [3, 632, 1], "1": [209, 1]}[text]
+
+    class _Model:
+        def eval(self) -> None: ...
+        def to(self, device: str) -> None: ...
+        def state_dict(self) -> dict[str, object]:
+            return {}
+
+    class _Auto:
+        @staticmethod
+        def from_pretrained(model_id: str, **kwargs: object):  # type: ignore[no-untyped-def]
+            recorder.update(kwargs)
+            return _Model()
+
+    class _Tok:
+        @staticmethod
+        def from_pretrained(model_id: str, **kwargs: object) -> _Tokenizer:
+            return _Tokenizer()
+
+    return type(
+        "FakeTransformers", (), {"AutoModelForSeq2SeqLM": _Auto, "AutoTokenizer": _Tok}
+    )
+
+
+def test_weights_are_demanded_as_safetensors_not_left_to_resolution(
+    monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """This project pins torch < 2.6, and transformers refuses to torch.load a `.bin` under that
+    pin (CVE-2025-32434). A repo carrying BOTH formats resolved to the `.bin` on the cluster even
+    with the safetensors file already cached, so the load died on a message about a CVE rather
+    than about this checkpoint — and it died AFTER the download, not before. Asking for
+    safetensors explicitly makes the safe path the only path, and turns "this repo ships no
+    safetensors" into what the error actually says.
+    """
+    recorder: dict[str, object] = {}
+    fake = _fake_transformers(recorder)
+
+    def _import(name: str):  # type: ignore[no-untyped-def]
+        if name == "transformers":
+            return fake
+        if name == "torch":
+            return type("FakeTorch", (), {"cuda": type("c", (), {"is_available": staticmethod(lambda: False)})})
+        raise AssertionError(name)
+
+    monkeypatch.setattr("evidence_rag.cli.gate0b.importlib.import_module", _import)
+    load_score_fn("lytang/MiniCheck-Flan-T5-Large")
+    assert recorder.get("use_safetensors") is True

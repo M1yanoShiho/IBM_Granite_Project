@@ -49,7 +49,7 @@ def _fixture(tmp_path: Path, query_ids: tuple[str, ...] = ("q1",)) -> tuple[Path
         [
             MutationRecord(
                 query_id=qid, needle_document_id="needle",
-                counterfactual_document_id="cf::needle", gold_value="Kennedy",
+                counterfactual_document_id="cf::needle", gold_value="kennedy",
                 gold_alias_used="Kennedy", replacement_value="Nixon",
                 string_class="proper_name_1", seed=42, char_span=(0, 7),
                 text_hash_before="a" * 8, text_hash_after="b" * 8, answer_bank_hash="c" * 8,
@@ -114,7 +114,8 @@ def _write_qa2d_cache(path: Path) -> Path:
         "".join(
             json.dumps(row, sort_keys=True) + "\n"
             for row in (
-                {"question": "who won?", "answer": "Kennedy",
+                # keyed on the canonical answer, which is what the default arm asks for
+                {"question": "who won?", "answer": "kennedy",
                  "declarative": "Kennedy won."},
                 {"question": "who won?", "answer": "Nixon", "declarative": "Nixon won."},
             )
@@ -134,7 +135,7 @@ def test_default_output_is_byte_identical_to_the_frozen_template_arm(
     _run(tmp_path, explicit_output, "--hypothesis-form", "template")
     capsys.readouterr()
     assert default_output.read_bytes() == explicit_output.read_bytes()
-    assert b'The answer to the question \\"who won?\\" is Kennedy.' in default_output.read_bytes()
+    assert b'The answer to the question \\"who won?\\" is kennedy.' in default_output.read_bytes()
 
 
 def test_report_records_which_form_produced_the_pairs(
@@ -152,7 +153,7 @@ def test_question_answer_form_changes_the_hypothesis_surface(tmp_path: Path) -> 
     output = tmp_path / "pairs.jsonl"
     _run(tmp_path, output, "--hypothesis-form", "question_answer")
     rows = [json.loads(line) for line in output.read_text(encoding="utf-8").splitlines() if line]
-    assert {row["hypothesis"] for row in rows} == {"who won? Kennedy.", "who won? Nixon."}
+    assert {row["hypothesis"] for row in rows} == {"who won? kennedy.", "who won? Nixon."}
 
 
 def test_qa2d_form_reads_the_pre_generated_cache(
@@ -226,3 +227,49 @@ def test_reports_skipped_records(tmp_path: Path, capsys: pytest.CaptureFixture[s
     assert report["n_records"] == 2
     assert report["n_pairs"] == 4
     assert report["n_skipped_records"] == 1
+
+
+def _export(tmp_path: Path, *extra: str) -> tuple[list[dict[str, object]], Path]:
+    manifest, provenance = _fixture(tmp_path)
+    output = tmp_path / f"pairs{len(extra)}.jsonl"
+    main([
+        "--manifest", str(manifest),
+        "--provenance", str(provenance),
+        "--output", str(output),
+        *extra,
+    ])
+    rows = [json.loads(line) for line in output.read_text(encoding="utf-8").splitlines() if line]
+    return rows, output
+
+
+def test_gold_answer_source_defaults_to_canonical(tmp_path: Path) -> None:
+    """R012 and R012b all ran on the canonical string. An invocation predating the flag must
+    still produce the same file, or those results stop being reproducible."""
+    rows, _ = _export(tmp_path)
+    gold = {r["hypothesis"] for r in rows if r["kind"] in ("needle_gold", "cf_gold")}
+    assert gold == {'The answer to the question "who won?" is kennedy.'}
+
+
+def test_surface_gold_answer_changes_the_gold_claim_and_nothing_else(tmp_path: Path) -> None:
+    """R012d switches one variable: the gold claim carries the string actually present in the
+    needle document instead of its lowercased canonical form. The replacement claim must not
+    move — it was already the raw surface string."""
+    canonical, _ = _export(tmp_path)
+    surface, _ = _export(tmp_path, "--gold-answer", "surface")
+    gold = {r["hypothesis"] for r in surface if r["kind"] in ("needle_gold", "cf_gold")}
+    assert gold == {'The answer to the question "who won?" is Kennedy.'}
+
+    def by_kind(rows: list[dict[str, object]], k: str) -> set[object]:
+        return {r["hypothesis"] for r in rows if r["kind"] == k}
+
+    assert by_kind(surface, "cf_replacement") == by_kind(canonical, "cf_replacement")
+    assert by_kind(surface, "needle_replacement") == by_kind(canonical, "needle_replacement")
+    assert [r["premise"] for r in surface] == [r["premise"] for r in canonical]
+
+
+def test_report_records_the_gold_answer_source(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """The pairs file carries no marker of which probe variant produced it, so the report line
+    is the protocol record — same reason `hypothesis_form` is echoed there."""
+    _export(tmp_path, "--gold-answer", "surface")
+    report = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert report["gold_answer_source"] == "surface"

@@ -97,6 +97,13 @@ class ClaimRouting:
     """the declared citation itself carried the support"""
     rescued_by_scan: bool = False
     """the declared citation failed but the full scan found support anyway"""
+    claim_text: str = ""
+    sentence: str = ""
+    """the sentence as it was written into the answer, so scoring can attach the
+    verified citation to exactly that sentence instead of approximating"""
+    conflict_evidence_id: str | None = None
+    conflict_detail: tuple[str, ...] = ()
+    """which entities clashed, for auditing the one path that destroys content"""
 
 
 @dataclass
@@ -126,11 +133,17 @@ class CitationRoutedVerifier:
         self.nli = nli
         self.entity_checker = entity_checker or EntityConsistencyChecker()
 
-    def _supports(self, evidence_text: str, claim_text: str) -> tuple[bool, bool]:
-        """(entailed, entity_consistent) for one claim x evidence pair."""
+    def _supports(self, evidence_text: str, claim_text: str) -> tuple[bool, bool, tuple[str, ...]]:
+        """(entailed, entity_consistent, mismatch detail) for one claim x evidence pair."""
         if self.nli.classify(premise=evidence_text, hypothesis=claim_text) != "entailment":
-            return False, False
-        return True, self.entity_checker.check(claim_text, evidence_text).consistent
+            return False, False, ()
+        consistency = self.entity_checker.check(claim_text, evidence_text)
+        detail = tuple(
+            f"{m.entity_type}:{m.normalized}"
+            + (f"!={'/'.join(m.evidence_values)}" if m.evidence_values else " (absent)")
+            for m in getattr(consistency, "mismatches", ())
+        )
+        return True, consistency.consistent, detail
 
     def route(
         self,
@@ -146,7 +159,7 @@ class CitationRoutedVerifier:
             item = by_index.get(index)
             if item is None:
                 continue
-            entailed, consistent = self._supports(item.text, claim.text)
+            entailed, consistent, _ = self._supports(item.text, claim.text)
             if entailed and consistent:
                 return ClaimRouting(
                     claim_id=claim.claim_id,
@@ -154,12 +167,14 @@ class CitationRoutedVerifier:
                     citation=item.evidence_id,
                     declared_indices=declared,
                     declared_verified=True,
+                    claim_text=claim.text,
                 )
 
         # mandatory fallback: the declared citation may simply be mislabelled
-        conflict = False
+        conflict_id: str | None = None
+        conflict_detail: tuple[str, ...] = ()
         for item in evidence:
-            entailed, consistent = self._supports(item.text, claim.text)
+            entailed, consistent, detail = self._supports(item.text, claim.text)
             if entailed and consistent:
                 return ClaimRouting(
                     claim_id=claim.claim_id,
@@ -167,12 +182,18 @@ class CitationRoutedVerifier:
                     citation=item.evidence_id,
                     declared_indices=declared,
                     rescued_by_scan=bool(declared),
+                    claim_text=claim.text,
                 )
-            conflict = conflict or entailed
+            if entailed and conflict_id is None:
+                conflict_id = item.evidence_id
+                conflict_detail = detail
         return ClaimRouting(
             claim_id=claim.claim_id,
-            outcome="dropped_entity_conflict" if conflict else "unverified",
+            outcome="dropped_entity_conflict" if conflict_id else "unverified",
             declared_indices=declared,
+            claim_text=claim.text,
+            conflict_evidence_id=conflict_id,
+            conflict_detail=conflict_detail,
         )
 
 
@@ -199,6 +220,10 @@ class VerifyAnnotateGenerator:
         self.draft_generator = draft_generator or DraftAnswerGenerator(llm=shared_llm)
         self.verifier = verifier or CitationRoutedVerifier(nli or build_nli_model())
         self.stats = RoutingStats()
+        self.last_routings: list[ClaimRouting] = []
+        """Routing for the most recent query, carrying each kept sentence and the
+        citation actually verified for it. Scoring reads this so citation precision
+        rests on the real per-sentence mapping rather than on an approximation."""
 
     @staticmethod
     def _sentence(text: str) -> str:
@@ -232,11 +257,13 @@ class VerifyAnnotateGenerator:
         citations: list[str] = []
         seen: set[str] = set()
         verified_any = False
+        self.last_routings = []
 
         for claim in draft.claims:
             if not claim.faithful_to_answer:
                 continue
             routing = self.verifier.route(claim, draft.answer_text, selected)
+            self.last_routings.append(routing)
             self._record(routing)
             if routing.outcome == "dropped_entity_conflict":
                 continue
@@ -245,12 +272,14 @@ class VerifyAnnotateGenerator:
                 continue
             if routing.outcome == "verified" and routing.citation is not None:
                 verified_any = True
+                routing.sentence = sentence
                 parts.append(sentence)
                 if routing.citation not in seen:
                     seen.add(routing.citation)
                     citations.append(routing.citation)
             else:
-                parts.append(f"{sentence} {UNVERIFIED_MARKER}")
+                routing.sentence = f"{sentence} {UNVERIFIED_MARKER}"
+                parts.append(routing.sentence)
 
         # An answer of nothing but unverified annotations would carry no citation
         # and violate GenerationResult. Abstaining preserves the contract and is

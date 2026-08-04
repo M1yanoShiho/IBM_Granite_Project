@@ -14,12 +14,13 @@ import argparse
 import json
 from collections.abc import Sequence
 from pathlib import Path
+from typing import cast
 
 from evidence_rag.infrastructure.datasets import JsonlDatasetAdapter
 from evidence_rag.materializer.provenance import read_provenance
 from evidence_rag.relations.claims import HYPOTHESIS_FORMS, HypothesisForm
 from evidence_rag.relations.qa2d import load_qa2d_cache
-from evidence_rag.relations.task_probe import build_probe_pairs
+from evidence_rag.relations.task_probe import GoldAnswerSource, build_probe_pairs
 
 # Not in HYPOTHESIS_FORMS: rung 3 is not a pure function of (question, answer), it is a lookup
 # into a cache pre-generated on the login node by evidence_rag.cli.export_qa2d.
@@ -37,6 +38,13 @@ def _parser() -> argparse.ArgumentParser:
         choices=FORM_CHOICES,
         default="template",
         help="§2.4 ablation rung; the default is the frozen pre-registered arm",
+    )
+    parser.add_argument(
+        "--gold-answer",
+        choices=("canonical", "surface"),
+        default="canonical",
+        help="which gold answer string the gold claim carries; 'canonical' is the "
+        "pre-registered arm, 'surface' is the R012d casing control",
     )
     parser.add_argument(
         "--qa2d-cache",
@@ -76,6 +84,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         question_by_query={query.query_id: query.text for query in bundle.queries},
         text_by_document={document.document_id: document.text for document in bundle.documents},
         hypothesis_form=hypothesis_form,
+        gold_answer_source=cast(GoldAnswerSource, arguments.gold_answer),
     )
 
     arguments.output.parent.mkdir(parents=True, exist_ok=True)
@@ -98,6 +107,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         encoding="utf-8",
     )
     report = {
+        "gold_answer_source": arguments.gold_answer,
         "hypothesis_form": arguments.hypothesis_form,
         "n_records": len(records),
         "n_pairs": len(pairs),

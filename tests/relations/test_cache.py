@@ -91,9 +91,13 @@ def test_entries_survive_into_a_fresh_cache_instance(tmp_path: Path) -> None:
 
 
 def test_a_stored_unknown_at_zero_confidence_is_a_hit_not_a_miss(tmp_path: Path) -> None:
-    """UNKNOWN is a predicted class, not an absent answer (spec S2.5), and it is the majority
+    """Abstention is a predicted class, not an absent answer (spec S2.5), and it is the majority
     class. If the loader or the lookup treated a falsy payload as absent, the cache would return
-    a miss for the most common edge in the graph and re-run the model on every one of them."""
+    a miss for the most common edge in the graph and re-run the model on every one of them.
+
+    Kept on UNKNOWN rather than moved to A1's NOT_SUPPORTED on purpose: that makes this the
+    coverage proving a pre-A1 cache file still loads. The cache stores the label verbatim and
+    never interprets it, so both eras round-trip."""
     path = tmp_path / "edges.jsonl"
     abstention = _prediction(label=RelationLabel.UNKNOWN, confidence=0.0)
     RelationCache(path).put(abstention)

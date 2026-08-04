@@ -5,18 +5,38 @@ probe. Both tiers exist because either alone is insufficient: a model can clear 
 useless on NQ passages with template hypotheses, and a model can clear the task probe by
 overfitting a synthetic mutation pattern.
 
-All thresholds are pre-registered and must not move after seeing results.
+All thresholds are pre-registered and must not move after seeing results. A1 (g2-proto-2)
+renamed the 0B-2 twin metric and changed its definition; it moved no threshold VALUE.
 
-UNKNOWN counts as FAILURE in 0B-2. Without that, a model that abstains everywhere scores
-perfectly on "did not assert a false conflict" — the same manipulability that forced the
-false_conflict guardrail to be a joint gate rather than a single rate.
+WHAT STOPS A MODEL FROM GAMING 0B-2, AFTER A1. Before A1, "UNKNOWN counts as failure" was the
+answer: a model abstaining everywhere would otherwise score perfectly on "did not assert a false
+conflict". Under the binary space that sentence has nothing to attach to — abstention and
+contradiction are the same output — so per A1 §9.3 the JOINT GATE is now the sole anti-gaming
+mechanism, and it still closes both degeneracies:
+
+    predict NOT_SUPPORTED everywhere -> twin 1.00, gold_supports_recall 0.00  -> blocked
+    predict SUPPORTS everywhere      -> twin 0.00, gold_supports_recall 1.00  -> blocked
+
+Neither metric may therefore be reported or thresholded alone. §9.5 also concedes that the twin
+metric is now close to saturated (.87-.998 across the four measured arms) and has degraded from
+a selection criterion into a lower-bound guard, leaving `gold_supports_recall >= .85` carrying
+the real selection pressure.
+
+0B-1 IS NOT AMENDED, AND NO LONGER COMPOSES WITH 0B-2. A1 §9.1 changes the 0B-2 metric and says
+nothing about this tier, so `external_report`, its five thresholds and `vitaminc.py` are left
+exactly as they were. Three of those five are now undefined or vacuous against a binary
+predictor — `refutes_precision` and `refutes_coverage` read 0.0 because the model can never
+predict REFUTES, `macro_f1` is capped at 0.5 for the same reason, and `non_unknown_coverage`
+reads 1.0 unconditionally. This is a KNOWN GAP IN THE AMENDMENT awaiting a human ruling, not an
+oversight in this module, and it must not be papered over by inventing a gold mapping here. See
+`tests/cli/test_gate0b.py::test_0b1_is_UNRUNNABLE_after_A1_and_this_test_records_it_rather_than_fixing_it`.
 """
 
 from collections.abc import Sequence
 from dataclasses import dataclass
 
 from evidence_rag.relations.models import RelationLabel
-from evidence_rag.relations.task_probe import GOLD_SUPPORTS, TWIN_REFUTES
+from evidence_rag.relations.task_probe import GOLD_SUPPORTS, TWIN_NOT_SUPPORTED
 
 THRESHOLDS = {
     "refutes_precision": 0.85,
@@ -24,7 +44,7 @@ THRESHOLDS = {
     "non_unknown_coverage": 0.80,
     "support_coverage": 0.70,
     "refutes_coverage": 0.70,
-    "twin_refutes_accuracy": 0.70,
+    "twin_not_supported_accuracy": 0.70,
     "gold_supports_recall": 0.85,
 }
 
@@ -102,9 +122,9 @@ def external_report(
 class TaskReport:
     n_twin: int
     n_gold: int
-    twin_refutes_accuracy: float
+    twin_not_supported_accuracy: float
     gold_supports_recall: float
-    unknown_rate: float
+    not_supported_rate: float
     failures: tuple[str, ...]
 
     @property
@@ -123,30 +143,51 @@ def task_report(
     A false SUPPORTS on the twin puts the poison in the gold cluster and harm stops falling; a
     missed SUPPORTS on a gold-bearing passage under-counts gold's votes, isolates the needle,
     and recall drops. Everything else in the probe is context, not a gate.
+
+    Both metrics are written against SUPPORTS rather than against the gold label, exactly as A1
+    §9.1 defines them ("predicted != SUPPORTED" / "predicted == SUPPORTS"). That is not a
+    restatement of `predicted == gold`: it is what makes this function correct on the pre-A1
+    `dump-*.jsonl` files §9.10a says R012 / R012b must be recomputed from, where a prediction
+    can still be REFUTES or UNKNOWN. Comparing against gold there would silently hand back the
+    OLD three-class number under the new field name.
+
+    `gold` is therefore no longer read, but it is still required and still zipped: it is the
+    arity guard that catches a caller whose gold column has drifted out of step with `kinds`.
+    It is deliberately NOT validated against the output space — a pre-A1 dump carries REFUTES
+    in that column, and rejecting it would break the very recomputation path above.
+
+    `not_supported_rate` replaces the pre-A1 `unknown_rate`. It is the G-AB report item (M0
+    §3.6) in the only form the binary space supports: A1 §9.3 concedes binary cannot separate
+    "abstained" from "committed to the contrary", so the two are counted together, and the
+    sparse-graph consequence is picked up by `gold_supports_recall` inside the joint gate. A
+    field still called `unknown_rate` would have reported a structural 0.0 forever.
     """
-    twin = [
-        (g, p) for kind, g, p in zip(kinds, gold, predicted, strict=True) if kind in TWIN_REFUTES
-    ]
-    gold_rows = [
-        (g, p) for kind, g, p in zip(kinds, gold, predicted, strict=True) if kind in GOLD_SUPPORTS
-    ]
-    twin_accuracy = sum(1 for g, p in twin if p == g) / len(twin) if twin else 0.0
-    gold_recall = sum(1 for g, p in gold_rows if p == g) / len(gold_rows) if gold_rows else 0.0
-    unknown_rate = (
-        sum(1 for p in predicted if p is RelationLabel.UNKNOWN) / len(predicted)
+    rows = list(zip(kinds, gold, predicted, strict=True))
+    twin = [p for kind, _gold, p in rows if kind in TWIN_NOT_SUPPORTED]
+    gold_rows = [p for kind, _gold, p in rows if kind in GOLD_SUPPORTS]
+    twin_accuracy = (
+        sum(1 for p in twin if p is not RelationLabel.SUPPORTS) / len(twin) if twin else 0.0
+    )
+    gold_recall = (
+        sum(1 for p in gold_rows if p is RelationLabel.SUPPORTS) / len(gold_rows)
+        if gold_rows
+        else 0.0
+    )
+    not_supported_rate = (
+        sum(1 for p in predicted if p is not RelationLabel.SUPPORTS) / len(predicted)
         if predicted
         else 0.0
     )
     values = {
-        "twin_refutes_accuracy": twin_accuracy,
+        "twin_not_supported_accuracy": twin_accuracy,
         "gold_supports_recall": gold_recall,
     }
     failures = tuple(sorted(key for key, value in values.items() if value < THRESHOLDS[key]))
     return TaskReport(
         n_twin=len(twin),
         n_gold=len(gold_rows),
-        twin_refutes_accuracy=twin_accuracy,
+        twin_not_supported_accuracy=twin_accuracy,
         gold_supports_recall=gold_recall,
-        unknown_rate=unknown_rate,
+        not_supported_rate=not_supported_rate,
         failures=failures,
     )

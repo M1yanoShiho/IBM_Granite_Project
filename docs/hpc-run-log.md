@@ -949,7 +949,61 @@ DeBERTa 是 cased 模型,故两个门指标**建在系统性不同的输入分�
 (replacement 逐字 substituted 进 cf 文档)却反而更低(DeBERTa rung 1 .681 vs needle_gold .794),
 说明大小写不是主导因素。但它是一个**此前从未被声明、且坐在门指标内部**的系统性差异 ⇒ 立 R012d。
 
-**尚未完成:** rung 3(QA2D)未跑。**checkpoint 不再是阻塞项** —— 2026-08-03 已选定
+**rung 3 实测(job 18257977,COMPLETED):三级阶梯完整。**
+Raw:`results/gate0b/sweep-qa2d.json`、`dump-qa2d.jsonl`。
+
+| rung | 臂 | twin(≥.70) | gold(≥.85) | unknown | twin(二分类) |
+|---|---|---:|---:|---:|---:|
+| 1 `template` | albert | .6736 | .1916 | .4823 | .9980 |
+| 2 `question_answer` | albert | **.7602 ✓** | .3635 | .2858 | .9871 |
+| 3 `qa2d` | albert | .5312 | **.5360** | .3680 | .9586 |
+| 1 `template` | DeBERTa | .6376 | **.7942** | .1758 | .8689 |
+| 2 `question_answer` | DeBERTa | .5547 | .6651 | .2884 | .9008 |
+| 3 `qa2d` | DeBERTa | .5187 | .5870 | .3511 | .9222 |
+
+**对预注册问题的回答:形式是主因,且远强于 rung 2 所显示。** albert 的
+`gold_supports_recall` 沿阶梯**单调上升 .1916 → .3635 → .5360**,**2.80 倍**,唯一变量是
+hypothesis 那句话。**`.1916` 就此确定不是能力读数。** 但 `.5360` 距 `.85` 仍差 **31.4pp**,
+**形式也不解释全部。**
+
+**BEFORE 的三种预设情形都没命中 —— 实际结果是两个指标反向:**
+
+- albert 的 twin **在 rung 3 崩了**:.6736 → **.7602(过阈值)** → **.5312**。
+- DeBERTa **两项单调下降**:gold .7942 → .6651 → .5870;twin .6376 → .5547 → .5187。
+
+⇒ **不存在任何一种 hypothesis 形式使两个门指标同时变好。** 使 SUPPORTS 召回最高的形式,
+恰好使 REFUTES 承诺最低。这比"形式是/不是主因"信息量更大,应作为本条目的主发现之一。
+
+**机制(albert rung 2 → rung 3,分 kind 的预测迁移):**
+
+| kind | ΔSUPPORTS | ΔREFUTES | ΔUNKNOWN |
+|---|---:|---:|---:|
+| needle_gold | **+17.3** | −12.5 | −4.8 |
+| cf_replacement | **+17.4** | −15.0 | −2.5 |
+| cf_gold | +3.9 | **−25.4** | **+21.6** |
+| needle_replacement | +1.9 | **−20.3** | **+18.6** |
+
+**REFUTES 预测在四类上全线下跌。** QA2D 产出的是良构陈述句,而元指称模板与 `q? a.` 片段都不是;
+喂进一句像样的断言,模型更不愿判"矛盾"、更愿判"蕴含或中立" ⇒ **决策边界整体朝 SUPPORTS/中立移动**。
+在 SUPPORTS 对上是红利,在孪生对上就是 REFUTES→UNKNOWN 的流失。
+
+**要写准的一点:albert 并非被孪生骗了。** rung 3 的 cf_gold 假 SUPPORTS 仅 **.063**、
+needle_replacement 仅 **.020**,它是**弃权**。故 `twin_bin` 仍有 .9586 而三类 twin 掉到 .5312。
+
+**Gate 判定:六格无一通过,判定不变。** 最好的 twin 是 albert rung 2 的 .7602(其 gold 仅 .3635);
+最好的 gold 是 DeBERTa rung 1 的 .7942(其 twin 仅 .6376)。**没有任何一格两项同时过。**
+按已生效的 **g2-proto-2 二分类口径**读:twin 六格全过(.8689–.9980),**唯一约束仍是
+`gold_supports_recall`,最好的一格仍是 DeBERTa rung 1 的 .7942,差 5.6pp**。
+**即:对最接近通过的那一臂,形式消融在每一级都使其更糟。**
+
+**三级一致的刻画:** albert 的 needle_gold 与 cf_replacement 在 rung 3 依然逐位对齐
+(.536/.151/.313 vs .531/.165/.304)。**三级全程,albert 从未在 SUPPORTS 类内部作出区分。**
+
+**尚未完成:** ~~rung 3(QA2D)未跑~~ —— **已于 2026-08-03 完成(job 18257977),见上。**
+剩余:R012d(答案串大小写对照)未跑,是 §3.8 之前最后一个杠杆,且正对着现在唯一的约束
+(DeBERTa 的 .7942 建在 100% 小写答案的分母上,而它是 cased 模型)。以下关于 checkpoint 的记录保留备查。
+
+**旧文(2026-08-03 之前):** rung 3(QA2D)未跑。**checkpoint 不再是阻塞项** —— 2026-08-03 已选定
 `MarkS/bart-base-qa2d`(依据、弃用臂、两处表层伪影的处置见上)。现存阻塞项换成三件:
 QA2D 缓存尚未生成、rung 3 pair 文件尚未物化、这两条命令尚未入台账(上面的"命令"块只覆盖 rung 1/2)。
 其 AFTER 须先报缓存的大小写变化率(见判读纪律 5)才能读 rung 3 的增量。
@@ -958,7 +1012,176 @@ QA2D 缓存尚未生成、rung 3 pair 文件尚未物化、这两条命令尚未
 且须先说明:dpr-w100 按 100 词切分,**绝大多数 passage 本就从半句开始**,该分桶很可能没有对照组,
 届时应报告为"无足够变异,不可判读",而不是当作又一个空结果。
 
-### R012d — 答案串大小写对照(把大小写从门指标里拆出来)[PRE-REGISTERED 2026-08-03]
+### §9.10a 等价性验证 — 四个 dump 全部复现 [2026-08-04]
+
+M0 §9.10a 裁定 R012 / R012b 的二分类读数**从 dump 重算,不重跑**,并声称该重算与"模型原生二分类"
+等价。该主张此前只是断言。`cli/recompute_binary --against` 以 `gold_supports_recall` 为不变量
+(A1 §9.1 把它钉为不变)逐个核对,**四个 dump 全部通过,无一抛错**:
+
+| 探针变体 / 臂 | `gold_supports_recall` | `twin_not_supported` |
+|---|---:|---:|
+| template / DeBERTa | .794158 | .868886 |
+| template / albert | .191576 | .997962 |
+| question_answer / DeBERTa | .665082 | .900815 |
+| question_answer / albert | .363451 | .987092 |
+| qa2d / DeBERTa | .586957 | .922215 |
+| qa2d / albert | .536005 | .958560 |
+| surface / DeBERTa | .779212 | **.863451** |
+| surface / albert | .198370 | **.998302** |
+
+(后两行的 twin 二分类值为本次首次计算。)全部与各自 sweep 已发表的三类读数一致到浮点精度,
+**故折叠方式(取 max、即 argmax 重标签)得到实证确认** —— 若按求和实现,`gold_supports_recall`
+会因 `.5` 阈值而移动,八条中任何一条都会抛错。
+
+**由此得到的整体形状:八格的 `failures` 全部且仅为 `["gold_supports_recall"]`。**
+在 g2-proto-2 下 Gate 0B 的成败**塌缩为单一指标**,其最优值为 DeBERTa/template 的 **.7942**(差 5.6pp);
+twin 项在八格中介于 .8635–.9983,全部通过。该表由 `cli/recompute_binary` 机器产出,
+第三方可用同一条命令复算,不依赖本文件的手工誊录。
+
+### R012c — MiniCheck-FT5 臂(§3.1 预注册第三臂 + §9.8 的 A1 出样检验)[PRE-REGISTERED 2026-08-04]
+
+> **编号:** R013/R014/R015 已被 fine-tuned Relation Builder 的三个 seed 占用(CONDITIONAL,见
+> `EXPERIMENT_TRACKER.md`),R012b 为 hypothesis 形式消融,R012d 为答案串 canonical/surface 对照。
+> R012c 自 2026-08-03 起已在 R012d 条目中记为"已由 MiniCheck-FT5 臂占用",本条目认领该编号。
+
+- **状态:** BEFORE 已锁,代码已就位(TDD,测试先行)。本条目写定于本臂产出任何数字之前。
+- **双重身份(与其它 R012x 的关键差别):**
+  1. **§3.1 预注册三臂中从未上场的一臂。** R012 实跑只有两臂,故"任何零训练模型都不够"这一
+     **族级断言至今不成立** —— 而 §3.1 写明,该区分正是 §3.8 训练路径是否启动的唯一依据。
+  2. **§9.8 指定的两项 A1 出样检验之一。** A1 由 albert / DeBERTa 两臂的数据促成,故那两臂
+     **不能**验证它;本臂的数字在 A1 起草时并不存在。§9.8 原文:
+     **"若出样结果与本修订预期相悖,以出样结果为准。"** 即本臂被明文授予推翻 A1 的权力,
+     **故本臂不得朝"与 A1 一致"的方向调整任何东西**。
+- **此前跑不了的真实原因(与任务简报所述不同,记录以免重犯):** 简报称阻塞在"二分类需否定 claim
+  双向探测"。A1 落地(`221c34a`)后输出空间即为二分类,该阻塞**已消失,无双向探测可写**。
+  真正的阻塞是**架构**:本 checkpoint 是 `T5ForConditionalGeneration`,`load_score_fn` 的
+  `AutoModelForSequenceClassification` 根本打不开它,且它**没有 id2label**,`LABEL_ORDER` 对它无意义。
+  设计文档 §3.1(第 168 行)"MiniCheck 的二分类要靠否定 claim 反推 REFUTES,等于在关系层塞进一个
+  未验证构造"**是 A1 之前的推理,已被 A1 作废** —— 二分类即是修订后的输出空间,无 REFUTES 需要反推,
+  故本臂不含任何否定 claim 构造。该句应视为 pre-A1 记录,不再是对本臂的约束。
+- **预期指标与方向(预注册,可证伪):** 主判据仍是 §9.1 的联合门 —— `gold_supports_recall ≥ .85`
+  与 `twin_not_supported_accuracy ≥ .70` **同时**满足,阈值一个不动。
+  1. **本臂的 `gold_supports_recall` 应显著高于同 rung 的 albert / DeBERTa。** 依据:三臂中只有它
+     是**专为 document-grounded 支持判断训练**的,而 0B-2 正是该任务形状。
+  2. **rung 排序预期 `qa2d` > `question_answer` > `template`。** 依据:MiniCheck 的训练 claim 是
+     陈述句,rung 1 的元指称模板离其训练分布最远。**该方向与 albert 相反**(albert twin 峰值在
+     rung 2、rung 3 崩到 .5312),故这是一个可被数据打脸的预测,不是事后叙述。
+  3. `twin_not_supported_accuracy` 预期高但**不作选型判据** —— §9.5 已承认它在二分类下近饱和,
+     退化为下限守卫。
+- **事先固定的判读纪律:**
+  1. **不得引入阈值(§9.5a 仍然生效)。** 本臂原生二分类,argmax 即其参考实现的 `raw_prob > .5`,
+     是 checkpoint 自带的决策规则而非对着 Gate 结果调出的自由参数;任何偏离 .5 的 θ 须另开 A2。
+  2. **若本臂也卡在 `gold_supports_recall`** ⇒ 族级断言成立,且 A1 的出样检验通过
+     (即"A1 未制造任何通过者"得到独立证据),§3.8 可启动。
+  3. **若本臂过门** ⇒ **§3.8 不得启动**,且 R012 的"零训练不够"读数被本臂推翻,
+     族级结论须以本臂为准重写。这是本臂唯一可能的高价值负结果,不得因它不方便而淡化。
+  3b. **"更强核查器"与"需要训练"是两个结论,设计文档已预注册该区分**(设计文档 §3.1 第 169 行:
+     "若 albert 明显输给 MiniCheck,结论是'需要更强核查器'而非'需要训练'——这个区分决定 §3.6 是否启动")。
+     故**即便本臂未过门**,只要它明显优于 albert / DeBERTa,§3.8 的立论就从"零训练模型不够"退为
+     "这两个零训练模型不够",训练路径的依据相应减弱,须在报告中如实分开写。
+  4. **若二分类在本臂上暴露出三类才能捕捉的东西**(例如弃权与反对的混同在本臂上产生了
+     albert/DeBERTa 看不到的后果),须依 §9.8 如实提出 A1 可能有误,而不是绕开。
+  5. **独立臂报告,不并入 R012b 三级阶梯**(§9.10a 例外条款):并入会同时变动模型与标签空间两个变量。
+  6. **0B-1 不跑**(`EXTERNAL_PAIRS=none`):该层已于 2026-08-04 挂起待 A2(§9.11,tracker R020 BLOCKED)。
+- **checkpoint 核实(2026-08-04,三处独立来源,均记于 `relations/minicheck.py` 模块 docstring):**
+  - `https://huggingface.co/api/models/lytang/MiniCheck-Flan-T5-Large` → `architectures:
+    ["T5ForConditionalGeneration"]`、`model_type: "t5"`、**无 `id2label`**。§3.1 写作 "MiniCheck-FT5
+    (770M)";Flan-T5-Large 为 780M,card 自述 "best fact-checking model with size < 1B",与 §3.1 的
+    "LLM-AggreFact <1B SOTA" 对应。Hub id 为 `MiniCheck-Flan-T5-Large`,"FT5" 是协议的简称。
+  - 打分协议取自该 repo 的 `minicheck_web/inference.py` 与 `github.com/Liyan06/MiniCheck`:
+    `predict: {doc}</s>{claim}` 单序列、`decoder_input_ids=zeros` 单步、读 token id `3`/`209`
+    (源码注释 "# 3 for no support and 209 for support")、仅对该两列 softmax、index 1 = support、
+    `max_model_len=2048`。论文:Tang, Laban & Durrett, EMNLP 2024(arXiv:2404.10774)。
+  - **label id 实测(本地 transformers 5.10.2):`convert_tokens_to_ids(["0","1"])` = `[632, 536]`,
+    两者都不是 label id**;而 `encode("0")` = `[3, 632, 1]`、`encode("1")` = `[209, 1]`。
+    即 3/209 是两个 label **字符串的首 token**(T5 词表有 `▁1` 而无 `▁0`,故 "0" 拆成裸 `▁` 加数字)。
+    **按 token 文本查表会静默打分到两个无关词表项且不报错** —— 故代码按 `encode(text)[0]` 推导,
+    并与记录值对拍,不一致即硬失败。这是 `LABEL_ORDER` 纪律在本臂上的对应物。
+- **前置(2026-08-04 更正):** ~~pair 文件须是 A1 之后重建的三份…必须显式重建。~~
+  **本条说过头了,且照它执行会造成不可逆损失。** 实测:`task_report` **根本不读 gold 列**
+  (A1 后两个指标都对 SUPPORTS 定义,gold 仅作 arity 守卫),故 pre-A1 与 post-A1 的 pair 文件
+  **产出逐字相同的报告** —— 重建对正确性无任何收益。而原命令块写的是**原地重建**,
+  那会**覆盖 R012 与 R012b rung 1 实际消费过的历史输入**,而 `/data/` 被 gitignore,覆盖即永久丢失。
+
+  **改为:直接复用现有三份 pair 文件。** 除"零收益且有损失"外还有一条更强的理由 ——
+  **用与 albert / DeBERTa 完全相同的输入文件,是三臂可比性的最强保证**;而 `export_task_probe`
+  自那三轮之后已有改动(新增 `--gold-answer`、fixture 语义更正),重建就得额外证明 premise 与
+  hypothesis 未变。复用则无需证明。若仍要 post-A1 版本的 artifact,**必须写到新路径**,不得覆盖。
+- **方向冒烟(2026-08-04,本地真实权重,4 对手工样本):** `4/4` 方向正确,
+  支持对 `P(SUPPORTS)` = .9748 / .9733,孪生对 = .0122 / .0057,且用的是 **rung 1 冻结模板**。
+  `model_version` = `lytang/MiniCheck-Flan-T5-Large@f4f447f5877fc162`(权重指纹;
+  **bp1 上应复现同一指纹,不同即说明下到了不同的 checkpoint**);tokenizer 走 fast 路径。
+  **纪律声明:这不是结果。** 4 对样本由我手工构造、不属于 0B-2 探针,样本量与构造方式都不足以
+  对任何门指标发言;它只排除"label id 取反"这一类**结构性**错误(该错误会让一切照常运行且数字合理)。
+  本条目的**预注册方向写定于该冒烟产出之前**,顺序保留于此以备核。真实读数一律以 sbatch 的三个
+  rung 为准。
+- **命令:**
+  ```
+  # 登录节点(有网,一次性)
+  export HF_HOME=/user/work/$USER/hf_cache
+  hf download lytang/MiniCheck-Flan-T5-Large          # ~3.1GB
+
+  # pair 文件不重建 —— 复用 R012b 三个 rung 用过的那三份(见更正后的「前置」),
+  # 三份均已在 bp1 上:task_pairs.jsonl / task_pairs_qa.jsonl / task_pairs_qa2d.jsonl
+
+  # 提交前先验权重指纹,免得下错 checkpoint 要用三个 job 的代价才发现
+  export PYTHONPATH=src
+  python -c "
+from transformers import AutoModelForSeq2SeqLM
+from evidence_rag.cli.gate0b import _weight_buffers
+from evidence_rag.relations.predictor import fingerprinted_version, weight_fingerprint
+mid='lytang/MiniCheck-Flan-T5-Large'
+got=fingerprinted_version(mid, weight_fingerprint(_weight_buffers(AutoModelForSeq2SeqLM.from_pretrained(mid))))
+print(got); assert got.endswith('@f4f447f5877fc162'), 'checkpoint 与核实时不同,先查再跑'"
+
+  # 三个 rung,各自独立 job(0B-1 挂起,故 EXTERNAL_PAIRS=none)
+  ARM="lytang/MiniCheck-Flan-T5-Large"
+  for RUNG in template:task_pairs qa:task_pairs_qa qa2d:task_pairs_qa2d; do
+    sbatch scripts/run_gate0b.slurm "data/gate0b/${RUNG#*:}.jsonl" none \
+      "results/gate0b/sweep-minicheck-${RUNG%%:*}.json" "$ARM" \
+      "results/gate0b/dump-minicheck-${RUNG%%:*}.jsonl"
+  done
+  ```
+  报告 headline 时必须同时写明该 pair 文件的 `hypothesis_form`(exporter 回显该字段)。
+- **地雷(2026-08-04,提交后才发现,已修):`torch < 2.6` 下必须显式要求 safetensors。**
+  bp1 上 `hf download lytang/MiniCheck-Flan-T5-Large` 抓下 17 个文件含 `pytorch_model.bin`,
+  随后 `from_pretrained` **解析到了 `.bin`**,在 `check_torch_load_is_safe()` 上抛
+  `CVE-2025-32434`(torch 需 ≥ 2.6)。**即使 `model.safetensors` 随后也落了盘,重跑仍失败** ——
+  说明这不是环境问题,是代码没有指定格式。
+  - **实据(非推断):** 计算节点上的 job `18264967` / `18264968` 各跑 **00:01:30 后 FAILED**,
+    `logs/gate0b-18264967.out` 的 traceback 终止于
+    `model = transformers.AutoModelForSeq2SeqLM.from_pretrained(model_id)` ——
+    **即该行的修复前版本,不带 `use_safetensors=True`** —— 再经 `check_torch_load_is_safe()`
+    抛同一个 CVE。登录节点与计算节点在同一行、以同一原因失败,修复正打在该行上。
+    (`18264969` 为同批第三个,提交后即撤。)
+  - **修法:** `cli/gate0b.py` 两处 `from_pretrained` 均加 `use_safetensors=True`(含测试)。
+    这使安全路径成为唯一路径,且把"这个 repo 没有 safetensors"变成错误信息真正说的那句话,
+    而不是一条关于 CVE 的、看不出真因的消息。**失败时不得靠放宽这个参数来"修"**。
+  - **本约束今日第二次咬人**(第一次:QA2D 的 `question_converter-3b`,同样死在 torch<2.6,
+    见 R012b 的 checkpoint 选型)。凡 `hf download` 抓到 `pytorch_model.bin` 的 repo 都要过这一关。
+  - ~~**跨模块的假设冲突,须知晓:** …哪一个描述的是真实部署环境,须与 G 模块对齐后写死一处。~~
+    **[同日更正 —— 本条为事实性错误。]** 两个模块**跑在不同账号的不同 venv 里**,不存在冲突:
+    本轮 verifier triage 的产物记于 `/user/work/**ri25947**/IBM_Granite_Project/`(见本文件
+    2026-07-28 那条 AFTER),而 Gate 0B 跑在 `/user/work/**uz25020**/venv`。
+    `generator/nli.py:230` 那句"the deployment already has torch >= 2.6"指的是前者,它是对的。
+  - **"升 torch 会打断 safetensors 加载"这一说法亦无实证支持,反被同一条记录否证:**
+    ri25947 的 venv 由 2.5.1 升至 `2.6.0+cu124` 时,记录明写"**granite 两臂 safetensors 不受影响**"。
+    `pyproject.toml` 钉的是 `torch>=2,<3`,**并不禁止 2.6**。故"跟 G 对齐(升 torch)"技术上可行。
+  - **但本轮不升,理由是实验控制而非技术:** R012 / R012b / R012d **全部在当前 torch 下跑完**。
+    此刻升级会使 MiniCheck 臂运行在与它要对比的三臂**不同的 torch 上**,给一组极力控制变量的
+    对比引入一个无谓的新变量。而 `use_safetensors=True` 已经解决了真实问题且零成本。
+    **仅当日后确需加载只有 `.bin` 的 checkpoint 时才升,届时须与 G 模块同步版本并重跑受影响的臂。**
+- **预检失效的教训:** 本条目的指纹预检**本应在花 job 之前拦住它**,实际是预检失败后三个 job
+  仍被提交(18264967/68/69)。预检只有在"失败即停"被执行时才有价值。
+- **commit:** _待填(代码随本轮提交:`relations/minicheck.py` + `cli/gate0b.py` 双注册表分发 + 测试)_
+- **AFTER:** _待跑_
+
+---
+
+### R012d — 答案串 canonical vs surface 对照 [PRE-REGISTERED 2026-08-03,DONE 2026-08-04]
+
+> **标题已更正(2026-08-04):** 原题为"大小写对照",不准确 —— 见 AFTER 缺陷记录 1。
+> **BEFORE 正文一字未改**,更正只以本行与 AFTER 呈现。
 
 > **编号:** R012c 已在 MiniCheck-FT5 臂的任务简报中被指定占用,故本条目编 R012d。
 
@@ -990,9 +1213,70 @@ QA2D 缓存尚未生成、rung 3 pair 文件尚未物化、这两条命令尚未
      当时的结论**外推过头了**,本条目即为更正。
 - **前置:** 无新代码依赖;`gold_alias_used` 已在 `MutationRecord` 上(`provenance.py:21`),
   `task_probe.py` 只需读另一个字段。须加测试钉住"用的是 alias 不是 canonical"。
-- **命令:** _待填_
-- **commit:** _待填_
-- **AFTER:** _待填 —— 两臂 × 两项;**先报 albert 的阴性对照是否成立,再读 DeBERTa**_
+- **命令(代码已就位,2026-08-04):**
+  ```
+  # 登录节点,纯 CPU。--gold-answer surface 是本轮唯一变量,hypothesis 形式仍用冻结模板
+  PYTHONPATH=src python -m evidence_rag.cli.export_task_probe     --manifest runs/niah-train-injected/manifest.json     --provenance runs/niah-train-injected/provenance.jsonl     --output data/gate0b/task_pairs_surface.jsonl --gold-answer surface
+
+  ARMS="tals/albert-xlarge-vitaminc-mnli MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli"
+  sbatch scripts/run_gate0b.slurm data/gate0b/task_pairs_surface.jsonl none     results/gate0b/sweep-surface.json "$ARMS" results/gate0b/dump-surface.jsonl
+  ```
+  `--gold-answer` 默认 `canonical`,有测试钉住"省略即与预注册主臂逐字节相同";
+  报告行回显 `gold_answer_source`,作为该 pair 文件属于哪个变体的协议记录。
+- **commit:** _待填(代码随本轮提交)_
+- **AFTER(实测,2026-08-04):**
+
+**Job:** `18259086` COMPLETED。**Raw:** `results/gate0b/sweep-surface.json`、`dump-surface.jsonl`。
+pair 文件 `{"gold_answer_source": "surface", "hypothesis_form": "template", "n_pairs": 5888,
+"n_records": 1472, "n_skipped_records": 0}` —— 分母与 rung 1 逐字相同。
+
+**按预注册顺序读:**
+
+**① 内建精确对照(超出预注册,更强):** `cf_replacement` 的 1472 对在两个 pair 文件中逐字节相同
+(其 premise 与 hypothesis 都不受 `--gold-answer` 影响),故预测**必须**一致。实测
+**2944 条比对,预测不同 0 条** ⇒ 操作精确地只动了 gold claim,贪心解码的确定性一并验证。
+
+**② albert 阴性对照:按预注册标准通过。** `gold_supports_recall` .1916 → .1984,
+**Δ +0.68pp,在 ±1pp 容忍内**。
+
+**③ DeBERTa:预注册方向被证伪。**
+
+| 臂 | 指标 | canonical | surface | Δpp |
+|---|---|---:|---:|---:|
+| albert | gold_supports_recall | .1916 | .1984 | **+0.68** |
+| albert | twin_refutes_accuracy | .6736 | .6736 | +0.00 |
+| DeBERTa | gold_supports_recall | **.7942** | **.7792** | **−1.49** |
+| DeBERTa | twin_refutes_accuracy | .6376 | .6291 | −0.85 |
+
+预注册写的是"DeBERTa 的 `gold_supports_recall` 上升",**实测下降**。
+
+**配对检验(事后,未预注册 —— 如实标注):** McNemar on `needle_gold`,n=1472。
+albert 仅canonical对 2 / 仅surface对 12,χ²=5.79,**p≈.0162**;
+DeBERTa 仅canonical对 30 / 仅surface对 8,χ²=11.61,**p≈.0007**。**两者均显著,方向相反。**
+
+**量级必须与显著性一起写:** DeBERTa 38 对不一致中净负 22 条 = −1.49pp,**而它需要 +5.6pp**。
+**显著,但方向反了、且量级差一个数量级。** 该杠杆为空,无含糊余地。
+
+**三条如实记录的缺陷,均属本条目设计者(即本文件作者):**
+
+1. **本条目命名不准。** 标题写"大小写对照",实际是 **canonical vs surface 对照**:
+   `canonicalize_answer` 除小写外还去冠词、去首尾标点、日期转 ISO、数字展开。
+   **DeBERTa 的结果不可单独归因于大小写。**
+2. **阴性对照按预注册通过,但它其实在报警。** albert 对大小写不可感知,却显著改善(p≈.0162)
+   ⇒ 操作确实触达了非大小写成分,albert 的 +0.68pp 即该成分的效应量。
+   **但 McNemar 是事后跑的**,用事后检验推翻预注册的通过判定本身即事后操作,
+   故**正式判定仍为"按预注册标准通过"**,该观察并列记录、不改判定。
+3. **反向结果只作提示,不作确立。** surface 使无大小写感知的臂变好、使 cased 臂变差;
+   两臂在此唯一的相关差异是大小写敏感性,故大小写*看起来*是 DeBERTa 那份代价的来源。
+   但这是跨模型比较,预设了"非大小写成分对两模型效应相同",**站不住,不予确立**。
+
+**结论:测量缺陷侧到此穷尽。** 九项机制全部实测:截断、标签序、答案规范化、大小写、
+premise 质量、premise 长度、hypothesis 形式、argmax 记账、canonical-vs-surface。
+**DeBERTa 的 `.7942` 自此可作能力读数**,§3.8 训练路径在测量这一侧的启动理由已经干净。
+
+**本条目不建立的东西(须与结论同时声明):** MiniCheck-FT5 仍未上场。它是 M0 §3.1 预注册三臂之一、
+本项目实测最优的验证器、且是 M0 §9.8 指定的 A1 出样检验之一。**故"任何零训练模型都不够"的
+族级断言依然不成立**,§3.8 可启动但不得携带该断言。
 
 ### R011 — VitaminC adapter 与 revision-family 去污染 [DONE 2026-07-31]
 
