@@ -37,12 +37,52 @@ import g3_baseline_comparison as g3  # noqa: E402, I001  identical case construc
 from evidence_rag.contracts.models import Query, QueryChecklist  # noqa: E402
 from evidence_rag.generator.granite import GraniteGenerator, GraniteLLMClient  # noqa: E402
 from evidence_rag.generator.nli import build_nli_model  # noqa: E402
+from evidence_rag.generator.repair import AnswerRepairer  # noqa: E402
 from evidence_rag.generator.verified import VerifiedGenerator  # noqa: E402
 from evidence_rag.generator.verify_annotate import (  # noqa: E402
     VerifyAnnotateGenerator,
     is_unverified_annotation,
 )
 ARMS = ("baseline", "verify-only", "verify-annotate")
+
+
+class RecordingRepairer:
+    """Captures verify-only's per-claim sentence -> citation mapping.
+
+    Without it verify-only can only be scored under the flat-list convention,
+    where every sentence carries all of the answer's citations. That inflates the
+    per-sentence citation count (1.92 against verify-annotate's 1.13) and costs
+    precision through ALCE's redundancy ablation, so the arms would not be scored
+    under comparable conventions. Script-side wrapper: no src change.
+    """
+
+    def __init__(self, inner: AnswerRepairer) -> None:
+        self.inner = inner
+        self.last: list[dict[str, Any]] = []
+
+    def repair(self, draft: Any, report: Any, selected: Any) -> Any:
+        result = self.inner.repair(draft, report, selected)
+        verifications = {item.claim_id: item for item in report.claims}
+        self.last = []
+        for claim in draft.claims:
+            verification = verifications.get(claim.claim_id)
+            if verification is None or verification.status != "supported":
+                continue
+            fragment = " ".join(draft.answer_text[claim.span.start : claim.span.end].split())
+            if fragment:
+                self.last.append(
+                    {
+                        "sentence": fragment,
+                        "citation": (
+                            verification.supporting_evidence_ids[0]
+                            if verification.supporting_evidence_ids
+                            else None
+                        ),
+                        "claim_id": claim.claim_id,
+                        "outcome": "verified",
+                    }
+                )
+        return result
 
 
 def _empty_checklist(query_id: str, question: str) -> QueryChecklist:
@@ -64,9 +104,10 @@ def main() -> int:
 
     llm = GraniteLLMClient()
     nli = build_nli_model("true")  # production verifier; never the judge
+    repairer = RecordingRepairer(AnswerRepairer())
     arms: dict[str, Any] = {
         "baseline": GraniteGenerator(llm=llm),
-        "verify-only": VerifiedGenerator(llm=llm, nli=nli),
+        "verify-only": VerifiedGenerator(llm=llm, nli=nli, repairer=repairer),
         "verify-annotate": VerifyAnnotateGenerator(llm=llm, nli=nli),
     }
 
@@ -95,6 +136,8 @@ def main() -> int:
                 ],
                 "gold_answers": [list(a) for a in case.gold_answers],
             }
+            if name == "verify-only":
+                record["routing"] = list(repairer.last)
             if name == "verify-annotate":
                 # exact sentence -> verified citation, so citation precision does
                 # not rest on the flat list; plus the entity-conflict drops, which

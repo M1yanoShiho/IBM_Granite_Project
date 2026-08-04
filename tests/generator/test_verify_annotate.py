@@ -43,14 +43,38 @@ class ScriptedNLI:
         return "entailment" if (premise, hypothesis) in self.entailing else "neutral"
 
 
+class _Mismatch:
+    """Mirrors EntityMismatch: evidence_values non-empty means the evidence carried
+    a competing value in the same role; empty means the entity is simply absent."""
+
+    def __init__(self, evidence_values: tuple[str, ...]) -> None:
+        self.entity_type = "name"
+        self.normalized = "claim-entity"
+        self.evidence_values = evidence_values
+
+
 class StubEntityChecker:
-    def __init__(self, inconsistent: set[str] | None = None) -> None:
-        self.inconsistent = inconsistent or set()
+    def __init__(
+        self,
+        inconsistent: set[str] | None = None,
+        absent: set[str] | None = None,
+    ) -> None:
+        self.inconsistent = inconsistent or set()  # genuine conflict
+        self.absent = absent or set()  # entity missing, nothing competing
 
     def check(self, claim_text: str, evidence_text: str):  # type: ignore[no-untyped-def]
+        conflicting = evidence_text in self.inconsistent
+        missing = evidence_text in self.absent
+
         class _Result:
-            consistent = evidence_text not in self.inconsistent
-            mismatches = ()
+            consistent = not (conflicting or missing)
+            mismatches = (
+                (_Mismatch(("rival-value",)),)
+                if conflicting
+                else (_Mismatch(()),)
+                if missing
+                else ()
+            )
 
         return _Result()
 
@@ -145,6 +169,19 @@ def test_entity_conflict_is_the_only_thing_that_drops_a_claim() -> None:
     routing = verifier.route(_claim("claim-1", "Acme rose 8%.", 0, 13), "Acme rose 8%.", selected)
 
     assert routing.outcome == "dropped_entity_conflict"
+
+
+def test_absent_entity_is_annotated_not_dropped() -> None:
+    """An entity the evidence never mentions is an absence, not a contradiction.
+    Under annotate-not-delete only a genuine conflict may destroy content -- the
+    audit put the false-veto rate on the old rule at 0.700."""
+    selected = SelectedEvidenceSet(query_id="q", evidence=(evidence("ev-1", "Something else."),))
+    nli = ScriptedNLI({("Something else.", "Acme rose 8%.")})
+    verifier = CitationRoutedVerifier(nli, StubEntityChecker(absent={"Something else."}))
+
+    routing = verifier.route(_claim("claim-1", "Acme rose 8%.", 0, 13), "Acme rose 8%.", selected)
+
+    assert routing.outcome == "unverified"
 
 
 def test_clean_support_elsewhere_beats_a_conflict() -> None:

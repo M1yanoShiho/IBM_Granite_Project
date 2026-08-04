@@ -15,14 +15,21 @@ unverified.
 Three-way routing per claim:
 
     entailed and entity-consistent  -> keep, attach the VERIFIED citation
-    entailed but entity-conflicting -> drop
-    neither                         -> keep, annotated unverified, no citation
+    entailed, and the evidence carries a COMPETING value in the same role -> drop
+    anything else                   -> keep, annotated unverified, no citation
 
 The third row is the substance of the redesign. It covers genuine no-evidence
 cases and verifier misses alike, and deliberately does not try to tell them
 apart -- ``contradicted`` is unavailable under a binary verifier backend, so an
 entity conflict is the only concrete contradiction signal there is, and it alone
 triggers a drop.
+
+Blind adjudication of the first run's drops put the false-veto rate at **0.700**,
+with a further 0.100 that should have been annotated, so two things narrowed the
+destructive path: only a *genuine* conflict drops a claim (an entity the evidence
+never mentions is an absence, and absences are annotated), and proper nouns are
+detected with ``SpacyEntityExtractor`` rather than by capitalisation, which is
+what produced vetoes on ``name:some`` and ``name:season``.
 """
 
 import re
@@ -36,7 +43,11 @@ from evidence_rag.contracts.models import (
     SelectedEvidenceSet,
 )
 from evidence_rag.generator.draft import DraftAnswerGenerator
-from evidence_rag.generator.entity_check import EntityChecker, EntityConsistencyChecker
+from evidence_rag.generator.entity_check import (
+    EntityChecker,
+    EntityConsistencyChecker,
+    SpacyEntityExtractor,
+)
 from evidence_rag.generator.granite import GraniteLLMClient, TextGenerator
 from evidence_rag.generator.models import Claim, DraftAnswer
 from evidence_rag.generator.nli import NLIModel, build_nli_model
@@ -131,19 +142,33 @@ class CitationRoutedVerifier:
 
     def __init__(self, nli: NLIModel, entity_checker: EntityChecker | None = None) -> None:
         self.nli = nli
-        self.entity_checker = entity_checker or EntityConsistencyChecker()
+        # spaCy NER for the proper-noun side: the capitalisation heuristic in the
+        # rule-based extractor treats sentence-initial common nouns as names, which
+        # the audit found to be the dominant false-veto mechanism.
+        self.entity_checker = entity_checker or EntityConsistencyChecker(SpacyEntityExtractor())
 
-    def _supports(self, evidence_text: str, claim_text: str) -> tuple[bool, bool, tuple[str, ...]]:
-        """(entailed, entity_consistent, mismatch detail) for one claim x evidence pair."""
+    def _supports(
+        self, evidence_text: str, claim_text: str
+    ) -> tuple[bool, bool, bool, tuple[str, ...]]:
+        """(entailed, entity_consistent, genuine_conflict, mismatch detail).
+
+        ``genuine_conflict`` is the *destructive* signal and is deliberately
+        narrower than "inconsistent": it requires the evidence to actually carry a
+        competing value in the same role. A claim entity the evidence simply never
+        mentions is an absence, not a contradiction, and under annotate-not-delete
+        an absence must not destroy content.
+        """
         if self.nli.classify(premise=evidence_text, hypothesis=claim_text) != "entailment":
-            return False, False, ()
+            return False, False, False, ()
         consistency = self.entity_checker.check(claim_text, evidence_text)
+        mismatches = tuple(getattr(consistency, "mismatches", ()))
         detail = tuple(
             f"{m.entity_type}:{m.normalized}"
             + (f"!={'/'.join(m.evidence_values)}" if m.evidence_values else " (absent)")
-            for m in getattr(consistency, "mismatches", ())
+            for m in mismatches
         )
-        return True, consistency.consistent, detail
+        genuine = any(m.evidence_values for m in mismatches)
+        return True, consistency.consistent, genuine, detail
 
     def route(
         self,
@@ -159,7 +184,7 @@ class CitationRoutedVerifier:
             item = by_index.get(index)
             if item is None:
                 continue
-            entailed, consistent, _ = self._supports(item.text, claim.text)
+            entailed, consistent, _genuine, _detail = self._supports(item.text, claim.text)
             if entailed and consistent:
                 return ClaimRouting(
                     claim_id=claim.claim_id,
@@ -174,7 +199,7 @@ class CitationRoutedVerifier:
         conflict_id: str | None = None
         conflict_detail: tuple[str, ...] = ()
         for item in evidence:
-            entailed, consistent, detail = self._supports(item.text, claim.text)
+            entailed, consistent, genuine, detail = self._supports(item.text, claim.text)
             if entailed and consistent:
                 return ClaimRouting(
                     claim_id=claim.claim_id,
@@ -184,7 +209,9 @@ class CitationRoutedVerifier:
                     rescued_by_scan=bool(declared),
                     claim_text=claim.text,
                 )
-            if entailed and conflict_id is None:
+            # Only a GENUINE conflict earns destructive power. An entity the
+            # evidence never mentions is an absence, and absences are annotated.
+            if entailed and genuine and conflict_id is None:
                 conflict_id = item.evidence_id
                 conflict_detail = detail
         return ClaimRouting(
