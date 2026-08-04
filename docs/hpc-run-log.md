@@ -1108,6 +1108,12 @@ print(got); assert got.endswith('@f4f447f5877fc162'), 'checkpoint 与核实时�
   随后 `from_pretrained` **解析到了 `.bin`**,在 `check_torch_load_is_safe()` 上抛
   `CVE-2025-32434`(torch 需 ≥ 2.6)。**即使 `model.safetensors` 随后也落了盘,重跑仍失败** ——
   说明这不是环境问题,是代码没有指定格式。
+  - **实据(非推断):** 计算节点上的 job `18264967` / `18264968` 各跑 **00:01:30 后 FAILED**,
+    `logs/gate0b-18264967.out` 的 traceback 终止于
+    `model = transformers.AutoModelForSeq2SeqLM.from_pretrained(model_id)` ——
+    **即该行的修复前版本,不带 `use_safetensors=True`** —— 再经 `check_torch_load_is_safe()`
+    抛同一个 CVE。登录节点与计算节点在同一行、以同一原因失败,修复正打在该行上。
+    (`18264969` 为同批第三个,提交后即撤。)
   - **修法:** `cli/gate0b.py` 两处 `from_pretrained` 均加 `use_safetensors=True`(含测试)。
     这使安全路径成为唯一路径,且把"这个 repo 没有 safetensors"变成错误信息真正说的那句话,
     而不是一条关于 CVE 的、看不出真因的消息。**失败时不得靠放宽这个参数来"修"**。
