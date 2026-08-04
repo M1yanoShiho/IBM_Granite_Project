@@ -1103,6 +1103,27 @@ print(got); assert got.endswith('@f4f447f5877fc162'), 'checkpoint 与核实时�
   done
   ```
   报告 headline 时必须同时写明该 pair 文件的 `hypothesis_form`(exporter 回显该字段)。
+- **环境前置(2026-08-04 实测,四步缺一不可;干净机器上重跑 R012c 必须照做):**
+  本 checkpoint 的**主 revision 只有 `pytorch_model.bin`,没有 safetensors**;safetensors 仅存在于
+  一个**转换 PR 的 ref** 下,而定位该 ref 需要访问 Hub。计算节点 HF-offline ⇒ 直接失败。
+  1. `hf download lytang/MiniCheck-Flan-T5-Large`(登录节点,~3.1GB)。此时
+     `snapshots/<main-sha>/` 只有 `.bin`。
+  2. **在有网的登录节点**用 `use_safetensors=True` 加载一次。transformers 会经 `auto_conversion`
+     取回转换 PR 的 safetensors,落到**另一个 snapshot 目录**(本次为 `c3f6482d…`)。
+  3. **把该 safetensors 链进主 snapshot**(`refs/main` 指向的那个,本次为 `96eafd01…`):
+     `ln -sfn ../../blobs/<safetensors-blob> snapshots/<main-sha>/model.safetensors`
+  4. **删掉负缓存标记** `.no_exist/<main-sha>/model.safetensors`。第 2 步失败时 huggingface_hub
+     记下了"主 revision 无此文件"的 0 字节标记,该标记会**短路查询、根本不看目录**,故第 3 步单独无效。
+     **只删这一个**;`custom_generate/generate.py` 与 `model.safetensors.index.json` 两个标记要留着 ——
+     删了它们,离线模式下反而会去请求 Hub 而触发新的失败。
+  5. **验收(必须做,且必须带离线开关):**
+     `HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 python -c "from evidence_rag.cli.gate0b import
+     load_score_fn; print(load_score_fn('lytang/MiniCheck-Flan-T5-Large')[2])"` ——
+     调作业真正用的那个函数、在作业真正的环境条件下。输出须为 `…@f4f447f5877fc162`。
+  **三步各自的失败长得完全不同**(CVE 报错 / `OfflineModeIsEnabled` on `auto_conversion` /
+  同样的 `OfflineModeIsEnabled` 但文件明明在),故必须整套记录而不是只记结论。
+  **诊断过程中我两次判错根因**(先判"两种格式选错了",后判"主分支无 safetensors 故须升 torch"),
+  两次都是靠实测推翻的;若当时按第二次判断升了 torch,会白改环境且引入一个跨臂变量。
 - **地雷(2026-08-04,提交后才发现,已修):`torch < 2.6` 下必须显式要求 safetensors。**
   bp1 上 `hf download lytang/MiniCheck-Flan-T5-Large` 抓下 17 个文件含 `pytorch_model.bin`,
   随后 `from_pretrained` **解析到了 `.bin`**,在 `check_torch_load_is_safe()` 上抛
