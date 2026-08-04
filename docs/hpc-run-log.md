@@ -150,8 +150,8 @@
   # 回来后(登录节点,CPU,秒级):
   scripts/retriever_significance.sh 2wiki
   ```
-- Git commit:待本次改动提交后填;Seed:7;top_k=50;base=strong-bm25、k=60(与基线臂完全一致,
-  唯一变量=`include_original`)。
+- Git commit:0bb9262(feat(retriever): optional original-query fusion arm for decompose);
+  Seed:7;top_k=50;base=strong-bm25、k=60(与基线臂完全一致,唯一变量=`include_original`)。
 
 **AFTER:** 未运行。<!-- 填:job id、MRR/R@5/R@10/recall、vs decompose 的 p 值、落在哪个分支(回升/需加权/recall 权衡/机制错) -->
 
