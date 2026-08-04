@@ -7,15 +7,27 @@ from evidence_rag.generator.models import Claim, DraftAnswer
 
 DRAFT_PROMPT = (
     "Answer the question using only the evidence below.\n"
-    "Cover the required facts and obey every constraint.\n\n"
-    "Focus: {focus}\n"
-    "Required facts: {required_facts}\n"
-    "Constraints: {constraints}\n\n"
+    "Cover every part of the question the evidence supports. If the question has "
+    "more than one reasonable reading, address each reading you can.\n"
+    "End every sentence with the bracketed number(s) of the evidence that supports "
+    "it, for example: The sky is blue [1][3].\n\n"
     "If the evidence does not contain the answer, say: I don't know.\n\n"
     "Evidence:\n{context}\n\n"
     "Question: {question}\n"
     "Answer:"
 )
+"""Comprehensiveness is a *soft target* in this prompt, not a runtime mechanism.
+
+Three checklist constructions failed to drive completeness at runtime -- a
+checklist built before retrieval cannot know which requirements the retrieved
+evidence can satisfy -- so the completeness/recheck loop is retired and coverage
+of the question is asked for here instead, then measured in evaluation by
+qa_pairs STR-EM.
+
+The inline citations this asks for are **routing hints, not results**: every one
+is verified downstream, and the share that survives verification is itself a
+reported number, because how far model-declared citations can be trusted is the
+baseline claim this project exists to test."""
 
 UNKNOWN_ANSWERS = {
     "",

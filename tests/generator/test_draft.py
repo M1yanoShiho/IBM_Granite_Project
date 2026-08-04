@@ -56,10 +56,13 @@ def test_draft_generator_answers_using_selected_evidence() -> None:
 
     assert answer == "Revenue increased by ten percent."
     assert "What changed?" in llm.prompts[0]
-    assert "Focus: 2024 performance" in llm.prompts[0]
-    assert "Required facts: revenue change" in llm.prompts[0]
-    assert "Constraints: exclude forecasts" in llm.prompts[0]
     assert "[1] (ev-1) Revenue increased by ten percent." in llm.prompts[0]
+    # completeness is retired as a runtime mechanism, so the checklist no longer
+    # steers the draft: comprehensiveness is asked for directly and measured in
+    # evaluation by qa_pairs STR-EM instead.
+    assert "Cover every part of the question" in llm.prompts[0]
+    assert "End every sentence with the bracketed number" in llm.prompts[0]
+    assert "Required facts:" not in llm.prompts[0]
 
 
 def test_draft_generator_rejects_query_id_mismatch() -> None:

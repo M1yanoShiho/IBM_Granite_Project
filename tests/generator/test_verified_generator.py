@@ -138,7 +138,9 @@ def test_verified_generator_runs_real_a1_a2_and_a3_components_together() -> None
 
     assert result.answer == "Revenue rose 8%."
     assert result.cited_evidence_ids == ("ev-1",)
-    assert "Constraints: exclude forecasts" in llm.prompts[0]
+    # the draft prompt no longer carries the checklist: completeness is retired as
+    # a runtime mechanism and comprehensiveness is asked for directly
+    assert "Cover every part of the question" in llm.prompts[0]
 
 
 def test_verified_generator_keeps_supported_answer_and_adds_found_gap() -> None:
