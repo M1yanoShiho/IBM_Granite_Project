@@ -170,6 +170,34 @@ def test_decompose_include_original_drift_is_rejected(tmp_path: Path) -> None:
         )
 
 
+def test_decompose_rejects_unknown_fusion_from_config() -> None:
+    with pytest.raises(ValueError, match="'fusion' must be 'rrf' or 'best-rank'"):
+        build_retriever(
+            config("decompose", base={"name": "bm25"}, fusion="mystery"),
+            corpus(),
+        )
+
+
+def test_decompose_default_fusion_is_absent_from_recorded_parameters(
+    tmp_path: Path,
+) -> None:
+    # Same index-signature reasoning as include_original: "rrf" was the only behaviour
+    # when existing decompose indexes were written, so the default must stay unrecorded.
+    manifest = prepare_retriever_index(
+        config("decompose", base={"name": "strong-bm25"}), corpus(), tmp_path
+    )
+    assert "fusion" not in manifest.parameters
+
+
+def test_decompose_records_best_rank_fusion_when_selected(tmp_path: Path) -> None:
+    manifest = prepare_retriever_index(
+        config("decompose", base={"name": "strong-bm25"}, fusion="best-rank"),
+        corpus(),
+        tmp_path,
+    )
+    assert manifest.parameters["fusion"] == "best-rank"
+
+
 def test_manifest_implementation_matches_registry(tmp_path: Path) -> None:
     snapshot = corpus()
     manifest = prepare_retriever_index(config("bm25"), snapshot, tmp_path)

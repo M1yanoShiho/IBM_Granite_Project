@@ -23,6 +23,8 @@ PAIRS=(
   "hybrid-convex granite-dense" # Score fusion vs dense
   "strong-bm25 bm25"            # Tuned sparse vs baseline sparse
   "decompose-orig decompose"    # Fusing the original query back in (R1 follow-up)
+  "decompose-bestrank decompose"           # max-rank fusion vs RRF's sum (R2 follow-up)
+  "decompose-orig-bestrank decompose-orig" # ...and on top of the original-query arm
 )
 METRICS=(retriever.core.document_mrr retriever.core.document_recall_at_10)
 

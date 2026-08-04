@@ -18,10 +18,16 @@ def _ranked(
     *,
     query_id: str,
     top_k: int,
+    secondary: dict[str, float] | None = None,
 ) -> CandidateSet:
-    # Sort by fused score desc, breaking ties on evidence_id for determinism
-    # (mirrors the tie-break in BM25/dense retrievers).
-    ordered = sorted(scored.items(), key=lambda item: (-item[1], item[0]))
+    # Sort by fused score desc, then by an optional secondary score desc, breaking
+    # remaining ties on evidence_id for determinism (mirrors the tie-break in
+    # BM25/dense retrievers). Callers that pass no secondary score are unaffected.
+    secondary = secondary or {}
+    ordered = sorted(
+        scored.items(),
+        key=lambda item: (-item[1], -secondary.get(item[0], 0.0), item[0]),
+    )
     candidates = tuple(
         representative[evidence_id].model_copy(
             update={"retrieval_score": score, "retrieval_rank": rank}
@@ -58,6 +64,55 @@ def reciprocal_rank_fusion(
             )
             representative.setdefault(candidate.evidence_id, candidate)
     return _ranked(scored, representative, query_id=query_id, top_k=top_k)
+
+
+def best_rank_fusion(
+    results: Sequence[CandidateSet],
+    *,
+    query_id: str,
+    top_k: int,
+    k: int = DEFAULT_RRF_K,
+) -> CandidateSet:
+    """Fuse ranked lists by each candidate's *best* rank, summed rank as tie-break.
+
+    RRF (above) *sums* ``1 / (k + rank)`` across arms, which rewards appearing in
+    many lists. On decomposed multi-hop queries that is the wrong incentive: a gold
+    document answers exactly one hop, so it ranks highly in one arm and is absent
+    from the rest, while a document ranking mediocrely in every arm accumulates more
+    total mass and overtakes it (measured: R1/R2 in ``docs/results-summary.md``).
+    Taking the maximum instead makes a single strong placement decisive, which is the
+    property a multi-hop gold document actually has.
+
+    Two caveats worth knowing before tuning this:
+
+    - ``k`` does **not** affect the ordering here. ``max`` of a monotonically
+      decreasing function of rank is equivalent to ``min`` of rank, so ``k`` only
+      rescales the recorded score. Sweeping it is pointless; it is accepted solely to
+      keep the signature interchangeable with :func:`reciprocal_rank_fusion`.
+    - Pure ``max`` ties heavily — every document placed first by *some* arm shares the
+      identical score, leaving rank 1 to an arbitrary tie-break. The summed RRF score
+      is therefore kept as a secondary key, so breadth across arms still separates
+      documents that are tied on their best placement instead of falling through to
+      alphabetical order.
+    """
+
+    if top_k <= 0:
+        raise ValueError("top_k must be positive")
+    if k <= 0:
+        raise ValueError("RRF k must be positive")
+    best: dict[str, float] = {}
+    total: dict[str, float] = {}
+    representative: dict[str, EvidenceCandidate] = {}
+    for result in results:
+        for candidate in result.candidates:
+            contribution = 1.0 / (k + candidate.retrieval_rank)
+            evidence_id = candidate.evidence_id
+            best[evidence_id] = max(best.get(evidence_id, 0.0), contribution)
+            total[evidence_id] = total.get(evidence_id, 0.0) + contribution
+            representative.setdefault(evidence_id, candidate)
+    return _ranked(
+        best, representative, query_id=query_id, top_k=top_k, secondary=total
+    )
 
 
 def min_max_normalise(candidates: Sequence[EvidenceCandidate]) -> dict[str, float]:

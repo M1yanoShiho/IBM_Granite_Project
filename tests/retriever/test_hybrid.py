@@ -2,6 +2,7 @@ import pytest
 
 from evidence_rag.contracts.models import CandidateSet, EvidenceCandidate, Query
 from evidence_rag.retriever.fusion import (
+    best_rank_fusion,
     convex_fusion,
     min_max_normalise,
     reciprocal_rank_fusion,
@@ -79,6 +80,58 @@ def test_rrf_fusion_helper_dedupes_and_reranks() -> None:
     fused = reciprocal_rank_fusion((a, b), query_id="q", top_k=5)
     assert len(fused.candidates) == 1
     assert fused.candidates[0].retrieval_rank == 1
+
+
+def test_best_rank_fusion_keeps_a_single_arm_specialist_on_top() -> None:
+    # The measured multi-hop failure in one shape: "spec" is first in one arm and absent
+    # from the others; "broad" is mid-ranked in all three. RRF's sum lets breadth win.
+    spec = candidate("ev-spec", "d-spec", 9.0, 1)
+    broad_ranks = (5, 5, 5)
+    arms = tuple(
+        CandidateSet(
+            query_id="q",
+            candidates=(
+                (spec,) if index == 0 else ()
+            )
+            + (candidate("ev-broad", "d-broad", 1.0, rank),),
+        )
+        for index, rank in enumerate(broad_ranks)
+    )
+
+    rrf = reciprocal_rank_fusion(arms, query_id="q", top_k=5)
+    best = best_rank_fusion(arms, query_id="q", top_k=5)
+
+    assert rrf.candidates[0].evidence_id == "ev-broad"
+    assert best.candidates[0].evidence_id == "ev-spec"
+
+
+def test_best_rank_fusion_breaks_best_rank_ties_on_breadth_not_alphabet() -> None:
+    # Two documents each placed first by some arm tie on best rank. Falling through to
+    # evidence_id would make rank 1 arbitrary, so the summed RRF score decides: "ev-b"
+    # is first in one arm and also present in the other, "ev-a" only in one.
+    arm_a = CandidateSet(
+        query_id="q",
+        candidates=(candidate("ev-a", "da", 9.0, 1), candidate("ev-b", "db", 8.0, 2)),
+    )
+    arm_b = CandidateSet(query_id="q", candidates=(candidate("ev-b", "db", 9.0, 1),))
+
+    fused = best_rank_fusion((arm_a, arm_b), query_id="q", top_k=5)
+
+    assert [c.evidence_id for c in fused.candidates] == ["ev-b", "ev-a"]
+
+
+def test_best_rank_fusion_ordering_is_insensitive_to_k() -> None:
+    # max of a monotone function of rank is equivalent to min rank, so k only rescales
+    # the recorded score. Documented in best_rank_fusion; guarded here so nobody sweeps it.
+    arms = (
+        CandidateSet(query_id="q", candidates=(candidate("ev-1", "d1", 9.0, 1),)),
+        CandidateSet(query_id="q", candidates=(candidate("ev-2", "d2", 9.0, 3),)),
+    )
+    low = best_rank_fusion(arms, query_id="q", top_k=5, k=1)
+    high = best_rank_fusion(arms, query_id="q", top_k=5, k=1000)
+    assert [c.evidence_id for c in low.candidates] == [
+        c.evidence_id for c in high.candidates
+    ]
 
 
 def test_min_max_normalise_equal_scores_map_to_one() -> None:

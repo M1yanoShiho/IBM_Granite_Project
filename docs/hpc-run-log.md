@@ -194,6 +194,72 @@
 
 ---
 
+## R3 — 修法的普适性(SciFact/NQ)+ 换融合数学(best-rank),两问并行
+
+**状态:** READY——三件套齐(代码 `fusion="best-rank"` + 4 个 config + 本条目);**跑之前写**。
+承接 R2:原始臂等权加入只回收 37% MRR,且回收比例随深度递增(37%→90%)。
+
+**BEFORE(预注册):**
+
+- **本条同时问两个独立问题,分开判定,不许互相解释:**
+
+  **Q1(普适性):`include_original` 是普遍有效,还是只在给 2Wiki 擦屁股?**
+  2Wiki 上 strong-bm25 MRR **.9580**(BM25 在 92.7% case 直接命中 rank 1)——该数据集 query
+  词汇特征极鲜明,**天花板天生就高、留给分解的空间本就极小**。故"2Wiki 上修法有效"不足以
+  说明修法好。SciFact(baseline decompose .5584 / strong-bm25 .6105)与 NQ(.7682 / .8153)
+  差距小得多、有真实提升空间,是更公允的检验场。
+  - 预期 + 方向:两数据集上 decompose-orig MRR **↑ 且显著**;recall 基本不动。
+  - **诚实的替代:** 若 SciFact/NQ 上**不显著或反而下降**,则修法本质是"2Wiki 特有的
+    自伤修复",不是通用改进——那是更弱但更真实的结论,必须如实写。
+
+  **Q2(机制的直接解法):把 RRF 的 sum 换成 max,能否比加原始臂更对症?**
+  R1/R2 的机制是"sum 奖励广谱平庸、惩罚单点精准,而多跳 gold 正是单点专家"。若该机制成立,
+  **直接改融合数学**应比"再加一臂去对抗稀释"更有效。实现为 `fusion="best-rank"`
+  (max 为主、sum 仅作平局裁决;见 `fusion.best_rank_fusion` 的两条 caveat)。
+  - **判定场是 SciFact,不是 2Wiki(重要,本条初稿曾把 Q2 只放在 2Wiki,是 scoping 错误):**
+    2Wiki 上 BM25 在 92.7% case 直接命中 rank 1 → 在该数据集上**任何稀释完整 query 排名的
+    融合都会伤、任何恢复它的改动都会有效**,那检验的是 2Wiki 的词汇特性,而非融合规则的优劣。
+    SciFact baseline decompose 仅 .5584、有真实提升空间,才是"融合规则谁更好"的公允检验场。
+    2Wiki 两臂仍跑,但只作**机制一致性的旁证**,不作 Q2 的判据。
+  - 预期 + 方向:两数据集上 decompose-bestrank MRR **显著高于**同数据集的 decompose;
+    与 decompose-orig 比较**方向不预设**——这正是要测的。第四臂(orig + best-rank)测叠加性。
+  - **诚实的替代:** (a) best-rank 可能因平局过多而不升甚至下降(纯 max 的已知弱点,已用
+    sum 做二级键缓解,但未必够);(b) 若 best-rank 与 orig 收益**不叠加**,说明两者在修同一
+    个损伤,不是两个独立问题;(c) 若 best-rank 只在 2Wiki 有效、SciFact 上无效,则"改融合
+    数学"这条路被否掉,机制解释仅对 2Wiki 这种高词汇区分度语料成立。
+
+- **⚠️ 判定的标尺是 .9580,不是 .5702(承接 R2):** 上述任何一臂"比 decompose 高"都只是
+  在**补回自伤**。**真问题是有没有任何配置能超过"什么都不做、直接 strong-bm25"**——超过了
+  才说明分解在多跳上贡献了额外信息。若全部低于 .9580,诚实结论是**分解在此数据集上无用**,
+  这是正当结论而非失败,不许用"相对 decompose 提升了 X%"来包装。
+- 兼容性:`fusion` 默认 `"rrf"` 且**默认时不写入 index 参数**(与 `include_original` 同处理),
+  故 MengW7 已记录结果与既有 index cache 全不受影响;有回归测试守卫两者。
+- 精确命令(SciFact 需先 materialize;NQ 用既有 `runs/niah-base`):
+  ```
+  # 登录节点(SciFact 首次):
+  evidence-rag-materialize-benchmark scifact --split test --output data/benchmarks/scifact/test
+  # Q1(普适性)+ Q2 的判定场(SciFact):
+  sbatch scripts/run_retriever_eval.slurm \
+    configs/experiments/retr_scifact_decompose-orig.toml \
+    configs/experiments/retr_scifact_decompose-bestrank.toml \
+    configs/experiments/retr_scifact_decompose-orig-bestrank.toml \
+    configs/experiments/retr_nq_decompose-orig.toml
+  # Q2 的旁证(2Wiki,数据集已在 runs/twowiki):
+  sbatch scripts/run_retriever_eval.slurm \
+    configs/experiments/retr_2wiki_decompose-bestrank.toml \
+    configs/experiments/retr_2wiki_decompose-orig-bestrank.toml
+  # 回来后:
+  bash scripts/retriever_significance.sh 2wiki   # 已含 bestrank 两对
+  bash scripts/retriever_significance.sh scifact
+  bash scripts/retriever_significance.sh nq
+  ```
+- Git commit:待本次改动提交后填;Seed:7;top_k=50;base=strong-bm25、k=60 全臂一致
+  (Q1 唯一变量=`include_original`;Q2 唯一变量=`fusion`)。
+
+**AFTER:** 未运行。<!-- 填:job id、四臂指标、各 p 值、Q1 是否普适、Q2 是否更对症/是否叠加、有无任何臂超过 strong-bm25 -->
+
+---
+
 ## E2 — gate-on/off 配对 selector 对照(spec §12 主对照)
 
 **状态:** READY——三件套齐(configs + slurm + 本条目,commit 3c37d4c)。只差登录节点下 dpr-w100 + granite 后跑。

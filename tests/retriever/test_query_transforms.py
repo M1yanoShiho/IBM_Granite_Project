@@ -1,3 +1,5 @@
+import pytest
+
 from evidence_rag.contracts.models import CandidateSet, EvidenceCandidate, Query
 from evidence_rag.retriever.granite import DecomposingRetriever, HyDERetriever
 
@@ -131,6 +133,51 @@ def test_decompose_include_original_does_not_duplicate_an_echoed_query() -> None
     retriever.retrieve(Query(query_id="q", text="original?"), top_k=5)
 
     assert [q.text for q in base.received] == ["original?", "b?"]
+
+
+def test_decompose_rejects_an_unknown_fusion() -> None:
+    with pytest.raises(ValueError, match="decompose 'fusion' must be one of"):
+        DecomposingRetriever(
+            RecordingRetriever(), ConstantGenerator("a?"), fusion="mystery"
+        )
+
+
+def test_decompose_best_rank_fusion_prefers_the_single_arm_specialist() -> None:
+    # Distinct scores per sub-query so the two fusions can disagree: "spec" is placed
+    # first by one sub-query only, "broad" is mid-ranked by both. Summing (rrf) lets
+    # breadth win; taking the best rank keeps the specialist on top.
+    class TwoDocRetriever:
+        def retrieve(self, query: Query, top_k: int) -> CandidateSet:
+            if query.text == "a?":
+                ranks = {"ev-spec": 1, "ev-broad": 5}
+            else:
+                ranks = {"ev-broad": 4}
+            return CandidateSet(
+                query_id=query.query_id,
+                candidates=tuple(
+                    EvidenceCandidate(
+                        evidence_id=evidence_id,
+                        document_id=evidence_id,
+                        chunk_id=f"chunk-{evidence_id}",
+                        text=evidence_id,
+                        source_uri=f"fixture://{evidence_id}",
+                        retrieval_score=1.0 / rank,
+                        retrieval_rank=rank,
+                    )
+                    for evidence_id, rank in sorted(ranks.items(), key=lambda kv: kv[1])
+                ),
+            )
+
+    query = Query(query_id="q", text="x")
+    generator = ConstantGenerator("a?\nb?")
+
+    rrf = DecomposingRetriever(TwoDocRetriever(), generator).retrieve(query, top_k=5)
+    best = DecomposingRetriever(
+        TwoDocRetriever(), generator, fusion="best-rank"
+    ).retrieve(query, top_k=5)
+
+    assert rrf.candidates[0].evidence_id == "ev-broad"
+    assert best.candidates[0].evidence_id == "ev-spec"
 
 
 def test_decompose_include_original_still_falls_back_when_no_subqueries() -> None:
