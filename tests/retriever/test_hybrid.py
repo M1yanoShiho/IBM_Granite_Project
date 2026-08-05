@@ -120,6 +120,60 @@ def test_best_rank_fusion_breaks_best_rank_ties_on_breadth_not_alphabet() -> Non
     assert [c.evidence_id for c in fused.candidates] == ["ev-b", "ev-a"]
 
 
+def one_arm_gold_versus_two_arm_distractor() -> tuple[CandidateSet, ...]:
+    # The R2 dilution shape: gold is placed first by exactly one arm (the original
+    # query) and absent from the N sub-query arms, each of which places the same
+    # distractor first. Summed at parity, N votes beat 1.
+    return (
+        CandidateSet(query_id="q", candidates=(candidate("ev-gold", "d-gold", 9.0, 1),)),
+        CandidateSet(query_id="q", candidates=(candidate("ev-distractor", "d-x", 9.0, 1),)),
+        CandidateSet(query_id="q", candidates=(candidate("ev-distractor", "d-x", 9.0, 1),)),
+    )
+
+
+def test_rrf_weights_let_one_arm_outvote_the_majority() -> None:
+    arms = one_arm_gold_versus_two_arm_distractor()
+
+    parity = reciprocal_rank_fusion(arms, query_id="q", top_k=5)
+    weighted = reciprocal_rank_fusion(arms, query_id="q", top_k=5, weights=(3.0, 1.0, 1.0))
+
+    assert parity.candidates[0].evidence_id == "ev-distractor"
+    assert weighted.candidates[0].evidence_id == "ev-gold"
+
+
+def test_best_rank_fusion_applies_weights_too() -> None:
+    # Both fusions are dispatched through one signature, so weights must reach either.
+    # At parity the two tie on best rank and the summed secondary key hands rank 1 to
+    # the twice-seen distractor; weighting the gold arm makes its placement decisive.
+    arms = one_arm_gold_versus_two_arm_distractor()
+
+    parity = best_rank_fusion(arms, query_id="q", top_k=5)
+    weighted = best_rank_fusion(arms, query_id="q", top_k=5, weights=(3.0, 1.0, 1.0))
+
+    assert parity.candidates[0].evidence_id == "ev-distractor"
+    assert weighted.candidates[0].evidence_id == "ev-gold"
+
+
+def test_equal_weights_reproduce_the_unweighted_fusions() -> None:
+    # Guards every recorded result: passing weights explicitly must not perturb the
+    # default path, so an all-ones sweep point stays comparable with the baseline.
+    arms = one_arm_gold_versus_two_arm_distractor()
+    ones = (1.0, 1.0, 1.0)
+
+    for fuse in (reciprocal_rank_fusion, best_rank_fusion):
+        default = fuse(arms, query_id="q", top_k=5)
+        explicit = fuse(arms, query_id="q", top_k=5, weights=ones)
+        assert [(c.evidence_id, c.retrieval_score) for c in default.candidates] == [
+            (c.evidence_id, c.retrieval_score) for c in explicit.candidates
+        ]
+
+
+def test_fusion_weights_must_match_the_number_of_arms() -> None:
+    arms = one_arm_gold_versus_two_arm_distractor()
+    with pytest.raises(ValueError, match="one entry per result list"):
+        reciprocal_rank_fusion(arms, query_id="q", top_k=5, weights=(1.0, 1.0))
+
+
 def test_best_rank_fusion_ordering_is_insensitive_to_k() -> None:
     # max of a monotone function of rank is equivalent to min rank, so k only rescales
     # the recorded score. Documented in best_rank_fusion; guarded here so nobody sweeps it.

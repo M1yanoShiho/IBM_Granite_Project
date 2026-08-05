@@ -153,7 +153,14 @@ MRR **+0.1453 (p=0.0000)**, R@10 **+0.1148 (p=0.0000)**, recall flat (+0.0065). 
 **37%** of the MRR gap, and the recovered fraction rises with depth — MRR 37% < R@5 49% <
 R@10 66% < **R@20 90%**. So the original-query arm reliably drags gold back into the top 20 but
 cannot win rank 1: the signature of one vote diluted among N sub-query votes. Weighting that arm
-rather than adding it at equal weight is the obvious next step, and is untested.
+rather than adding it at equal weight is the obvious next step.
+
+**Weighting is now implemented but not yet measured (2026-08-05).** Both fusion primitives take
+per-arm `weights`, and `DecomposingRetriever` exposes `original_weight` (default `1.0`, so R2's arm
+is reproduced exactly and no recorded result moves). Sweep points are in
+`configs/experiments/retr_2wiki_decompose-orig-w{2,3,5}.toml`; each weight yields a distinct index
+signature, so two sweep points cannot silently share one index. **No claim is made about whether
+this recovers rank 1 — that is the pending run.**
 
 **What this means practically — stated plainly.** Even fixed, Decompose (0.7155) is still far below
 simply using StrongBM25 (0.9580). The fix repairs a *self-inflicted* wound; it does not make
@@ -199,8 +206,11 @@ what ultimately trusts (or doesn't) the retrieved caption.
 ## Next steps
 
 1. **Weight the original-query fusion arm instead of adding it at equal weight** — R4 shows the arm
-   recovers the top-20 but not rank 1, consistent with one vote diluted among N. This is the direct
-   follow-up and is untested.
+   recovers the top-20 but not rank 1, consistent with one vote diluted among N. **Mechanism landed
+   2026-08-05, result still pending**: run the `w{2,3,5}` sweep configs on 2Wiki and pair against
+   the `original_weight=1.0` arm. The pre-registered prediction is that MRR rises with weight while
+   recall stays flat (R2 already showed the pool is intact); a *falsifying* outcome is MRR gaining
+   nothing, which would mean the dilution account is wrong and the loss is elsewhere.
 2. **Measure hallucinated-caption rate on real (non-synthetic) documents** — the OCR-smoke PASS
    proves the mechanism works, not that captions are trustworthy at scale; requires the
    cross-module sync with Generator noted above.

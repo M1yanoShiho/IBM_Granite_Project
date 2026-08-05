@@ -198,6 +198,81 @@ def test_decompose_records_best_rank_fusion_when_selected(tmp_path: Path) -> Non
     assert manifest.parameters["fusion"] == "best-rank"
 
 
+def test_decompose_default_original_weight_is_absent_from_recorded_parameters(
+    tmp_path: Path,
+) -> None:
+    # Same index-signature reasoning as include_original and fusion: parity was the
+    # only behaviour when existing decompose indexes were written.
+    manifest = prepare_retriever_index(
+        config("decompose", base={"name": "strong-bm25"}, include_original=True),
+        corpus(),
+        tmp_path,
+    )
+    assert "original_weight" not in manifest.parameters
+
+
+def test_decompose_records_original_weight_when_set(tmp_path: Path) -> None:
+    manifest = prepare_retriever_index(
+        config(
+            "decompose",
+            base={"name": "strong-bm25"},
+            include_original=True,
+            original_weight=3.0,
+        ),
+        corpus(),
+        tmp_path,
+    )
+    assert manifest.parameters["original_weight"] == 3.0
+
+
+def test_decompose_original_weight_drift_is_rejected(tmp_path: Path) -> None:
+    snapshot = corpus()
+    prepare_retriever_index(
+        config(
+            "decompose",
+            base={"name": "strong-bm25"},
+            include_original=True,
+            original_weight=3.0,
+        ),
+        snapshot,
+        tmp_path,
+    )
+
+    # Two points of a weight sweep must not share one index directory: the weight
+    # changes ranking, so reusing the index would silently mislabel the arm.
+    with pytest.raises(ValueError, match="parameters mismatch"):
+        build_retriever(
+            config(
+                "decompose",
+                base={"name": "strong-bm25"},
+                include_original=True,
+                original_weight=5.0,
+            ),
+            snapshot,
+            index_directory=tmp_path,
+        )
+
+
+def test_decompose_config_rejects_original_weight_without_include_original() -> None:
+    with pytest.raises(ValueError, match="'original_weight' requires 'include_original'"):
+        build_retriever(
+            config("decompose", base={"name": "bm25"}, original_weight=2.0), corpus()
+        )
+
+
+def test_decompose_config_rejects_a_non_positive_original_weight() -> None:
+    with pytest.raises(ValueError, match="'original_weight' must be positive"):
+        build_retriever(
+            config(
+                "decompose",
+                base={"name": "bm25"},
+                include_original=True,
+                original_weight=-1.0,
+            ),
+            corpus(),
+        )
+
+
 def test_manifest_implementation_matches_registry(tmp_path: Path) -> None:
     snapshot = corpus()
     manifest = prepare_retriever_index(config("bm25"), snapshot, tmp_path)

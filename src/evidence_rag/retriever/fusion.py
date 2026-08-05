@@ -37,18 +37,36 @@ def _ranked(
     return CandidateSet(query_id=query_id, candidates=candidates)
 
 
+def _arm_weights(
+    results: Sequence[CandidateSet],
+    weights: Sequence[float] | None,
+) -> tuple[float, ...]:
+    if weights is None:
+        return (1.0,) * len(results)
+    if len(weights) != len(results):
+        raise ValueError("fusion weights must have one entry per result list")
+    return tuple(float(weight) for weight in weights)
+
+
 def reciprocal_rank_fusion(
     results: Sequence[CandidateSet],
     *,
     query_id: str,
     top_k: int,
     k: int = DEFAULT_RRF_K,
+    weights: Sequence[float] | None = None,
 ) -> CandidateSet:
     """Fuse ranked lists by Reciprocal Rank Fusion (Cormack et al., 2009).
 
-    Each candidate contributes ``1 / (k + rank)`` from every list it appears in;
-    ``k`` damps the weight of top ranks (larger ``k`` flattens the curve). RRF
+    Each candidate contributes ``weight / (k + rank)`` from every list it appears
+    in; ``k`` damps the weight of top ranks (larger ``k`` flattens the curve). RRF
     fuses *rankings*, so the arms' scores need not be comparable.
+
+    ``weights`` (one entry per list, default all ``1.0``) scales each list's vote.
+    Equal weights make a list's influence shrink as lists are added, since every
+    list votes once into the same sum — which is exactly the dilution measured in
+    R2 (``docs/results-summary.md``), where re-adding the original query as one
+    equal arm among N sub-queries recovered its top-20 placements but not rank 1.
     """
 
     if top_k <= 0:
@@ -57,9 +75,9 @@ def reciprocal_rank_fusion(
         raise ValueError("RRF k must be positive")
     scored: dict[str, float] = {}
     representative: dict[str, EvidenceCandidate] = {}
-    for result in results:
+    for result, weight in zip(results, _arm_weights(results, weights), strict=True):
         for candidate in result.candidates:
-            scored[candidate.evidence_id] = scored.get(candidate.evidence_id, 0.0) + 1.0 / (
+            scored[candidate.evidence_id] = scored.get(candidate.evidence_id, 0.0) + weight / (
                 k + candidate.retrieval_rank
             )
             representative.setdefault(candidate.evidence_id, candidate)
@@ -72,6 +90,7 @@ def best_rank_fusion(
     query_id: str,
     top_k: int,
     k: int = DEFAULT_RRF_K,
+    weights: Sequence[float] | None = None,
 ) -> CandidateSet:
     """Fuse ranked lists by each candidate's *best* rank, summed rank as tie-break.
 
@@ -85,10 +104,13 @@ def best_rank_fusion(
 
     Two caveats worth knowing before tuning this:
 
-    - ``k`` does **not** affect the ordering here. ``max`` of a monotonically
-      decreasing function of rank is equivalent to ``min`` of rank, so ``k`` only
-      rescales the recorded score. Sweeping it is pointless; it is accepted solely to
-      keep the signature interchangeable with :func:`reciprocal_rank_fusion`.
+    - At equal ``weights``, ``k`` does **not** affect the ordering here. ``max`` of a
+      monotonically decreasing function of rank is equivalent to ``min`` of rank, so
+      ``k`` only rescales the recorded score. Sweeping it is pointless; it is accepted
+      solely to keep the signature interchangeable with
+      :func:`reciprocal_rank_fusion`. Unequal ``weights`` break that equivalence — a
+      weighted arm's placement is compared against another arm's *through* the ``k``
+      offset — so ``k`` and the weights must then be tuned together.
     - Pure ``max`` ties heavily — every document placed first by *some* arm shares the
       identical score, leaving rank 1 to an arbitrary tie-break. The summed RRF score
       is therefore kept as a secondary key, so breadth across arms still separates
@@ -103,9 +125,9 @@ def best_rank_fusion(
     best: dict[str, float] = {}
     total: dict[str, float] = {}
     representative: dict[str, EvidenceCandidate] = {}
-    for result in results:
+    for result, weight in zip(results, _arm_weights(results, weights), strict=True):
         for candidate in result.candidates:
-            contribution = 1.0 / (k + candidate.retrieval_rank)
+            contribution = weight / (k + candidate.retrieval_rank)
             evidence_id = candidate.evidence_id
             best[evidence_id] = max(best.get(evidence_id, 0.0), contribution)
             total[evidence_id] = total.get(evidence_id, 0.0) + contribution
