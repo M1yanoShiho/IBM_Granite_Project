@@ -442,8 +442,52 @@ MRR,且回收比例随深度递增(MRR 37% < R@5 49% < R@10 66% < R@20 90%)= "1 
   上表六行已从该 raw 重新聚合复核,逐项一致;三条推导亦复核:chunk **10.33×** / 延迟 **10.47×** /
   build **10.22×**,p95/mean 全程 **1.313–1.372**。运行环境:Python 3.11.15、strong-bm25、top_k=50、
   chunk_size=180/overlap=30。
-- **写给 results-summary 的草稿:** 见 R4 节(Retriever)。**注意措辞范围:这是本实现的性质,
-  不是 BM25 算法的性质。**
+- **已写入 results-summary:** Retriever 节 **R5**(编号与本台账对齐;R4 未跑故缺位,该处有说明)。
+  **注意措辞范围:这是本实现的性质,不是 BM25 算法的性质。**
+
+---
+
+## R6 — 常数项外提在**真语料**上的 before/after(把本地合成数升级为正式结果)
+
+**状态:** READY——代码已合入(`159069c`)+ 复用 `scripts/run_retriever_scaling.slurm` + 本条目;
+**跑之前写。** R5 把开销拆成 (a) 常数项与 (b) 无倒排索引两处,(a) 已修但**只在本地合成语料上量过**
+(6.0–8.4×),按本台账规则该数不得当作正式结果。本条把它做实。
+
+**BEFORE(预注册):**
+
+- 目的:同一脚本、同一语料、同一参数,**唯一变量=代码版本**(R5 跑在 `bec0f72`,本轮跑在
+  `159069c` 之后)。R5 的 raw 已在仓库(`8e33a35`),故 before 臂无须重跑,直接配对比较。
+- **预期 1(加速幅度):** 8778 chunk 处 mean 从 **153.51 ms** 降到 **~20–26 ms**;
+  `ms/1k_chunks` 从 **~17.2** 降到 **~2.2–2.9**。区间取自本地实测的 6–8×。
+- **预期 2(线性必须保持——最能证伪的一条):** (a) 是常数项优化、**不动渐近复杂度**,
+  故 `ms/1k_chunks` 应**仍近似恒定**,只是整体下移。若它转为随规模上升或下降,
+  说明改动的影响不止常数项,须回头查。
+- **预期 3(内存上升):** 缓存 ~2.9 KB/chunk ⇒ 8778 chunk 处 peak RSS 从 **161.5 MB** 升到
+  **~185 MB**。**这条是代价不是收益,必须同报。**
+- **诚实的替代结果(必须接受并如实报告):**
+  (a) **真语料加速显著低于 6×** → 合成词表未能代表真实文本,本地数被高估,以真语料为准
+      并撤回本地那组数字;
+  (b) **内存涨幅显著超过 ~24 MB** → 2.9 KB/chunk 估计偏低,真实 chunk 词汇量更大,
+      则 (a) 在大语料上的内存代价比已记录的更严重;
+  (c) **`ms/1k_chunks` 不再恒定** → 见预期 2,改动有未预期的影响。
+- **本条不测什么:** 不测检索质量。(a) 的输出逐位不变已由
+  `tests/retriever/test_bm25_scoring_equivalence.py` 在代码层证明,**不需要也不应该**再用指标
+  复跑去"验证"——那只会把一个确定性事实变成一次噪声测量。
+- 精确命令(**必须给第二个参数,否则会覆盖 R5 的 before raw**):
+  ```
+  cd /user/work/$USER/IBM_Granite_Project && git pull
+  mkdir -p logs results && sbatch scripts/run_retriever_scaling.slurm \
+    data/benchmarks/scifact/test/manifest.json \
+    results/retriever-scaling-scifact-hoisted.json
+  # 回来后按 R5 同规则把 raw 拉回:
+  git add -f results/retriever-scaling-scifact-hoisted.json
+  ```
+- Git commit:`159069c`(perf: hoist the per-query constants out of the BM25 scan);
+  固定项与 R5 逐项一致:top_k=50、chunk_size=180/overlap=30、queries=50、
+  retriever=strong-bm25、sizes=500/1000/2000/3000/4000/5183、partition=compute。
+
+**AFTER:** 未运行。<!-- 填:job id、六行新表、各规模加速比、ms/1k_chunks 是否仍恒定、
+peak_rss 涨幅 vs 预期 ~24MB、三条预期各是否成立、是否需撤回本地合成数 -->
 
 ---
 
