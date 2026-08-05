@@ -25,8 +25,19 @@ PAIRS=(
   "decompose-orig decompose"    # Fusing the original query back in (R1 follow-up)
   "decompose-bestrank decompose"           # max-rank fusion vs RRF's sum (R2 follow-up)
   "decompose-orig-bestrank decompose-orig" # ...and on top of the original-query arm
+  # The bar that matters: does the best decompose arm beat just using the sparse
+  # retriever on its own? Everything above only measures recovery towards it.
+  "decompose-orig-bestrank strong-bm25"
 )
-METRICS=(retriever.core.document_mrr retriever.core.document_recall_at_10)
+# MRR answers "is the top hit right", recall@10/20 and total recall answer "is the gold
+# document anywhere the selector can still reach it" -- and with top_k=50 feeding a
+# selector that keeps 5, the pool-depth metrics are the ones this architecture consumes.
+METRICS=(
+  retriever.core.document_mrr
+  retriever.core.document_recall_at_10
+  retriever.core.document_recall_at_20
+  retriever.core.document_recall
+)
 
 report() { echo "runs/retr-${DS}-$1/retriever_report.json"; }
 
