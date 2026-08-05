@@ -1,0 +1,20 @@
+[dataset]
+manifest = "../../runs/niah-base/manifest.json"
+
+[output]
+directory = "../../runs/retr-nq-decompose-orig"
+
+[retriever]
+name = "decompose"
+parameters = { base = { name = "strong-bm25" }, k = 60, include_original = true }
+
+[selector]
+name = "top-k"
+
+[generator]
+name = "extractive"
+
+[run]
+top_k = 50
+max_selected = 5
+seed = 7

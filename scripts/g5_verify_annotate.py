@@ -37,12 +37,52 @@ import g3_baseline_comparison as g3  # noqa: E402, I001  identical case construc
 from evidence_rag.contracts.models import Query, QueryChecklist  # noqa: E402
 from evidence_rag.generator.granite import GraniteGenerator, GraniteLLMClient  # noqa: E402
 from evidence_rag.generator.nli import build_nli_model  # noqa: E402
+from evidence_rag.generator.repair import AnswerRepairer  # noqa: E402
 from evidence_rag.generator.verified import VerifiedGenerator  # noqa: E402
 from evidence_rag.generator.verify_annotate import (  # noqa: E402
     VerifyAnnotateGenerator,
     is_unverified_annotation,
 )
-ARMS = ("baseline", "verify-only", "verify-annotate")
+ARMS = ("baseline", "verify-only", "verify-annotate-capped", "verify-annotate-open")
+
+
+class RecordingRepairer:
+    """Captures verify-only's per-claim sentence -> citation mapping.
+
+    Without it verify-only can only be scored under the flat-list convention,
+    where every sentence carries all of the answer's citations. That inflates the
+    per-sentence citation count (1.92 against verify-annotate's 1.13) and costs
+    precision through ALCE's redundancy ablation, so the arms would not be scored
+    under comparable conventions. Script-side wrapper: no src change.
+    """
+
+    def __init__(self, inner: AnswerRepairer) -> None:
+        self.inner = inner
+        self.last: list[dict[str, Any]] = []
+
+    def repair(self, draft: Any, report: Any, selected: Any) -> Any:
+        result = self.inner.repair(draft, report, selected)
+        verifications = {item.claim_id: item for item in report.claims}
+        self.last = []
+        for claim in draft.claims:
+            verification = verifications.get(claim.claim_id)
+            if verification is None or verification.status != "supported":
+                continue
+            fragment = " ".join(draft.answer_text[claim.span.start : claim.span.end].split())
+            if fragment:
+                self.last.append(
+                    {
+                        "sentence": fragment,
+                        "citation": (
+                            verification.supporting_evidence_ids[0]
+                            if verification.supporting_evidence_ids
+                            else None
+                        ),
+                        "claim_id": claim.claim_id,
+                        "outcome": "verified",
+                    }
+                )
+        return result
 
 
 def _empty_checklist(query_id: str, question: str) -> QueryChecklist:
@@ -64,10 +104,16 @@ def main() -> int:
 
     llm = GraniteLLMClient()
     nli = build_nli_model("true")  # production verifier; never the judge
+    repairer = RecordingRepairer(AnswerRepairer())
     arms: dict[str, Any] = {
         "baseline": GraniteGenerator(llm=llm),
-        "verify-only": VerifiedGenerator(llm=llm, nli=nli),
-        "verify-annotate": VerifyAnnotateGenerator(llm=llm, nli=nli),
+        "verify-only": VerifiedGenerator(llm=llm, nli=nli, repairer=repairer),
+        # the capped arm is what isolates the contract lift: same routing, old
+        # wholesale abstention when nothing verified
+        "verify-annotate-capped": VerifyAnnotateGenerator(
+            llm=llm, nli=nli, abstain_when_unverified=True
+        ),
+        "verify-annotate-open": VerifyAnnotateGenerator(llm=llm, nli=nli),
     }
 
     results: dict[str, dict[str, Any]] = {name: {} for name in arms}
@@ -95,7 +141,9 @@ def main() -> int:
                 ],
                 "gold_answers": [list(a) for a in case.gold_answers],
             }
-            if name == "verify-annotate":
+            if name == "verify-only":
+                record["routing"] = list(repairer.last)
+            if name.startswith("verify-annotate"):
                 # exact sentence -> verified citation, so citation precision does
                 # not rest on the flat list; plus the entity-conflict drops, which
                 # are now the only path that destroys content.
@@ -128,10 +176,10 @@ def main() -> int:
         answered = sum(1 for r in results[name].values() if r["answer"].strip())
         print(f"[arm] {name}: {answered}/{len(cases)} answered, {errors[name]} errors", flush=True)
 
-    stats = arms["verify-annotate"].stats
+    stats = arms["verify-annotate-open"].stats
     annotated_sentences = 0
     total_sentences = 0
-    for record in results["verify-annotate"].values():
+    for record in results["verify-annotate-open"].values():
         for sentence in record["answer"].split(". "):
             if sentence.strip():
                 total_sentences += 1
@@ -146,6 +194,22 @@ def main() -> int:
         "rescued_by_fallback_scan": stats.rescued_by_scan,
         "annotated_sentences": annotated_sentences,
         "kept_sentences": total_sentences,
+        # how many annotations actually REACH an answer -- the number the contract
+        # lift exists to move (it was 15 of 82 under the cap)
+        "annotated_claims_reaching_an_answer": sum(
+            1
+            for r in results["verify-annotate-open"].values()
+            if r["answer"].strip()
+            for x in r.get("routing", [])
+            if x["outcome"] == "unverified"
+        ),
+        "annotated_claims_reaching_an_answer_capped": sum(
+            1
+            for r in results["verify-annotate-capped"].values()
+            if r["answer"].strip()
+            for x in r.get("routing", [])
+            if x["outcome"] == "unverified"
+        ),
         "errors": errors,
     }
     (args.output_dir / "routing-stats.json").write_text(

@@ -41,17 +41,222 @@
 **AFTER(2026-08-04,job 18258588,gpu:rtx_3090:1,bp1-gpu030;首次尝试 job 18258455 因
 `sentence-transformers/all-MiniLM-L6-v2`(Docling HybridChunker 默认 tokenizer)未在
 登录节点预取,离线模式下 `LocalEntryNotFoundError` 失败;补 `hf download` 后重跑通过):**
-- raw:`runs/ocr-smoke/out/documents.jsonl`(未 push,本地 bp1 上)。`document_count`=2
+- raw:`results/ocr-smoke-documents.jsonl`(已按台账规则 `git add -f` 拉回)。`document_count`=2
   (1 image + 1 pdf)。image 源文档 caption 正确复述 sentinel("...REVENUE 2024 42 PERCENT
   GROWTH...");`Text in image:` 段落存在,OCR 命中 sentinel 数字 `42`。
 - **OCR SMOKE: PASS。** 判据(§BEFORE)达成——caption 与图内 OCR 均生效,新增的
   PDF 内嵌图表处理链路(Docling converter → extract_pictures → Vision caption →
   OCR 追加)在真实模型下端到端跑通,非 test fake。
+- **⚠️ 读 raw 时发现一个被断言漏掉的真实缺陷(PASS 仍成立,但断言太弱):**
+  OCR 把 `2023 TO 2024` 识别成 **`2023 T0 2024`**(字母 O → 数字 0),而 **Vision caption
+  识别正确**(`GROWTH 2023 TO 2024`)。三点后果:(a) 这是在**干净高对比度合成图**上发生的
+  字符级错误 → 真实扫描件只会更差,把"Scanned PDFs depend entirely on OCR quality,可能
+  静默降级"这条限制从猜测变成**实证**;(b) 冒烟断言只查 sentinel 数字 `42`,而 `42` 恰好
+  识别正确,故**这类字符错误当前测不出来**——若要守住,断言需覆盖整条 sentinel 字符串;
+  (c) OCR 文本会进入**可检索的文档正文**,故查询 `2023 to 2024` 可能匹配不上 `2023 T0 2024`,
+  且同一份文档内 caption 与 OCR 互相矛盾(检索/生成阶段无从判断该信哪个)。
+  **此发现只有读 raw 才能看到**(`.out` 只截前 400 字符),正是台账"raw 必须拉回"规则的价值。
+- **已据此加强断言(2026-08-04,未重跑):** 门从"含数字 `42`"改为**要求整条主 sentinel
+  逐字命中**(`REVENUE 2024 42 PERCENT`,已用本条 raw 离线验证仍 PASS);第二行
+  (`GROWTH 2023 TO 2024 18 PERCENT`)**只报警不拦门**并打印 OCR 原文。分开的理由:第二行
+  的 `T0` 是 EasyOCR 的**精度**问题,不是本 ingestion 路径的回归(本测试的职责是后者),
+  拿它当硬门会让作业永久红,而永久红的测试会被无视。sentinel 常量改为从
+  `scripts/make_ocr_smoke_pdf.py` import,避免门与被检图两处写死后走样。
+  **本条 AFTER 的 PASS 记录仍以当时的弱断言为准。**
 - 已知environment 坑,供下次复用此脚本时参考:(1) 项目要求 Python 3.11(<3.12,>=3.11),
   登录节点默认加载的 3.12.3 装不上 `evidence-rag`,需手动 `module load languages/python/3.11.15`
   重建 venv;(2) Docling HybridChunker 的默认 tokenizer(`all-MiniLM-L6-v2`)未被脚本注释
   里列出的预取步骤覆盖,离线模式下会因缺模型报错,需额外 `hf download sentence-transformers/all-MiniLM-L6-v2`。
   两坑均与本次功能验证结论无关,已通过重试规避,不影响 PASS 结论。
+
+---
+
+## R-2wiki-decompose — decompose 在多跳上崩塌的复现 + per-case 定位
+
+**状态:** RUNNING(job 18259143 已提交,**本条目在读任何数字之前写**;三件套:现有
+`scripts/run_retriever_eval.slurm` + `configs/experiments/retr_2wiki_{decompose,strong-bm25}.toml`
++ 本条目)。诚实说明:预注册**晚于提交**(提交时未先写),但早于看结果,故假设未被数据污染。
+
+**BEFORE(预注册):**
+
+- 背景:MengW7 的 3 数据集矩阵(`docs/retriever/eval-results.md`,commit 886cc8f)测到
+  2Wiki 上 decompose MRR **0.5702** vs strong-bm25 **0.9580**(Δ **−0.3878**,p<0.0001),
+  是整个矩阵里唯一的灾难级退化(SciFact 只 −0.052、NQ −0.047)。但 `runs/` 被 gitignore,
+  per-case raw 只在 MengW7 自己的 `/user/work` 下,无法查看 → 本次在 jp25459 下**重跑两臂**
+  取 per-case,而非新方法实验。
+- 目的/假设:2Wiki 是多跳。decompose 把 query 拆成**互相独立**的子查询、各自检索再 RRF 合并;
+  独立检索丢掉**跨跳依赖**(第二跳依赖第一跳答出的实体)→ 子查询各自召回"局部像、全局错"的段落,
+  RRF 再把这些排到真正的多跳 gold 之上。
+- 预期指标 + 方向:(a) **复现**:decompose MRR ≈ 0.57、strong-bm25 ≈ 0.958(±噪声);
+  (b) **per-case 形状**:失败**集中**在 strong-bm25 命中(gold rank 1)而 decompose 把 gold
+  排低/排出的 case 上。**诚实的替代假设(须排除)**:若退化是**均匀**的(decompose 到处略差、
+  不集中在多跳难例),则根因在合并/拆分 prompt 本身,而非"多跳依赖"这个解释——两种形状指向
+  不同修法,不能只看聚合 MRR 区分。
+- 判定:失败集中于 strong-bm25 成功 case → decompose 主动有害,对多跳型语料应 gate off;
+  退化均匀 → 查 RRF 合并与子查询 prompt。
+- 精确命令:
+  ```
+  # 登录节点(一次性):
+  pip install pandas pyarrow && hf download ibm-granite/granite-4.1-3b
+  python -m evidence_rag.materializer.twowiki_cli --output runs/twowiki
+  #   → documents 11585 / queries 2000 / gold_cases 2000(与 MengW7 同规模)
+  # 提交:
+  mkdir -p logs runs && sbatch scripts/run_retriever_eval.slurm \
+    configs/experiments/retr_2wiki_decompose.toml \
+    configs/experiments/retr_2wiki_strong-bm25.toml
+  ```
+- Git commit:9191acf;Seed:7(config `[run] seed`);top_k=50。
+
+**AFTER(2026-08-04,job 18259143,gpu:rtx_3090:1,bp1-gpu030,两臂各 2000/2000):**
+
+- raw(已按台账规则 `git add -f` 拉回,不再只存在于 bp1):
+  `results/r1-2wiki-decompose-per-case.json`、`results/r1-2wiki-strong-bm25-per-case.json`
+  (各 2000 条 per_case;`.gitattributes` 已豁免行尾转换,保证字节级可复现)。
+- **复现:逐位精确。** 两臂 5 个指标与 MengW7(886cc8f)**小数点后 4 位全部一致**:
+  decompose MRR .5702 / R@5 .4716 / R@10 .5491 / R@20 .6506 / Recall .7610;
+  strong-bm25 .9580 / .6766 / .7222 / .7468 / .7678。Δ MRR = **−0.3878**,与预注册一致。
+  本轮**自跑配对随机化检验**(`bash scripts/retriever_significance.sh 2wiki`,非引用 MengW7 的):
+  MRR Δ −0.3878 **p=0.0000**、R@10 Δ −0.1731 **p=0.0000**,n=2000。
+  附带收获:decompose 依赖 LLM 拆分,两次独立运行(不同时间/节点)仍逐位相同 → 解码是
+  greedy/确定性的,后续 per-case 分析不受随机噪声干扰。
+- **预注册判定:第二分支命中,第一分支(多跳依赖丢失)被数据推翻。** per-case 配对(n=2000):
+  worse 1138 / tied 827 / better 35;损失集中度 worst 5%=12.5%、10%=24.8%、20%=48.5%、
+  50%=95.4% 净损失——只受影响的 1138 条上若均匀则 worst 20% 应 ≈35%,实测 48.5%,
+  **仅轻微集中,不存在承载崩塌的少数灾难 case** → 根因在融合/拆分环节,非"多跳难例"。
+- **决定性证据:这是排序失败,不是检索失败。** 伤害随深度单调收缩:
+  R@5 −20.5pp、R@10 −17.3pp、R@20 −9.6pp、Recall(top-50)**−0.7pp**。strong-bm25 完美命中
+  (MRR=1.0)的 1854/2000 条里,decompose **仅 8 条(0.4%)彻底丢 gold**,**1053 条(56.8%)
+  gold 仍在池中只是被排低**,793 条(42.8%)保持 rank 1。降级子集平均 MRR ≈ .27 →
+  **gold 典型地从 rank 1 滑到 rank 3–4**。
+- **机制(读码 + 数据共同支持):** RRF 把各子查询列表的 `1/(k+rank)` 加总。多跳 gold 只回答
+  **一跳**,在一个子查询列表里排高、在其余列表缺席;而"各跳都沾一点、都不精准"的文档在
+  **所有**列表拿中等分,累加后反超。**RRF 结构性奖励广谱平庸、惩罚单点精准,而多跳需要的
+  正是单点精准。** 加重此效应的实现细节:`DecomposingRetriever._subqueries`
+  (`src/evidence_rag/retriever/granite.py:278`)只返回子查询,**原始 query 仅在 LLM 空输出时
+  作 fallback**——即 BM25 在 92.7% case 上把 gold 排第 1 的最强信号,从未进入融合。
+- **写给 results-summary 的草稿:** decompose 在多跳上的崩塌不是"拆分破坏了多跳检索",
+  而是 **RRF 融合把单跳专家文档系统性降级**;候选池几乎无损(top-50 recall −0.7pp),
+  失的全是排序。因此**不必**对多跳语料整体 gate off decompose,而应先改融合。
+- **下一步(廉价、直接针对上述机制):** 把原始 query 作为融合的一个臂加入(现在完全没有),
+  或对其加权;预期 MRR 大幅回升而 recall 基本不动。此为独立预注册条目,不在本条覆盖。
+
+---
+
+## R-2wiki-decompose-orig — 把原始 query 加回融合臂(R1 诊断出的机制的直接修法)
+
+**状态:** READY——三件套齐(代码 `include_original` 开关 + config
+`configs/experiments/retr_2wiki_decompose-orig.toml` + 本条目);**本条目在跑之前写**。
+承接 R1(results-summary):崩塌是 RRF 排序失败,不是检索失败。
+
+**BEFORE(预注册):**
+
+- 目的/假设:R1 定位到 `DecomposingRetriever` 只融合子查询,**原始 query 从不进融合**
+  (仅 LLM 空输出时作 fallback);而 strong-bm25 用完整 query 在 **92.7%** 的 case 上把 gold
+  排第 1。把原始 query 作为**一个额外融合臂**加回 → 该 ranking 重新参与 RRF → 被降级的
+  gold 应回到高位。
+- 预期指标 + 方向:**MRR 大幅回升**(baseline decompose .5702;strong-bm25 .9580 是上界参照,
+  预期落在两者之间、显著高于 .5702);**recall 基本不动**(top-50 本就只差 −0.7pp,没有可回收的
+  空间);R@5/R@10 应回升最多(降级伤害在浅层最重)。判定=对 decompose 基线臂配对显著性
+  (`scripts/retriever_significance.sh 2wiki`,新增 pair `decompose-orig vs decompose`)。
+- **诚实的替代结果(必须接受并如实报告):** (a) 若 MRR 只小幅回升,说明原始 query 那一臂被
+  N 个子查询臂的 RRF 质量稀释(1 票 vs N 票),则修法方向对但**需要加权**而非等权加入;
+  (b) 若 recall **下降**,说明挤占了子查询召回的多样性,是真实权衡而非免费收益;
+  (c) 若几乎不动,则 R1 的机制推断错,需回头重看融合。三种都不是 bug,是不同结论。
+- 兼容性:`include_original` **默认 False**,且**默认时不写入 index 参数**,故 MengW7 已记录的
+  全部结果与已有 index cache 均不受影响(有回归测试守卫)。
+- 精确命令(数据集已物化于 `runs/twowiki`,LLM 已预取):
+  ```
+  mkdir -p logs runs && sbatch scripts/run_retriever_eval.slurm \
+    configs/experiments/retr_2wiki_decompose-orig.toml
+  # 回来后(登录节点,CPU,秒级):
+  scripts/retriever_significance.sh 2wiki
+  ```
+- Git commit:0bb9262(feat(retriever): optional original-query fusion arm for decompose);
+  Seed:7;top_k=50;base=strong-bm25、k=60(与基线臂完全一致,唯一变量=`include_original`)。
+
+**AFTER(2026-08-04,job 18265982,gpu:rtx_3090:1,bp1-gpu030,2000/2000,walltime ~1h):**
+
+- decompose-orig:MRR **.7155** / R@5 .5727 / R@10 .6639 / R@20 .7371 / Recall **.7675**。
+  配对检验 vs decompose 基线臂:MRR **+0.1453 p=0.0000**、R@10 **+0.1148 p=0.0000**,n=2000。
+- **主预期命中,且是显著的:** MRR 大幅回升(.5702→.7155)、recall 基本不动(+0.0065)——
+  与预注册一致。修法方向由 R1 的机制推断而来,数据支持该推断。
+- **但同时命中预注册的替代结果 (a):幅度不足,需加权。** 只回收了 **37%** 的 MRR 差距
+  (原 .3878,回收 .1453)。各深度回收比例:MRR 37% < R@5 49% < R@10 66% < **R@20 90%**——
+  **越深回收越彻底、越靠榜首回收越少**。这正是"1 票 vs N 票"稀释的指纹:原始 query 那一臂
+  能可靠把 gold 拉回前 20,却抢不回 rank 1。故等权加入方向对但不够,下一步应**给原始臂加权**。
+- **反向加强 R1 的诊断:** 修法后 Recall .7675 与 strong-bm25 的 .7678 仅差 .0003——
+  候选池质量已经等同,差的**纯粹是排序**,与 R1"排序失败非检索失败"完全一致。
+- **⚠️ 实用结论(必须如实报告):修完仍明显不如直接用 strong-bm25**(.7155 vs .9580)。
+  即在 2Wiki 这类多跳语料上,decompose **即使修好融合也不划算**——本修法补回的是**自伤**,
+  没有让 decompose 变得有竞争力。R1 说"不必对多跳整体 gate off"是就"池子没坏"而言;
+  就"该不该用"而言,**当前证据支持在多跳上仍优先用 strong-bm25**。
+- raw:`results/r2-2wiki-decompose-orig-per-case.json`(已 `git add -f` 拉回)。
+
+---
+
+## R3 — 修法的普适性(SciFact/NQ)+ 换融合数学(best-rank),两问并行
+
+**状态:** READY——三件套齐(代码 `fusion="best-rank"` + 4 个 config + 本条目);**跑之前写**。
+承接 R2:原始臂等权加入只回收 37% MRR,且回收比例随深度递增(37%→90%)。
+
+**BEFORE(预注册):**
+
+- **本条同时问两个独立问题,分开判定,不许互相解释:**
+
+  **Q1(普适性):`include_original` 是普遍有效,还是只在给 2Wiki 擦屁股?**
+  2Wiki 上 strong-bm25 MRR **.9580**(BM25 在 92.7% case 直接命中 rank 1)——该数据集 query
+  词汇特征极鲜明,**天花板天生就高、留给分解的空间本就极小**。故"2Wiki 上修法有效"不足以
+  说明修法好。SciFact(baseline decompose .5584 / strong-bm25 .6105)与 NQ(.7682 / .8153)
+  差距小得多、有真实提升空间,是更公允的检验场。
+  - 预期 + 方向:两数据集上 decompose-orig MRR **↑ 且显著**;recall 基本不动。
+  - **诚实的替代:** 若 SciFact/NQ 上**不显著或反而下降**,则修法本质是"2Wiki 特有的
+    自伤修复",不是通用改进——那是更弱但更真实的结论,必须如实写。
+
+  **Q2(机制的直接解法):把 RRF 的 sum 换成 max,能否比加原始臂更对症?**
+  R1/R2 的机制是"sum 奖励广谱平庸、惩罚单点精准,而多跳 gold 正是单点专家"。若该机制成立,
+  **直接改融合数学**应比"再加一臂去对抗稀释"更有效。实现为 `fusion="best-rank"`
+  (max 为主、sum 仅作平局裁决;见 `fusion.best_rank_fusion` 的两条 caveat)。
+  - **判定场是 SciFact,不是 2Wiki(重要,本条初稿曾把 Q2 只放在 2Wiki,是 scoping 错误):**
+    2Wiki 上 BM25 在 92.7% case 直接命中 rank 1 → 在该数据集上**任何稀释完整 query 排名的
+    融合都会伤、任何恢复它的改动都会有效**,那检验的是 2Wiki 的词汇特性,而非融合规则的优劣。
+    SciFact baseline decompose 仅 .5584、有真实提升空间,才是"融合规则谁更好"的公允检验场。
+    2Wiki 两臂仍跑,但只作**机制一致性的旁证**,不作 Q2 的判据。
+  - 预期 + 方向:两数据集上 decompose-bestrank MRR **显著高于**同数据集的 decompose;
+    与 decompose-orig 比较**方向不预设**——这正是要测的。第四臂(orig + best-rank)测叠加性。
+  - **诚实的替代:** (a) best-rank 可能因平局过多而不升甚至下降(纯 max 的已知弱点,已用
+    sum 做二级键缓解,但未必够);(b) 若 best-rank 与 orig 收益**不叠加**,说明两者在修同一
+    个损伤,不是两个独立问题;(c) 若 best-rank 只在 2Wiki 有效、SciFact 上无效,则"改融合
+    数学"这条路被否掉,机制解释仅对 2Wiki 这种高词汇区分度语料成立。
+
+- **⚠️ 判定的标尺是 .9580,不是 .5702(承接 R2):** 上述任何一臂"比 decompose 高"都只是
+  在**补回自伤**。**真问题是有没有任何配置能超过"什么都不做、直接 strong-bm25"**——超过了
+  才说明分解在多跳上贡献了额外信息。若全部低于 .9580,诚实结论是**分解在此数据集上无用**,
+  这是正当结论而非失败,不许用"相对 decompose 提升了 X%"来包装。
+- 兼容性:`fusion` 默认 `"rrf"` 且**默认时不写入 index 参数**(与 `include_original` 同处理),
+  故 MengW7 已记录结果与既有 index cache 全不受影响;有回归测试守卫两者。
+- 精确命令(SciFact 需先 materialize;NQ 用既有 `runs/niah-base`):
+  ```
+  # 登录节点(SciFact 首次):
+  evidence-rag-materialize-benchmark scifact --split test --output data/benchmarks/scifact/test
+  # Q1(普适性)+ Q2 的判定场(SciFact):
+  sbatch scripts/run_retriever_eval.slurm \
+    configs/experiments/retr_scifact_decompose-orig.toml \
+    configs/experiments/retr_scifact_decompose-bestrank.toml \
+    configs/experiments/retr_scifact_decompose-orig-bestrank.toml \
+    configs/experiments/retr_nq_decompose-orig.toml
+  # Q2 的旁证(2Wiki,数据集已在 runs/twowiki):
+  sbatch scripts/run_retriever_eval.slurm \
+    configs/experiments/retr_2wiki_decompose-bestrank.toml \
+    configs/experiments/retr_2wiki_decompose-orig-bestrank.toml
+  # 回来后:
+  bash scripts/retriever_significance.sh 2wiki   # 已含 bestrank 两对
+  bash scripts/retriever_significance.sh scifact
+  bash scripts/retriever_significance.sh nq
+  ```
+- Git commit:待本次改动提交后填;Seed:7;top_k=50;base=strong-bm25、k=60 全臂一致
+  (Q1 唯一变量=`include_original`;Q2 唯一变量=`fusion`)。
+
+**AFTER:** 未运行。<!-- 填:job id、四臂指标、各 p 值、Q1 是否普适、Q2 是否更对症/是否叠加、有无任何臂超过 strong-bm25 -->
 
 ---
 
@@ -1493,6 +1698,80 @@ ClaimSplitter source_text 逐字约束已放宽(`872ed61`)、over-split meta 句
   故标注句会拉低它。ALCE 句级 + MiniCheck 为独立判官;**TRUE 是生产验证器,永不担任判官**。
 - 纪律:**预注册后冻结**,不得为移动数字而调提示词或阈值。不重写未蕴含的声明(与 RARR 的
   retrieve-and-revise 重叠,且重写内容是新生成的、需再验证,破坏单轮纪律)—— 记为 future work。
+- 数据合规:只用 ALCE/ASQA;**HotpotQA / RGB / MuSiQue-Full 从不加载**。
+
+**AFTER(第一轮,job `18260560` 生成 + `18260561` 评分):**
+
+- 三轴表:baseline 0.932 / 0.273 / 0.613 / 0.647;verify-only 0.641 / 0.214 / 0.760 / 0.852;
+  verify-annotate 0.641 / 0.224 / **0.830** / 0.788。配对:精度 vs verify-only **+0.070(p=0.0006)**、
+  vs baseline +0.142(p<0.0001);召回 −0.065(有意代价);correctness +0.010(p=0.0019);coverage 0.000。
+- 声明引用存活 **247/429 = 0.576**;回退扫描救回 **47/429 = 0.110**;标注率 33/380 = 0.087。
+- 预注册判据:精度判据**通过且超预期**;coverage 判据**触发**,但该判据写的是 0.552 的旧 verify-only,
+  部分作答早已把它抬到 0.641,两臂现在同条件弃答,标注在构造上无法移动 coverage。两种读法均记录。
+- **此轮数字有两处已知限定**,详见 `docs/generator/g5-verify-annotate.md`。
+
+**重跑溯源(第二轮)—— 数字变动的原因是审计驱动的缺陷修复,不是调参:**
+
+这一点必须可追溯,故单列。第二轮相对第一轮的差异**全部**来自以下三项,每一项都能**脱离任何指标**陈述缺陷,
+且均由**人工盲审**确立(20/72 抽样:假否决 0.700、另有 0.100 本该标注),而非因为"改了数字会好看":
+
+1. **专有名词检测改用 `SpacyEntityExtractor`**(`verification` extra 里早已存在、从未启用)。
+   缺陷陈述:大写启发式把句首普通名词当作专有名词并据此否决 —— 实测触发词包括
+   `name:some`、`name:season`、`name:small`、`name:substitutions`、`name:unemployment`。
+2. **只有"真冲突"才丢弃**(`EntityMismatch.evidence_values` 非空,即证据确实携带同角色的竞争取值)。
+   缺陷陈述:证据从未提及的实体是**缺失**而非矛盾;annotate-not-delete 下缺失不得摧毁内容。
+3. **verify-only 补记逐句引用映射**(脚本侧 `RecordingRepairer`,不改 src)。
+   缺陷陈述:两臂此前在**不同引用口径**下计分 —— verify-only 退回扁平口径(1.92 引用/句)而
+   verify-annotate 用精确映射(1.13),ALCE 的冗余消融因此系统性压低前者。**预期 +0.070 与 +0.142 都会缩小**,
+   修正后的数字才是应报的头条。
+
+**未改动、且经核实本就正确的一项**:成员资格语义(`_is_consistent` 用claim取值在证据同角色**集合**中查成员),
+"1954 ∈ {1954, 1974}" 本就通过。审计暴露的残留是**形态/别名变体**("west germany" vs "west german")与
+**精度失配**(证据陈述了别的日期但没有该日),二者按你的要求在重跑后单独报告其占比。
+
+**AFTER(第二轮,job `18267966` 生成 + `18268709` 评分):**
+
+- 两臂同口径后的三轴表:baseline 0.932 / 0.273 / 0.613 / 0.647;verify-only 0.633 / 0.197 / **0.871** / 0.871;
+  verify-annotate 0.633 / 0.196 / **0.890** / 0.868。
+- **verify-annotate 与 verify-only 在每一根轴上统计无差异**(精度 +0.024 p=0.27、召回 +0.001 p=0.98、
+  correctness −0.001 p=0.89、coverage 相同)。第一轮的 +0.070 **基本是评分伪影**:扁平口径通过 ALCE
+  冗余消融替 verify-only 承担了它没附到该句的引用,拉平后它从 0.760 升到 0.871。
+- 两个验证臂相对 baseline:精度 **+0.173 / +0.188**、召回 **+0.13**(均 p<0.0001),
+  代价 coverage −0.30、correctness −0.077。**这个权衡才是结果,delete-vs-annotate 不是。**
+- **机制**:82 条声明被标注,**只有 15 条进入答案** —— 零已验证即整例弃答,标注随之丢弃,
+  作用面封顶在 4.8% 的保留句。
+- 实体丢弃**未变罕见**:66/439 = 15.0%(修复前 14.7%),但构成全变为真实 NER 类型;
+  78 个值冲突中别名残留 9(11.5%)、词面不相交 69(88.5%)。**不相交是词面代理而非判决**,
+  0.700 假否决率来自旧抽取器样本群,需重新盲审才能声称已下降。
+- 过程中修掉两个**我自己的** bug,均记录在案:`declared_indices` 越界读到下一句引用(污染声明引用存活率
+  且会改变附上的引用);评分器 routing↔句子匹配方向反了(227/269 已引用句被判无引用,导致 0.105 的假塌陷)。
+
+---
+
+## G6 — 解除弃答封顶(契约变更,团队已批准)
+
+**状态:** 代码就绪。**这是经批准的契约变更,故 BEFORE 在运行前写入并提交。**
+**本轮数字变动的原因是契约变更,不是调参** —— 溯源需可追。
+
+**BEFORE(预注册):**
+
+- 背景:G5 第二轮显示 annotate 相对 delete 全轴为空,但**机制是它从来没有作用空间** ——
+  82 条标注只有 15 条进入答案,因为零已验证就整例弃答并丢掉标注。该封顶**只**为满足
+  `GenerationResult`「非空答案必须≥1 引用」而存在。
+- **契约互换(非删除)**:旧不变式保证「每个答案都有据」,新不变式保证
+  **「每个无据的句子都被标注」**,并以 validator 强制(未标注的无引用句必须被拒,与从前拒绝无引用答案一样)。
+  空答案路径保留 —— **「弃答」与「作答但无一验证」是不同结果,不得合并**。
+- 四臂:baseline / verify-only(删除+弃答)/ **verify-annotate-capped**(旧封顶,消融项)/
+  **verify-annotate-open**(解封,本轮主体)。保留 capped 臂才能把效果**归因**到契约解除本身。
+  四臂**同一作业内**重跑 —— 跨运行比较在本项目已造成两次混杂,一次作业的成本远低于该风险。
+- **预期方向:** coverage 大幅上升趋近 baseline 的 0.932(自 0.633);correctness 上升(保留的未验证内容
+  有时含 gold 答案);**已引用句**的引用精度维持在 0.87–0.89(标注句无引用,不进精度计算);
+  **引用召回大幅下降**(无引用句留在召回分母)—— 这是**有意且已认领的代价**。
+- **失败判据(预注册):** 若**已引用句**的引用精度向 baseline 退化(说明未验证内容漏进了已引用池,
+  或标注未被正确排除),**或** coverage 未显著高于 0.633,则本次解除失败。
+- 纪律:**一轮只改一件事** —— 实体冲突路由本轮**不动**;不调提示词/阈值;预注册后冻结。
+- 报告须含**每臂答案句构成**(已验证并引用 / 标注未验证 / 丢弃)。理由:单看引用召回会**惩罚本方法主张的行为** ——
+  一个给每句都编造引用的系统召回反而更高,而诚实标注不可验证内容的系统更低。
 - 数据合规:只用 ALCE/ASQA;**HotpotQA / RGB / MuSiQue-Full 从不加载**。
 
 **AFTER:** 未运行。

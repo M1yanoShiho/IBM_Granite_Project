@@ -15,14 +15,21 @@ unverified.
 Three-way routing per claim:
 
     entailed and entity-consistent  -> keep, attach the VERIFIED citation
-    entailed but entity-conflicting -> drop
-    neither                         -> keep, annotated unverified, no citation
+    entailed, and the evidence carries a COMPETING value in the same role -> drop
+    anything else                   -> keep, annotated unverified, no citation
 
 The third row is the substance of the redesign. It covers genuine no-evidence
 cases and verifier misses alike, and deliberately does not try to tell them
 apart -- ``contradicted`` is unavailable under a binary verifier backend, so an
 entity conflict is the only concrete contradiction signal there is, and it alone
 triggers a drop.
+
+Blind adjudication of the first run's drops put the false-veto rate at **0.700**,
+with a further 0.100 that should have been annotated, so two things narrowed the
+destructive path: only a *genuine* conflict drops a claim (an entity the evidence
+never mentions is an absence, and absences are annotated), and proper nouns are
+detected with ``SpacyEntityExtractor`` rather than by capitalisation, which is
+what produced vetoes on ``name:some`` and ``name:season``.
 """
 
 import re
@@ -30,41 +37,36 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 
 from evidence_rag.contracts.models import (
+    UNVERIFIED_ANNOTATION,
     GenerationResult,
     Query,
     QueryChecklist,
     SelectedEvidenceSet,
+    is_unverified_annotation,
+    strip_unverified_annotation,
 )
 from evidence_rag.generator.draft import DraftAnswerGenerator
-from evidence_rag.generator.entity_check import EntityChecker, EntityConsistencyChecker
+from evidence_rag.generator.entity_check import (
+    EntityChecker,
+    EntityConsistencyChecker,
+    SpacyEntityExtractor,
+)
 from evidence_rag.generator.granite import GraniteLLMClient, TextGenerator
 from evidence_rag.generator.models import Claim, DraftAnswer
 from evidence_rag.generator.nli import NLIModel, build_nli_model
 
-UNVERIFIED_MARKER = "[unverified]"
-"""Suffix marking a kept-but-unverified sentence.
-
-Kept as a constant with the predicate below so the marker text can never drift
-between generator and scorer -- the same discipline already applied to the
-unconfirmed-facts disclosure."""
+UNVERIFIED_MARKER = UNVERIFIED_ANNOTATION
+"""Re-exported from ``contracts``: the label is now part of the GenerationResult
+guarantee ("every ungrounded sentence is labelled"), so the contract owns it and
+generator, scorer and validator cannot drift apart."""
 
 CITATION_RE = re.compile(r"\[(\d+)\]")
 SENTENCE_END = re.compile(r"[.!?]")
 
 
-def is_unverified_annotation(sentence: str) -> bool:
-    """True for a sentence the generator kept without being able to verify it.
-
-    Scorers import this rather than re-spelling the marker. Annotated sentences
-    carry no citation by construction, so under ALCE they score zero citation
-    recall -- that is the intended, visible cost of this design and must not be
-    hidden."""
-    return UNVERIFIED_MARKER in sentence
-
-
-def strip_unverified_marker(text: str) -> str:
-    """The text without annotation markers, for correctness scoring and display."""
-    return " ".join(text.replace(UNVERIFIED_MARKER, " ").split())
+# Re-exported so existing importers (scorers) keep working; the definitions live
+# in contracts because the contract is stated in terms of them.
+strip_unverified_marker = strip_unverified_annotation
 
 
 def declared_indices(answer_text: str, claim: Claim) -> tuple[int, ...]:
@@ -74,9 +76,15 @@ def declared_indices(answer_text: str, claim: Claim) -> tuple[int, ...]:
     because a model puts its citation at the end of the sentence while the
     splitter's span often stops at the claim's own last word.
     """
-    end = claim.span.end
-    match = SENTENCE_END.search(answer_text, end)
-    stop = match.end() if match else len(answer_text)
+    stop = claim.span.end
+    # Only reach forward when the span stops mid-sentence. The splitter now
+    # anchors paraphrased claims to whole sentences, terminator included, and
+    # extending past that would swallow the NEXT sentence's citations and credit
+    # them to this claim -- which would corrupt the declared-citation survival
+    # rate, one of the numbers this design is reported on.
+    if not answer_text[claim.span.start : claim.span.end].rstrip().endswith((".", "!", "?")):
+        match = SENTENCE_END.search(answer_text, claim.span.end)
+        stop = match.end() if match else len(answer_text)
     seen: list[int] = []
     for raw in CITATION_RE.findall(answer_text[claim.span.start : stop]):
         index = int(raw)
@@ -131,19 +139,33 @@ class CitationRoutedVerifier:
 
     def __init__(self, nli: NLIModel, entity_checker: EntityChecker | None = None) -> None:
         self.nli = nli
-        self.entity_checker = entity_checker or EntityConsistencyChecker()
+        # spaCy NER for the proper-noun side: the capitalisation heuristic in the
+        # rule-based extractor treats sentence-initial common nouns as names, which
+        # the audit found to be the dominant false-veto mechanism.
+        self.entity_checker = entity_checker or EntityConsistencyChecker(SpacyEntityExtractor())
 
-    def _supports(self, evidence_text: str, claim_text: str) -> tuple[bool, bool, tuple[str, ...]]:
-        """(entailed, entity_consistent, mismatch detail) for one claim x evidence pair."""
+    def _supports(
+        self, evidence_text: str, claim_text: str
+    ) -> tuple[bool, bool, bool, tuple[str, ...]]:
+        """(entailed, entity_consistent, genuine_conflict, mismatch detail).
+
+        ``genuine_conflict`` is the *destructive* signal and is deliberately
+        narrower than "inconsistent": it requires the evidence to actually carry a
+        competing value in the same role. A claim entity the evidence simply never
+        mentions is an absence, not a contradiction, and under annotate-not-delete
+        an absence must not destroy content.
+        """
         if self.nli.classify(premise=evidence_text, hypothesis=claim_text) != "entailment":
-            return False, False, ()
+            return False, False, False, ()
         consistency = self.entity_checker.check(claim_text, evidence_text)
+        mismatches = tuple(getattr(consistency, "mismatches", ()))
         detail = tuple(
             f"{m.entity_type}:{m.normalized}"
             + (f"!={'/'.join(m.evidence_values)}" if m.evidence_values else " (absent)")
-            for m in getattr(consistency, "mismatches", ())
+            for m in mismatches
         )
-        return True, consistency.consistent, detail
+        genuine = any(m.evidence_values for m in mismatches)
+        return True, consistency.consistent, genuine, detail
 
     def route(
         self,
@@ -159,7 +181,7 @@ class CitationRoutedVerifier:
             item = by_index.get(index)
             if item is None:
                 continue
-            entailed, consistent, _ = self._supports(item.text, claim.text)
+            entailed, consistent, _genuine, _detail = self._supports(item.text, claim.text)
             if entailed and consistent:
                 return ClaimRouting(
                     claim_id=claim.claim_id,
@@ -174,7 +196,7 @@ class CitationRoutedVerifier:
         conflict_id: str | None = None
         conflict_detail: tuple[str, ...] = ()
         for item in evidence:
-            entailed, consistent, detail = self._supports(item.text, claim.text)
+            entailed, consistent, genuine, detail = self._supports(item.text, claim.text)
             if entailed and consistent:
                 return ClaimRouting(
                     claim_id=claim.claim_id,
@@ -184,7 +206,9 @@ class CitationRoutedVerifier:
                     rescued_by_scan=bool(declared),
                     claim_text=claim.text,
                 )
-            if entailed and conflict_id is None:
+            # Only a GENUINE conflict earns destructive power. An entity the
+            # evidence never mentions is an absence, and absences are annotated.
+            if entailed and genuine and conflict_id is None:
                 conflict_id = item.evidence_id
                 conflict_detail = detail
         return ClaimRouting(
@@ -213,7 +237,11 @@ class VerifyAnnotateGenerator:
         *,
         llm: TextGenerator | None = None,
         nli: NLIModel | None = None,
+        abstain_when_unverified: bool = False,
     ) -> None:
+        self.abstain_when_unverified = abstain_when_unverified
+        """The pre-lift behaviour, kept so the capped arm can be run as the
+        ablation that isolates what the contract change bought."""
         shared_llm = llm
         if draft_generator is None:
             shared_llm = shared_llm or GraniteLLMClient()
@@ -281,10 +309,12 @@ class VerifyAnnotateGenerator:
                 routing.sentence = f"{sentence} {UNVERIFIED_MARKER}"
                 parts.append(routing.sentence)
 
-        # An answer of nothing but unverified annotations would carry no citation
-        # and violate GenerationResult. Abstaining preserves the contract and is
-        # the honest outcome anyway.
-        if not verified_any:
+        # Abstain only when there is genuinely nothing to say. An answer made
+        # entirely of annotations used to be impossible -- the contract demanded a
+        # citation -- which forced a wholesale abstention that threw the
+        # annotations away, capping this policy at 4.8% of kept sentences. With
+        # the invariant swapped, that answer is now legal and is emitted.
+        if not parts or (self.abstain_when_unverified and not verified_any):
             return GenerationResult(
                 query_id=query.query_id, answer="", cited_evidence_ids=()
             )

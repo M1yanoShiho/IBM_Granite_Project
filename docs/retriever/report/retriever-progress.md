@@ -59,16 +59,14 @@ output; SciFact table shown in full, NQ/2Wiki summarized (full tables in the lin
    Δ +0.071 MRR p<0.0001; 2Wiki Δ +0.025 MRR p<0.0001). This is the strongest, most consistent
    result in the whole matrix.
 3. **Decompose significantly underperforms StrongBM25 on every dataset**, and catastrophically on
-   2Wiki (Δ −0.388 MRR, p<0.0001 — 2Wiki is multi-hop, and splitting a multi-hop query into
-   independent sub-queries appears to destroy the cross-hop signal). This is a genuine, measured
-   failure mode, not a hypothesis — see "The open question" below.
+   2Wiki (Δ −0.388 MRR, p<0.0001). We have since diagnosed *why* and tested a fix — see R4.
 4. **Query2Doc and HyDE are dataset-dependent**, not uniformly good or bad — e.g. Query2Doc beats
    StrongBM25 significantly on SciFact/NQ MRR but loses significantly on 2Wiki MRR (Δ −0.022,
    p<0.0001) while still winning on 2Wiki Recall@10 (Δ +0.011, p=0.0002).
 
 **Decision: Hybrid (RRF) is the strongest general-purpose retriever measured so far and is the
 recommended default when latency budget allows running two arms. Decompose should not be used on
-multi-hop-style corpora without further work (see Next steps).**
+multi-hop-style corpora (see R4 for why, and for how far a fix gets).**
 
 ---
 
@@ -102,18 +100,55 @@ without crashing.
 
 ---
 
+## R4 - Why Decompose collapses on multi-hop, and how far a fix gets
+
+Two runs of my own on 2Wiki (n=2000, jobs `18259143` and `18265982`; ledger entries and raw
+per-case data in `docs/hpc-run-log.md` / `results/r1-*`, `results/r2-*`). Both hypotheses were
+pre-registered before the numbers were read.
+
+**Step 1 — the collapse is a *ranking* failure, not a retrieval failure.** Re-running the two arms
+reproduced MengW7's numbers to four decimals on all five metrics, then per-case pairing showed the
+damage shrinks monotonically with depth: R@5 −20.5pp, R@10 −17.3pp, R@20 −9.6pp, top-50 recall
+**−0.7pp**. Of the 1854/2000 cases where StrongBM25 ranked the gold document first, Decompose lost
+it entirely in only **8** (0.4%) while merely demoting it in 1053 (56.8%) — typically from rank 1 to
+rank 3–4. The candidate pool is essentially intact; only the ordering is worse. This refuted my own
+pre-registered hypothesis, which predicted the gold would fall out of the pool.
+
+**Mechanism.** RRF sums `1/(k+rank)` across arms. A multi-hop gold document answers exactly *one*
+hop, so it ranks highly for one sub-query and is absent from the others, while a document that
+ranks mediocrely across *all* sub-queries accumulates more total RRF mass and overtakes it. RRF
+structurally rewards breadth across arms and penalises single-point precision — which is precisely
+what multi-hop retrieval needs. Compounding it, `DecomposingRetriever` never fused the original
+query at all (it was only a fallback for empty LLM output), discarding the ranking that puts gold
+first in 92.7% of these cases.
+
+**Step 2 — fixing the fusion works, significantly, but only partly.** I added an
+`include_original` option (default off, so no recorded result changes) that fuses the unmodified
+query as one more arm:
+
+| Arm | MRR | R@5 | R@10 | R@20 | Recall |
+|---|---|---|---|---|---|
+| Decompose (baseline) | 0.5702 | 0.4716 | 0.5491 | 0.6506 | 0.7610 |
+| **Decompose + original arm** | **0.7155** | 0.5727 | 0.6639 | 0.7371 | **0.7675** |
+| StrongBM25 (upper reference) | 0.9580 | 0.6766 | 0.7222 | 0.7468 | 0.7678 |
+
+MRR **+0.1453 (p=0.0000)**, R@10 **+0.1148 (p=0.0000)**, recall flat (+0.0065). But it recovers only
+**37%** of the MRR gap, and the recovered fraction rises with depth — MRR 37% < R@5 49% <
+R@10 66% < **R@20 90%**. So the original-query arm reliably drags gold back into the top 20 but
+cannot win rank 1: the signature of one vote diluted among N sub-query votes. Weighting that arm
+rather than adding it at equal weight is the obvious next step, and is untested.
+
+**What this means practically — stated plainly.** Even fixed, Decompose (0.7155) is still far below
+simply using StrongBM25 (0.9580). The fix repairs a *self-inflicted* wound; it does not make
+decomposition competitive on multi-hop. Recall after the fix (0.7675) matches StrongBM25's 0.7678 to
+within 0.0003, confirming the pool was never the problem. **Recommendation: on multi-hop-style
+corpora, prefer StrongBM25 over Decompose regardless of this fix.**
+
+---
+
 ## The open question
 
-The benchmark question from the previous version of this report is answered: Hybrid (RRF)
-reliably beats StrongBM25 by a wide margin on all three datasets; Decompose reliably loses,
-worst on multi-hop (2Wiki). The open question now is **why Decompose fails so badly on 2Wiki
-specifically** — is splitting a multi-hop query into independent sub-queries fundamentally
-incompatible with multi-hop retrieval (in which case Decompose should be gated off for
-multi-hop-style corpora), or is it a fixable prompting/merging issue (e.g. the RRF fusion across
-sub-queries losing the dependency between hops)? We don't know yet; this needs its own targeted
-investigation rather than being lumped in with the base matrix.
-
-A related, unresolved risk on the ingestion side: hallucinated image captions are indistinguishable
+A still-unresolved risk on the ingestion side: hallucinated image captions are indistinguishable
 from real evidence once they enter the retriever's candidate pool. The OCR-smoke test above proves
 the happy path works on a clean synthetic figure; it says nothing about hallucination rate on real,
 messy documents. We don't yet know how often this happens on our actual corpus, or how much it
@@ -125,13 +160,17 @@ what ultimately trusts (or doesn't) the retrieved caption.
 
 ## Current work — addressing latest feedback (Bharat Arora, 2026-07-26)
 
-- **Bringing actual numbers next time:** done, substantially — R2 above is a full 3-dataset ×
-  8-variant matrix with significance tests, not a single paired comparison. The gap now is
-  narrower and more specific: understanding *why* Decompose fails on 2Wiki, and reconciling
-  the two retriever docs (done, in this update).
-- **Hallucinated-caption risk:** OCR path now verified to work functionally (R3), but hallucination
+- **Bringing actual numbers next time:** done. R2 is a full 3-dataset × 8-variant matrix with
+  significance tests; R4 adds two runs of my own that diagnose the one catastrophic result in that
+  matrix and measure a fix, both pre-registered before the numbers were read.
+- **Finding edge cases where retrieval fails:** done for the clearest one. Decompose on multi-hop is
+  a measured, mechanistically explained failure with a quantified partial fix — not a hypothesis.
+- **Hallucinated-caption risk:** OCR path verified to work functionally (R3), but hallucination
   *rate* on real documents is still unmeasured. Still needs a sync with the Generator student,
-  since the risk spans both modules.
+  since the risk spans both modules. Reading the OCR raw did surface a concrete related defect: the
+  OCR engine misread `2023 TO 2024` as `2023 T0 2024` on a clean synthetic figure while the Vision
+  caption read it correctly, so one document can carry two contradictory readings of the same
+  figure. The smoke assertion has been tightened accordingly.
 - **Recursive scanning / silent file failures:** not yet fixed. Still urgent, ahead of any
   dataset scale-up.
 - **Performance at larger corpus sizes:** not yet started.
@@ -140,9 +179,9 @@ what ultimately trusts (or doesn't) the retrieved caption.
 
 ## Next steps
 
-1. **Investigate why Decompose fails on 2Wiki** — isolate whether the failure is in query
-   splitting, sub-query retrieval, or RRF re-merging; decide whether Decompose should be gated
-   off for multi-hop corpora or is fixable.
+1. **Weight the original-query fusion arm instead of adding it at equal weight** — R4 shows the arm
+   recovers the top-20 but not rank 1, consistent with one vote diluted among N. This is the direct
+   follow-up and is untested.
 2. **Fix recursive directory scanning and silent file failures** — before dataset scale-up makes
    gaps harder to detect and diagnose.
 3. **Measure hallucinated-caption rate on real (non-synthetic) documents** — the OCR-smoke PASS

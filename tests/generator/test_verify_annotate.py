@@ -43,14 +43,38 @@ class ScriptedNLI:
         return "entailment" if (premise, hypothesis) in self.entailing else "neutral"
 
 
+class _Mismatch:
+    """Mirrors EntityMismatch: evidence_values non-empty means the evidence carried
+    a competing value in the same role; empty means the entity is simply absent."""
+
+    def __init__(self, evidence_values: tuple[str, ...]) -> None:
+        self.entity_type = "name"
+        self.normalized = "claim-entity"
+        self.evidence_values = evidence_values
+
+
 class StubEntityChecker:
-    def __init__(self, inconsistent: set[str] | None = None) -> None:
-        self.inconsistent = inconsistent or set()
+    def __init__(
+        self,
+        inconsistent: set[str] | None = None,
+        absent: set[str] | None = None,
+    ) -> None:
+        self.inconsistent = inconsistent or set()  # genuine conflict
+        self.absent = absent or set()  # entity missing, nothing competing
 
     def check(self, claim_text: str, evidence_text: str):  # type: ignore[no-untyped-def]
+        conflicting = evidence_text in self.inconsistent
+        missing = evidence_text in self.absent
+
         class _Result:
-            consistent = evidence_text not in self.inconsistent
-            mismatches = ()
+            consistent = not (conflicting or missing)
+            mismatches = (
+                (_Mismatch(("rival-value",)),)
+                if conflicting
+                else (_Mismatch(()),)
+                if missing
+                else ()
+            )
 
         return _Result()
 
@@ -74,6 +98,16 @@ def test_declared_indices_reads_to_the_end_of_the_sentence() -> None:
     claim = _claim("claim-1", "Revenue rose 8%.", 0, 15)
 
     assert declared_indices(answer, claim) == (2, 3)
+
+
+def test_declared_indices_does_not_bleed_into_the_next_sentence() -> None:
+    """The splitter anchors paraphrased claims to whole sentences, terminator
+    included. Reaching past that would credit the NEXT sentence's citations to
+    this claim and corrupt the declared-citation survival rate."""
+    answer = "Ethan Winters is the protagonist [3]. The game launched in 2017 [1]."
+    whole_sentence = _claim("claim-1", "Ethan Winters is the protagonist.", 0, 37)
+
+    assert declared_indices(answer, whole_sentence) == (3,)
 
 
 def test_declared_indices_is_empty_when_the_model_cited_nothing() -> None:
@@ -145,6 +179,19 @@ def test_entity_conflict_is_the_only_thing_that_drops_a_claim() -> None:
     routing = verifier.route(_claim("claim-1", "Acme rose 8%.", 0, 13), "Acme rose 8%.", selected)
 
     assert routing.outcome == "dropped_entity_conflict"
+
+
+def test_absent_entity_is_annotated_not_dropped() -> None:
+    """An entity the evidence never mentions is an absence, not a contradiction.
+    Under annotate-not-delete only a genuine conflict may destroy content -- the
+    audit put the false-veto rate on the old rule at 0.700."""
+    selected = SelectedEvidenceSet(query_id="q", evidence=(evidence("ev-1", "Something else."),))
+    nli = ScriptedNLI({("Something else.", "Acme rose 8%.")})
+    verifier = CitationRoutedVerifier(nli, StubEntityChecker(absent={"Something else."}))
+
+    routing = verifier.route(_claim("claim-1", "Acme rose 8%.", 0, 13), "Acme rose 8%.", selected)
+
+    assert routing.outcome == "unverified"
 
 
 def test_clean_support_elsewhere_beats_a_conflict() -> None:
@@ -261,7 +308,10 @@ def test_entity_conflict_records_the_offending_evidence_for_audit() -> None:
     assert routing.claim_text == "Acme rose 8%."
 
 
-def test_zero_verified_claims_abstains_to_preserve_the_contract() -> None:
+def test_zero_verified_claims_now_answers_with_everything_annotated() -> None:
+    """The contract used to demand a citation, which forced a wholesale abstention
+    that threw the annotations away -- capping this policy at 4.8% of kept
+    sentences. With the invariant swapped, an all-annotated answer is legal."""
     draft = DraftAnswer(
         query_id="q",
         answer_text="Revenue rose 8% [1].",
@@ -269,10 +319,45 @@ def test_zero_verified_claims_abstains_to_preserve_the_contract() -> None:
     )
     selected = SelectedEvidenceSet(query_id="q", evidence=(evidence("ev-1", "Unrelated."),))
 
-    result, _ = _run(draft, selected, ScriptedNLI(set()))
+    result, stats = _run(draft, selected, ScriptedNLI(set()))
+
+    assert UNVERIFIED_MARKER in result.answer
+    assert result.cited_evidence_ids == ()
+    assert stats.unverified == 1
+
+
+def test_capped_arm_still_abstains_so_the_lift_can_be_attributed() -> None:
+    draft = DraftAnswer(
+        query_id="q",
+        answer_text="Revenue rose 8% [1].",
+        claims=(_claim("claim-1", "Revenue rose 8%.", 0, 20),),
+    )
+    selected = SelectedEvidenceSet(query_id="q", evidence=(evidence("ev-1", "Unrelated."),))
+    generator = VerifyAnnotateGenerator(
+        draft_generator=FixedDraft(draft),
+        verifier=CitationRoutedVerifier(ScriptedNLI(set()), StubEntityChecker()),
+        abstain_when_unverified=True,
+    )
+
+    result = generator.generate(
+        Query(query_id="q", text="what?"),
+        QueryChecklist(query_id="q", focus="f", required_facts=()),
+        selected,
+    )
 
     assert result.answer == ""
     assert result.cited_evidence_ids == ()
+
+
+def test_genuine_abstention_stays_distinct_from_all_unverified() -> None:
+    """"Abstained" and "answered but nothing verified" are different outcomes and
+    must not collapse: with no claims at all there is nothing to say."""
+    draft = DraftAnswer(query_id="q", answer_text="", claims=())
+    selected = SelectedEvidenceSet(query_id="q", evidence=(evidence("ev-1", "Unrelated."),))
+
+    result, _ = _run(draft, selected, ScriptedNLI(set()))
+
+    assert result.answer == ""
 
 
 def test_unfaithful_claims_are_never_routed() -> None:
