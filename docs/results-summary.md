@@ -100,7 +100,7 @@ VitaminC official test(0B-1,n=55197)上 macro-F1 **.922**、五项阈值全过;�
 | `canonicalize_answer` 改坏 gold claim | claim 中 answer 串 **97.6%** 逐字出现在 premise 中(干净对照组 100%) | 排除 |
 | 大小写 | albert `do_lower_case=True`,对塌陷臂**可证无影响** | 排除 |
 | premise 文本质量(CSV 转义残留) | 带残留 .369(n=899)vs 干净 .354(n=573),**< 1 SE**,且带残留反而略高 | 排除 |
-| premise 长度 | 长 .362 vs 短 .365,**< 1 SE** |
+| premise 长度 | 长 .362 vs 短 .365,**< 1 SE** | 排除 |
 | 答案串取规范化形式还是文档原样(R012d) | 改用文档中的原始串,DeBERTa **.7942 → .7792**,McNemar p≈.0007 —— **方向与预注册相反**,且量级比所需的 +5.6pp 小一个数量级 | 排除 |
 
 **两个是真的,而且量级都很大:**
