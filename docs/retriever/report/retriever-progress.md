@@ -96,7 +96,24 @@ without crashing.
 | Embedded PDF images ignored by default | Charts/figures inside documents contribute no content unless captioning is explicitly enabled |
 | Image captions are lossy and may hallucinate | Treated as retrievable evidence regardless — visual detail and exact figures can be lost or misstated |
 | Scanned PDFs depend entirely on OCR quality | Can degrade silently on low-quality scans or non-Latin scripts |
-| Non-recursive directory scan; failed files skipped silently | Gaps in ingested corpus go unreported |
+| ~~Non-recursive directory scan; failed files skipped silently~~ | **Fixed** — see below |
+
+**Ingestion robustness fix (2026-08-05).** The scan now recurses by default
+(`recursive=False` opts out), every skip and failure is logged at warning level with a
+per-run summary of how many files were ingested, and `on_error` finally governs *parsing*
+as well as captioning.
+
+Two things worth recording because they were worse than the limitation table said:
+
+- A file that failed to parse did not "skip silently" — nothing caught it at all, so one
+  corrupt PDF **aborted the entire ingest**, discarding every document already parsed. The
+  documented `on_error="skip"` default only ever applied to image captioning.
+- Making the scan recursive is not safe on its own: `document_id` was the bare file name,
+  so two sub-directories each holding `report.pdf` would have produced **duplicate ids**
+  and broken the corpus contract. Ids are now the path relative to the scan root
+  (`reports/q1.pdf`), which for a flat directory is byte-identical to the old name — so
+  existing corpora and the index signatures built on them are unaffected. There is a
+  regression test pinning exactly that.
 
 ---
 
@@ -171,8 +188,10 @@ what ultimately trusts (or doesn't) the retrieved caption.
   OCR engine misread `2023 TO 2024` as `2023 T0 2024` on a clean synthetic figure while the Vision
   caption read it correctly, so one document can carry two contradictory readings of the same
   figure. The smoke assertion has been tightened accordingly.
-- **Recursive scanning / silent file failures:** not yet fixed. Still urgent, ahead of any
-  dataset scale-up.
+- **Recursive scanning / silent file failures:** **done** (2026-08-05, see R3). Recursion is
+  now the default, failures are logged rather than swallowed, and the parse path honours
+  `on_error` — which it previously ignored, so a single corrupt file used to abort a whole
+  ingest. Ids moved to relative paths so recursion cannot silently collide them.
 - **Performance at larger corpus sizes:** not yet started.
 
 ---
@@ -182,15 +201,13 @@ what ultimately trusts (or doesn't) the retrieved caption.
 1. **Weight the original-query fusion arm instead of adding it at equal weight** — R4 shows the arm
    recovers the top-20 but not rank 1, consistent with one vote diluted among N. This is the direct
    follow-up and is untested.
-2. **Fix recursive directory scanning and silent file failures** — before dataset scale-up makes
-   gaps harder to detect and diagnose.
-3. **Measure hallucinated-caption rate on real (non-synthetic) documents** — the OCR-smoke PASS
+2. **Measure hallucinated-caption rate on real (non-synthetic) documents** — the OCR-smoke PASS
    proves the mechanism works, not that captions are trustworthy at scale; requires the
    cross-module sync with Generator noted above.
-4. **Test retrieval performance at larger corpus sizes** — check how latency and index build time
+3. **Test retrieval performance at larger corpus sizes** — check how latency and index build time
    scale well past our current benchmark scale (SciFact 300 docs, NQ/2Wiki 2000), before it
    becomes a blocker.
-5. Configurable chunking, to better support structured documents (tables/sections) instead of
+4. Configurable chunking, to better support structured documents (tables/sections) instead of
    fixed-length splits.
-6. Broaden ingestion robustness: wider format coverage (docx/pptx/html via Docling), OCR quality
-   signals instead of silent degradation, and an ingestion summary reporting skipped/failed files.
+5. Broaden ingestion format coverage (docx/pptx/html via Docling) and surface OCR quality signals
+   instead of letting a poor scan degrade silently.

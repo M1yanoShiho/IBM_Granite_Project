@@ -97,6 +97,7 @@ class IngestionConfig(FrozenModel):
     vision_model_id: NonEmpty | None = None
     vision_device: NonEmpty | None = None
     on_error: Literal["skip", "raise"] = "skip"
+    recursive: bool = True
     cache_dir: Path | None = None
 
 
@@ -109,6 +110,7 @@ class _TomlIngestionSection(FrozenModel):
     vision_model_id: NonEmpty | None = None
     vision_device: NonEmpty | None = None
     on_error: Literal["skip", "raise"] = "skip"
+    recursive: bool = True
     cache_dir: NonEmpty | None = None
 
 
@@ -142,6 +144,7 @@ def load_ingestion_config(path: Path) -> IngestionConfig:
         vision_model_id=section.vision_model_id,
         vision_device=section.vision_device,
         on_error=section.on_error,
+        recursive=section.recursive,
         cache_dir=cache_dir,
     )
 
