@@ -11,6 +11,7 @@ from evidence_rag.contracts.models import (
     SelectedEvidenceSet,
     SelectionItem,
     SelectionResult,
+    count_sentences,
 )
 
 
@@ -110,3 +111,39 @@ def test_pipeline_run_rejects_selection_and_selected_evidence_mismatch() -> None
                 cited_evidence_ids=(),
             ),
         )
+
+
+def test_uncited_answer_is_allowed_only_when_every_sentence_is_labelled() -> None:
+    """The invariant is swapped, not dropped. It used to guarantee "every answer is
+    grounded", which forced a generator with nothing verified to abstain wholesale
+    and discard its annotations. It now guarantees "every ungrounded sentence is
+    labelled" -- a different, and for this method more honest, promise."""
+    GenerationResult(
+        query_id="q-1",
+        answer="Costs fell. [unverified] Revenue rose. [unverified]",
+        cited_evidence_ids=(),
+    )
+
+    with pytest.raises(ValidationError, match="mark every sentence"):
+        GenerationResult(
+            query_id="q-1",
+            answer="Costs fell. Revenue rose. [unverified]",
+            cited_evidence_ids=(),
+        )
+
+
+def test_abstention_and_all_unverified_remain_distinguishable() -> None:
+    abstained = GenerationResult(query_id="q-1", answer="", cited_evidence_ids=())
+    answered = GenerationResult(
+        query_id="q-1", answer="Costs fell. [unverified]", cited_evidence_ids=()
+    )
+
+    assert abstained.answer == ""
+    assert answered.answer != ""
+    with pytest.raises(ValidationError, match="empty answer cannot contain citations"):
+        GenerationResult(query_id="q-1", answer="", cited_evidence_ids=("ev-1",))
+
+
+def test_count_sentences_ignores_the_annotation_label() -> None:
+    assert count_sentences("Costs fell. [unverified] Revenue rose. [unverified]") == 2
+    assert count_sentences("") == 0

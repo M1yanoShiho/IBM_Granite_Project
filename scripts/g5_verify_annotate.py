@@ -43,7 +43,7 @@ from evidence_rag.generator.verify_annotate import (  # noqa: E402
     VerifyAnnotateGenerator,
     is_unverified_annotation,
 )
-ARMS = ("baseline", "verify-only", "verify-annotate")
+ARMS = ("baseline", "verify-only", "verify-annotate-capped", "verify-annotate-open")
 
 
 class RecordingRepairer:
@@ -108,7 +108,12 @@ def main() -> int:
     arms: dict[str, Any] = {
         "baseline": GraniteGenerator(llm=llm),
         "verify-only": VerifiedGenerator(llm=llm, nli=nli, repairer=repairer),
-        "verify-annotate": VerifyAnnotateGenerator(llm=llm, nli=nli),
+        # the capped arm is what isolates the contract lift: same routing, old
+        # wholesale abstention when nothing verified
+        "verify-annotate-capped": VerifyAnnotateGenerator(
+            llm=llm, nli=nli, abstain_when_unverified=True
+        ),
+        "verify-annotate-open": VerifyAnnotateGenerator(llm=llm, nli=nli),
     }
 
     results: dict[str, dict[str, Any]] = {name: {} for name in arms}
@@ -138,7 +143,7 @@ def main() -> int:
             }
             if name == "verify-only":
                 record["routing"] = list(repairer.last)
-            if name == "verify-annotate":
+            if name.startswith("verify-annotate"):
                 # exact sentence -> verified citation, so citation precision does
                 # not rest on the flat list; plus the entity-conflict drops, which
                 # are now the only path that destroys content.
@@ -171,10 +176,10 @@ def main() -> int:
         answered = sum(1 for r in results[name].values() if r["answer"].strip())
         print(f"[arm] {name}: {answered}/{len(cases)} answered, {errors[name]} errors", flush=True)
 
-    stats = arms["verify-annotate"].stats
+    stats = arms["verify-annotate-open"].stats
     annotated_sentences = 0
     total_sentences = 0
-    for record in results["verify-annotate"].values():
+    for record in results["verify-annotate-open"].values():
         for sentence in record["answer"].split(". "):
             if sentence.strip():
                 total_sentences += 1
@@ -189,6 +194,22 @@ def main() -> int:
         "rescued_by_fallback_scan": stats.rescued_by_scan,
         "annotated_sentences": annotated_sentences,
         "kept_sentences": total_sentences,
+        # how many annotations actually REACH an answer -- the number the contract
+        # lift exists to move (it was 15 of 82 under the cap)
+        "annotated_claims_reaching_an_answer": sum(
+            1
+            for r in results["verify-annotate-open"].values()
+            if r["answer"].strip()
+            for x in r.get("routing", [])
+            if x["outcome"] == "unverified"
+        ),
+        "annotated_claims_reaching_an_answer_capped": sum(
+            1
+            for r in results["verify-annotate-capped"].values()
+            if r["answer"].strip()
+            for x in r.get("routing", [])
+            if x["outcome"] == "unverified"
+        ),
         "errors": errors,
     }
     (args.output_dir / "routing-stats.json").write_text(

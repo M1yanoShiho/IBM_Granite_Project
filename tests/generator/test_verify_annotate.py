@@ -308,7 +308,10 @@ def test_entity_conflict_records_the_offending_evidence_for_audit() -> None:
     assert routing.claim_text == "Acme rose 8%."
 
 
-def test_zero_verified_claims_abstains_to_preserve_the_contract() -> None:
+def test_zero_verified_claims_now_answers_with_everything_annotated() -> None:
+    """The contract used to demand a citation, which forced a wholesale abstention
+    that threw the annotations away -- capping this policy at 4.8% of kept
+    sentences. With the invariant swapped, an all-annotated answer is legal."""
     draft = DraftAnswer(
         query_id="q",
         answer_text="Revenue rose 8% [1].",
@@ -316,10 +319,45 @@ def test_zero_verified_claims_abstains_to_preserve_the_contract() -> None:
     )
     selected = SelectedEvidenceSet(query_id="q", evidence=(evidence("ev-1", "Unrelated."),))
 
-    result, _ = _run(draft, selected, ScriptedNLI(set()))
+    result, stats = _run(draft, selected, ScriptedNLI(set()))
+
+    assert UNVERIFIED_MARKER in result.answer
+    assert result.cited_evidence_ids == ()
+    assert stats.unverified == 1
+
+
+def test_capped_arm_still_abstains_so_the_lift_can_be_attributed() -> None:
+    draft = DraftAnswer(
+        query_id="q",
+        answer_text="Revenue rose 8% [1].",
+        claims=(_claim("claim-1", "Revenue rose 8%.", 0, 20),),
+    )
+    selected = SelectedEvidenceSet(query_id="q", evidence=(evidence("ev-1", "Unrelated."),))
+    generator = VerifyAnnotateGenerator(
+        draft_generator=FixedDraft(draft),
+        verifier=CitationRoutedVerifier(ScriptedNLI(set()), StubEntityChecker()),
+        abstain_when_unverified=True,
+    )
+
+    result = generator.generate(
+        Query(query_id="q", text="what?"),
+        QueryChecklist(query_id="q", focus="f", required_facts=()),
+        selected,
+    )
 
     assert result.answer == ""
     assert result.cited_evidence_ids == ()
+
+
+def test_genuine_abstention_stays_distinct_from_all_unverified() -> None:
+    """"Abstained" and "answered but nothing verified" are different outcomes and
+    must not collapse: with no claims at all there is nothing to say."""
+    draft = DraftAnswer(query_id="q", answer_text="", claims=())
+    selected = SelectedEvidenceSet(query_id="q", evidence=(evidence("ev-1", "Unrelated."),))
+
+    result, _ = _run(draft, selected, ScriptedNLI(set()))
+
+    assert result.answer == ""
 
 
 def test_unfaithful_claims_are_never_routed() -> None:

@@ -37,10 +37,13 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 
 from evidence_rag.contracts.models import (
+    UNVERIFIED_ANNOTATION,
     GenerationResult,
     Query,
     QueryChecklist,
     SelectedEvidenceSet,
+    is_unverified_annotation,
+    strip_unverified_annotation,
 )
 from evidence_rag.generator.draft import DraftAnswerGenerator
 from evidence_rag.generator.entity_check import (
@@ -52,30 +55,18 @@ from evidence_rag.generator.granite import GraniteLLMClient, TextGenerator
 from evidence_rag.generator.models import Claim, DraftAnswer
 from evidence_rag.generator.nli import NLIModel, build_nli_model
 
-UNVERIFIED_MARKER = "[unverified]"
-"""Suffix marking a kept-but-unverified sentence.
-
-Kept as a constant with the predicate below so the marker text can never drift
-between generator and scorer -- the same discipline already applied to the
-unconfirmed-facts disclosure."""
+UNVERIFIED_MARKER = UNVERIFIED_ANNOTATION
+"""Re-exported from ``contracts``: the label is now part of the GenerationResult
+guarantee ("every ungrounded sentence is labelled"), so the contract owns it and
+generator, scorer and validator cannot drift apart."""
 
 CITATION_RE = re.compile(r"\[(\d+)\]")
 SENTENCE_END = re.compile(r"[.!?]")
 
 
-def is_unverified_annotation(sentence: str) -> bool:
-    """True for a sentence the generator kept without being able to verify it.
-
-    Scorers import this rather than re-spelling the marker. Annotated sentences
-    carry no citation by construction, so under ALCE they score zero citation
-    recall -- that is the intended, visible cost of this design and must not be
-    hidden."""
-    return UNVERIFIED_MARKER in sentence
-
-
-def strip_unverified_marker(text: str) -> str:
-    """The text without annotation markers, for correctness scoring and display."""
-    return " ".join(text.replace(UNVERIFIED_MARKER, " ").split())
+# Re-exported so existing importers (scorers) keep working; the definitions live
+# in contracts because the contract is stated in terms of them.
+strip_unverified_marker = strip_unverified_annotation
 
 
 def declared_indices(answer_text: str, claim: Claim) -> tuple[int, ...]:
@@ -246,7 +237,11 @@ class VerifyAnnotateGenerator:
         *,
         llm: TextGenerator | None = None,
         nli: NLIModel | None = None,
+        abstain_when_unverified: bool = False,
     ) -> None:
+        self.abstain_when_unverified = abstain_when_unverified
+        """The pre-lift behaviour, kept so the capped arm can be run as the
+        ablation that isolates what the contract change bought."""
         shared_llm = llm
         if draft_generator is None:
             shared_llm = shared_llm or GraniteLLMClient()
@@ -314,10 +309,12 @@ class VerifyAnnotateGenerator:
                 routing.sentence = f"{sentence} {UNVERIFIED_MARKER}"
                 parts.append(routing.sentence)
 
-        # An answer of nothing but unverified annotations would carry no citation
-        # and violate GenerationResult. Abstaining preserves the contract and is
-        # the honest outcome anyway.
-        if not verified_any:
+        # Abstain only when there is genuinely nothing to say. An answer made
+        # entirely of annotations used to be impossible -- the contract demanded a
+        # citation -- which forced a wholesale abstention that threw the
+        # annotations away, capping this policy at 4.8% of kept sentences. With
+        # the invariant swapped, that answer is now legal and is emitted.
+        if not parts or (self.abstain_when_unverified and not verified_any):
             return GenerationResult(
                 query_id=query.query_id, answer="", cited_evidence_ids=()
             )

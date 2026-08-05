@@ -40,7 +40,7 @@ from evidence_rag.generator.verify_annotate import (  # noqa: E402
     strip_unverified_marker,
 )
 
-ARMS = ("baseline", "verify-only", "verify-annotate")
+ARMS = ("baseline", "verify-only", "verify-annotate-capped", "verify-annotate-open")
 
 _MATCH_NOISE = re.compile(r"\[\d+\]|[^\w\s]")
 

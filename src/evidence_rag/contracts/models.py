@@ -1,3 +1,4 @@
+import re
 from typing import Annotated, Any, Literal
 
 from pydantic import (
@@ -131,6 +132,38 @@ class SelectedEvidenceSet(FrozenModel):
         return self
 
 
+UNVERIFIED_ANNOTATION = "[unverified]"
+"""Marks a sentence the Generator kept but could not verify.
+
+It lives in ``contracts`` because ``GenerationResult`` now depends on it: the
+contract's guarantee is stated in terms of this label, so the label is part of
+the contract rather than an implementation detail of one generator."""
+
+_SENTENCE_SPLIT = re.compile(r"[.!?]+(?:\s|$)")
+
+
+def is_unverified_annotation(sentence: str) -> bool:
+    """True for a sentence the Generator kept without being able to verify it."""
+    return UNVERIFIED_ANNOTATION in sentence
+
+
+def strip_unverified_annotation(text: str) -> str:
+    """The text with annotation labels removed, for correctness scoring or display."""
+    return " ".join(text.replace(UNVERIFIED_ANNOTATION, " ").split())
+
+
+def count_sentences(answer: str) -> int:
+    """Sentences in an answer, ignoring the annotation labels themselves.
+
+    The label is appended *after* a sentence's terminator, so it must be removed
+    before counting or it would be read as a sentence of its own.
+    """
+    stripped = strip_unverified_annotation(answer)
+    if not stripped:
+        return 0
+    return len([part for part in _SENTENCE_SPLIT.split(stripped) if part.strip()])
+
+
 class GenerationResult(FrozenModel):
     schema_version: Literal["1.0"] = "1.0"
     query_id: NonEmpty
@@ -139,12 +172,23 @@ class GenerationResult(FrozenModel):
 
     @model_validator(mode="after")
     def answer_and_citations_match(self) -> "GenerationResult":
-        if self.answer.strip() and not self.cited_evidence_ids:
-            raise ValueError("nonempty answer requires at least one citation")
         if not self.answer.strip() and self.cited_evidence_ids:
             raise ValueError("empty answer cannot contain citations")
         if len(self.cited_evidence_ids) != len(set(self.cited_evidence_ids)):
             raise ValueError("citations must be unique")
+        if self.answer.strip() and not self.cited_evidence_ids:
+            # The old rule rejected this outright, which guaranteed "every answer
+            # is grounded". That guarantee capped the annotate policy: a query
+            # whose claims all failed verification had to abstain wholesale and
+            # throw its annotations away. The invariant is SWAPPED, not dropped --
+            # an answer may now be entirely uncited, but only if every sentence in
+            # it is labelled unverified. The guarantee becomes "every ungrounded
+            # sentence is labelled", which is the honest one for this method.
+            if count_sentences(self.answer) > self.answer.count(UNVERIFIED_ANNOTATION):
+                raise ValueError(
+                    "uncited answer must mark every sentence with "
+                    f"{UNVERIFIED_ANNOTATION!r}"
+                )
         return self
 
 
