@@ -68,6 +68,11 @@ class BM25Retriever:
     def _set_chunks(self, chunks: Iterable[Chunk]) -> None:
         self.chunks = tuple(chunks)
         self.tokens = tuple(self.analyzer(chunk.text) for chunk in self.chunks)
+        # Term counts are a function of the corpus alone, so they are built once here
+        # instead of being rebuilt for every chunk on every query. Chunks hold ~180
+        # tokens against ~6 effective query terms, so that rebuild was most of the
+        # per-query constant (measured in R5, docs/hpc-run-log.md).
+        self.term_frequencies = tuple(Counter(tokens) for tokens in self.tokens)
         self.average_length = (
             sum(len(tokens) for tokens in self.tokens) / len(self.tokens) if self.tokens else 0.0
         )
@@ -76,20 +81,35 @@ class BM25Retriever:
     def retrieve(self, query: Query, top_k: int) -> CandidateSet:
         if top_k <= 0:
             raise ValueError("top_k must be positive")
-        scored: list[tuple[float, Chunk]] = []
         total = len(self.chunks)
-        for chunk, tokens in zip(self.chunks, self.tokens, strict=True):
-            counts = Counter(tokens)
+        # Analysing the query, and each term's IDF, depend only on the query and the
+        # corpus — never on the chunk being scored — so both are lifted out of the scan
+        # rather than recomputed once per chunk. Duplicate query terms are preserved
+        # (the tuple is iterated, not a set) because a term repeated in the query
+        # contributes its score once per occurrence, which is the existing behaviour.
+        query_terms = self.analyzer(query.text)
+        inverse_document_frequency: dict[str, float] = {}
+        for term in query_terms:
+            if term not in inverse_document_frequency:
+                df = self.document_frequency[term]
+                inverse_document_frequency[term] = math.log(1.0 + (total - df + 0.5) / (df + 0.5))
+        scored: list[tuple[float, Chunk]] = []
+        for chunk, tokens, counts in zip(
+            self.chunks, self.tokens, self.term_frequencies, strict=True
+        ):
+            # Length normalisation is constant across the terms of a single chunk. The
+            # arithmetic below is grouped exactly as it was when computed per term, so
+            # scores stay bit-for-bit identical rather than merely close.
+            length_ratio = len(tokens) / self.average_length if self.average_length else 0.0
+            normalisation = self.k1 * (1.0 - self.b + self.b * length_ratio)
             score = 0.0
-            for term in self.analyzer(query.text):
+            for term in query_terms:
                 frequency = counts[term]
                 if frequency == 0:
                     continue
-                df = self.document_frequency[term]
-                inverse_document_frequency = math.log(1.0 + (total - df + 0.5) / (df + 0.5))
-                length_ratio = len(tokens) / self.average_length if self.average_length else 0.0
-                denominator = frequency + self.k1 * (1.0 - self.b + self.b * length_ratio)
-                score += inverse_document_frequency * (frequency * (self.k1 + 1.0) / denominator)
+                score += inverse_document_frequency[term] * (
+                    frequency * (self.k1 + 1.0) / (frequency + normalisation)
+                )
             if score > 0.0:
                 scored.append((score, chunk))
         scored.sort(key=lambda item: (-item[0], item[1].evidence_id))

@@ -1972,3 +1972,31 @@ ClaimSplitter source_text 逐字约束已放宽(`872ed61`)、over-split meta 句
 - 2026-07-21:A2 互补覆盖层实现 LOCAL 通过(coverage 引擎 11 + 覆盖选择器 2 + 注册 1 = +14);
   gated.py 抽出 `_gate` 复用、门 parity 保持;全套 **332 passed / 1 xfailed**(基线 318/1 + 14,零回归);
   mypy strict 干净(51 files),ruff 干净。Windows fixture 问题已被队友修掉,不再计入。
+- 2026-08-05:**R5 瓶颈 (a) 的修法 —— BM25 每 query 常数项外提**。R5 读码定位的四处
+  与 chunk/query 无关却在内层重算的量,全部提到 `_set_chunks` 或查询循环之外:每 chunk 的
+  `Counter(tokens)`(现为 `term_frequencies`,建索引时算一次)、query 的 analyzer 调用
+  (原来**每个 chunk 重算一次**)、每个 query term 的 IDF、每个 chunk 的长度归一化。
+  **纯常数项优化,不动渐近复杂度**(倒排索引=瓶颈 (b),仍未做)。
+  - **输出逐位不变,有测试守卫:** `tests/retriever/test_bm25_scoring_equivalence.py` 把改写前的
+    打分循环逐字转录为参考实现,用 `==` 而非 `approx` 断言(算术分组刻意保持原样,任何漂移
+    都说明分组变了)。另钉住三处易被静默改坏的行为:query 重复词仍按出现次数各计一次
+    (去重成 set 不会被任何聚合指标发现)、缓存的 Counter 不因未命中词增长、StrongBM25 继承同一引擎。
+    retriever + architecture + evaluation 三套 **322 passed**,零回归。
+  - **本地合成语料实测(chunk_size=180/overlap=30,20k 词 Zipf 词表 → 124 distinct/chunk,
+    与真实散文相当;20 query 取均值):**
+
+    | chunks | old ms/query | new ms/query | 加速 | `term_frequencies` 内存 |
+    |---|---|---|---|---|
+    | 2258 | 25.50 | 3.04 | **8.4×** | 6.5 MB |
+    | 6725 | 71.89 | 10.31 | **7.0×** | 19.6 MB |
+    | 11618 | 129.09 | 21.50 | **6.0×** | 33.8 MB |
+
+  - **代价必须同时报:缓存内存随语料线性增长**,约 **2.9 KB/chunk**。R5 实测 8778 chunk 时
+    peak RSS 161.5 MB,按此比例约 **+25 MB(+16%)**——当前规模划算;但外推到 100 万 chunk
+    即 **~2.9 GB 仅这一项**,故 (a) 缓解不了 enterprise scale,只是把常数压下来。**真正的
+    渐近问题仍须靠 (b) 倒排索引。**
+  - **⚠️ 加速比随语料增大而下降(8.4× → 6.0×)**:Counter 重建的占比被"扫全部 chunk"的固有
+    开销稀释——这恰是 (b) 才能治的部分,与 R5 的诊断一致。
+  - **限制:** 本地合成语料,非 SciFact;**权威 before/after 须在 bp1 上用同一个
+    `scripts/retriever_scaling.py` 对真语料重跑**,与 R5 曲线直接对比。在此之前上表只作量级参考,
+    不得写入 results-summary。
