@@ -437,10 +437,11 @@ MRR,且回收比例随深度递增(MRR 37% < R@5 49% < R@10 66% < R@20 90%)= "1 
   chunk_size=180 而 query 有效词 ~6,故这部分占了绝大多数常数;
   (b) 无倒排索引 → 每 query 必扫全部 chunk,是**线性本身**的来源。
   (a) 是纯缓存、可证明输出逐位不变;(b) 才改渐近复杂度。**两者独立立项,不在本条内做。**
-- raw:`results/retriever-scaling-scifact.json` —— **⚠️ 尚未拉回,本条 AFTER 因此未完成。**
-  上表数字目前只存在于 job 18277023 的 `.out`,按本台账首条规则**不算已记录**,
-  在 bp1 上 `git add -f` 拉回并 push 之前**不得对外引用**(含 results-summary 与汇报材料)。
-  R1/R2 的 per-case raw 已按此规则拉回,本条照办即可。
+- raw:`results/retriever-scaling-scifact.json`(已按台账规则 `git add -f` 拉回,commit `8e33a35`;
+  `.gitattributes` 的 `results/** -text` 保证字节级不被行尾转换改写)。**本条 AFTER 至此完成。**
+  上表六行已从该 raw 重新聚合复核,逐项一致;三条推导亦复核:chunk **10.33×** / 延迟 **10.47×** /
+  build **10.22×**,p95/mean 全程 **1.313–1.372**。运行环境:Python 3.11.15、strong-bm25、top_k=50、
+  chunk_size=180/overlap=30。
 - **写给 results-summary 的草稿:** 见 R4 节(Retriever)。**注意措辞范围:这是本实现的性质,
   不是 BM25 算法的性质。**
 
