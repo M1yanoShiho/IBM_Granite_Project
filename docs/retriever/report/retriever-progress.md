@@ -158,15 +158,61 @@ rather than adding it at equal weight is the obvious next step.
 **Weighting is now implemented but not yet measured (2026-08-05).** Both fusion primitives take
 per-arm `weights`, and `DecomposingRetriever` exposes `original_weight` (default `1.0`, so R2's arm
 is reproduced exactly and no recorded result moves). Sweep points are in
-`configs/experiments/retr_2wiki_decompose-orig-w{2,3,5}.toml`; each weight yields a distinct index
-signature, so two sweep points cannot silently share one index. **No claim is made about whether
-this recovers rank 1 — that is the pending run.**
+`configs/experiments/retr_{scifact,2wiki}_decompose-orig-w{2,3,5}.toml`; each weight yields a
+distinct index signature, so two sweep points cannot silently share one index.
 
-**What this means practically — stated plainly.** Even fixed, Decompose (0.7155) is still far below
-simply using StrongBM25 (0.9580). The fix repairs a *self-inflicted* wound; it does not make
-decomposition competitive on multi-hop. Recall after the fix (0.7675) matches StrongBM25's 0.7678 to
-within 0.0003, confirming the pool was never the problem. **Recommendation: on multi-hop-style
-corpora, prefer StrongBM25 over Decompose regardless of this fix.**
+**What the sweep can and cannot show.** RRF scores `w/(k+rank_original) + Σ 1/(k+rank_sub_i)`, so
+as `w → ∞` the original arm dominates and the ranking converges on the base retriever — that is,
+`decompose-orig(w→∞) ≡ strong-bm25`. On 2Wiki, where strong-bm25 (.9580) sits far above
+decompose-orig at parity (.7155), "MRR rises with weight" is therefore close to structural and
+proves little; it merely interpolates between two known endpoints. The question with real content
+is whether any *finite* weight **exceeds** strong-bm25, which would mean the sub-query arms add
+information on top of the full-query ranking. A monotone climb that never crosses it is the honest
+negative: decomposition contributes nothing and the optimal weight is effectively infinite. SciFact
+is the judging ground (decompose .5584 / strong-bm25 .6105 — real headroom); 2Wiki runs only as
+corroboration. Pre-registered in `docs/hpc-run-log.md` under R4.
+
+**Step 3 — a second fix, and the same question asked on a fairer dataset.** Two questions were left
+open, and both were pre-registered before the numbers were read. Does the original-query arm help
+generally, or was it repairing damage peculiar to 2Wiki, where BM25 already ranks gold first in 92.7%
+of cases so *any* dilution of the full-query ranking must hurt? And does the diagnosed mechanism admit
+a more direct remedy — if summing `1/(k+rank)` is what penalises single-hop specialists, taking the
+maximum instead should suit them. That is a second option, `fusion="best-rank"`. Run as a 2×2 on
+SciFact (decompose MRR 0.5584, so real headroom) and 2Wiki:
+
+| Arm | SciFact MRR (n=300) | 2Wiki MRR (n=2000) |
+|---|---|---|
+| Decompose (baseline) | 0.5584 | 0.5702 |
+| + original arm | 0.5824 | 0.7155 |
+| + best-rank fusion | 0.5745 | 0.8059 |
+| **+ both** | 0.5938 | **0.9100** |
+| StrongBM25 (reference) | **0.6105** | **0.9580** |
+
+- **The original-query arm generalises.** On SciFact it is significant on all four metrics
+  (MRR +0.0240 p=0.0000; R@10 p=0.0382; R@20 p=0.0422; recall p=0.0387), and it is the *only* fix
+  that reaches significance there. So it is a real improvement, not 2Wiki damage control.
+- **Best-rank fusion does not generalise.** On 2Wiki it is the stronger of the two fixes
+  (MRR +0.2357 vs +0.1453) and stacks with the other; on SciFact it is significant on nothing, alone
+  (p=0.2455) or on top of the original arm (p=0.3671). The mechanism explains the split: taking the
+  maximum protects a *dominant single-arm placement*, and 2Wiki has one while SciFact does not
+  (StrongBM25's own MRR there is only 0.6105). **The critique of RRF's sum is real but scoped** to
+  corpora whose full-query ranking is already strong — it is not a general improvement to fusion.
+
+**What this means practically — stated plainly.** No configuration beats simply using StrongBM25. On
+SciFact the best arm (0.5938) is *statistically indistinguishable* from it on all four metrics
+(p = 0.15–0.88); on 2Wiki (0.9100) it remains significantly worse (MRR −0.0480, p=0.0000). And this
+is after the self-inflicted damage has largely been repaired — 87.6% of the 2Wiki MRR gap and 67.9%
+of SciFact's. **So the finding is stronger than "decomposition is broken": it is repaired, and still
+not worth it**, since every query costs N extra LLM calls and N extra retrievals to draw level at
+best. **Recommendation: do not use Decompose on either corpus. If it is used, `include_original` is
+the one switch worth turning on everywhere; `fusion="best-rank"` only pays off where the full-query
+ranking is already strong.**
+
+Two things to hold against this report's own earlier claims. A mid-analysis reading that
+decomposition "trades top-rank precision for pool coverage" — from SciFact recall 0.8683 vs 0.8624 —
+**did not survive the paired test** (p=0.5811) and is withdrawn. And the NQ arm never ran: its
+dataset (`runs/niah-base`) was not materialised, so generality was established on SciFact alone, not
+on the two datasets the pre-registration promised.
 
 ---
 
@@ -207,17 +253,22 @@ what ultimately trusts (or doesn't) the retrieved caption.
 
 1. **Weight the original-query fusion arm instead of adding it at equal weight** — R4 shows the arm
    recovers the top-20 but not rank 1, consistent with one vote diluted among N. **Mechanism landed
-   2026-08-05, result still pending**: run the `w{2,3,5}` sweep configs on 2Wiki and pair against
-   the `original_weight=1.0` arm. The pre-registered prediction is that MRR rises with weight while
-   recall stays flat (R2 already showed the pool is intact); a *falsifying* outcome is MRR gaining
-   nothing, which would mean the dilution account is wrong and the loss is elsewhere.
-2. **Measure hallucinated-caption rate on real (non-synthetic) documents** — the OCR-smoke PASS
+   2026-08-05, result still pending**: run the `w{2,3,5}` sweep on SciFact (judging ground) with
+   2Wiki as corroboration, and pair against the `original_weight=1.0` arm. The pre-registered
+   question is **not** "does MRR rise" — that is near-structural, see above — but **whether any
+   finite weight beats plain strong-bm25**. Falsifying outcomes: all three weights
+   indistinguishable from `w=1` (the dilution account is wrong), or a monotone climb that never
+   crosses strong-bm25 (decomposition adds nothing). Both are publishable negatives.
+2. **Re-run the NQ arm** — the third dataset the R3 pre-registration promised and did not deliver,
+   blocked only on materialising `runs/niah-base`. Generality currently rests on SciFact alone, so a
+   second headroom-bearing dataset is what would actually settle it.
+3. **Measure hallucinated-caption rate on real (non-synthetic) documents** — the OCR-smoke PASS
    proves the mechanism works, not that captions are trustworthy at scale; requires the
    cross-module sync with Generator noted above.
-3. **Test retrieval performance at larger corpus sizes** — check how latency and index build time
+4. **Test retrieval performance at larger corpus sizes** — check how latency and index build time
    scale well past our current benchmark scale (SciFact 300 docs, NQ/2Wiki 2000), before it
    becomes a blocker.
-4. Configurable chunking, to better support structured documents (tables/sections) instead of
+5. Configurable chunking, to better support structured documents (tables/sections) instead of
    fixed-length splits.
-5. Broaden ingestion format coverage (docx/pptx/html via Docling) and surface OCR quality signals
+6. Broaden ingestion format coverage (docx/pptx/html via Docling) and surface OCR quality signals
    instead of letting a poor scan degrade silently.

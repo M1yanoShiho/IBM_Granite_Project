@@ -256,7 +256,119 @@
 - Git commit:待本次改动提交后填;Seed:7;top_k=50;base=strong-bm25、k=60 全臂一致
   (Q1 唯一变量=`include_original`;Q2 唯一变量=`fusion`)。
 
-**AFTER:** 未运行。<!-- 填:job id、四臂指标、各 p 值、Q1 是否普适、Q2 是否更对症/是否叠加、有无任何臂超过 strong-bm25 -->
+**AFTER(2026-08-05,jobs 18269693 / 18269694 / 18271354,gpu:rtx_3090:1,bp1-gpu030):**
+
+- **NQ 臂未跑成:** 18269693 的前三个 SciFact 臂全部完成,第四臂 NQ 因
+  `runs/niah-base/manifest.json` 不存在而 `FAILED`(物化 10 万文档语料的成本另计)。
+  **故 Q1 只在 SciFact 上得到回答,不是预注册承诺的两数据集。** 如实记录,不含混。
+
+**四臂 + 标尺(MRR / R@10 / R@20 / Recall):**
+
+| 臂 | SciFact(n=300) | 2Wiki(n=2000) |
+|---|---|---|
+| decompose(基线) | .5584 / .7094 / .7823 / .8432 | .5702 / .5491 / .6506 / .7610 |
+| decompose-orig | .5824 / .7304 / .8063 / .8666 | .7155 / .6639 / .7371 / .7675 |
+| decompose-bestrank | .5745 / .7286 / .7977 / .8432 | .8059 / .7069 / .7368 / .7642 |
+| **decompose-orig-bestrank** | .5938 / .7580 / .8195 / .8683 | **.9100** / .7105 / .7385 / .7659 |
+| strong-bm25(标尺) | .6105 / .7604 / .8134 / .8624 | .9580 / .7222 / .7468 / .7678 |
+
+- **Q1:普适性成立(在 SciFact 上)。** `include_original` vs decompose 在 SciFact 上
+  **四个指标全部显著**:MRR +.0240 **p=.0000**、R@10 +.0209 p=.0382、R@20 +.0240 p=.0422、
+  Recall +.0233 p=.0387;2Wiki 同样四项全显著。**且它是 SciFact 上唯一显著的修法**
+  → 不是"2Wiki 特有的自伤修复",是通用改进。预注册的替代(修法只对 2Wiki 有效)被排除。
+- **Q2:命中预注册的替代 (c) —— best-rank 是数据集依赖的,不是通用的融合改进。**
+  - 2Wiki:best-rank **单独就比 orig 强**(MRR **+.2357** p=0 vs orig 的 +.1453),且可叠加
+    (orig 之上再加 best-rank:MRR **+.1945** p=0 → .9100)。
+  - SciFact:best-rank **单独无显著效果**(MRR +.0161 **p=.2455**,四项全不显著);
+    叠在 orig 之上**也不显著**(MRR +.0114 **p=.3671**)。
+  - **与机制一致的解释:** best-rank 保护的是"某一臂里的压倒性名次"。2Wiki 存在这种名次
+    (BM25 在 92.7% case 把 gold 排第 1),故 max 有东西可保;SciFact 没有
+    (strong-bm25 自己 MRR 仅 .6105),**没有压倒性名次可保,max 就无从发力**。
+    ⇒ "RRF 的 sum 惩罚单点专家"这个批评**为真但有适用范围**:仅在完整 query 排名本身很强的
+    语料上成立,不是对 RRF 的普遍改进。
+- **⚠️ 标尺判定(预注册的核心问题):没有任何一臂超过 strong-bm25。**
+  - 2Wiki:最好的臂 .9100 仍**显著低于** .9580(MRR −.0480 **p=.0000**;R@10 −.0117 p=0;
+    R@20 −.0082 p=.0002),仅 Recall 不可区分(−.0019 p=.2426)。
+  - SciFact:最好的臂 .5938 vs .6105,**四个指标全部不可区分**(p=.1523 / .8805 / .6952 / .5811)。
+  - 即:分解**最好也只是打平**(SciFact),从未赢过;而它每 query 要多付 N 次 LLM 调用 + N 次检索。
+- **⚠️ 撤回一个中途的猜测:** 读到 SciFact 点估计(Recall .8683 > .8624、R@20 .8195 > .8134)时
+  我曾提出"分解牺牲榜首精度换取池子覆盖率"。**配对检验否掉了它**:Recall +.0059 **p=.5811**、
+  R@20 +.0061 p=.6952,均不显著;2Wiki 上也未复现(Recall −.0019 p=.2426)。
+  **该猜测作废,不得进入报告。** 当时已标为"待检验假设",这次按检验结果撤回。
+- **修法确实几乎修完了自伤,但仍不够:** 2Wiki 上 MRR 差距回收 **87.6%**
+  ((.9100−.5702)/(.9580−.5702)),SciFact 回收 **67.9%**——即"崩塌基本是自伤、且已被基本修复"
+  这一点被证实;**而即便如此分解仍不划算**,这是比"分解坏"更强的结论:不是没修好,是修好了也不值。
+- raw:`results/r3-{scifact,2wiki}-*-per-case.json`(已 `git add -f` 拉回)。
+- **写给 results-summary 的草稿:** 见 R3 节。**实用建议:两个数据集上都不要用 decompose**;
+  若要用,`include_original=true` 是唯一普遍有值的开关,`fusion="best-rank"` 只在完整 query
+  排名强的语料上有用。
+
+---
+
+## R4 — 给原始融合臂加权:测的是有没有内部最优,不是"MRR 会不会涨"
+
+**状态:** READY——三件套齐(代码 `original_weight`,commit `32f9c7c` + 6 个 config + 本条目);
+**本条目写于跑之前,也写于 R3 结果读取之前。** 承接 R2 的替代结果 (a):等权加入只回收 37%
+MRR,且回收比例随深度递增(MRR 37% < R@5 49% < R@10 66% < R@20 90%)= "1 票 vs N 票"稀释。
+
+**BEFORE(预注册):**
+
+- **⚠️ 先声明一个会让天真读法失效的结构事实(本条最重要的一句):**
+  RRF 分数 = `w/(k+rank_原始) + Σ_i 1/(k+rank_子查询_i)`。当 `w → ∞`,原始臂压倒其余,
+  排序**收敛到 base retriever 本身**,即 **`decompose-orig(w→∞) ≡ strong-bm25`**。
+  故"MRR 随 w 单调上升"在 2Wiki 上(strong-bm25 .9580 远高于 decompose-orig(w=1) .7155)
+  **几乎是结构性必然,不构成发现**——那只是在两个已知端点之间插值。
+  **本条初稿只准备了 2Wiki 的 sweep,是与 R3 初稿同型的 scoping 错误,已在提交前改正:
+  补齐 SciFact 三点,并把判据改写如下。**
+
+- **真正的判据(承接 R3 那把尺:标尺是 strong-bm25,不是 decompose):**
+  **有没有任何有限 w 使 MRR 超过同数据集的 strong-bm25?**
+  - **超过** → 子查询臂在完整 query 排名之上确实补充了信息,分解有独立价值,存在内部最优。
+  - **单调逼近但从不超过** → 分解贡献为零,最优策略就是"把权重开到无穷"= 直接用
+    strong-bm25。这是**正当且信息量充足的负结论**,与 R2 的实用结论一致,必须如实写,
+    **不许用"相对 w=1 提升了 X%"包装成成功。**
+- 预期指标 + 方向(分数据集,不许互相解释):
+  - **SciFact(判定场,有真实空间:decompose .5584 / strong-bm25 .6105):** 预期存在
+    **内部最优**——中等 w 处 MRR 高于 w=1,且与 .6105 可比。这是本条的主问题。
+  - **2Wiki(旁证,不作判据):** 预期 MRR 随 w 单调升、recall 基本不动(R2 已证池子完好,
+    .7675 vs .7678)。若出现**非单调**(中间峰后回落),反而是有信息的——说明子查询臂
+    并非纯噪声,存在真实的混合收益。
+- **诚实的替代结果(必须接受并如实报告):**
+  (a) **SciFact 上 w 越大越好、一路单调** → 无内部最优,分解无贡献,结论同"直接用
+      strong-bm25";这会**同时削弱 R2 的实用价值主张**,要写进 results-summary。
+  (b) **任何 w 下 recall 下降** → 原始臂挤占了子查询的多样性,是真实权衡而非免费收益。
+  (c) **SciFact 与 2Wiki 方向相反** → 加权是数据集特异的,不是通用改进(与 R3 的 Q1
+      同型风险,两条要合起来读)。
+  (d) **w=2/3/5 三点全部与 w=1 无显著差异** → 稀释解释(R2 的机制推断)被推翻,损失在别处,
+      需回头重看融合而非继续调权重。
+- **与 R3 的关系(必须先读 R3):** R3 的 Q1 在测 `include_original` 是否普适。**若 R3 判定
+  它只是 2Wiki 特有的自伤修复,则本条在 SciFact 上大概率也无效**——那不是本条失败,而是
+  R3 的结论在本条上的自然推论。两条不可互相解释,但 R4 的解读必须以 R3 的 Q1 为前提。
+- 兼容性:`original_weight` 默认 `1.0` 且**默认时不写入 index 参数**(与 `include_original`、
+  `fusion` 同处理),故已记录结果与既有 index cache 全不受影响;有回归测试守卫。
+  每个 w 生成**不同的 index signature**(实测 w2/w3/w5 各异),故 sweep 各点不会误共用索引。
+- 精确命令(两数据集均已 materialize;**建议等 R3 回来、确认 Q1 后再提交 SciFact 臂**):
+  ```
+  # 判定场(SciFact):
+  sbatch scripts/run_retriever_eval.slurm \
+    configs/experiments/retr_scifact_decompose-orig-w2.toml \
+    configs/experiments/retr_scifact_decompose-orig-w3.toml \
+    configs/experiments/retr_scifact_decompose-orig-w5.toml
+  # 旁证(2Wiki):
+  sbatch scripts/run_retriever_eval.slurm \
+    configs/experiments/retr_2wiki_decompose-orig-w2.toml \
+    configs/experiments/retr_2wiki_decompose-orig-w3.toml \
+    configs/experiments/retr_2wiki_decompose-orig-w5.toml
+  # 回来后(登录节点,CPU,秒级):
+  bash scripts/retriever_significance.sh scifact
+  bash scripts/retriever_significance.sh 2wiki
+  ```
+- Git commit:`32f9c7c`(feat(retriever): weight the original-query fusion arm on decompose);
+  Seed:7;top_k=50;base=strong-bm25、k=60、`include_original=true` 全臂一致,
+  **唯一变量=`original_weight`**;对照臂=已有的 `decompose-orig`(w=1)。
+
+**AFTER:** 未运行。<!-- 填:job id、两数据集各 w 的五指标、vs w=1 与 vs strong-bm25 的配对 p、
+是否存在内部最优、是否有任何 w 超过 strong-bm25、SciFact 与 2Wiki 是否同向 -->
 
 ---
 

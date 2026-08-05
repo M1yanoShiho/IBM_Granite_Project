@@ -2,7 +2,7 @@
 
 已认证的实验发现(数字来自 `docs/hpc-run-log.md` 记录的 HPC 运行,raw 在 `results/`)。
 统计单位=query,配对随机化 p + bootstrap CI(与 harm 同协议)。现有 Selector(S1–S7)与
-Retriever(R1–R2)两节;Generator findings 由该模块补入。
+Retriever(R1–R3)两节;Generator findings 由该模块补入。
 
 ## Selector
 
@@ -209,6 +209,38 @@ DeBERTa 两项单调下降。⇒ **不存在任何一种 hypothesis 形式使两
 - **⚠️ 实用结论:修完仍明显不如直接用 strong-bm25**(.7155 vs .9580)。本修法补回的是
   decompose 的**自伤**,没有让它在多跳上变得有竞争力。R1 那句"不必对多跳整体 gate off"
   只就"候选池没坏"成立;**就该不该用而言,当前证据支持多跳上仍优先 strong-bm25。**
+
+---
+
+### R3 — 修法普适、但"改融合数学"只在特定语料成立;**修好了也不值得用**(R3,2026-08-05)
+
+四臂 2×2(`include_original` × `fusion`)在两数据集上跑满,配对随机化检验。
+标尺是 strong-bm25,不是 decompose(见 R2 的教训)。
+
+| 臂 | SciFact MRR (n=300) | 2Wiki MRR (n=2000) |
+|---|---|---|
+| decompose(基线) | .5584 | .5702 |
+| decompose-orig | .5824 | .7155 |
+| decompose-bestrank | .5745 | .8059 |
+| **decompose-orig-bestrank** | .5938 | **.9100** |
+| strong-bm25(标尺) | **.6105** | **.9580** |
+
+- **`include_original` 是通用改进(已确立)。** SciFact 上四指标全显著(MRR +.0240 **p=.0000**、
+  R@10 p=.0382、R@20 p=.0422、Recall p=.0387),2Wiki 亦然,**且是 SciFact 上唯一显著的修法**。
+  R2 留下的"是否只是 2Wiki 自伤修复"由此排除。
+- **`best-rank` 融合是数据集依赖的,不是通用改进。** 2Wiki 上它单独就强于 orig
+  (MRR **+.2357** p=0 vs +.1453)且可叠加;SciFact 上**单独与叠加都不显著**
+  (p=.2455 / .3671)。机制解释:max 保护的是"某一臂的压倒性名次",2Wiki 有
+  (BM25 92.7% 命中 rank 1)、SciFact 没有(strong-bm25 自身 MRR 仅 .6105)。
+  ⇒ **"RRF 的 sum 惩罚单点专家"为真,但适用范围限于完整 query 排名本身很强的语料。**
+- **⚠️ 没有任何配置超过 strong-bm25。** SciFact 上最好的臂与它**四指标全不可区分**
+  (p=.15–.88);2Wiki 上仍**显著更差**(MRR −.0480 p=.0000)。即分解**最好只打平、从未赢**,
+  而代价是每 query 多 N 次 LLM 调用 + N 次检索。
+- **这比"分解坏"更强:不是没修好,是修好了也不值。** 2Wiki 的 MRR 差距已回收 **87.6%**、
+  SciFact **67.9%**——自伤基本修完,结论不变。
+- **⚠️ 撤回:** 曾据 SciFact 点估计提出"分解以榜首精度换池子覆盖率",配对检验否掉
+  (Recall +.0059 **p=.5811**、R@20 p=.6952;2Wiki 未复现)。**该说法作废。**
+- **限制:** NQ 臂未跑成(缺 `runs/niah-base`),故普适性只在 SciFact 上验证,不是预注册的两数据集。
 
 ---
 
