@@ -372,6 +372,48 @@ MRR,且回收比例随深度递增(MRR 37% < R@5 49% < R@10 66% < R@20 90%)= "1 
 
 ---
 
+## R5 — 语料规模下的检索开销:先测基线曲线,再谈优化(Bharat 反馈第 4 项)
+
+**状态:** READY——三件套齐(`scripts/retriever_scaling.py` + `scripts/run_retriever_scaling.slurm`
++ 本条目);**跑之前写**。这是 Bharat 2026-07-26 四条反馈里**唯一零数据**的一项。
+
+**BEFORE(预注册):**
+
+- 目的:测 sparse 检索的**索引构建时间**与**每 query 延迟**如何随语料规模增长,
+  给"enterprise scale"一个有数字的答案,而不是"应该没问题"。两者分开计时:前者每语料付一次,
+  后者每 query 付一次,合成一个数会掩盖是哪一头疼。延迟报 mean/p50/**p95**,不让长尾被均值吃掉。
+- **读码得出的预测(在测之前写下,可被数据否掉):** `BM25Retriever.retrieve`
+  (`src/evidence_rag/retriever/bm25.py`)**没有倒排索引**,每 query **线性扫全部 chunk**——
+  哪怕 query 词只出现在 3 个文档里也要访问 N 个 chunk。更关键的是循环体内每个 chunk 都执行
+  `counts = Counter(tokens)`,而该结果**与 query 无关**,即每次查询白算一遍"全语料词频"。
+  故预测:
+  1. **每 query 延迟随 chunk 数近似线性增长**(不是次线性);
+  2. **`ms/1k_chunks` 近似常数**(若该比值随规模明显下降,则预测 1 错,需重看);
+  3. 索引构建时间也随规模线性(tokenise + df 各一遍),但常数远小于 Q 次查询的累计开销。
+- **诚实的替代:** 若延迟明显次线性,说明有我没读到的提前退出/稀疏性效应,预测 1 作废;
+  若 p95 与 mean 差距很大,则瓶颈不是规模而是**查询长度分布**(长 query 触碰更多 term),
+  那是另一条修法路线,不能混谈。
+- **判定与后续:** 本条**只测不改**。若预测 1、2 成立,则下一条独立实验做两个可分离的修法并
+  各自量化:(a) 把 `Counter(tokens)` 预计算到构造期——**纯缓存,检索输出应逐位不变**,
+  可用 report 的 aggregate 与既有 R1–R3 raw 对比来证明零质量变化;(b) 建倒排索引(改动大得多)。
+  **先测后改,才能给出"加速 N 倍"这种有基线的说法。**
+- **范围限制(必须写进结论):** 这测的是**本实现**(手写 Python BM25),不是 BM25 这个算法。
+  结论只归属于实现。且 SciFact 上限 5183 文档,只覆盖约 **10×** 规模跨度;
+  再往上一个数量级需先物化 `runs/niah-base --corpus-size 100000`(与 R3 里 NQ 臂缺的是同一件事)。
+- 精确命令(CPU 分区,无需 GPU/LLM/模型下载):
+  ```
+  mkdir -p logs results
+  sbatch scripts/run_retriever_scaling.slurm
+  # 或指定更大语料:
+  # sbatch scripts/run_retriever_scaling.slurm runs/niah-base/manifest.json results/retriever-scaling-niah.json
+  ```
+- Git commit:待本次改动提交后填;固定项:top_k=50、chunk_size=180/overlap=30、queries=50、
+  retriever=strong-bm25(k1=0.9/b=0.4);sizes=500/1000/2000/3000/4000/5183。
+
+**AFTER:** 未运行。<!-- 填:job id、各规模 build_s / mean / p95 / ms_per_1k_chunks / peak_rss、预测 1-3 各是否成立、是否转入修法 -->
+
+---
+
 ## E2 — gate-on/off 配对 selector 对照(spec §12 主对照)
 
 **状态:** READY——三件套齐(configs + slurm + 本条目,commit 3c37d4c)。只差登录节点下 dpr-w100 + granite 后跑。
