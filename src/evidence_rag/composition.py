@@ -1,4 +1,5 @@
 import hashlib
+import math
 import os
 from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
@@ -97,6 +98,15 @@ def _flag(name: str, value: object) -> bool:
     return value
 
 
+def _positive_float(name: str, value: object) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"retriever parameter {name!r} must be a number")
+    number = float(value)
+    if not math.isfinite(number) or number <= 0.0:
+        raise ValueError(f"retriever parameter {name!r} must be positive")
+    return number
+
+
 def _unit_float(name: str, value: object) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ValueError(f"retriever parameter {name!r} must be a number")
@@ -178,7 +188,8 @@ def _wrapper_parameters(parameters: Mapping[str, Any]) -> dict[str, Any]:
 
 def _decompose_parameters(parameters: Mapping[str, Any]) -> dict[str, Any]:
     _reject_unknown(
-        parameters, {"base", "k", "pool_size", "include_original", "fusion"}
+        parameters,
+        {"base", "k", "pool_size", "include_original", "original_weight", "fusion"},
     )
     if "base" not in parameters:
         raise ValueError("retriever wrapper requires a 'base' retriever config")
@@ -187,12 +198,22 @@ def _decompose_parameters(parameters: Mapping[str, Any]) -> dict[str, Any]:
         "k": _positive_int("k", parameters.get("k", DEFAULT_RRF_K)),
         "pool_size": _optional_positive_int("pool_size", parameters.get("pool_size")),
     }
-    # Both keys below are recorded only when set away from their default: `parameters`
-    # is bound into the index signature, so emitting them unconditionally would change
-    # every existing decompose index's expected parameters and reject caches written
-    # before these options existed.
-    if _flag("include_original", parameters.get("include_original", False)):
+    # The three keys below are recorded only when set away from their default:
+    # `parameters` is bound into the index signature, so emitting them unconditionally
+    # would change every existing decompose index's expected parameters and reject
+    # caches written before these options existed.
+    include_original = _flag("include_original", parameters.get("include_original", False))
+    if include_original:
         normalised["include_original"] = True
+    original_weight = _positive_float(
+        "original_weight", parameters.get("original_weight", 1.0)
+    )
+    if original_weight != 1.0:
+        if not include_original:
+            raise ValueError(
+                "decompose parameter 'original_weight' requires 'include_original'"
+            )
+        normalised["original_weight"] = original_weight
     fusion = parameters.get("fusion", "rrf")
     if fusion not in {"rrf", "best-rank"}:
         raise ValueError("decompose parameter 'fusion' must be 'rrf' or 'best-rank'")
@@ -259,6 +280,7 @@ def _construct_retriever(
         k=parameters["k"],
         pool_size=parameters["pool_size"],
         include_original=bool(parameters.get("include_original", False)),
+        original_weight=float(parameters.get("original_weight", 1.0)),
         fusion=str(parameters.get("fusion", "rrf")),
     )
 

@@ -382,3 +382,126 @@ def test_unsupported_extensions_are_logged(
 def test_rejects_non_directory(tmp_path: Path) -> None:
     with pytest.raises(NotADirectoryError):
         dispatch.load_directory(tmp_path / "missing")
+
+
+def test_nested_files_are_ingested_and_keyed_by_relative_path(tmp_path: Path) -> None:
+    (tmp_path / "top.txt").write_text("top", encoding="utf-8")
+    nested = tmp_path / "2024" / "q1"
+    nested.mkdir(parents=True)
+    (nested / "notes.txt").write_text("nested", encoding="utf-8")
+
+    documents = dispatch.load_directory(tmp_path)
+
+    assert [document.document_id for document in documents] == [
+        "2024/q1/notes.txt",
+        "top.txt",
+    ]
+
+
+def test_same_file_name_in_two_subdirectories_keeps_distinct_ids(
+    tmp_path: Path,
+) -> None:
+    # The reason ids became relative paths: a bare name collides once the walk is
+    # recursive, and duplicate document_ids break the corpus contract downstream.
+    for folder in ("alpha", "beta"):
+        (tmp_path / folder).mkdir()
+        (tmp_path / folder / "report.txt").write_text(folder, encoding="utf-8")
+
+    documents = dispatch.load_directory(tmp_path)
+
+    ids = [document.document_id for document in documents]
+    assert ids == ["alpha/report.txt", "beta/report.txt"]
+    assert len(set(ids)) == len(ids)
+
+
+def test_flat_directory_ids_are_unchanged_by_recursion(tmp_path: Path) -> None:
+    # Backward-compat guard: corpora that predate recursive scanning must keep the
+    # exact ids they had, or every persisted index signature built on them breaks.
+    (tmp_path / "notes.txt").write_text("flat", encoding="utf-8")
+
+    recursive = dispatch.load_directory(tmp_path)
+    flat = dispatch.load_directory(tmp_path, recursive=False)
+
+    assert [document.document_id for document in recursive] == ["notes.txt"]
+    assert [document.document_id for document in flat] == ["notes.txt"]
+
+
+def test_recursive_false_still_skips_nested_files(tmp_path: Path) -> None:
+    (tmp_path / "top.txt").write_text("top", encoding="utf-8")
+    (tmp_path / "sub").mkdir()
+    (tmp_path / "sub" / "nested.txt").write_text("nested", encoding="utf-8")
+
+    documents = dispatch.load_directory(tmp_path, recursive=False)
+
+    assert [document.document_id for document in documents] == ["top.txt"]
+
+
+def test_pdf_chunk_ids_keep_their_suffix_under_a_relative_id(tmp_path: Path) -> None:
+    nested = tmp_path / "reports"
+    nested.mkdir()
+    (nested / "report.pdf").write_bytes(b"%PDF-fake")
+    converter = FakeConverter({"report.pdf": FakeDoc(pages={1: "Page one."})})
+
+    documents = dispatch.load_directory(
+        tmp_path, converter=converter, pdf_mode="pages", image_ocr=False
+    )
+
+    # The file-name part is re-keyed, the ::p1 chunk suffix survives intact.
+    assert [document.document_id for document in documents] == ["reports/report.pdf::p1"]
+
+
+def test_a_failed_file_is_skipped_and_the_rest_still_load(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    # Before this, a parse error propagated: one bad file aborted the whole ingest
+    # partway through, discarding every document already parsed.
+    (tmp_path / "broken.pdf").write_bytes(b"%PDF-fake")
+    (tmp_path / "fine.txt").write_text("readable", encoding="utf-8")
+
+    class ExplodingConverter:
+        converted: list[str] = []
+
+        def convert(self, path: Path) -> Any:
+            raise RuntimeError("corrupt pdf")
+
+    with caplog.at_level("WARNING", logger="evidence_rag.loaders"):
+        documents = dispatch.load_directory(tmp_path, converter=ExplodingConverter())
+
+    assert [document.document_id for document in documents] == ["fine.txt"]
+    assert "Failed to parse" in caplog.text
+    assert "1 file(s) failed to parse" in caplog.text
+
+
+def test_on_error_raise_still_fails_fast_on_a_bad_file(tmp_path: Path) -> None:
+    (tmp_path / "broken.pdf").write_bytes(b"%PDF-fake")
+
+    class ExplodingConverter:
+        def convert(self, path: Path) -> Any:
+            raise RuntimeError("corrupt pdf")
+
+    with pytest.raises(RuntimeError, match="corrupt pdf"):
+        dispatch.load_directory(
+            tmp_path, converter=ExplodingConverter(), on_error="raise"
+        )
+
+
+def test_unreadable_text_file_is_skipped_not_fatal(tmp_path: Path) -> None:
+    (tmp_path / "good.txt").write_text("fine", encoding="utf-8")
+    # Invalid UTF-8 makes read_text raise, standing in for any unreadable file.
+    (tmp_path / "bad.txt").write_bytes(b"\xff\xfe\x00broken")
+
+    documents = dispatch.load_directory(tmp_path)
+
+    assert [document.document_id for document in documents] == ["good.txt"]
+
+
+def test_summary_reports_how_many_files_were_ingested(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    (tmp_path / "a.txt").write_text("a", encoding="utf-8")
+    (tmp_path / "b.txt").write_text("b", encoding="utf-8")
+
+    with caplog.at_level("INFO", logger="evidence_rag.loaders"):
+        dispatch.load_directory(tmp_path)
+
+    assert "Ingested 2 file(s)" in caplog.text
