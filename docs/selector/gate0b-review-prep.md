@@ -75,6 +75,25 @@ DeBERTa / rung 1 在 `P(SUPPORTS) > .05` 时 gold-recall **.9015**、twin **.737
 仅 59M)、8192 上下文(albert/DeBERTa 为 512)、已是 cross-encoder、Apache 2.0,**且让关系层回到 Granite 家族**。
 风险如实说:它没有 NLI 先验,contradiction 要从零学。
 
+> **[2026-08-06 更正 —— 上段的比较做错了对象,结论已被 A3 推翻。原文保留不改写。]**
+>
+> **(1) 比错了对象。** 上段四条论据比的是 **albert(59M / 512)**,而 §3.8 的基座是
+> `microsoft/deberta-v3-base`。**能证成换基座的那个比较从未做过。** 对着正确对象重做后
+> (M0 §11.3):层数那条更强(22L vs 12L),**8192 上下文那条不成立**(premise 是单段 ~100 词,
+> 512 早已够用),"已是 cross-encoder"只对一半(架构迁移,但它是**单输出排序头**,微调须换头),
+> **Apache-2.0 不构成差异**(最终选中的 `cross-encoder/nli-deberta-v3-base` 同为 Apache-2.0)。
+>
+> **(2) "没有 NLI 先验"不是它独有的风险。** `microsoft/deberta-v3-base` **同样没有** ——
+> 它是 RTD 预训练的裸基座。该条不区分两者,更正记此。
+>
+> **(3) 真正的风险被写轻了。** 相关性先验对本任务是**不利先验**而非中性:
+> 上文自己写过"相关性 reranker 会给反事实孪生打高分",即**它的目标函数奖励我们要抓的失败模式**。
+>
+> **(4) 结论:未被采纳。** A3(M0 §11)按预先定死的规则从 83 个检索候选中选出
+> **`cross-encoder/nli-deberta-v3-base`**。Granite reranker 在两条硬约束上出局:
+> **H6**(`id2label` 为 `{0: LABEL_0}`,三类顺序不可核验)与 **H2 未决**(ModernBERT 需 transformers ≥ 4.48)。
+> "回到 Granite 家族"这条好处**真实存在,但被有意识地放弃了**(§11.3(a) 裁决)。
+
 ## Q5. 预注册了三臂,为什么只跑了两臂?
 
 **缺的是 MiniCheck-FT5(770M,LLM-AggreFact <1B SOTA)**,即三臂中**唯一为 document-grounded verification
