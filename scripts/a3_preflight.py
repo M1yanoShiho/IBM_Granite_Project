@@ -205,20 +205,24 @@ def main() -> int:
     check_cross_encoder_scaffold(result)
 
     result.skip(
-        "7. passage-hash leakage axis measured",
-        "Needs the sealed-600 corpus and is a separate job. §11.7 item 1 struck "
+        "7. passage-hash leakage axis measured  [§11.9(B) -- NOT an R013 blocker]",
+        "Prerequisite for EVALUATING on sealed-600, not for training: R013 trains on "
+        "VitaminC plus NIAH train-split pairs, while this axis inspects the eval set. "
+        "It also cannot run yet -- sealed-600 is not built (§8 item 2). §11.7 struck "
         "§3.8's 'empty by construction' because the selected base has seen SNLI+MNLI, "
-        "so this axis now needs evidence. NOT automated here -- track it, do not "
-        "assume it.",
+        "so it now needs evidence. Track it; do not assume it.",
     )
 
     print()
     if result.failed:
         print(f"BLOCKED -- {len(result.failed)} check(s) failed: {result.failed}")
-        print("R013 must not be submitted. See M0 §11.9.")
+        print("R013 must not be submitted. See M0 §11.9(A).")
         return 1
-    print(f"All automated checks passed. Still open: {result.skipped}")
-    print("R013 may be submitted once the skipped items are settled (M0 §11.9).")
+    print("All §11.9(A) checks passed -- R013 may be submitted.")
+    print(
+        "Still open, before sealed-600 evaluation only: "
+        f"{result.skipped} (M0 §11.9(B))."
+    )
     return 0
 
 

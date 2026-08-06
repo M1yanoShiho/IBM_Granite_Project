@@ -1261,18 +1261,45 @@ v1 草稿的候选池是从项目文档里已提到的模型攒的,**不是一�
 它改变的只是一个**尚未开始**的训练运行的基座 —— R013–R015 至今零结果,
 故不存在"由 FAIL 变 PASS"的对象。这一条在三份修订里最易核验。
 
-### 11.9 硬性前置检查(批准后、R013 开跑前逐项实测,任一不过即停)
+### 11.9 硬性前置检查(任一不过即停)
 
-- [ ] **实测集群 torch 版本** —— 若 ≥ 2.6,**§11.1 的必要性消失,本修订应被撤回**,§3.8 按原文执行
-- [ ] **在集群上复核 `microsoft/deberta-v3-base` 确无 safetensors**,不以本地 API 查询为准
-- [ ] `AutoModelForSequenceClassification.from_pretrained('cross-encoder/nli-deberta-v3-base',
-      use_safetensors=True)` 实测可加载
-- [ ] **实测 `id2label`,并把它按 `LABEL_ORDER` 的规矩登记** ——
-      该基座的顺序是 `contradiction / entailment / neutral`,**与现有两个条目都不同**。
-      按名映射而非按位;猜一个顺序不会报错,只会静默产出可信的错数字
-- [ ] 记录权重指纹并写入 `model_version`(沿用 `fingerprinted_version`)
-- [ ] sentence-transformers CrossEncoder 脚手架实测能吃下该 checkpoint
+**执行方式:`python scripts/a3_preflight.py`。** 前六项由该脚本自动执行,并以退出码把关 ——
+按 §10.8 的纪律,写成"必须先做 X"的义务要么有工具产出 X,要么迟早被跳过。
+
+**(A) R013 开跑前必须过 —— 六项已于 2026-08-06 在 bp1 实测通过:**
+
+- [x] **实测集群 torch 版本** —— 若 ≥ 2.6,§11.1 的必要性消失,本修订应被撤回。
+      **实测 `torch 2.5.1+cu121` < 2.6,A3 的前提在集群上成立。**
+- [x] **在集群上复核 `microsoft/deberta-v3-base` 确无 safetensors**,不以本地 API 查询为准。
+      **实测权重清单 = `['pytorch_model.bin']`。**
+- [x] `AutoModelForSequenceClassification.from_pretrained(..., use_safetensors=True)` 实测可加载。
+      **实测加载成功,184,424,451 参数**(与 deberta-v3-base 的血缘一致)。
+- [x] **实测 `id2label`,并按 `LABEL_ORDER` 的规矩登记。**
+      **实测 `{0: contradiction, 1: entailment, 2: neutral}` ⇒ `("REFUTES", "SUPPORTS", "UNKNOWN")`,已登记。**
+      **该条目是表中第一个 position 0 不是 SUPPORTS 的** —— 现有两条均以 SUPPORTS 打头,
+      按位抄邻居会在每条边上把 SUPPORTS 与 REFUTES 对调,且不报错。测试已直接钉住该形状。
+- [x] 记录权重指纹并写入 `model_version`。
+      **基座指纹 = `cross-encoder/nli-deberta-v3-base@c95d83f857fd4fcd`**;训练产出的模型将有自己的指纹。
+- [x] sentence-transformers CrossEncoder 脚手架实测能吃下该 checkpoint。
+      **`CrossEncoder(num_labels=3)` 构造成功。**
+
+**(B) sealed-600 评测前必须过,不阻塞 R013 [排序更正,2026-08-06]:**
+
 - [ ] **§11.7 第 1 条:passage-hash 泄漏轴改为实测,不得再按"天然为空"处理**
+
+**本项由 (A) 移入 (B)。理由与"移动"这件事本身一并记录,不得直接勾掉:**
+
+1. **它现在跑不了,且原因与 R013 无关。** 泄漏轴要拿 **sealed-600** 去查,而 sealed-600 **尚未构建**
+   (§8 第 2 项)。留在 (A) 会让 R013 被一个它自己不产生的前置无限期卡住。
+2. **它本来就不是训练侧前置。** R013 训的是 VitaminC + NIAH **train** split 的 mutation-log 对;
+   泄漏轴查的是**评测集**。泄漏若存在,污染的是"拿该模型去评 sealed-600"那一步,而非训练本身。
+   **故它是"用模型"的前置,不是"训模型"的前置。**
+3. **一条先验判断,但不构成豁免。** SNLI 取自 Flickr30k 图像描述、MNLI 取自 OANC 的十个体裁,
+   **两者均不含 Wikipedia**;而 NIAH 语料是 dpr-w100(NQ 的 Wikipedia 切分),先验重叠面很小。
+   **但 §11.7 刚把"构造保证"改成"需要证据",这段推理只能作背景,不得记作已验证。**
+
+**为什么把移动理由写这么长:** §9.10 那份批准清单曾在实现已落地之后仍写着"未完成",
+直到被别人发现才更正。**一个前置被移动而不留理由,与一份清单过时,是同一种缺陷。**
 
 ### 11.9a 延后核验:两项可能重开选型的检查(**不阻塞 R013**)[2026-08-06]
 
