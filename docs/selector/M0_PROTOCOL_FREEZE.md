@@ -1065,6 +1065,12 @@ R012 已实测 `unknown_rate` albert **.482** / DeBERTa **.176** —— 该分�
 | H3 | **宽松许可证**(Apache-2.0 / MIT) | 可发表性 |
 | H4 | **cross-encoder / 句对分类架构** | 双塔 embedding 模型不适用;§3.8 的脚手架是 CrossEncoder |
 | H5 | **训练语料不含 VitaminC** | **0B-1 在 VitaminC official test 上验收。基座若已训过 VitaminC,该层当场失去意义** |
+| H6 | **`id2label` 语义具名且可核验** | 一个 `{LABEL_0, LABEL_1, LABEL_2}` 的三类头,其顺序**无法从 config 判定**。`LABEL_ORDER` 的注释已写死这条:猜一个顺序**不会报错**,只会静默产出可信的错数字 |
+
+**H5 的核验方式(2026-08-06 补,由一次实际踩中改写):** **不得以 HF `cardData.datasets` 为准。**
+`tasksource/ModernBERT-base-nli` 的 `cardData` 只列 `glue` 与 `anli`,而 tasksource 的实际训练任务清单
+(`sileod/tasksource` 仓库 `tasks.md`)含 **`bigbench/vitaminc_fact_verification`**。
+**cardData 已被实证为不完整**,故 H5 与 C3 一律以**上游训练任务清单**为准,查不到清单者按**不通过**处理。
 
 **Tier 1 — 预注册的排序判据,按顺序套用,前一条能分出胜负就不看下一条:**
 
@@ -1110,41 +1116,75 @@ R012 已实测 `unknown_rate` albert **.482** / DeBERTa **.176** —— 该分�
 2. **若日后出于任何其他原因取得了某个候选在 0B-2 上的零训练读数,且它两项同时过阈,
    该事实必须立即如实报告并触发对族级断言的复核** —— 不得因"它不是预注册臂"而搁置。
 
-### 11.4 候选池与实测事实(2026-08-06,HF `config.json` + 文件清单 + cardData)
+### 11.4 候选池与实测事实(2026-08-06)
 
-**所有数字为元数据,非任务测量。本节没有任何一项是本修订作者跑出来的。**
+**候选池的来源必须说明,否则"选型"仍是攒出来的:** 本池由 HF API 三次检索合并去重得到
+(`pipeline_tag=zero-shot-classification` 按下载量、`search=nli` + `filter=text-classification`、
+`search=deberta-v3-base-nli`),**83 个去重候选**,再按 Tier 0 逐条过滤。
+v1 草稿的候选池是从项目文档里已提到的模型攒的,**不是一次检索**;这是本节相对 v1 的实质改动。
 
-| 候选 | H1 权重 | H2 架构 | H3 许可 | 层×hidden / ctx | 已有头 | 训练语料 | `base_model` |
-|---|---|---|---|---|---|---|---|
-| `microsoft/deberta-v3-base`(预注册) | **✗ 仅 .bin** | deberta-v2 | MIT | 12×768 / 512 | 无 | — | — |
-| **`cross-encoder/nli-deberta-v3-base`** | ✓ | deberta-v2 | **Apache-2.0** | 12×768 / 512 | **三类 contradiction/entailment/neutral** | **MNLI + SNLI** | **`microsoft/deberta-v3-base`** |
-| `MoritzLaurer/DeBERTa-v3-base-mnli-fever-anli` | ✓ | deberta-v2 | MIT | 12×768 / 512 | 三类 | MNLI + ANLI + **FEVER** | — |
-| `MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli` | ✓ | deberta-v2 | MIT | 24×1024 / 512 | 三类 | MNLI + ANLI + **FEVER** + LingNLI + WANLI | — |
-| `answerdotai/ModernBERT-base` | ✓ | **modernbert** | Apache-2.0 | 22×768 / 8192 | 无 | MLM 预训练 | — |
-| `ibm-granite/granite-embedding-reranker-english-r2` | ✓ | **modernbert** | Apache-2.0 | 22×768 / 8192 | **单输出排序头** `{0: LABEL_0}` | 相关性排序(pListMLE) | `ibm-granite/granite-embedding-english-r2` |
-| `tals/albert-xlarge-vitaminc-mnli` | ✓ | albert | **未声明** | 24×2048 / 512 | 三类 | **VitaminC** + MNLI | — |
+**所有字段为元数据,非任务测量。本节没有任何一项是本修订作者跑出来的。**
+
+| 候选 | H1 权重 | H2 架构 | H3 许可 | H6 标签 | 层×hidden / ctx | 已有头 | 训练语料 | `base_model` |
+|---|---|---|---|---|---|---|---|---|
+| `microsoft/deberta-v3-base`(预注册) | **✗ 仅 .bin** | deberta-v2 | MIT | — | 12×768 / 512 | 无 | — | — |
+| **`cross-encoder/nli-deberta-v3-base`** | ✓ | deberta-v2 | **Apache-2.0** | ✓ 具名 | 12×768 / 512 | **三类 contradiction/entailment/neutral** | **MNLI + SNLI** | **`microsoft/deberta-v3-base`** |
+| `cross-encoder/nli-deberta-v3-large` | ✓ | deberta-v2 | Apache-2.0 | ✓ 具名 | **24×1024** / 512 | 三类,同语义 | **MNLI + SNLI** | `microsoft/deberta-v3-large` |
+| `cross-encoder/nli-deberta-v3-small` | ✓ | deberta-v2 | Apache-2.0 | ✓ 具名 | 6×768 / 512 | 三类,同语义 | MNLI + SNLI | `microsoft/deberta-v3-small` |
+| `MoritzLaurer/DeBERTa-v3-base-mnli-fever-anli` | ✓ | deberta-v2 | MIT | ✓ | 12×768 / 512 | 三类 | MNLI + ANLI + **FEVER** | — |
+| `MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli` | ✓ | deberta-v2 | MIT | ✓ | 24×1024 / 512 | 三类 | MNLI + ANLI + **FEVER** + LingNLI + WANLI | — |
+| `MoritzLaurer/deberta-v3-base-zeroshot-v2.0` | ✓ | deberta-v2 | MIT | ✓ | 12×768 / 512 | **二类** entailment/not_entailment | 未公开完整清单 | `microsoft/deberta-v3-base` |
+| `sileod/deberta-v3-base-tasksource-nli` | ✓ | deberta-v2 | Apache-2.0 | ✓ | 12×768 / 512 | 三类 | **600 任务,含 VitaminC** | — |
+| `tasksource/ModernBERT-base-nli` | ✓ | **modernbert** | Apache-2.0 | ✓ | 22×768 / 2048 | 三类 | **同上,含 VitaminC** | `answerdotai/ModernBERT-base` |
+| `tasksource/deberta-small-long-nli` | ✓ | deberta-v2 | Apache-2.0 | ✓ | 6×768 / 1680 | 三类 | **同上,含 VitaminC** | `microsoft/deberta-v3-small` |
+| `dleemiller/EttinX-nli-xs` | ✓ | **modernbert** | MIT | **✗ `LABEL_0/1/2`** | 10×384 / 7999 | 三类,**语义不可核验** | all-nli-distill | `jhu-clsp/ettin-encoder-32m` |
+| `answerdotai/ModernBERT-base` | ✓ | **modernbert** | Apache-2.0 | — | 22×768 / 8192 | 无 | MLM 预训练 | — |
+| `ibm-granite/granite-embedding-reranker-english-r2` | ✓ | **modernbert** | Apache-2.0 | **✗ `{0: LABEL_0}`** | 22×768 / 8192 | **单输出排序头** | 相关性排序(pListMLE) | `ibm-granite/granite-embedding-english-r2` |
+| `tals/albert-xlarge-vitaminc-mnli` | ✓ | albert | **未声明** | ✓ | 24×2048 / 512 | 三类 | **VitaminC** + MNLI | — |
 
 ### 11.5 规则套用
 
 **Tier 0 淘汰:**
 
 - `microsoft/deberta-v3-base` —— **H1 不过**(无 safetensors)。这就是本修订存在的原因。
-- `tals/albert-xlarge-vitaminc-mnli` —— **H5 不过**(已训 VitaminC,0B-1 当场失效);**H3 亦不过**(许可证未声明)。
-- `answerdotai/ModernBERT-base` 与 `granite-embedding-reranker-english-r2` —— **H2 未决**:
-  ModernBERT 需 transformers **≥ 4.48**,而 pyproject 只 pin `>=4.45,<5`。**允许不等于满足**,
-  须由 §11.9 实测。**在该项通过之前,两者不得被选中。**
+- **`sileod/deberta-v3-base-tasksource-nli`、`tasksource/ModernBERT-base-nli`、
+  `tasksource/deberta-small-long-nli` —— H5 不过。** tasksource 的训练任务清单含
+  **`bigbench/vitaminc_fact_verification`**。**这一族本来是最有吸引力的替代品**
+  (deberta-v3-base 同规模、Apache-2.0、语义正确的三类头、600 任务的多任务 NLI 先验),
+  **而它的 cardData 只列 `glue` 与 `anli`,不列 VitaminC** —— 不查上游清单就会选中它,
+  并**静默污染 0B-1**。H5 的核验方式因此被改写(见 §11.2)。
+  *(限定:BIG-bench 版可能只是 VitaminC 的子集。但 H5 是硬约束不是加权项,
+  举证责任在想用它的人 —— 须证明该子集与 VitaminC official test 不相交。)*
+- `tals/albert-xlarge-vitaminc-mnli` —— **H5 不过**(已训 VitaminC);**H3 亦不过**(许可证未声明)。
+- `dleemiller/EttinX-nli-xs` —— **H6 不过**(`LABEL_0/1/2`,顺序不可从 config 核验);H2 亦未决。
+- `granite-embedding-reranker-english-r2` —— **H6 不过**(单输出 `{0: LABEL_0}`);H2 未决。
+- `answerdotai/ModernBERT-base` —— **H2 未决**:ModernBERT 需 transformers **≥ 4.48**,
+  而 pyproject 只 pin `>=4.45,<5`。**允许不等于满足**,须由 §11.9 实测;通过前不得被选中。
+- `MoritzLaurer/deberta-v3-base-zeroshot-v2.0` —— **H5 未决**:未公开完整训练清单,
+  按 §11.2 的新规则**计不通过**。另:其头是**二类**,与 A2 恢复的三类输出空间不符。
 
-**Tier 1 逐条:**
+**Tier 1 逐条(存活候选):**
 
-| | `cross-encoder/nli-deberta-v3-base` | MoritzLaurer base | MoritzLaurer large | ModernBERT-base | Granite reranker |
+| | **`cross-encoder/nli-deberta-v3-base`** | `cross-encoder/nli-deberta-v3-large` | `cross-encoder/nli-deberta-v3-small` | MoritzLaurer base | MoritzLaurer large |
 |---|---|---|---|---|---|
-| **C1** 血缘距离 | **`base_model` 即预注册基座 —— 距离最小** | 不同血缘 | 不同血缘且换规模 | 不同血缘 | 不同血缘 |
-| **C2** 先验方向 | **三类 NLI 头,语义正确** | 三类 NLI 头 | 三类 NLI 头 | 中性裸 encoder | **相反先验** |
-| **C3** 污染距离 | **MNLI+SNLI,无 FEVER** | 含 FEVER | 含 FEVER | 无监督语料 | 无 NLI 语料 |
+| **C1** 血缘距离 | **`base_model` 即预注册基座 —— 距离最小** | 同族但换规模(-large) | 同族但换规模(-small) | 不同血缘 | 不同血缘且换规模 |
+| **C2** 先验方向 | **三类 NLI 头,语义正确** | 同左 | 同左 | 三类 NLI 头 | 三类 NLI 头 |
+| **C3** 污染距离 | **MNLI+SNLI,无 FEVER** | 同左 | 同左 | 含 **FEVER** | 含 **FEVER** |
 
-**C1 即分出胜负,且 C2、C3 同向。故 §11.2a 的测量不启用。**
+**C1 即分出胜负,且 C2、C3 无一反向。故 §11.2a 的测量不启用。**
 
 **结论:`cross-encoder/nli-deberta-v3-base`。**
+
+**必须同时记下的一个未被采纳的考量:** `cross-encoder/nli-deberta-v3-large` 与所选候选
+**同配方、同语义、同许可、同污染面,只差规模**(24×1024 vs 12×768),仅在 C1 上让位。
+而 R012 的实测里,唯一接近过阈的臂(`gold_supports_recall` .7942)恰是一个 **large 规模的三类 NLI 模型**,
+远高于两个 base/xlarge 规模的臂。**这构成"规模可能才是关键变量"的提示。**
+
+**本修订不采纳该提示,理由必须写清楚:** 用它就是**拿 Gate 0B 的读数来选基座** ——
+与 §11.3(b) 拒绝增开零训练臂是同一条纪律,只是方向相反。
+**但如实声明:该拒绝对本项目未必有利**(它可能让我们训了一个规模不足的基座)。
+若项目负责人认为规模应当成为判据,那是正当决定,**但须显式作出、写明它使用了 Gate 0B 的结果,
+并按 A1/A2 同规格披露** —— 不得因为"large 显然更好"就默默换掉。
 
 **这个结果值得单独说一句:它正是 `selector.md` 的原始选择** —— §11.0 第 1 条那次未记录理由的替换,
 把它换掉了。**规则独立套用之后又选回了它**,这既是对规则的一点旁证,也说明那次静默替换是有代价的。
@@ -1166,9 +1206,12 @@ R012 已实测 `unknown_rate` albert **.482** / DeBERTa **.176** —— 该分�
 1. **基座已在 MNLI + SNLI 上训过,§3.8"零训练路线下模型从未见过 NIAH 语料 ⇒ passage-hash 泄漏轴天然为空"
    那句话不再成立。** 该副作用条款须随之改写:**泄漏轴不再天然为空,必须实测**。
    *(此条对任何非裸基座都成立,不是本候选独有。)*
-2. **C3 的污染排序未经实测。** VitaminC 与 FEVER 的实际重叠本修订**没有查**,
-   仅按公开语料清单作保守排序。**该排序不构成"无污染"的证明** ——
-   所选候选未训 FEVER,故本项目在本轮不承担该风险;但排序本身的依据强度须如实标为"文档性"。
+2. **C3 的污染排序未经实测,且其证据来源已被实证为不可靠。** VitaminC 与 FEVER 的实际重叠
+   本修订**没有查**,仅按上游训练清单作保守排序。**该排序不构成"无污染"的证明。**
+   更要紧的是:tasksource 那一族的 `cardData` **漏列了 VitaminC**(§11.5),
+   即**模型卡的语料声明可以是不完整的**。所选候选的清单(MNLI + SNLI)来自
+   sentence-transformers 的单一用途训练,比 600 任务的合集更可能完整 ——
+   **但"更可能"不是"已验证",§11.9 未就此设检查项,这是本修订已知的薄弱处。**
 3. **本次选型没有任何能力测量。** 若日后有证据表明另一候选在本任务上明显更强,
    本节的规则允许重开选型 —— 但须另开修订,且**不得在 R013 已产生结果之后重开**。
 4. **Granite 家族的叙事好处被放弃了**(§11.3(a))。这是真实代价,记在此处而不是省略。
