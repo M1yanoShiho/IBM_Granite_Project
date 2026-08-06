@@ -28,13 +28,30 @@ python scripts/g5_score.py \
   --report docs/generator/g5-verify-annotate.md
 
 echo "=== paired significance ==="
+# Arm names must match g5_score.py::ARMS. They had drifted: G6 split verify-annotate
+# into -capped and -open, this loop still asked for a "verify-annotate" report, and
+# every call carried `|| true` -- so the job would have exited 0 having run no test at
+# all. Check the reports exist first, and let a failure stop the script: the per-arm
+# reports are already written by this point, so nothing is lost by stopping here.
+for ARM in baseline verify-only verify-annotate-capped verify-annotate-open; do
+  test -f "results/g5-scored/$ARM-report.json" \
+    || { echo "missing report for arm '$ARM' -- check ARMS in scripts/g5_score.py" >&2; exit 1; }
+done
+
 for M in citation_precision citation_recall coverage answer_correctness; do
-  for PAIR in "verify-annotate verify-only" "verify-annotate baseline" "verify-only baseline"; do
+  # open vs capped comes first because it is the ATTRIBUTION pair: it is the only
+  # comparison that isolates the contract lift from the verification filter, which is
+  # the whole reason G6 keeps the capped arm (G6 BEFORE, hpc-run-log).
+  for PAIR in "verify-annotate-open verify-annotate-capped" \
+              "verify-annotate-open verify-only" \
+              "verify-annotate-open baseline" \
+              "verify-annotate-capped verify-only" \
+              "verify-only baseline"; do
     set -- $PAIR
     echo "--- $M : $1 vs $2 ---"
     python -m evidence_rag.evaluation.paired_metric_cli \
       --on-report results/g5-scored/$1-report.json \
       --off-report results/g5-scored/$2-report.json \
-      --metric $M --seed 13 || true
+      --metric $M --seed 13
   done
 done

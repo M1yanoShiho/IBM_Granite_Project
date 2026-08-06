@@ -1,7 +1,8 @@
 #!/bin/bash
-# G5: verify-and-annotate vs the delete filter vs baseline.
-# (local/guides/verify-annotate-redesign-guide.md; pre-registered in the G5 ledger
-# entry, commit 730e14f, BEFORE any arm ran.)
+# G6: four arms -- baseline / verify-only / verify-annotate-capped / verify-annotate-open.
+# (Pre-registered in the G6 ledger entry, hpc-run-log, BEFORE any arm ran. The capped
+# arm is the ablation that attributes the effect to the contract lift itself; dropping
+# it would leave the lift confounded with the verification filter.)
 #
 # Granite + TRUE co-reside for generation (proven to fit the 40GB slice in G2).
 # TRUE is the production verifier and never judges; MiniCheck scores afterwards.
@@ -32,7 +33,7 @@ export PYTHONPATH=src
 
 python -c "import torch; print('CUDA:', torch.cuda.is_available())"
 
-echo "=== G5: baseline / verify-only / verify-annotate ==="
+echo "=== G6: baseline / verify-only / verify-annotate-capped / verify-annotate-open ==="
 python scripts/g5_verify_annotate.py \
   --limit 400 --top-k 5 --seed 13 \
   --output-dir results/g5
