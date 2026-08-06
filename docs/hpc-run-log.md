@@ -491,6 +491,56 @@ peak_rss 涨幅 vs 预期 ~24MB、三条预期各是否成立、是否需撤回�
 
 ---
 
+## R6b — 同 job 同节点的配对 A/B(修掉 R6 设计里的节点混淆)
+
+**状态:** READY——三件套齐(`scripts/run_retriever_scaling_ab.slurm` +
+`scripts/compare_scaling_runs.py` + 本条目);**跑之前写。**
+
+**为什么要有这一条(R6 的设计缺陷,由 R6 自己的数据暴露):**
+
+R6 把新代码的一次运行,与 R5 记录在案的旧数字相比 —— **两次运行在不同 job、不同节点、不同时间**。
+混淆的证据是一个**逻辑上不可能的结果**:R6 的 index build 比 R5 **快了 10–16%**,而 hoist 让
+build **多做事**(要额外物化每 chunk 的 `Counter`)。build 只可能变慢。所以那 10–16% 只能来自
+机器,不可能来自改动 ⇒ **R6 测出的 8.29–10.17× 里裹着一份节点方差。**
+效应远大于混淆,故 R6 的主结论不倒;但精确数字带约 10–15% 的不确定性,不该当作定值引用。
+
+**BEFORE(预注册):**
+
+- 设计:**两臂在同一个 slurm 分配里背靠背跑**,同节点、同时段。before 臂用
+  `git worktree` 检出 **`159069c^`(= `62f04a3`)的真实历史代码**,不是转录副本,故无需维护同步。
+- **顺序 before → after → before,第三臂是噪声底。** 两次 before 的差距即本次测量的
+  run-to-run 漂移;若它与 before/after 的差距同量级,则本次**分辨不出**改动,判定为未测。
+  `compare_scaling_runs.py` 直接输出该判定,不留给读者自己看出来。
+- **预期 1:** 加速仍在 **6–10×** 量级,方向不变。R6 的 8.29–10.17× 若基本复现,则该区间坐实。
+- **预期 2(本条真正要测的):** **build 必须变慢或持平,不得变快。** hoist 把工作移入 build,
+  所以 `build before/after < 1.0`。若同节点下 build **仍然变快**,则我对成本归属的理解是错的,
+  须回头查——这是本条最强的证伪点。
+- **预期 3:** 两次 before 的漂移 **< 5%**,远小于效应。若漂移与效应同量级,本条自身作废,
+  须改用更多重复或更长采样。
+- **诚实的替代结果:**
+  (a) 同节点加速**明显低于 R6 的 8–10×** → R6 的数被节点差异抬高,以本条为准并修正 R6 的 AFTER;
+  (b) **peak RSS 仍不上升** → 与 R6 一致,则"缓存内存 ~2.9 KB/chunk"这一**本地估算被两次真语料
+      实测否定**,须从 results-summary 撤回,并说明 peak RSS 可能根本测不到该增量
+      (被建索引阶段的临时分配主导),即**量错了工具**;
+  (c) 漂移过大 → 见预期 3,本条作废而非强行解读。
+- **本条不测什么:** 不测检索质量(输出逐位不变已由 `test_bm25_scoring_equivalence.py` 在代码层
+  证明);不改 R5 的结论(R5 是绝对量级与线性性,与本条的相对比较无关)。
+- 精确命令:
+  ```
+  cd /user/work/$USER/IBM_Granite_Project && git pull
+  mkdir -p logs results && sbatch scripts/run_retriever_scaling_ab.slurm
+  # 回来后三份 raw 一并拉回:
+  git add -f results/retriever-scaling-ab-{before-1,after,before-2}.json
+  ```
+- Git commit:待本次改动提交后填;固定项与 R5/R6 逐项一致(top_k=50、chunk_size=180/overlap=30、
+  queries=50、strong-bm25、sizes=500/1000/2000/3000/4000/5183、partition=compute)。
+  **唯一变量=代码版本**,且**节点、时段、进程环境全部受控**。
+
+**AFTER:** 未运行。<!-- 填:job id、节点、三臂表、同节点加速比区间、build 比值是否 <1、
+两次 before 的漂移%、VERDICT 行、是否需修正 R6 的数字与 results-summary 的内存声明 -->
+
+---
+
 ## E2 — gate-on/off 配对 selector 对照(spec §12 主对照)
 
 **状态:** READY——三件套齐(configs + slurm + 本条目,commit 3c37d4c)。只差登录节点下 dpr-w100 + granite 后跑。
