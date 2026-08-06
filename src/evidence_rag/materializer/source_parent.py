@@ -1,7 +1,7 @@
 """Deterministic document -> source parent mapping (spec §3.4).
 
 dpr-w100 splits each Wikipedia article into 100-word passages, so ONE article spans many
-`document_id`s, while `base_loader._document_text` prepends the article title as the first
+`document_id`s, while `base_loader.document_text` prepends the article title as the first
 paragraph. Counting distinct `document_id`s therefore treats several passages of one article as
 independent votes — the transcription inflation that `independent_support` exists to prevent.
 
@@ -20,7 +20,7 @@ def normalize_parent(title: str) -> str:
 
 
 def parse_parent(document_text: str) -> str | None:
-    """First paragraph = the title `_document_text` prepended. None when absent or blank."""
+    """First paragraph = the title `document_text` prepended. None when absent or blank."""
     head, separator, _ = document_text.partition("\n\n")
     if not separator:
         return None

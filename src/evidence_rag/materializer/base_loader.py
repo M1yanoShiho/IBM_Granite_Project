@@ -52,7 +52,17 @@ class BaseMaterialization:
     gold_case_count: int
 
 
-def _document_text(doc: BaseDoc) -> str:
+DOCUMENT_SOURCE_URI = "ir-datasets://dpr-w100/nq/document/{document_id}"
+
+
+def document_text(doc: BaseDoc) -> str:
+    """Title as the first paragraph, then the passage.
+
+    Public because the sealed-600 builder writes its own corpus and MUST produce the same shape:
+    `source_parent.parse_parent` recovers the article title from that first paragraph, and a
+    sealed corpus assembled with a different join would leave every parent unresolved — which
+    the parent-page leakage axis reads as "no collisions" (M0 §3.4).
+    """
     title = getattr(doc, "title", "")
     parts = [part.strip() for part in (title, doc.text) if isinstance(part, str) and part.strip()]
     if not parts:
@@ -109,8 +119,8 @@ def materialize_niah_base(
         document = normalize_document(
             Document(
                 document_id=source_doc.doc_id,
-                text=_document_text(source_doc),
-                source_uri=f"ir-datasets://dpr-w100/nq/document/{source_doc.doc_id}",
+                text=document_text(source_doc),
+                source_uri=DOCUMENT_SOURCE_URI.format(document_id=source_doc.doc_id),
             )
         )
         if document.document_id in gold_docs:

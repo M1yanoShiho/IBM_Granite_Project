@@ -36,13 +36,17 @@ class MaterializationResult:
     skipped_query_ids: tuple[str, ...]
 
 
-def _occurrences(text: str, alias: str) -> list[tuple[int, int]]:
+def alias_occurrences(text: str, alias: str) -> list[tuple[int, int]]:
+    """Word-boundary spans of one alias. Public because the Gate 0A audit re-checks the
+    "no residual gold alias" invariant on the written twins, and it must ask the question with
+    the SAME matcher the injector used — a second spelling of "does this alias occur" would
+    make the audit and the construction disagree about what a residual is."""
     pattern = re.compile(rf"(?<!\w){re.escape(alias)}(?!\w)")
     return [(match.start(), match.end()) for match in pattern.finditer(text)]
 
 
 def _has_any_alias(text: str, aliases: Sequence[str]) -> bool:
-    return any(_occurrences(text, alias) for alias in aliases)
+    return any(alias_occurrences(text, alias) for alias in aliases)
 
 
 def find_injection_target(
@@ -61,7 +65,7 @@ def find_injection_target(
         if document is None:
             continue
         for alias in answers:
-            spans = _occurrences(document.text, alias)
+            spans = alias_occurrences(document.text, alias)
             if len(spans) == 1:
                 return InjectionTarget(
                     query_id=gold_case.query_id,
