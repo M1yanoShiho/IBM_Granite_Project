@@ -633,6 +633,95 @@ build **多做事**(要额外物化每 chunk 的 `Counter`)。build 只可能变
 
 ---
 
+## R7 — 检索的提升能否**送达下游**?(第一次把 retriever 接进完整 pipeline 测量)
+
+**状态:** READY——三件套齐(四个 `configs/experiments/pipe_2wiki_*.toml` + 现有 pipeline runner
++ 本条目);**跑之前写。**
+
+**为什么要有这一条:**
+
+至今所有 retriever 工作(MengW7 的 3×8 矩阵、R1–R3)测的都是 **MRR/Recall**,所有 Generator 工作
+(G1–G5)测的是**给定证据后**的生成质量。**中间那条链——检索指标的提升能否传导到下游——从未被测过。**
+共享基础设施的 pipeline runner 与 `system.core.*` 指标正是为此而建,建成后几乎没被使用。
+
+风险有本项目自己的先例:**S6 证明了"孤立探针上很漂亮的收益,接到真实池里不但不级联,反而制造了
+38pp 的 false_conflict"**。同型风险原样适用于检索,不能假定传导成立。
+
+**⚠️ 必须先讲清楚本条测的到底是什么(否则结果一定被误读):**
+
+`build_generator` 目前**只支持 `extractive`**(`composition.py:457`),而
+`ExtractiveGenerator` **不生成答案**,它把选中的证据原文拼接后加引用(`extractive.py:24`)。
+`answer_match` 是**规范化后的子串包含**(`scoring.py:127`,仅小写化+取词)。两者相乘的含义是:
+
+> **`system.core.answer_match` = 标准答案串是否逐字出现在 top-`max_selected`(=5)个选中 chunk 中。**
+
+所以本条测的是「**证据传递**」——检索到了正确文档之后,**含答案的那个 chunk 有没有真的送到下游**
+——**而不是答案质量**。二者的区别是实质性的:`retriever.core.document_recall` 问"gold 文档在池里吗",
+本指标问"gold **答案文本**在送给 generator 的那 5 个 chunk 里吗"。**两者可以大幅背离**
+(文档命中但含答案的 chunk 没进 top-5),而这个背离正是本条要量的东西。
+
+**本条不测生成质量,不得如此引用。** 真实 generator(`granite.py`/`verified.py`)**尚未接入
+`composition.py`**,这本身是一个待办(见下"附带发现")。
+
+**BEFORE(预注册):**
+
+- 设计:**唯一变量 = retriever**。selector(`top-k`)、generator(`extractive`)、
+  `top_k=50`、`max_selected=5`、`seed=7`、数据集(`runs/twowiki`)四臂逐项相同。
+  selector 为纯直通,故链路是 retriever → top-5 chunk → 答案串包含,因果干净。
+- 四臂横跨已记录的极宽 MRR 区间(取自 `docs/retriever/eval-results.md`,n=2000):
+
+  | 臂 | 已记录 MRR | 已记录 Recall |
+  |---|---|---|
+  | decompose | **.5702** | .7610 |
+  | bm25 | .9434 | .7621 |
+  | strong-bm25 | .9580 | .7678 |
+  | hybrid-rrf | **.9828** | .7995 |
+
+  **MRR 跨度 .41,而 Recall 跨度仅 .039** —— 这个不对称是本条的核心工具:
+  它能把「**排序**改善的传导」与「**池覆盖**改善的传导」分开。
+- **内建的 harness 自检:** 四臂的 `retriever.core.document_mrr` **必须复现上表**
+  (top_k/seed/数据集与 `retr_2wiki_*` 完全一致)。**若不复现,先查 harness,本条的下游数字一律不读。**
+- **预期指标 + 方向:** 主指标 `system.core.answer_match`;同时记录
+  `retriever.core.{document_mrr,document_recall}`、`selector.core.{conditional_document_recall,
+  document_precision}`、`system.core.{final_document_recall,cited_document_precision}`。
+  预期 answer_match 随 MRR **单调上升**;真正要量的是**传导比**——MRR 涨 .41 换来 answer_match 涨多少。
+- **诚实的替代结果(四种,全部有价值,不许事后挑一个说):**
+  (a) **answer_match 基本持平**(跨 .41 的 MRR 跨度)⇒ **文档级检索指标是下游所需之物的劣质代理**,
+      本组一年的优化方向需要重估。**这是最有价值也最难堪的结果,若出现必须照写。**
+  (b) **answer_match 紧跟 MRR** ⇒ 传导成立,Hybrid RRF 的推荐从"检索更好"升级为"系统更好"。
+  (c) **answer_match 跟 `document_recall`(跨度 .039)而非 MRR(跨度 .41)走** ⇒ 起作用的是
+      **池覆盖不是排序**,则 `top_k`/`max_selected` 比换 retriever 更值得调。
+  (d) **⚠️ 天花板效应:** 5 个 chunk × 180 词 ≈ 900 词证据,而 2Wiki 答案多为短实体
+      ("Paris"、"1923")。**若四臂 answer_match 全 >0.9,该指标已饱和、无分辨力**,
+      本条判定为"未能分辨",**须以 `max_selected=1` 复跑**恢复分辨率,而不是把饱和读成"传导良好"。
+- **⚠️ 已知的计分伪影,与 S2/S4/S5 同族:** `answer_match` 是 exact-string 包含,
+  释义/别名/单位差异一律记为失败(S5 实测同族偏差可达 56pp)。故本条数字是
+  **证据传递率的下界**,四臂之间的**相对比较**可信,**绝对值不可当作真实传递率**。
+- **本条不测什么:** 不测生成质量;不测 selector 优劣(selector 固定为直通);
+  不改任何已记录的 retriever 结论(那些是检索指标,本条是下游指标,两层不互相覆盖)。
+- 精确命令(数据集已物化于 `runs/twowiki`;`prepare` 与 `pipeline` 两步,不可省 `prepare`):
+  ```
+  mkdir -p logs runs && sbatch scripts/run_pipeline_eval.slurm \
+    configs/experiments/pipe_2wiki_bm25.toml \
+    configs/experiments/pipe_2wiki_strong-bm25.toml \
+    configs/experiments/pipe_2wiki_hybrid-rrf.toml \
+    configs/experiments/pipe_2wiki_decompose.toml
+  ```
+- Git commit:待本次改动提交后填;Seed:7;n=2000/臂。
+  hybrid-rrf 与 decompose 臂需 GPU(dense 编码 / LLM 拆分),bm25 与 strong-bm25 臂纯 CPU。
+
+**附带发现(不属本条实验,但应在组会提出):`composition.py` 的 `build_generator` 只注册了
+`extractive` 一个**,而 `src/evidence_rag/generator/` 下已有 `granite.py`、`verified.py`
+(G1–G5 的成果)。selector 有 4 个可选实现,generator 只有 1 个玩具级实现。
+⇒ **"三模块可通过配置实时连成完整 pipeline"这条验收,目前只在玩具 generator 上成立过。**
+把真实 generator 接进 `composition.py` 属 Generator 组范围,不在本条内做,
+但**它是 R7 之后能否测"真实答案质量"的前置条件。**
+
+**AFTER:** 未运行。<!-- 填:job id、四臂七项指标表、MRR 复现是否通过、传导比、
+四种替代结果命中哪个、是否触发天花板效应需 max_selected=1 复跑 -->
+
+---
+
 ## E2 — gate-on/off 配对 selector 对照(spec §12 主对照)
 
 **状态:** READY——三件套齐(configs + slurm + 本条目,commit 3c37d4c)。只差登录节点下 dpr-w100 + granite 后跑。
