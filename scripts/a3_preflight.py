@@ -24,7 +24,15 @@ from __future__ import annotations
 
 import importlib
 import sys
+from pathlib import Path
 from typing import Any
+
+# Run by hand on a login node, unlike the slurm scripts that export PYTHONPATH=src for
+# themselves. Put the repo's src on the path so `python scripts/a3_preflight.py` works
+# with no ceremony -- a pre-flight check that needs its own pre-flight gets skipped.
+_SRC = Path(__file__).resolve().parent.parent / "src"
+if _SRC.is_dir() and str(_SRC) not in sys.path:
+    sys.path.insert(0, str(_SRC))
 
 BASE = "cross-encoder/nli-deberta-v3-base"
 ORIGINAL_BASE = "microsoft/deberta-v3-base"

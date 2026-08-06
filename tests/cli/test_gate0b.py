@@ -312,12 +312,18 @@ def test_the_binary_arm_scores_through_the_unchanged_metrics_code(
 def test_label_order_matches_the_verified_id2label_of_each_checkpoint() -> None:
     """Pins the ORDER, not just completeness.
 
-    Verified against the real checkpoints on 2026-07-30:
+    Verified against the real checkpoints:
       tals/albert-xlarge-vitaminc-mnli -> {0: SUPPORTS, 1: REFUTES, 2: NOT ENOUGH INFO}
       MoritzLaurer/DeBERTa-...-wanli   -> {0: entailment, 1: neutral, 2: contradiction}
+      cross-encoder/nli-deberta-v3-base -> {0: contradiction, 1: entailment, 2: neutral}
+
+    The first two were read on 2026-07-30; the third on bp1 2026-08-06 by
+    `scripts/a3_preflight.py`, and it is A3's training base.
 
     A test that only checked the three labels are present would let a future wrong entry swap
-    REFUTES and SUPPORTS while every downstream number stayed plausible.
+    REFUTES and SUPPORTS while every downstream number stayed plausible. The third entry
+    makes that concrete: it is the ONLY one whose position 0 is not SUPPORTS, so a
+    positional copy from either neighbour is a silent swap rather than an error.
     """
     assert LABEL_ORDER["tals/albert-xlarge-vitaminc-mnli"] == (
         "SUPPORTS", "REFUTES", "UNKNOWN"
@@ -325,6 +331,10 @@ def test_label_order_matches_the_verified_id2label_of_each_checkpoint() -> None:
     assert LABEL_ORDER["MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli"] == (
         "SUPPORTS", "UNKNOWN", "REFUTES"
     )
+    assert LABEL_ORDER["cross-encoder/nli-deberta-v3-base"] == (
+        "REFUTES", "SUPPORTS", "UNKNOWN"
+    )
+    assert LABEL_ORDER["cross-encoder/nli-deberta-v3-base"][0] != "SUPPORTS"
     for order in LABEL_ORDER.values():
         assert sorted(order) == ["REFUTES", "SUPPORTS", "UNKNOWN"]
 

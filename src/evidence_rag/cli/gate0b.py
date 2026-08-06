@@ -57,14 +57,22 @@ from evidence_rag.relations.predictor import (
 # (MiniCheck-FT5, M0 §9.8) needs no entry here — it needs its own two-class scorer, added as a
 # separate path rather than by inventing a three-name order for it.
 LABEL_ORDER: dict[str, tuple[str, ...]] = {
-    # id2label = {0: 'SUPPORTS', 1: 'REFUTES', 2: 'NOT ENOUGH INFO'}
+    # id2label = {0: 'SUPPORTS', 1: 'REFUTES', 2: 'NOT ENOUGH INFO'}  [verified 2026-07-30]
     "tals/albert-xlarge-vitaminc-mnli": ("SUPPORTS", "REFUTES", "UNKNOWN"),
-    # id2label = {0: 'entailment', 1: 'neutral', 2: 'contradiction'}
+    # id2label = {0: 'entailment', 1: 'neutral', 2: 'contradiction'}  [verified 2026-07-30]
     "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli": (
         "SUPPORTS",
         "UNKNOWN",
         "REFUTES",
     ),
+    # id2label = {0: 'contradiction', 1: 'entailment', 2: 'neutral'}
+    # Verified on bp1 2026-08-06 by `scripts/a3_preflight.py` (M0 §11.9 item 4), which is
+    # also where A3's chosen training base comes from.
+    #
+    # NOTE THE SHAPE. This is the first entry whose position 0 is NOT SUPPORTS. Copying
+    # either neighbour positionally would put SUPPORTS where REFUTES belongs on every
+    # edge, and nothing downstream would look wrong.
+    "cross-encoder/nli-deberta-v3-base": ("REFUTES", "SUPPORTS", "UNKNOWN"),
 }
 
 BATCH_SIZE = 32
