@@ -564,13 +564,18 @@ build **多做事**(要额外物化每 chunk 的 `Counter`)。build 只可能变
   (c) 漂移过大 → 见预期 3,本条作废而非强行解读。
 - **本条不测什么:** 不测检索质量(输出逐位不变已由 `test_bm25_scoring_equivalence.py` 在代码层
   证明);不改 R5 的结论(R5 是绝对量级与线性性,与本条的相对比较无关)。
-- 精确命令:
+- 精确命令(**必须走登录节点的 wrapper,不要直接 sbatch**):
   ```
   cd /user/work/$USER/IBM_Granite_Project && git pull
-  mkdir -p logs results && sbatch scripts/run_retriever_scaling_ab.slurm
+  bash scripts/submit_scaling_ab.sh
   # 回来后三份 raw 一并拉回:
   git add -f results/retriever-scaling-ab-{before-1,after,before-2}.json
   ```
+  **环境坑(实测,job 18280216):计算节点 PATH 里没有 `git`**,故 before 臂的 worktree
+  必须在**登录节点**建好,作业只跑 python。首次直接 sbatch 的版本在 `git worktree add`
+  处被 `set -e` 中止,**未产生任何结果**,不影响本条的预注册。wrapper
+  `scripts/submit_scaling_ab.sh` 负责建 worktree、记录两臂 commit 到
+  `logs/scaling-ab-refs.txt`(作业自己解析不了,不记就无从知道比的是哪两个 commit)、再提交。
 - Git commit:待本次改动提交后填;固定项与 R5/R6 逐项一致(top_k=50、chunk_size=180/overlap=30、
   queries=50、strong-bm25、sizes=500/1000/2000/3000/4000/5183、partition=compute)。
   **唯一变量=代码版本**,且**节点、时段、进程环境全部受控**。

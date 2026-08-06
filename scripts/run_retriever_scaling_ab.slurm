@@ -7,16 +7,15 @@
 # Counters). That can only be the node, so R6's speedup carries roughly that much
 # uncertainty. Running both arms back to back in one allocation removes it.
 #
-# The "before" arm is the real pre-hoist code, checked out into a git worktree at
-# 159069c^ — not a transcription of it, so there is nothing to keep in sync. The
-# worktree has no data/ (gitignored), hence the absolute --manifest path.
-#
 # Order is before, after, before again. If the two before arms disagree by more than
 # the after arm's distance from them, the node drifted mid-job and the comparison is
 # void — that is the point of the third run, and it costs 30 seconds.
 #
-# CPU only. Submit from the project root:
-#   mkdir -p logs results && sbatch scripts/run_retriever_scaling_ab.slurm
+# Do NOT sbatch this directly: the before arm needs a git worktree at the pre-hoist
+# commit, and compute nodes have no git on PATH (job 18280216 died on that). Submit
+# through the login-node wrapper, which creates the worktree first:
+#
+#   bash scripts/submit_scaling_ab.sh
 #SBATCH --job-name=retriever-scaling-ab
 #SBATCH --account=coms039904
 #SBATCH --partition=compute
@@ -37,22 +36,20 @@ REPO="/user/work/$USER/IBM_Granite_Project"
 cd "$REPO"
 
 MANIFEST="${1:-$REPO/data/benchmarks/scifact/test/manifest.json}"
-BEFORE_REF="${2:-159069c^}"
 WORKTREE="$REPO/.scaling-ab-before"
 SIZES="500 1000 2000 3000 4000 5183"
 
-echo "node        : $(hostname)"
-echo "after  ref  : $(git rev-parse --short HEAD)"
-echo "before ref  : $BEFORE_REF -> $(git rev-parse --short "$BEFORE_REF")"
-echo "manifest    : $MANIFEST"
+if [ ! -d "$WORKTREE" ]; then
+  echo "missing $WORKTREE -- submit via 'bash scripts/submit_scaling_ab.sh' instead" >&2
+  exit 2
+fi
 
-cleanup() { git worktree remove --force "$WORKTREE" 2>/dev/null || true; }
-trap cleanup EXIT
-cleanup
-git worktree add --detach "$WORKTREE" "$BEFORE_REF"
+echo "node       : $(hostname)"
+cat logs/scaling-ab-refs.txt 2>/dev/null || echo "refs       : (not recorded)"
+echo "manifest   : $MANIFEST"
 
 run_arm() {  # run_arm <label> <workdir> <output>
-  echo "=== arm: $1 ($(git -C "$2" rev-parse --short HEAD)) ==="
+  echo "=== arm: $1 ==="
   ( cd "$2" && PYTHONPATH=src PYTHONUNBUFFERED=1 python scripts/retriever_scaling.py \
       --manifest "$MANIFEST" --sizes $SIZES --queries 50 --output "$3" )
 }
