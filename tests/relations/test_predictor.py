@@ -56,16 +56,33 @@ def test_a_tie_resolves_to_not_supported_never_to_supports() -> None:
     assert prediction.label is RelationLabel.NOT_SUPPORTED
 
 
-def test_the_model_never_emits_a_schema_only_label() -> None:
-    """REFUTES and UNKNOWN survive in the enum for 0B-1 gold, historical dumps and the retained
-    `CLAIM_REFUTES` edge type. A scorer still speaking the pre-A1 three-class contract must fail
-    loudly: silently ignoring its REFUTES/UNKNOWN mass would collapse the label in a second
-    place, and the two collapses could disagree without any number looking wrong."""
+def test_a_mixed_output_space_is_rejected_rather_than_silently_resolved() -> None:
+    """A scorer offering keys from BOTH spaces must fail loudly.
+
+    After A2 two shapes are legitimate — three-class (M0 §2.1) and natively-binary (§10.6 cost 3)
+    — and they overlap on SUPPORTS. A subset check would let a collapsed three-class head pass as
+    binary; a superset check would make the winner depend on which tuple was tried first. Either
+    way the result is a plausible label rather than an error, so the match is exact.
+    """
     predictor = _predictor(
         {("p", "h"): {"SUPPORTS": 0.2, "NOT_SUPPORTED": 0.8, "REFUTES": 0.5, "UNKNOWN": 0.3}}
     )
-    with pytest.raises(ValueError, match="not emitted by the relation model"):
+    with pytest.raises(ValueError, match="match no output space exactly"):
         predictor.predict([("p", "h")])
+
+
+def test_a_collapsed_three_class_head_cannot_be_caught_here_and_is_caught_by_the_tier() -> None:
+    """The regression A2 has to prevent, and an honest statement of where it is caught.
+
+    Collapsing at the checkpoint adapter was A1's behaviour, and it is exactly what made 0B-1
+    unevaluable (§9.11). Such a scorer still produces a WELL-FORMED binary key set, so the
+    predictor cannot tell a collapsed albert from a genuine MiniCheck and must not pretend to —
+    it resolves the binary space as asked. The guard lives one level up, in
+    `gate0b.external_report`, which refuses any arm whose predictions contain NOT_SUPPORTED.
+    """
+    predictor = _predictor({("p", "h"): {"SUPPORTS": 0.2, "NOT_SUPPORTED": 0.8}})
+    (prediction,) = predictor.predict([("p", "h")])
+    assert prediction.label is RelationLabel.NOT_SUPPORTED
 
 
 def test_hashes_are_recorded_for_every_edge() -> None:
@@ -80,7 +97,7 @@ def test_hashes_are_recorded_for_every_edge() -> None:
 
 def test_missing_class_in_scores_is_an_error_not_a_silent_zero() -> None:
     predictor = _predictor({("p", "h"): {"SUPPORTS": 1.0}})
-    with pytest.raises(ValueError, match="missing relation class"):
+    with pytest.raises(ValueError, match="match no output space exactly"):
         predictor.predict([("p", "h")])
 
 

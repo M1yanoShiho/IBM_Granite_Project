@@ -1,28 +1,31 @@
-"""Frozen relation schema (Graph 2.0 design §2, M0 §2, amended by M0 §9 / A1).
+"""Frozen relation schema (Graph 2.0 design §2, M0 §2, amended by A1 §9 and A2 §10).
 
-The relation model's output space is BINARY under A1 (g2-proto-2, approved 2026-08-03):
-SUPPORTS or NOT_SUPPORTED, and nothing else. NOT_SUPPORTED is a predicted CLASS, never a
-threshold artefact — the path that can drop a candidate must carry no absolute cross-domain
-scale, which is the property distinguishing this gate from credibility-threshold approaches
-(M0 §9.5a).
+The relation model's output space is THREE-CLASS: SUPPORTS / REFUTES / UNKNOWN.
 
-REFUTES and UNKNOWN remain enum members but are NO LONGER PRODUCED by the relation model:
+A1 (g2-proto-2) made it binary. A2 (g2-proto-3, approved 2026-08-06) NARROWED A1 back to the
+reading, because A1's conclusion outran its evidence: §9.2 and §9.3 show only that the GATE and
+the 0B-2 metric read two classes, and the one production-side argument (§9.4, the G module's
+binary backends) cites backends that operate WITH a threshold — which §9.5a forbids on this
+path. So the output space returns to three classes and the collapse happens LATER, at each
+consumer:
 
-  * REFUTES is retained because A1 §9.1 keeps `CLAIM_REFUTES` as a schema edge type "until there
-    is evidence for it from outside the binary space", so the ablation arm can return if A1 is
-    overturned.
-  * UNKNOWN is retained because 0B-1 still reads it: `vitaminc.py` maps official NEI gold onto
-    it and `external_report.non_unknown_coverage` counts it. A1 §9.1 changes the 0B-2 metric and
-    says NOTHING about 0B-1, so that tier is deliberately untouched here.
+  * `gate0b.task_report` (0B-2) scores `predicted != SUPPORTS` / `predicted == SUPPORTS`, so it
+    collapses implicitly and needs no separate step;
+  * `graph.RelationGraph` counts only SUPPORTS votes, so it collapses implicitly too;
+  * `gate0b.external_report` (0B-1) does NOT collapse. That tier reads all three classes, which
+    is exactly what makes its five frozen thresholds evaluable again AT THEIR ORIGINAL
+    CALIBRATION — no silent recalibration, which was the cost of every option §9.11 listed.
 
-Both are also the labels historical dumps and warm cache entries were written with, and
-`RelationLabel(...)` has to keep parsing them.
+NOT_SUPPORTED is a DERIVED label from A2 onward, not a predicted one. It stays in the enum for
+two reasons that are not stylistic: A1-era dumps, warm cache entries and probe files were
+written with it and must keep parsing, and a natively-binary checkpoint emits it directly (see
+`BINARY_PREDICTED_LABELS`).
 
-NOT_SUPPORTED SUBSUMES UNKNOWN on the prediction side. A1 §9.3's degeneracy table lists
-"all-UNKNOWN / all-NOT-SUPPORTED" as ONE strategy, and §9.5's published binary readings were
-obtained by counting a three-class UNKNOWN prediction as NOT-SUPPORTED. The cost is stated in
-§9.3 and is real: binary cannot separate "abstained" from "committed to the contrary", so G-AB
-(M0 §3.6) loses that decomposition and keeps only the non-SUPPORTS rate.
+WHAT A2 DOES NOT CHANGE. The gate still reads only SUPPORTS, so `independent_support` is
+untouched. The 0B-2 thresholds, the joint gate as the sole anti-gaming mechanism (§9.3), and
+§9.5a's ban on introducing a threshold all stand. §9.5's published binary readings were obtained
+by relabelling a three-class argmax, so they are unaffected: A2 neither produces nor voids any
+experimental data (§10.7(D)).
 """
 
 from dataclasses import dataclass
@@ -31,16 +34,30 @@ from enum import StrEnum
 
 class RelationLabel(StrEnum):
     SUPPORTS = "SUPPORTS"
-    NOT_SUPPORTED = "NOT_SUPPORTED"
-    # Schema-only from A1 onward — see the module docstring. Not emitted by the relation model.
     REFUTES = "REFUTES"
     UNKNOWN = "UNKNOWN"
+    # Derived from A2 onward, not predicted by a three-class head: it is what the 0B-2 metric and
+    # the graph read a non-SUPPORTS prediction AS. Still parsed, and still emitted directly by a
+    # natively-binary checkpoint — see the module docstring.
+    NOT_SUPPORTED = "NOT_SUPPORTED"
 
 
-# The labels the relation model may emit (A1 §9.1). Ordered, because this IS the frozen §2.4
-# tie-break: a tie resolves toward NOT_SUPPORTED and never toward SUPPORTS, since a SUPPORTS edge
-# is what makes a candidate droppable and a coin flip must not create one.
+# The labels a three-class relation model may emit (M0 §2.1). Ordered, because this IS the frozen
+# §2.4 tie-break: a tie resolves UNKNOWN -> REFUTES -> SUPPORTS and NEVER lands on SUPPORTS, since
+# a SUPPORTS edge is what makes a candidate droppable and a coin flip must not create one.
 PREDICTED_LABELS: tuple[RelationLabel, ...] = (
+    RelationLabel.UNKNOWN,
+    RelationLabel.REFUTES,
+    RelationLabel.SUPPORTS,
+)
+
+# A natively-binary checkpoint has no third class to emit: MiniCheck-FT5 is a
+# `T5ForConditionalGeneration` reading two label tokens, and inventing a REFUTES/UNKNOWN split for
+# it would be a fabrication. It scores 0B-2 and builds edges exactly like a three-class arm,
+# because both consumers only ever ask "is this SUPPORTS?" — but it CANNOT be certified on 0B-1,
+# whose five thresholds are defined on the three-class split (A2 §10.6 cost 3). Same tie-break
+# rule, same reason: never toward SUPPORTS.
+BINARY_PREDICTED_LABELS: tuple[RelationLabel, ...] = (
     RelationLabel.NOT_SUPPORTED,
     RelationLabel.SUPPORTS,
 )

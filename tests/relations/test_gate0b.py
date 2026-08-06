@@ -1,14 +1,76 @@
+import dataclasses
+
 import pytest
 
 from evidence_rag.relations.gate0b import THRESHOLDS, external_report, task_report
 from evidence_rag.relations.models import RelationLabel
 
 S = RelationLabel.SUPPORTS
+# Derived, not predicted, after A2 — still emitted directly by a natively-binary arm, still
+# carried by A1-era dumps and by the 0B-2 probe's gold column.
 N = RelationLabel.NOT_SUPPORTED
-# Schema-only after A1. Still reachable in 0B-1 gold and in the pre-A1 dumps that §9.10a says
+# Predicted again after A2. Also reachable in 0B-1 gold and in the pre-A1 dumps that §9.10a says
 # R012 / R012b are recomputed from.
 R = RelationLabel.REFUTES
 U = RelationLabel.UNKNOWN
+
+
+def test_r012s_published_0b1_readings_still_score_the_same_way_under_A2() -> None:
+    """A2 §10.5's central claim, machine-checked: the tier reopened without a threshold moving.
+
+    These are R012's recorded 0B-1 readings (job 18235972, n_external=55197,
+    `results/gate0b/sweep-full.json`), produced 2026-08-02 by the ORIGINAL three-class
+    implementation — before A1 existed. A2 restored that output space, so the same numbers must
+    still land on the same side of the same thresholds. Any silent recalibration of .85/.80/.70
+    surfaces here, which is what option (a) in §9.11 would have done invisibly.
+
+    Note which arm gets which verdict. albert passes all five; DeBERTa — the arm with the best
+    `gold_supports_recall` in the entire sweep (.7942) — fails three. Restoring this tier makes
+    Gate 0B STRICTER, which is the asymmetry §10.0 rests on: A1 made the gate easier to pass and
+    A2 makes it harder.
+    """
+    albert = {
+        "refutes_precision": 0.9026491385320187,
+        "macro_f1": 0.9215112105529577,
+        "non_unknown_coverage": 0.8716959255031976,
+        "support_coverage": 0.9507663389242337,
+        "refutes_coverage": 0.8944979027880582,
+    }
+    deberta = {
+        "refutes_precision": 0.9126615843553199,
+        "macro_f1": 0.7582379949558993,
+        "non_unknown_coverage": 0.6750185698498107,
+        "support_coverage": 0.79786003470214,
+        "refutes_coverage": 0.5434986429805083,
+    }
+    assert [key for key, value in albert.items() if value < THRESHOLDS[key]] == []
+    assert sorted(key for key, value in deberta.items() if value < THRESHOLDS[key]) == [
+        "macro_f1",
+        "non_unknown_coverage",
+        "refutes_coverage",
+    ]
+
+
+def test_the_0b1_report_carries_exactly_the_fields_r012_published() -> None:
+    """The tier's output contract, pinned against the artefact rather than against intent.
+
+    R012's `external` block carries these ten keys. A2 claims it RESTORED 0B-1 rather than
+    rebuilding it, and a changed field set would quietly falsify that: anyone comparing a new
+    sweep against the R012 artefact would be comparing different quantities without being told.
+    """
+    report = external_report(gold=[S, R, U], predicted=[S, R, U])
+    assert set(dataclasses.asdict(report)) == {
+        "failures",
+        "macro_f1",
+        "n",
+        "non_unknown_coverage",
+        "refutes_coverage",
+        "refutes_precision",
+        "refutes_recall",
+        "support_coverage",
+        "supports_precision",
+        "supports_recall",
+    }
 
 
 def test_thresholds_are_the_pre_registered_values() -> None:

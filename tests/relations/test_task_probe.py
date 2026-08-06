@@ -71,13 +71,26 @@ def test_builds_the_four_deterministic_pair_types() -> None:
     assert ("Nixon won", RelationLabel.NOT_SUPPORTED) in by_key
 
 
-def test_no_probe_pair_carries_a_label_the_model_cannot_emit() -> None:
-    """A1 §9.1. A gold label outside the output space would make the twin rows unscorable: the
-    model could never match them, so the metric would read 0 regardless of the model."""
+def test_probe_gold_labels_follow_the_metric_not_the_models_output_space() -> None:
+    """M0 §3.2, ruled 2026-08-06 alongside A2: the gold column carries SUPPORTS / NOT_SUPPORTED.
+
+    That is deliberately NOT the model's output space, which A2 restored to three classes. The
+    twin rows are genuine contradictions, so REFUTES would be the semantically natural name — but
+    the metric they feed is `predicted != SUPPORTS`, and the entire §9.12 episode came from text
+    that named one quantity while the code computed another. The label follows the metric.
+
+    Scoring is unaffected either way: neither 0B-2 metric reads this column at all, which is why
+    pairs files from both sides of A1 produce byte-identical reports. The cost of getting the
+    name wrong is a reader who mis-infers what was measured.
+    """
     pairs = build_probe_pairs(
         records=(_record(),), question_by_query=_QUESTIONS, text_by_document=_TEXTS
     )
-    assert {pair.label for pair in pairs} <= set(PREDICTED_LABELS)
+    assert {pair.label for pair in pairs} == {
+        RelationLabel.SUPPORTS,
+        RelationLabel.NOT_SUPPORTED,
+    }
+    assert RelationLabel.NOT_SUPPORTED not in PREDICTED_LABELS
 
 
 def test_the_twin_row_pairs_the_counterfactual_against_the_gold_claim() -> None:

@@ -5,16 +5,18 @@ import pytest
 
 from evidence_rag.cli.gate0b import (
     LABEL_ORDER,
-    _collapse_to_binary,
     _load_tokenizer,
     _weight_buffers,
     load_score_fn,
     main,
 )
+from evidence_rag.relations.gate0b import THRESHOLDS
 from evidence_rag.relations.minicheck import (
     MINICHECK_FLAN_T5_LARGE,
     VERIFIED_BINARY_PROTOCOLS,
 )
+from evidence_rag.relations.models import RelationLabel
+from evidence_rag.relations.predictor import NLIRelationPredictor
 
 
 def _write(path: Path, rows: list[dict[str, str]]) -> Path:
@@ -45,10 +47,26 @@ def _task_pairs(tmp_path: Path) -> Path:
 
 
 def _perfect_scorer(model_id: str):  # type: ignore[no-untyped-def]
-    """SUPPORTS when the premise's subject appears in the hypothesis, else NOT_SUPPORTED.
+    """SUPPORTS when the premise's subject appears in the hypothesis, else REFUTES.
 
-    Speaks A1's binary contract, which is what `load_score_fn` returns after collapsing a
-    checkpoint's three classes."""
+    Speaks the THREE-CLASS contract, which is what `load_score_fn` returns for a
+    sequence-classification head after A2 stopped collapsing at the checkpoint adapter. A
+    natively-binary arm is a different shape and gets `_binary_scorer` below.
+    """
+
+    def score(pairs):  # type: ignore[no-untyped-def]
+        return [
+            {"SUPPORTS": 1.0, "REFUTES": 0.0, "UNKNOWN": 0.0}
+            if premise.split()[0] in hypothesis
+            else {"SUPPORTS": 0.0, "REFUTES": 1.0, "UNKNOWN": 0.0}
+            for premise, hypothesis in pairs
+        ]
+
+    return score, "fake", "fake@0123456789abcdef"
+
+
+def _binary_scorer(model_id: str):  # type: ignore[no-untyped-def]
+    """The natively-binary shape (MiniCheck-FT5): two label columns, no third class to emit."""
 
     def score(pairs):  # type: ignore[no-untyped-def]
         return [
@@ -137,28 +155,25 @@ def test_external_tier_is_scored_when_supplied(
     assert payload["models"]["m1"]["external"]["n"] == 2
 
 
-def test_0b1_is_UNRUNNABLE_after_A1_and_this_test_records_it_rather_than_fixing_it(
+def test_0b1_is_runnable_again_under_A2_and_its_thresholds_never_moved(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """OPEN PROTOCOL GAP — needs a human ruling, do not "fix" this test.
+    """A2 (M0 §10) reopened this tier by narrowing A1, not by rewriting anything here.
 
-    A1 §9.1 changes the 0B-2 metric and says NOTHING about 0B-1, but three of 0B-1's five frozen
-    thresholds are defined on the three-class space. Feeding VitaminC official gold (SUPPORTS /
-    REFUTES / NEI) to a model that can only emit SUPPORTS / NOT_SUPPORTED gives, on a scorer
-    that is perfectly correct about the underlying relation:
+    Under A1 the relation model could only emit SUPPORTS / NOT_SUPPORTED, so feeding it
+    VitaminC's three-class official gold gave, ON A PERFECTLY CORRECT SCORER:
 
-        refutes_precision    0.0  -> automatic FAIL (the model can never predict REFUTES)
+        refutes_precision    0.0  -> automatic FAIL (the model could never predict REFUTES)
         refutes_coverage     0.0  -> automatic FAIL (same)
-        macro_f1             0.5  -> automatic FAIL (REFUTES f1 is structurally 0, capping it)
-        non_unknown_coverage 1.0  -> VACUOUS PASS   (the model can never predict UNKNOWN)
-        support_coverage     1.0  -> the only threshold still measuring anything
+        macro_f1             0.5  -> automatic FAIL (REFUTES f1 structurally 0, capping it)
+        non_unknown_coverage 1.0  -> VACUOUS PASS   (the model could never predict UNKNOWN)
 
-    The vacuous pass is the dangerous one: it reports .80+ forever while measuring nothing.
+    That is what suspended the tier (§9.11), and the vacuous pass was the dangerous one: .80+
+    forever while measuring nothing. A2 restored the three-class output space, so the same
+    perfectly correct scorer passes all five.
 
-    `external_report`, its thresholds and `vitaminc.py` are deliberately left exactly as they
-    were — inventing a gold mapping here would be deciding an unapproved protocol question, and
-    §9.5a's pre-registered threshold remedy is triggered by "REFUTES precision < .85", which
-    cannot even be evaluated once REFUTES is unreachable.
+    The part no other option in §9.11 could offer: `THRESHOLDS` is byte-for-byte what it was when
+    it was calibrated. Binarising 0B-1's gold would have recalibrated .85/.80/.70 in silence.
     """
     monkeypatch.setattr("evidence_rag.cli.gate0b.load_score_fn", _perfect_scorer)
     output = tmp_path / "gate0b.json"
@@ -169,42 +184,54 @@ def test_0b1_is_UNRUNNABLE_after_A1_and_this_test_records_it_rather_than_fixing_
         "--models", "m1",
     ])
     external = json.loads(output.read_text(encoding="utf-8"))["models"]["m1"]["external"]
-    assert external["refutes_precision"] == 0.0
-    assert external["refutes_coverage"] == 0.0
-    assert external["macro_f1"] == 0.5
+    assert external["refutes_precision"] == 1.0
+    assert external["refutes_coverage"] == 1.0
+    assert external["macro_f1"] == 1.0
     assert external["non_unknown_coverage"] == 1.0
     assert external["support_coverage"] == 1.0
-    assert sorted(external["failures"]) == ["macro_f1", "refutes_coverage", "refutes_precision"]
+    assert external["failures"] == []
+    assert THRESHOLDS["refutes_precision"] == 0.85
+    assert THRESHOLDS["macro_f1"] == 0.80
+    assert THRESHOLDS["non_unknown_coverage"] == 0.80
 
 
-def test_three_class_logits_collapse_by_max_so_binary_argmax_equals_relabelling() -> None:
-    """THE load-bearing case. A1 §9.10a says recomputing the binary reading from a dump is
-    equivalent to a natively-binary model, and the dump only carries the three-class ARGMAX. So
-    the collapse must be the one that makes `argmax(SUPPORTS, NOT_SUPPORTED)` identical to
-    `argmax(SUPPORTS, REFUTES, UNKNOWN)` followed by relabelling — that is max, not sum.
+def test_three_class_argmax_can_pick_SUPPORTS_below_half_so_no_threshold_is_implied() -> None:
+    """THE load-bearing case. After A2 it lives in the predictor instead of in a collapse step.
 
-    Here they disagree: max keeps SUPPORTS (.40 > .35), sum flips to NOT_SUPPORTED (.60 > .40).
-    Summing would silently impose a threshold at P(SUPPORTS) > .5, which is the very thing
-    §9.5a forbids, and it would move `gold_supports_recall`, which §9.1's change table pins as
-    UNCHANGED. The published binary twin readings (.9980 / .9871 / .8689 / .9008) reproduce
-    under max and not under sum.
+    Both 0B-2 metrics compare against SUPPORTS, so the two-class reading is "argmax of three,
+    relabelled" — the max form. A sum-then-compare reading would be `P(SUPPORTS) > .5`, which is
+    a threshold §9.5a forbids, and it would move `gold_supports_recall` that §9.1's change table
+    pins as UNCHANGED.
+
+    Here the two disagree: argmax keeps SUPPORTS at .40 (> .35, > .25) while summing the other
+    two flips it (.60 > .40). The published binary twin readings (.9980 / .9871 / .8689 / .9008)
+    reproduce under the former and not the latter.
     """
-    assert _collapse_to_binary((0.40, 0.35, 0.25), ("SUPPORTS", "REFUTES", "UNKNOWN")) == {
-        "SUPPORTS": 0.40,
-        "NOT_SUPPORTED": 0.35,
-    }
+    predictor = NLIRelationPredictor(
+        score_fn=lambda pairs: [{"SUPPORTS": 0.40, "REFUTES": 0.35, "UNKNOWN": 0.25}],
+        model_version="fake@0123456789abcdef",
+    )
+    (prediction,) = predictor.predict([("p", "h")])
+    assert prediction.label is RelationLabel.SUPPORTS
+    assert prediction.confidence == 0.40
 
 
-def test_collapse_reads_the_per_checkpoint_label_order() -> None:
-    """DeBERTa's head is (entailment, neutral, contradiction), so position 1 is UNKNOWN and
-    position 2 is REFUTES. Collapsing positionally instead of by verified name would swap
-    REFUTES and UNKNOWN — invisible after the collapse, but it corrupts the recorded
-    confidence."""
+def test_a_three_class_head_reaches_the_predictor_uncollapsed_and_by_name() -> None:
+    """A2's mechanism in one assertion, plus the mistake it re-exposes.
+
+    DeBERTa's head is (entailment, neutral, contradiction), so position 1 is UNKNOWN and position
+    2 is REFUTES. Reading by position rather than by verified name swaps them. Under A1 that was
+    invisible — both collapsed into one NOT_SUPPORTED column and survived only as a wrong
+    `confidence`. Under A2 it lands in the predicted label, where 0B-1 can see it.
+    """
     order = LABEL_ORDER["MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli"]
-    assert _collapse_to_binary((0.1, 0.2, 0.7), order) == {
-        "SUPPORTS": 0.1,
-        "NOT_SUPPORTED": 0.7,
-    }
+    scores = dict(zip(order, (0.1, 0.2, 0.7), strict=True))
+    assert scores == {"SUPPORTS": 0.1, "UNKNOWN": 0.2, "REFUTES": 0.7}
+    predictor = NLIRelationPredictor(
+        score_fn=lambda pairs: [scores], model_version="fake@0123456789abcdef"
+    )
+    (prediction,) = predictor.predict([("p", "h")])
+    assert prediction.label is RelationLabel.REFUTES
 
 
 def test_load_score_fn_rejects_an_unverified_checkpoint() -> None:
@@ -381,12 +408,16 @@ def test_tokenizer_variant_is_recorded_in_the_sweep_output(
     assert payload["models"]["m1"]["tokenizer_variant"] == "fake"
 
 
-def _always_not_supported_scorer(model_id: str):  # type: ignore[no-untyped-def]
-    """Abstains on every pair. Under A1 abstention and contradiction are the same output, so
-    this also stands in for the old always-UNKNOWN degenerate model."""
+def _always_refutes_scorer(model_id: str):  # type: ignore[no-untyped-def]
+    """Commits to the contrary on every pair — the degenerate arm that scores twin 1.0 / gold 0.0.
+
+    Three-class, so it is also the shape that shows A2 gave G-AB its decomposition back: this arm
+    and an always-UNKNOWN one are indistinguishable under `not_supported_rate` and separable
+    under `unknown_rate`.
+    """
 
     def score(pairs):  # type: ignore[no-untyped-def]
-        return [{"SUPPORTS": 0.3, "NOT_SUPPORTED": 0.7} for _ in pairs]
+        return [{"SUPPORTS": 0.3, "REFUTES": 0.7, "UNKNOWN": 0.0} for _ in pairs]
 
     return score, "fake", "fake@0123456789abcdef"
 
@@ -437,9 +468,11 @@ def test_dump_rows_carry_tier_kind_query_id_and_class_probabilities(
     assert [row["kind"] for row in external] == [None, None]
     assert all("query_id" not in row for row in external)
     assert [row["gold"] for row in task] == ["SUPPORTS", "NOT_SUPPORTED", "NOT_SUPPORTED"]
-    assert [row["predicted"] for row in task] == ["SUPPORTS", "NOT_SUPPORTED", "NOT_SUPPORTED"]
-    assert task[0]["probabilities"] == {"SUPPORTS": 1.0, "NOT_SUPPORTED": 0.0}
-    assert task[1]["probabilities"] == {"SUPPORTS": 0.0, "NOT_SUPPORTED": 1.0}
+    assert [row["predicted"] for row in task] == ["SUPPORTS", "REFUTES", "REFUTES"]
+    # Three columns, because A2 stopped collapsing at the checkpoint adapter. Gold stays
+    # SUPPORTS / NOT_SUPPORTED: the probe's label follows the METRIC, not the output space.
+    assert task[0]["probabilities"] == {"SUPPORTS": 1.0, "REFUTES": 0.0, "UNKNOWN": 0.0}
+    assert task[1]["probabilities"] == {"SUPPORTS": 0.0, "REFUTES": 1.0, "UNKNOWN": 0.0}
 
 
 def test_dump_records_the_prediction_and_not_a_second_copy_of_gold(
@@ -447,7 +480,7 @@ def test_dump_records_the_prediction_and_not_a_second_copy_of_gold(
 ) -> None:
     """A perfect scorer makes gold and predicted identical on every row, so a dump that echoed
     the gold label back would still look correct. This pins the two to different sources."""
-    monkeypatch.setattr("evidence_rag.cli.gate0b.load_score_fn", _always_not_supported_scorer)
+    monkeypatch.setattr("evidence_rag.cli.gate0b.load_score_fn", _always_refutes_scorer)
     dump = tmp_path / "dump.jsonl"
     main([
         "--task-pairs", str(_task_pairs(tmp_path)),
@@ -458,9 +491,10 @@ def test_dump_records_the_prediction_and_not_a_second_copy_of_gold(
     ])
     rows = _read_jsonl(dump)
     assert {row["gold"] for row in rows} == {"SUPPORTS", "NOT_SUPPORTED", "REFUTES"}
-    assert {row["predicted"] for row in rows} == {"NOT_SUPPORTED"}
+    assert {row["predicted"] for row in rows} == {"REFUTES"}
     assert all(
-        row["probabilities"] == {"SUPPORTS": 0.3, "NOT_SUPPORTED": 0.7} for row in rows
+        row["probabilities"] == {"SUPPORTS": 0.3, "REFUTES": 0.7, "UNKNOWN": 0.0}
+        for row in rows
     )
 
 
@@ -532,38 +566,54 @@ def test_weight_buffers_fold_name_shape_and_dtype_into_the_hashed_spec() -> None
     ]
 
 
-def test_a_0b1_report_carries_its_own_health_warning_in_the_payload(
+def test_a_natively_binary_arm_is_refused_by_0b1_rather_than_given_meaningless_numbers(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The 0B-1 numbers are meaningless under g2-proto-2 but they are still emitted, because the
-    pending ruling needs to see them. Meaningless numbers that travel without a marker get read
-    as results — this project has already lost a day to output that looked like other output. So
-    the warning rides inside the artefact rather than in a log line someone may not scroll to.
+    """A2 §10.6 cost 3, enforced in code rather than only written down.
 
-    This does NOT pick between the ruling's options; it only refuses to let the numbers travel
-    silently. Remove it when 0B-1 is amended, not before.
+    A natively-binary checkpoint has no third class, so 0B-1's five thresholds have nothing to
+    measure: three read a structural failure and one a vacuous pass even for a perfect model.
+    Under A1 that was the condition of the WHOLE tier and a payload field flagged it; under A2 it
+    is a property of one arm shape, and a payload field can no longer express it — the same sweep
+    can carry a valid three-class row beside the offending one.
+
+    So it fails loudly instead. What is being prevented is a sweep JSON carrying four plausible
+    numbers that mean nothing, which is this project's recurring failure mode: a defect that
+    returns a reasonable-looking number rather than crashing.
     """
-    monkeypatch.setattr("evidence_rag.cli.gate0b.load_score_fn", _perfect_scorer)
+    monkeypatch.setattr("evidence_rag.cli.gate0b.load_score_fn", _binary_scorer)
+    with pytest.raises(ValueError, match="natively-binary arm"):
+        main([
+            "--task-pairs", str(_task_pairs(tmp_path)),
+            "--external-pairs", str(_external_pairs(tmp_path)),
+            "--output", str(tmp_path / "sweep.json"),
+            "--models", "m1",
+        ])
+
+
+def test_a_natively_binary_arm_still_scores_0b2_with_external_pairs_omitted(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The refusal above is scoped to 0B-1, and must not spread to 0B-2.
+
+    Both 0B-2 metrics ask only "is this SUPPORTS?", so a binary arm scores that tier through the
+    same code as a three-class one. That is how MiniCheck-FT5 ran R012c at all, and it is why
+    §10.6 records the 0B-1 exclusion as a cost rather than as a reason to drop the arm.
+
+    `unknown_rate` reads 0.0 here truthfully — this arm has no UNKNOWN to emit — which is why
+    M0 §3.6 requires it to be read together with the arm's shape rather than alone.
+    """
+    monkeypatch.setattr("evidence_rag.cli.gate0b.load_score_fn", _binary_scorer)
     output = tmp_path / "sweep.json"
     main([
         "--task-pairs", str(_task_pairs(tmp_path)),
-        "--external-pairs", str(_external_pairs(tmp_path)),
         "--output", str(output),
         "--models", "m1",
     ])
-    payload = json.loads(output.read_text(encoding="utf-8"))
-    assert "external_tier_status" in payload
-    assert "g2-proto-2" in payload["external_tier_status"]
-    assert "not runnable" in payload["external_tier_status"].lower()
-
-    monkeypatch.setattr("evidence_rag.cli.gate0b.load_score_fn", _perfect_scorer)
-    task_only = tmp_path / "task_only.json"
-    main([
-        "--task-pairs", str(_task_pairs(tmp_path)),
-        "--output", str(task_only),
-        "--models", "m1",
-    ])
-    assert "external_tier_status" not in json.loads(task_only.read_text(encoding="utf-8"))
+    task = json.loads(output.read_text(encoding="utf-8"))["models"]["m1"]["task"]
+    assert task["gold_supports_recall"] == 1.0
+    assert task["twin_not_supported_accuracy"] == 1.0
+    assert task["unknown_rate"] == 0.0
 
 
 def _fake_transformers(recorder: dict[str, object]):  # type: ignore[no-untyped-def]

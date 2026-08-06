@@ -22,14 +22,22 @@ metric is now close to saturated (.87-.998 across the four measured arms) and ha
 a selection criterion into a lower-bound guard, leaving `gold_supports_recall >= .85` carrying
 the real selection pressure.
 
-0B-1 IS NOT AMENDED, AND NO LONGER COMPOSES WITH 0B-2. A1 §9.1 changes the 0B-2 metric and says
-nothing about this tier, so `external_report`, its five thresholds and `vitaminc.py` are left
-exactly as they were. Three of those five are now undefined or vacuous against a binary
-predictor — `refutes_precision` and `refutes_coverage` read 0.0 because the model can never
-predict REFUTES, `macro_f1` is capped at 0.5 for the same reason, and `non_unknown_coverage`
-reads 1.0 unconditionally. This is a KNOWN GAP IN THE AMENDMENT awaiting a human ruling, not an
-oversight in this module, and it must not be papered over by inventing a gold mapping here. See
-`tests/cli/test_gate0b.py::test_0b1_is_UNRUNNABLE_after_A1_and_this_test_records_it_rather_than_fixing_it`.
+0B-1 IS RUNNABLE AGAIN, AND ITS THRESHOLDS NEVER MOVED. A1 §9.1 amended the 0B-2 metric and said
+nothing about this tier, which left three of its five thresholds structurally unevaluable against
+a binary predictor: `refutes_precision` and `refutes_coverage` read 0.0 because the model could
+never predict REFUTES, `macro_f1` was capped at 0.5 for the same reason, and
+`non_unknown_coverage` read a vacuous 1.0. Those readings held even for a PERFECT model, which is
+what suspended the tier (§9.11).
+
+A2 (§10) closed that gap by narrowing A1 rather than by rewriting anything here: the relation
+model emits three classes again, so `external_report`, its five threshold VALUES and
+`vitaminc.py` are still byte-for-byte what they were when they were calibrated. None of the three
+options §9.11 listed could say that — binarising the gold would have recalibrated .85/.80/.70
+silently, and cancelling the tier would have required §3.2 to be re-argued from scratch.
+
+A natively-binary checkpoint still cannot be scored on this tier. That is now a stated cost
+(§10.6 cost 3), not a defect: with no third class the thresholds have nothing to measure. Do NOT
+add a gold mapping to make one fit.
 """
 
 from collections.abc import Sequence
@@ -92,6 +100,23 @@ def external_report(
     n = len(gold)
     if n == 0:
         raise ValueError("external_report needs at least one pair")
+    if RelationLabel.NOT_SUPPORTED in predicted:
+        # A2 §10.6 cost 3, enforced rather than merely written down. NOT_SUPPORTED is only ever
+        # emitted by a natively-binary checkpoint, and this tier's five thresholds are defined on
+        # the three-class split: scored against such an arm they read refutes_precision 0.0,
+        # refutes_coverage 0.0, macro_f1 0.5 and a vacuous non_unknown_coverage 1.0 EVEN FOR A
+        # PERFECTLY CORRECT MODEL. Under A1 that was the whole tier's condition and a payload
+        # warning flagged it; A2 makes it a property of one arm shape, which a warning field can
+        # no longer express. So it fails loudly instead: the alternative is a sweep JSON carrying
+        # four plausible numbers that mean nothing, which is the failure mode this project keeps
+        # paying for. Run such an arm with --external-pairs omitted.
+        raise ValueError(
+            "0B-1 cannot certify a natively-binary arm: predictions contain NOT_SUPPORTED, so "
+            "this checkpoint has no third class and the five frozen thresholds have nothing to "
+            "measure (M0 §10.6 cost 3). Three of them would read a structural failure and one a "
+            "vacuous pass even for a perfect model. Omit --external-pairs for this arm; do NOT "
+            "add a gold mapping to make it fit."
+        )
     s_precision, s_recall, s_f1 = _precision_recall_f1(gold, predicted, RelationLabel.SUPPORTS)
     r_precision, r_recall, r_f1 = _precision_recall_f1(gold, predicted, RelationLabel.REFUTES)
     macro_f1 = (s_f1 + r_f1) / 2
@@ -125,6 +150,7 @@ class TaskReport:
     twin_not_supported_accuracy: float
     gold_supports_recall: float
     not_supported_rate: float
+    unknown_rate: float
     failures: tuple[str, ...]
 
     @property
@@ -156,11 +182,30 @@ def task_report(
     It is deliberately NOT validated against the output space — a pre-A1 dump carries REFUTES
     in that column, and rejecting it would break the very recomputation path above.
 
-    `not_supported_rate` replaces the pre-A1 `unknown_rate`. It is the G-AB report item (M0
-    §3.6) in the only form the binary space supports: A1 §9.3 concedes binary cannot separate
-    "abstained" from "committed to the contrary", so the two are counted together, and the
-    sparse-graph consequence is picked up by `gold_supports_recall` inside the joint gate. A
-    field still called `unknown_rate` would have reported a structural 0.0 forever.
+    THE IMPLICIT COLLAPSE IS BY MAX, NOT BY SUM, and after A2 this function is where it lives.
+    Both metrics compare against SUPPORTS, so a three-class argmax relabelled is exactly what
+    they score:
+
+        max  -> argmax(SUPPORTS, NOT_SUPPORTED) == argmax(SUPPORTS, REFUTES, UNKNOWN) relabelled
+        sum  -> argmax(SUPPORTS, NOT_SUPPORTED) == "P(SUPPORTS) > .5", a threshold
+
+    That distinction is load-bearing, not stylistic. Three independent checks agree: §9.5's
+    published twin readings (albert .9980 / .9871, DeBERTa .8689 / .9008) reproduce from the
+    run-log confusion matrix as 1 - P(predicted == SUPPORTS); §9.1's change table pins
+    `gold_supports_recall` as UNCHANGED, and summing would move it because argmax can pick
+    SUPPORTS at p < .5 while the sum form cannot; and §9.5a forbids introducing a threshold,
+    which the sum form is. Scoring `predicted != SUPPORTS` gets the max form for free — there is
+    no arithmetic here to get wrong — which is why A2 could delete the explicit collapse rather
+    than relocate it.
+
+    G-AB REPORTING (M0 §3.6). `not_supported_rate` is the joint rate A1 left; `unknown_rate` is
+    the decomposition A2 gave back. A1 §9.3 conceded that a binary space cannot separate
+    "abstained" from "committed to the contrary", and under A1 a field called `unknown_rate`
+    would have read a structural 0.0 forever. A three-class head emits UNKNOWN again, so
+    abstention is separately measurable and both are reported: R012 already measured it (albert
+    .482, DeBERTa .176), which is what shows the decomposition was always there and was lost to
+    the amendment rather than to the data. A natively-binary arm reports 0.0 here truthfully —
+    it has no UNKNOWN to emit — so the two fields must be read together with the arm's shape.
     """
     rows = list(zip(kinds, gold, predicted, strict=True))
     twin = [p for kind, _gold, p in rows if kind in TWIN_NOT_SUPPORTED]
@@ -178,6 +223,11 @@ def task_report(
         if predicted
         else 0.0
     )
+    unknown_rate = (
+        sum(1 for p in predicted if p is RelationLabel.UNKNOWN) / len(predicted)
+        if predicted
+        else 0.0
+    )
     values = {
         "twin_not_supported_accuracy": twin_accuracy,
         "gold_supports_recall": gold_recall,
@@ -189,5 +239,6 @@ def task_report(
         twin_not_supported_accuracy=twin_accuracy,
         gold_supports_recall=gold_recall,
         not_supported_rate=not_supported_rate,
+        unknown_rate=unknown_rate,
         failures=failures,
     )

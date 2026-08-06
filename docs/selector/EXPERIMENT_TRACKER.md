@@ -1,8 +1,8 @@
 # Graph-Assisted Evidence Selector 2.0 — Experiment Tracker
 
-**Protocol:** `g2-proto-2`（[M0_PROTOCOL_FREEZE.md](M0_PROTOCOL_FREEZE.md)，状态 DRAFT — 待 R001 的 δ 后转 FROZEN）
+**Protocol:** `g2-proto-3`（[M0_PROTOCOL_FREEZE.md](M0_PROTOCOL_FREEZE.md)，状态 DRAFT — 待 R001 的 δ 后转 FROZEN）
 
-**版本沿革：** `g2-proto-1` → `g2-proto-2`（2026-08-03，修订案 A1：关系判定改二分类支持判断）。A1 是**在 R012 判 FAIL 之后**提出的事后修订，其时间线、利益冲突声明与阈值防护条款见 M0 §9，**批准不消除该披露**。R012 的三类 FAIL 仍是预注册主结果，永久保留。
+**版本沿革：** `g2-proto-1` → `g2-proto-2`（2026-08-03，修订案 A1：关系判定改二分类支持判断）→ **`g2-proto-3`**（2026-08-06，修订案 A2：**把 A1 收窄至判读口径** —— 模型恢复产三类，门与 0B-2 仍读二类）。A1 是**在 R012 判 FAIL 之后**提出的事后修订；**A2 同样是事后修订，但方向相反 —— 它恢复了一整层门（0B-1），而该层唯一拒绝的臂正是 0B-2 上最强的 DeBERTa**。两者的时间线、利益冲突声明与防护条款分别见 M0 §9 与 §10，**批准不消除该披露**。R012 的三类 FAIL 仍是预注册主结果，永久保留。
 
 **Plan:** [TRAINING_PLAN.md](TRAINING_PLAN.md) + [Graph 2.0 设计](../superpowers/specs/2026-07-30-graph-2.0-relation-layer-design.md) + [Plan 1](../superpowers/plans/2026-07-30-graph-2.0-plan-1-foundation.md)
 
@@ -12,7 +12,7 @@
 
 **Gate 0B 的分叉点已走完（2026-08-05）。** MiniCheck-FT5 臂（R012c）跑完三个 rung，**九格无一过门**，且它并不优于另两臂 ⇒ **族级断言成立**（"任何零训练模型都不够"现由三臂支撑，含唯一为该任务专训者）、**A1 的出样检验通过**、**§3.8 训练路径解锁**。
 
-**仍未清的一项：0B-1 已挂起**（M0 §9.11），故 Gate 0B 的**外部效度层本轮无证据**，验收只有任务层。解除须先有修订案 **A2**。
+**~~仍未清的一项：0B-1 已挂起~~（M0 §9.11）—— 2026-08-06 由修订案 A2（M0 §10）解除。** A2 把 A1 收窄至判读口径，模型恢复产三类，0B-1 因此复活且**五项阈值逐字不动**；R012 已实测的该层读数（albert 五项全过 / DeBERTa 挂三项）随之重新生效，**外部效度层不再无证据**。**但 Gate 0B 的整体判定不变，仍 FAIL** —— 九格 `gold_supports_recall` 无一达 .85（M0 §10.5：A2 不制造通过者，且恢复该层使门更严）。
 
 **R011b 状态存疑，须补台账。** 探针实际已物化并被 18235972 消费，但**它是用一条与文档不符、且从未入台账的命令建的**：所有文档都写 `runs/niah-train/`，而该路径不可能产出任何一对（探针需要反事实文档与 mutation log，两者只在注入后存在）。2026-08-03 用真实路径 `runs/niah-train-injected/` 重导 rung 2 得 `n_pairs 5888 / n_records 1472 / n_skipped_records 0`，与 sweep 的 `n_task_pairs` 吻合，故 `n_skipped_records = 0` 对 rung 1 同样成立（跳过与 hypothesis 形式无关）。状态保持 TODO 而非 DONE——按本文件规则，没有台账条目的运行不算已记录。**并须确认 `runs/niah-train/` 是否存在**：在此之前，"探针必须建在 train split 上"这条冻结要求无法仅凭文档核验。
 
@@ -42,11 +42,11 @@
 | R012b | M1 | hypothesis 形式消融（`template` / `question_answer` / `qa2d` 三级阶梯） | 0B-2 探针（NIAH **train**） | MUST | **DONE** | — | greedy（QA2D 于登录节点预生成到缓存） | bp1 / 18246568、18246569、18257977 | `results/gate0b/sweep-{template,qa,qa2d}.json` + dump | **形式是主因**：albert gold_supports **.1916 → .3635 → .5360**（2.80×，单调）；但**两个指标反向** —— albert twin 峰值在 rung 2（.7602 过阈）、rung 3 崩到 .5312，DeBERTa 两项单调下降。**六格无一两项同时过。** | R012 的归因实验，执行设计 §2.4 的预注册 QA2D 消融并补一级确定性中间形式。**三级都不动 ⇒ 塌陷按能力不足读，启动 §3.8**。R012 的 FAIL 是主结果，不因本轮改写；若 twin 被顶过 .70 只能记作第二次测量 |
 | R012c | M1 | **MiniCheck-FT5 臂（§3.1 预注册三臂中从未上场的一臂）** | 0B-2 探针（NIAH **train**），三个 hypothesis rung | MUST | **DONE** | 69a0c04 | deterministic（argmax，无阈值） | bp1 / 18269630-32 | `results/gate0b/sweep-minicheck-{template,qa,qa2d}.json` + dump | 联合门 `gold_supports_recall ≥ .85` ∧ `twin_not_supported_accuracy ≥ .70` | **两条预注册预测均被证伪**：它并未高于另两臂（.5727/.5883/.5360，三 rung 全低于 DeBERTa），rung 排序实测 qa > template > qa2d。**九格无一过门** ⇒ 触发第三条判读规则：**族级断言成立、A1 出样检验通过、§3.8 解锁**。**最有价值的观察**：MiniCheck 对 hypothesis 形式近乎免疫（极差 5.2pp vs albert 34.4 / DeBERTa 20.7）——唯一为该任务专训的臂最不受措辞扰动，独立印证 R012b 的形式伪影结论。**跨任务倒挂**：G 模块 triage 中 MiniCheck 胜 deberta-large，此处相反。（原预注册理由：**本臂同时解锁两个至今做不出的结论**：(1) §3.1 的**族级断言**——R012 只跑两臂，"任何零训练模型都不够"不成立，而它是 §3.8 是否启动的唯一依据；(2) **§9.8 的 A1 出样检验**——A1 由 albert/DeBERTa 促成故二者不能验证它，§9.8 明文"若出样结果与本修订预期相悖，以出样结果为准"。真实阻塞不是"二分类双向探测"（A1 落地后已消失）而是**架构**：`T5ForConditionalGeneration` 且无 `id2label`，故走独立的二分类注册表而非 `LABEL_ORDER`。独立臂报告，不并入 R012b 阶梯（§9.10a 例外）。）详见 [hpc-run-log R012c](../hpc-run-log.md) |
 | R012d | M1 | 答案串 canonical vs surface 对照（原题「大小写对照」不准确） | 0B-2 探针（NIAH **train**） | MUST | **DONE** | — | deterministic | bp1 / 18259086 | `results/gate0b/sweep-surface.json` + dump | **预注册方向被证伪**：DeBERTa gold_supports **.7942 → .7792**（McNemar p≈.0007，*下降*）。albert 阴性对照按 ±1pp 通过（+0.68pp）。⇒ 大小写/规范化**不是**那 5.6pp 的来源 | 实测发现 `gold_value` 经 canonicalize 小写化、`replacement_value` 是原始串 ⇒ 两个门指标建在不同大小写分布上，而 DeBERTa 是 cased 且距 .85 仅 5.6pp。**albert `do_lower_case=True`，大小写对它可证不可见，故它移动即实验无效。**本轮结果不改变 Gate 0B 判定（M0 §9.6）；R012c 已由 MiniCheck 臂占用 |
-| R013 | M1 | fine-tuned Relation Builder **（配方待裁决，见 M0 §9.12）** | 去污染 VitaminC train/dev + NIAH-train 域适配 | CONDITIONAL | TODO | — | 13 | — | — | per-class F1 | **触发条件已满足**（Gate 0B 九格无一过门，族级断言成立）**但配方未就绪**：§3.8 仍写「三类范式」，而 A1 已改二分类且 §9.7 未提及此处。**训练开始前必须裁决训三类头还是二类头**（M0 §9.12(a)） |
-| R014 | M1 | fine-tuned Relation Builder **（配方待裁决，见 M0 §9.12）** | 同上 | CONDITIONAL | TODO | — | 42 | — | — | per-class F1 | 同上；训练路径启动时三 seed 条款恢复生效 |
-| R015 | M1 | fine-tuned Relation Builder **（配方待裁决，见 M0 §9.12）** | 同上 | CONDITIONAL | TODO | — | 73 | — | — | per-class F1 | 同上 |
+| R013 | M1 | fine-tuned Relation Builder **（配方已确认，见 M0 §10）** | 去污染 VitaminC train/dev + NIAH-train 域适配 | CONDITIONAL | TODO | — | 13 | — | — | per-class F1 | **触发条件已满足**（Gate 0B 九格无一过门，族级断言成立）**且配方已就绪**：A2（M0 §10）把 A1 收窄至判读口径后，§3.8 的「三类范式」与输出空间**不再冲突**，**按 §3.8 预注册原文开跑，不得改动**。已知风险见 M0 §10.11：三类头为 UNKNOWN 保留概率质量，而 `gold_supports_recall` 恰恰惩罚不承诺；若因此未过 .85，**须另开修订案 A3 才能改训二类头，不得边训边改配方** |
+| R014 | M1 | fine-tuned Relation Builder **（配方已确认，见 M0 §10）** | 同上 | CONDITIONAL | TODO | — | 42 | — | — | per-class F1 | 同上；训练路径启动后三 seed 条款按 M0 §5.4 恢复生效 |
+| R015 | M1 | fine-tuned Relation Builder **（配方已确认，见 M0 §10）** | 同上 | CONDITIONAL | TODO | — | 73 | — | — | per-class F1 | 同上 |
 | R016 | M1 | claim→cluster→relation→graph 全链路 OOF | NIAH train | MUST | TODO | — | 13/42/73 | — | — | OOF coverage / hash | 按父页面和 synthetic family 分组 |
-| R020 | M2 | official relation Gate | VitaminC official test（ContractNLI 已移出，见 M0 §3.0） | MUST | **BLOCKED** | — | ensemble | — | — | precision / macro-F1 / coverage | **0B-1 已于 2026-08-04 挂起（M0 §9.11）**：A1 使关系模型二分类，而本层五项阈值建在三类分割上——完全正确的模型也会得 refutes_precision 0.0 / macro_f1 0.5 三项自动 FAIL 加一个空洞 PASS。解除阻塞须先有修订案 A2。test 仍只运行一次 |
+| R020 | M2 | official relation Gate | VitaminC official test（ContractNLI 已移出，见 M0 §3.0） | MUST | **TODO** | — | ensemble | — | — | precision / macro-F1 / coverage | **2026-08-06 解除 BLOCKED。** 原因：A2（M0 §10）把 A1 收窄至判读口径，模型恢复产三类，0B-1 因此复活且**五项阈值逐字不动**（此前挂起是因为二分类下三项自动 FAIL 加一个空洞 PASS，M0 §9.11）。**⚠ 一项待裁决：** R012（job 18235972）已在三类原生头上跑过一次 official test（n=55197，albert 五项全过 / DeBERTa 挂三项），**该次是否消耗了「test 只运行一次」的额度尚未裁定**。按 M0 §3.6「official test 失败后不得反复调参再重测并仍称一次性确认」，本项须在 §3.8 训练出的模型上场之前明确 |
 | R021 | M2 | SAME_SOURCE 与 metamorphic tests | synthetic unit fixtures | MUST | TODO | — | deterministic | — | — | exact pass rate | 目标 100% |
 | R022 | M2 | 生成 train Graph | NIAH train | MUST | TODO | — | OOF ensemble | — | — | cache / hash audit | 禁止 gold graph features |
 | R023 | M2 | 生成 dev Graph | NIAH dev | MUST | TODO | — | frozen ensemble | — | — | cache / hash audit | 不读取 utility/harm/gold answer |
@@ -56,7 +56,7 @@
 | R033 | M3 | Graph+ML | NIAH dev | MUST | TODO | — | 13 | — | — | harmful / recall / NDCG | — |
 | R034 | M3 | Graph+ML | NIAH dev | MUST | TODO | — | 42 | — | — | harmful / recall / NDCG | — |
 | R035 | M3 | Graph+ML | NIAH dev | MUST | TODO | — | 73 | — | — | harmful / recall / NDCG | — |
-| R036 | M3 | ~~CLAIM_REFUTES 消融~~ | — | — | **N/A** | — | — | — | — | — | 经 g2-proto-2（M0 §9.7）消解：关系模型不再产出 REFUTES，`conflict_mode=refutes_edge` 臂失去可执行性，本消融无实质含义。如 A1 日后被推翻则本行恢复 |
+| R036 | M3 | CLAIM_REFUTES 消融 | NIAH dev | MUST | TODO | — | 13/42/73 | — | — | delta vs full | **2026-08-06 由 A2（M0 §10.4）恢复。** 本行曾因 g2-proto-2（A1）标 N/A —— 关系模型不再产出 REFUTES，`conflict_mode=refutes_edge` 臂失去可执行性；原注已写明「如 A1 日后被推翻则本行恢复」。A2 把 A1 收窄至判读口径后模型恢复产三类，该消融臂重新可执行，本行随之恢复 |
 | R037 | M3 | SAME_SOURCE 消融 | NIAH dev | MUST | TODO | — | 13/42/73 | — | — | delta vs full | — |
 | R038 | M3 | shuffled-Graph 负控 | NIAH dev | MUST | TODO | — | frozen set | — | — | delta vs v1 | 不应复现 Graph 收益 |
 | R039 | M3 | 冻结 primary ensemble | NIAH dev | MUST | TODO | — | 13/42/73 | — | — | config / hash | fresh test 不选 seed |

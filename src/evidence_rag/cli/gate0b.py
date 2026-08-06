@@ -4,11 +4,17 @@ All candidate models run in ONE sweep. Testing a single arm cannot separate "thi
 insufficient" from "no zero-shot model is sufficient", and that distinction is exactly what
 decides whether the training path starts.
 
-Under A1 (g2-proto-2) the sweep scores in the binary space, so `--task-pairs` must be a pairs
-file regenerated after that amendment: pre-A1 files label their twin rows REFUTES, and this
-module reads gold back with `RelationLabel(row["label"])`. The `--external-pairs` (0B-1) tier is
-deliberately NOT amended and still carries three-class VitaminC gold; see `relations/gate0b.py`
-for why that tier no longer composes with a binary predictor and is awaiting a ruling.
+Under A2 (g2-proto-3) a three-class head is scored as three classes and nothing is collapsed on
+this path. Both tiers therefore compose again: `--external-pairs` (0B-1) reads VitaminC's
+three-class official gold and evaluates its five frozen thresholds at their original
+calibration, while `--task-pairs` (0B-2) derives its two classes inside `task_report` by asking
+"is this SUPPORTS?". Pairs files from either side of A1 parse and score identically — the 0B-2
+metrics never read the gold column (see `relations/task_probe.py`).
+
+A natively-binary checkpoint (MiniCheck-FT5) can be swept, but it produces NO 0B-1 reading: with
+no third class it cannot be certified against thresholds defined on the three-class split
+(M0 §10.6 cost 3). Run it with `--external-pairs` omitted rather than reading its 0B-1 row as a
+result.
 """
 
 import argparse
@@ -27,7 +33,7 @@ from evidence_rag.relations.minicheck import (
     resolve_label_token_ids,
     to_scores,
 )
-from evidence_rag.relations.models import PREDICTED_LABELS, RelationLabel, RelationPrediction
+from evidence_rag.relations.models import RelationLabel, RelationPrediction
 from evidence_rag.relations.predictor import (
     NLIRelationPredictor,
     ScoreFn,
@@ -44,13 +50,12 @@ from evidence_rag.relations.predictor import (
 # and the observed output is recorded beside it. Re-verify and update the recorded output before
 # adding any new checkpoint — a guess here is not detectable from the numbers.
 #
-# A1 (g2-proto-2) did NOT retire this table. These checkpoints still have three-class heads; the
-# collapse into SUPPORTS / NOT_SUPPORTED happens in `_collapse_to_binary`, which reads the class
-# names FROM here. A wrong order is in fact more dangerous now, not less: post-collapse the
-# REFUTES/UNKNOWN mix-up is no longer visible in the predicted label at all, and survives only as
-# a wrong `confidence` on the edge. A natively-binary checkpoint (MiniCheck-FT5, M0 §9.8) needs
-# no entry here — it needs its own two-class scorer, which must be added as a separate path
-# rather than by inventing a three-name order for it.
+# Neither A1 nor A2 retired this table. A2 (g2-proto-3) restored the three-class output space, so
+# these names now reach the predictor and the 0B-1 report directly instead of being collapsed
+# first — which puts a wrong order back where it is visible, in the predicted label. Under A1 it
+# survived only as a wrong `confidence` on an otherwise-correct edge. A natively-binary checkpoint
+# (MiniCheck-FT5, M0 §9.8) needs no entry here — it needs its own two-class scorer, added as a
+# separate path rather than by inventing a three-name order for it.
 LABEL_ORDER: dict[str, tuple[str, ...]] = {
     # id2label = {0: 'SUPPORTS', 1: 'REFUTES', 2: 'NOT ENOUGH INFO'}
     "tals/albert-xlarge-vitaminc-mnli": ("SUPPORTS", "REFUTES", "UNKNOWN"),
@@ -63,42 +68,6 @@ LABEL_ORDER: dict[str, tuple[str, ...]] = {
 }
 
 BATCH_SIZE = 32
-
-
-def _collapse_to_binary(row: Sequence[float], order: Sequence[str]) -> dict[str, float]:
-    """Collapse one checkpoint's three class probabilities into A1's binary space.
-
-    THE COLLAPSE IS BY MAX, NOT BY SUM, and that is not a stylistic choice:
-
-        max  -> argmax(SUPPORTS, NOT_SUPPORTED) == argmax(SUPPORTS, REFUTES, UNKNOWN) relabelled
-        sum  -> argmax(SUPPORTS, NOT_SUPPORTED) == "P(SUPPORTS) > .5", a threshold
-
-    M0 §9.10a rules that recomputing the binary reading from `dump-*.jsonl` is equivalent to a
-    natively-binary model, and a dump carries the three-class ARGMAX. Only the max form makes
-    that equivalence true. Three independent checks agree:
-
-      * the published binary twin readings (§9.5: albert .9980 / .9871, DeBERTa .8689 / .9008)
-        reproduce from the run-log confusion matrix as 1 - P(predicted == SUPPORTS), i.e. by
-        relabelling the argmax;
-      * §9.1's change table pins `gold_supports_recall` as UNCHANGED, and it counts
-        predicted == SUPPORTS — summing would move it, because argmax can pick SUPPORTS at
-        p < .5 while the sum form cannot;
-      * §9.5a forbids introducing a threshold on the back of A1, and the sum form is exactly a
-        threshold at .5 on P(SUPPORTS).
-
-    The returned pair therefore does NOT sum to 1. It is a comparison pair, not a distribution:
-    the NOT_SUPPORTED score is the probability of whichever underlying class actually won, which
-    is also what keeps `RelationPrediction.confidence` the same quantity it was before A1 (the
-    winning class's probability, M0 §2.1 invariant 2). A natively-binary checkpoint such as
-    MiniCheck-FT5 needs no collapse at all and can be scored directly (§9.8).
-    """
-    by_name = dict(zip(order, row, strict=True))
-    return {
-        RelationLabel.SUPPORTS.value: by_name[RelationLabel.SUPPORTS.value],
-        RelationLabel.NOT_SUPPORTED.value: max(
-            by_name[RelationLabel.REFUTES.value], by_name[RelationLabel.UNKNOWN.value]
-        ),
-    }
 
 
 def _load_tokenizer(transformers: Any, model_id: str) -> tuple[Any, str]:
@@ -180,9 +149,13 @@ def load_score_fn(model_id: str) -> tuple[ScoreFn, str, str]:
 def _load_three_class_score_fn(model_id: str) -> tuple[ScoreFn, str, str]:
     """Load a HF sequence-classification checkpoint as a BINARY scorer (A1 §9.1).
 
-    The checkpoint's head is still three-class; `_collapse_to_binary` reduces each row to
-    SUPPORTS / NOT_SUPPORTED before it leaves this function, so the collapse happens in exactly
-    one place and `NLIRelationPredictor` only ever sees the amended output space.
+    A1 collapsed here, at the checkpoint adapter. A2 (§10.2) moved the collapse to the consumers,
+    so all three class probabilities leave this function intact. That is the whole mechanism by
+    which 0B-1 became runnable again: its five frozen thresholds are defined on the three-class
+    split, and collapsing before the predictor is exactly what made them structurally
+    unevaluable under A1 (§9.11). The consumers that need two classes — `task_report` and
+    `RelationGraph` — both derive them by asking "is this SUPPORTS?", so no explicit collapse
+    step exists anywhere any more.
     """
     torch = importlib.import_module("torch")
     transformers = importlib.import_module("transformers")
@@ -227,7 +200,9 @@ def _load_three_class_score_fn(model_id: str) -> tuple[ScoreFn, str, str]:
             with torch.no_grad():
                 logits = model(**encoded).logits
             for row in torch.softmax(logits.float().cpu(), dim=-1).tolist():
-                results.append(_collapse_to_binary([float(value) for value in row], order))
+                results.append(
+                    {name: float(value) for name, value in zip(order, row, strict=True)}
+                )
             if start % (BATCH_SIZE * 20) == 0:
                 print(f"[gate0b] {model_id} {start}/{len(pairs)}", flush=True)
         return results
@@ -349,11 +324,12 @@ def _dump_rows(
     `kind` is the breakdown the dump exists for. External rows have no kind and say so with null
     rather than dropping the key, so every line of the file shares one schema.
 
-    `probabilities` carries the classes the model can EMIT (A1 §9.1), not every enum member:
-    after the collapse the three-class mass no longer exists, so a REFUTES or UNKNOWN column
-    would either be a fabrication or an invitation to rebuild a confusion matrix that the
-    output space no longer supports. The pre-A1 dumps on which R012/R012b are recomputed
-    (§9.10a) are three-class files and are unaffected by this.
+    `probabilities` is written from the score keys the scorer actually produced — three columns
+    for a three-class head after A2, two for a natively-binary checkpoint — rather than from a
+    fixed label tuple. That keeps the two arm shapes distinguishable in the dump and makes it
+    impossible to fabricate a REFUTES or UNKNOWN column for a model that has neither. The pre-A1
+    dumps on which R012/R012b are recomputed (§9.10a) are three-class files and round-trip
+    unchanged.
     """
     dumped: list[dict[str, Any]] = []
     for row, prediction, scored in zip(rows, predictions, scores, strict=True):
@@ -363,9 +339,7 @@ def _dump_rows(
             "kind": row.get("kind"),
             "gold": row["label"],
             "predicted": prediction.label.value,
-            "probabilities": {
-                label.value: float(scored[label.value]) for label in PREDICTED_LABELS
-            },
+            "probabilities": {name: float(value) for name, value in scored.items()},
             "premise_hash": prediction.premise_hash,
             "hypothesis_hash": prediction.hypothesis_hash,
         }
@@ -455,27 +429,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         "n_task_pairs": len(task_rows),
         "n_external_pairs": len(external_rows),
     }
-    if external_rows:
-        # A1 (g2-proto-2) amended the 0B-2 task tier to the binary space and said nothing about
-        # 0B-1, whose five frozen thresholds are built on the three-class split. Scored with a
-        # binary predictor, a PERFECT model yields refutes_precision 0.0, refutes_coverage 0.0
-        # and macro_f1 0.5 — three automatic failures — plus non_unknown_coverage 1.0, a pass
-        # that measures nothing because UNKNOWN can never be predicted.
-        #
-        # The numbers are still emitted, because the pending ruling needs to see them. But they
-        # do not travel unlabelled: a sweep JSON is read long after the run, and three failures
-        # plus a vacuous pass read as "the checkpoint got worse". This marker is NOT a ruling —
-        # it does not choose between binarising 0B-1's gold, running that tier on the native
-        # three-class head, or suspending it. Remove it when 0B-1 is amended, not before.
-        payload["external_tier_status"] = (
-            "NOT RUNNABLE under protocol g2-proto-2: amendment A1 made the relation model binary "
-            "(SUPPORTS / NOT_SUPPORTED) but did not amend 0B-1, whose thresholds require the "
-            "three-class space. refutes_precision and refutes_coverage are structurally 0, "
-            "macro_f1 is capped at 0.5, and non_unknown_coverage is a vacuous 1.0 — these hold "
-            "even for a perfectly correct model. DO NOT read this tier as a result; it is "
-            "awaiting a protocol ruling."
-        )
-
     arguments.output.parent.mkdir(parents=True, exist_ok=True)
     arguments.output.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
     if dump_path is not None:

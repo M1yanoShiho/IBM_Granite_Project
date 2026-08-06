@@ -1,6 +1,8 @@
 # Graph 2.0 — M0 协议冻结与预注册
 
-**日期:** 2026-07-30 | **状态:** **DRAFT — 决定已全部填,等 R001 的 G-FC 基线数值后转 FROZEN** | **协议版本:** **g2-proto-2**(2026-08-03 经修订案 A1 升版,见 §9;g2-proto-1 为其前身)
+**日期:** 2026-07-30 | **状态:** **DRAFT — 决定已全部填,等 R001 的 G-FC 基线数值后转 FROZEN** | **协议版本:** **g2-proto-3**(2026-08-06 经修订案 A2 升版,见 §10)
+
+**版本沿革:** `g2-proto-1` → `g2-proto-2`(A1,2026-08-03,§9:关系判定改二分类)→ **`g2-proto-3`**(A2,2026-08-06,§10:**把 A1 收窄至判读口径** —— 模型恢复产三类,门与 0B-2 仍读二类)。**A2 是对 A1 的部分撤回,不是澄清**;A1 的记录逐字保留于 §9。
 
 **转 FROZEN 的唯一剩余前置:** §3 的 G-FC 需要 R001 实测的基线值与 δ。§1 的决定已全部拍板(2026-07-30),§6 审计待数据就位后执行。
 **数值缺位时不得标 FROZEN。**
@@ -134,8 +136,17 @@ R012 为**一次 sweep**,三个现成 checkpoint 同场跑,不串行:
 | 臂 | 模型 | 角色 |
 |---|---|---|
 | 主 | `tals/albert-xlarge-vitaminc-mnli`(~59M) | 三类原生对齐,域对口,开销可忽略 |
-| 对照 | MiniCheck-FT5(770M) | LLM-AggreFact <1B SOTA;二分类,需否定 claim 双向探测,单独一步 |
+| 对照 | MiniCheck-FT5(770M) | LLM-AggreFact <1B SOTA;**原生二分类,无须双向探测**(见下方更正) |
 | 上界 | `MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli` | 通用 NLI 上界,非域内 |
+
+**[2026-08-06 更正,A2 §10.7(B)]** 本表原写 MiniCheck"二分类,需否定 claim 双向探测,单独一步",
+**该记述已被 R012c 的实现证伪,且它曾是 MiniCheck 被降级的理由。** 两点更正:
+
+1. **双向探测从来不必要。** 二分类正是 A1 之后的判读口径,无 REFUTES 需反推。原句是 pre-A1 的记录。
+2. **真正的阻塞是架构。** `lytang/MiniCheck-Flan-T5-Large` 是 `T5ForConditionalGeneration` 且**无 `id2label`**,
+   `AutoModelForSequenceClassification` 根本打不开,`LABEL_ORDER` 对它无意义。故走独立的二分类注册表
+   (`relations/minicheck.py`),两个注册表按架构分发。
+3. **A2 之后的新增后果:** 原生二分类的臂**无三类输出,因此不具备 0B-1 认证资格**(§10.6 第 3 条)。
 
 **为什么必须同场:** 只跑一臂时,未过 Gate 只能得出"albert 不够",**无法排除"任何零训练模型都不够"** ——
 而这个区分正是决定 §3.6 训练路径是否启动的唯一依据。
@@ -158,8 +169,12 @@ REFUTES precision ≥ .85、support/refute macro-F1 ≥ .80、non-UNKNOWN covera
 |---|---|---|---|
 | needle | gold claim | SUPPORTS | injector 已验证 gold alias 在 needle 中恰好出现一次 |
 | `cf::needle` | replacement claim | SUPPORTS | mutation 定义 |
-| `cf::needle` | gold claim | **REFUTES** | 单答案假设 + 同机械类别异值替换 |
-| needle | replacement claim | **REFUTES** | 同上 |
+| `cf::needle` | gold claim | **NOT_SUPPORTED** | 单答案假设 + 同机械类别异值替换 |
+| needle | replacement claim | **NOT_SUPPORTED** | 同上 |
+
+**[2026-08-06,A2 §10.7(B)]** 后两行原标 `REFUTES`。改为 `NOT_SUPPORTED` 的裁决理由是**探针 gold 标签跟随指标** ——
+twin 指标自 A1 起即为 `predicted != SUPPORTS`,而 `task_probe.py` 已产 `TWIN_NOT_SUPPORTED`。
+两类对在语义上确实是真矛盾,但**指称必须与实际计算的量一致**:§9.12 那一整轮麻烦的根源正是文本指称与实际量脱节。
 
 UNKNOWN 的 primary gate 只能用 0B-1 的 official NEI 类;跨 query 配对的"推定 UNKNOWN"只作 secondary proxy 报
 abstention rate,不进 gate。
@@ -168,14 +183,21 @@ abstention rate,不进 gate。
 
 | 失效 | 后果链 | 指标 | 阈值 |
 |---|---|---|---|
-| `cf → gold claim` 误判 SUPPORTS | 毒进 gold 簇 ⇒ 条件 2 失效 ⇒ 不可踢 ⇒ harm 不降 | twin REFUTES accuracy | **≥ .70** |
+| `cf → gold claim` 误判 SUPPORTS | 毒进 gold 簇 ⇒ 条件 2 失效 ⇒ 不可踢 ⇒ harm 不降 | twin NOT_SUPPORTED accuracy | **≥ .70** |
 | 含 gold 的段漏判 SUPPORTS | gold 票低估 ⇒ needle 孤立(support=1≤cap) ⇒ 被踢 ⇒ recall 掉 | gold-passage SUPPORTS recall | **≥ .85** |
 
-精确口径(避免歧义):
+精确口径(避免歧义;A1 §9.1 改指标定义、A2 §10.2 定折叠点,本段为二者落地后的**当前**口径):
 
-- **twin REFUTES accuracy** = 在 `cf_gold` 与 `needle_replacement` 两类对上预测 == REFUTES 的比例。
-- **gold-passage SUPPORTS recall** = 在 `needle_gold` 类对上预测 == SUPPORTS 的比例。
-- **两者的 UNKNOWN 一律计失败。** 否则"把什么都判 UNKNOWN"的模型能刷爆前者 —— 与 G-FC 必须做联合门是同一个可操纵性。
+- **twin NOT_SUPPORTED accuracy** = 在 `cf_gold` 与 `needle_replacement` 两类对上 `predicted != SUPPORTS` 的比例。
+- **gold-passage SUPPORTS recall** = 在 `needle_gold` 类对上 `predicted == SUPPORTS` 的比例。
+- **三类输出先按 §10.2 折叠再计分。** 折叠**取 max**,等价于三类 argmax 换标签;
+  **取和等价于 `P(SUPPORTS) > .5`,是被 §9.5a 禁止的阈值**。
+- **因此 UNKNOWN 在 twin 上计成功、在 gold 上计失败。** 这个不对称是 A1 的**已知代价**(§9.3:
+  二分类判读不能区分"弃权"与"承诺相反"),不是笔误。**弃权本身仍被度量** —— 模型自 A2 起恢复产 UNKNOWN,
+  `unknown_rate` 按 §3.6 并报。
+- **防刷分不再靠"UNKNOWN 一律计失败",而只靠联合门**(A1 §9.3):全判 NOT_SUPPORTED 者
+  twin 1.000 / gold 0.000,全判 SUPPORTS 者反之,两种退化策略都被挡住。
+  **故两项不得单独报告,也不得单独设阈。**
 - `cf_replacement` 类对作背景报告,**不进任何阈值**。
 
 `.70` 的依据:当前池内 `1 − missed_conflict` = .57–.69,低于 .70 连"不比现状差"都保证不了。
@@ -361,7 +383,7 @@ GPU kernel 选择与浮点规约顺序可在近似平局处翻转 argmax ⇒ 跨
 - [ ] counterfactual mutation 可逆,且 gold alias 无残留
 - [ ] fresh 600 manifest 在运行前冻结,hash 已记录
 - [ ] 不存在人工标注待办(零新增人工标注约束)
-- [ ] 本文件协议版本号 `g2-proto-1` 与 hash 已记入 [EXPERIMENT_TRACKER.md](EXPERIMENT_TRACKER.md) R000
+- [ ] 本文件协议版本号 `g2-proto-3` 与 hash 已记入 [EXPERIMENT_TRACKER.md](EXPERIMENT_TRACKER.md) R000
 
 任何一条违规:停止,重建数据或补齐决定,**不得带着 TODO 进 M1**。
 
@@ -385,12 +407,11 @@ GPU kernel 选择与浮点规约顺序可在近似平局处翻转 argmax ⇒ 跨
 1. **G-FC 的基线与 δ** —— 依赖 R001,是转 FROZEN 的唯一剩余阻塞。
 2. **sealed 600 尚未构建** —— 依赖 §3.4 的 title sidecar(已实现)与语料重建。
 3. 门决策记录是否升级进 `PipelineRun` trace —— 契约变更,另走流程,不阻塞 M0。
-5. **修订案 A2 已起草(§10),待批准** —— 2026-08-05。其形态**不是**"给 0B-1 打补丁",
-   而是**把 A1 收窄到判读口径**:模型恢复产三类,门与 0B-2 仍读二类。0B-1 因此复活、阈值不动,
-   §3.8 的三类配方冲突同时消解。**在 A2 批准前,§9.11 的三条代价仍然生效,R013 与 R020 仍然阻塞。**
 4. ~~修订案 A1(§9)待批准~~ —— **已于 2026-08-03 批准,g2-proto-2 生效。**
-   §9.10 尚余两项未完成:关系模型输出空间的代码改动(§9.1)与 G 模块的后端/阈值复用共识。
-   **在代码改动落地前,`relations/` 仍按三类实现运行**,故 R012 的三类读数继续可复现。
+   §9.10 的代码改动已于 2026-08-04 落地(commit `221c34a`),并由 A2 **部分回退**(§10.2)。
+   **尚余一项未完成:G 模块的后端/阈值复用共识** —— 且 A2 已使该项的前提改变(§10.6 第 4 条)。
+5. ~~修订案 A2(§10)待批准~~ —— **已于 2026-08-06 批准,g2-proto-3 生效。**
+   0B-1 恢复、§3.8 配方冲突消解,**R013–R015 与 R020 的阻塞同时解除**。落地进度见 §10.10。
 
 ---
 
@@ -579,6 +600,10 @@ rung 2 由 .3635 升至 .7799(2.15×)。即该 checkpoint 的失败**不是"判�
 - **叙事代价**:"带类型边的关系图"弱化为"支持计数图"。如实记录:主口径本就只用 SUPPORTS,
   本修订**暴露**了这一点而非造成它。这对 report 是减分项,但比被 reviewer 问出来好。
 
+**[2026-08-06 后续 —— 本清单四条已反转三条,见 §10.4。原文一律不改写。]**
+A2 把 A1 收窄至判读口径后模型恢复产三类,故前三条(`refutes_edge` 消融臂、TRAINING_PLAN Block 3、
+tracker R036)**全部恢复**。**第四条不反转** —— 门仍然只读 SUPPORTS,本节"暴露而非造成"的判断仍然成立。
+
 ### 9.8 出样验证(本修订可信度的真正来源)
 
 本修订由 albert / DeBERTa 两臂的数据促成,故这两臂**不能**用来验证它。以下两项在提出本修订时
@@ -725,7 +750,9 @@ collapse 语义下等价,且不动任何已产生的实验数据)。
 
 ## 10. 修订案 A2 — 把 A1 收窄至判读口径,并恢复 0B-1
 
-**提出日期:** 2026-08-05 | **批准日期:** 待批 | **状态:** **待批准,拟升 `g2-proto-3`**
+**提出日期:** 2026-08-05 | **批准日期:** 2026-08-06 | **状态:** **已批准,`g2-proto-3` 生效**
+
+批准不改变 §10.0 的披露:本修订仍是在看到 R012 与 R012c 的结果之后提出的,该事实随协议长期保留。
 
 **本修订是对 A1 的部分撤回,不是澄清、也不是补丁。** A1 已批准生效、协议已升 `g2-proto-2`,
 收窄它必须再升一版,并把"**A1 的结论超出了它自己的依据**"这句话写在最前面而不是脚注里。
@@ -916,6 +943,13 @@ R012 已实测 `unknown_rate` albert **.482** / DeBERTa **.176** —— 该分�
 - [ ] G-AB 报告项补回 UNKNOWN 分解:`not_supported_rate` 在 0B-2 层仍正确,但须并报 `unknown_rate`
 - [ ] 复核 `relations/task_probe.py`、`relations/graph.py`、`relations/minicheck.py` 的契约
 - [ ] 折叠等价性由 `cli/recompute_binary --against` 重新对拍,**证明后移折叠点不改变任何已发布读数**
+      —— **本项未完成,原因如实记录:** `results/` 在 `.gitignore` 内,逐 pair dump(`dump-*.jsonl`)
+      只存在于集群,本地无法执行。**须在 bp1 上补跑,不得因其余项已过而勾掉。**
+      **本地已做的替代验证(不等价,但非空):** 用 R012 的 `sweep-full.json`(job 18235972,
+      pre-A1 的**原生三类**实现所产)钉住两件事 —— (1) 其五项读数在**现行 `THRESHOLDS`** 下
+      仍落在同一侧(albert 五项全过、DeBERTa 挂三项),任何静默重标定都会在此暴露;
+      (2) `external_report` 的字段集与 R012 发布的十个键**逐字相同**,即 0B-1 是被恢复而非被重建。
+      两项见 `tests/relations/test_gate0b.py`。
 
 **无须重跑任何实验。** §9.5 公布的二分类读数本就由"三类 argmax 换标签"得到,与折叠点后移后的读法同义;
 0B-1 的读数则产生于 R012 的三类原生头。**本修订不产生、也不作废任何实验数据。**
@@ -954,12 +988,20 @@ R012 已实测 `unknown_rate` albert **.482** / DeBERTa **.176** —— 该分�
 
 ### 10.10 批准所需
 
-- [ ] 项目负责人批准,并将本文件版本号改为 `g2-proto-3`
-- [ ] `EXPERIMENT_TRACKER.md` 的 Protocol 行与版本沿革同步;R036 由 N/A 恢复;
+- [x] 项目负责人批准,并将本文件版本号改为 `g2-proto-3` —— **2026-08-06 完成**
+- [x] `EXPERIMENT_TRACKER.md` 的 Protocol 行与版本沿革同步;R036 由 N/A 恢复;
       R013–R015 的"配方待裁决"注记改为"配方已确认,按 §3.8 预注册原文";R020 解除 BLOCKED
-- [ ] §10.7(B) 的协议文本改动逐项落地
-- [ ] §10.7(D) 的代码改动落地(TDD),并由 `cli/recompute_binary --against` 对拍证明已发布读数不变
-- [ ] §10.8 检查表的八项在本修订正文中均有书面答案 —— **本项由批准人核对,不得自评**
+      —— **2026-08-06 完成**。R020 另带一项**新的待裁决**:R012 已在三类原生头上跑过一次
+      official test,该次是否消耗"只运行一次"的额度,须在 §3.8 训练出的模型上场前明确。
+- [x] §10.7(B) 的协议文本改动逐项落地 —— **2026-08-06 完成**(八处)
+- [x] §10.7(D) 的代码改动落地(TDD)—— **2026-08-06 完成**。逐字 CI 全树通过:
+      `ruff check src tests` / `mypy src tests/typecheck.py` / `pytest tests/`。
+      **落地时新增一项 §10.6 未预见的强制:** 撤掉 `external_tier_status` 后,
+      天然二分类的臂若带 `--external-pairs` 跑会**无声产出**那四个退化数字 —— 警告字段没了,
+      而 §10.6 第 3 条只写在文档里。故 `external_report` 现在**硬失败**:预测中出现
+      `NOT_SUPPORTED` 即拒绝认证。这是"写进文档的义务必须有代码执行"的直接应用。
+- [ ] **`cli/recompute_binary --against` 的对拍尚未执行** —— 见 §10.7(D) 末项,须在 bp1 补跑
+- [x] §10.8 检查表的八项在本修订正文中均有书面答案 —— **随 2026-08-06 的批准一并核对**
 - [ ] G 模块就后端与阈值复用达成一致(承自 §9.10 的未完成项;**A2 使该项的前提改变**,见 §10.6 第 4 条)
 
 ### 10.11 §3.8 解锁后的已知风险(不构成阻塞,但须预先写明)
