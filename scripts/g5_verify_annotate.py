@@ -25,6 +25,7 @@ import json
 import random
 import sys
 import time
+import traceback
 from pathlib import Path
 from typing import Any
 
@@ -127,8 +128,17 @@ def main() -> int:
                 generation = generator.generate(query, checklist, case.selected)
             except Exception as exc:  # noqa: BLE001 -- record, keep the sample aligned
                 errors[name] += 1
-                if errors[name] <= 3:
-                    print(f"[warn] {name} {case.query_id}: {type(exc).__name__}", flush=True)
+                if errors[name] == 1:
+                    # Full traceback, once per arm. Printing only the type name cost this
+                    # project two diagnostic rounds on G6: 365 swallowed OSErrors and 310
+                    # swallowed RuntimeErrors look identical in the log, and neither says
+                    # where or why. One traceback per arm is four in a run -- cheap enough
+                    # that there was never a reason not to.
+                    print(f"[warn] {name} {case.query_id}: FIRST FAILURE, traceback:", flush=True)
+                    traceback.print_exc()
+                    sys.stderr.flush()
+                elif errors[name] <= 3:
+                    print(f"[warn] {name} {case.query_id}: {type(exc).__name__}: {exc}", flush=True)
                 continue
             record: dict[str, Any] = {
                 "query_id": case.query_id,
