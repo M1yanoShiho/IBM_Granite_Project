@@ -98,6 +98,83 @@ def _empty_checklist(query_id: str, question: str) -> QueryChecklist:
     return QueryChecklist(query_id=query_id, focus=question, required_facts=())
 
 
+ANNOTATE_ARMS = ("verify-annotate-capped", "verify-annotate-open", "verify-annotate-nogate")
+SUBJECT_ARM = "verify-annotate-nogate"
+CONTROL_ARM = "verify-annotate-open"
+
+
+def _sentence_counts(records: dict[str, dict[str, Any]]) -> tuple[int, int]:
+    annotated = total = 0
+    for record in records.values():
+        for sentence in record["answer"].split(". "):
+            if sentence.strip():
+                total += 1
+                annotated += int(is_unverified_annotation(sentence))
+    return annotated, total
+
+
+def _annotations_reaching_an_answer(records: dict[str, dict[str, Any]]) -> int:
+    return sum(
+        1
+        for r in records.values()
+        if r["answer"].strip()
+        for x in r.get("routing", [])
+        if x["outcome"] == "unverified"
+    )
+
+
+def build_routing_stats(
+    stats_by_arm: dict[str, Any],
+    results: dict[str, dict[str, Any]],
+    errors: dict[str, int],
+) -> dict[str, Any]:
+    """Assemble the routing report.
+
+    Split out of ``main`` so it is unit-testable. The previous round's scoring job
+    died in an equivalent reporting tail on a stale arm name *after* every number
+    had been computed, which is a bad place to discover a typo: the arm outputs
+    survive but this file does not, and this file carries the observe-only
+    measurement the round exists for.
+    """
+    stats = stats_by_arm[SUBJECT_ARM]
+    annotated_sentences, kept_sentences = _sentence_counts(results[SUBJECT_ARM])
+    control_annotated, control_kept = _sentence_counts(results[CONTROL_ARM])
+    return {
+        "arm": SUBJECT_ARM,
+        "claims_routed": stats.claims,
+        "verified": stats.verified,
+        "unverified_annotated": stats.unverified,
+        "dropped_entity_conflict": stats.dropped_entity_conflict,
+        # The direct measurement this round exists for: with the gate observe-only,
+        # what it WOULD have destroyed, and what those claims became instead.
+        "gate_would_drop": stats.gate_would_drop,
+        "gate_would_drop_now_cited": stats.gate_would_drop_now_cited,
+        "gate_would_drop_now_annotated": stats.gate_would_drop_now_annotated,
+        "gate_would_have_picked_other_evidence": stats.gate_changed_citation,
+        # Self-check: on the control arm the gate IS routing, so its observe-only
+        # count must equal its actual drop count. If these ever disagree, the
+        # observe-only log is not recording what the gate really does.
+        "control_dropped_entity_conflict": stats_by_arm[CONTROL_ARM].dropped_entity_conflict,
+        "control_gate_would_drop": stats_by_arm[CONTROL_ARM].gate_would_drop,
+        "claims_with_a_declared_citation": stats.declared_total,
+        "declared_citation_verified": stats.declared_verified,
+        "rescued_by_fallback_scan": stats.rescued_by_scan,
+        "annotated_sentences": annotated_sentences,
+        "kept_sentences": kept_sentences,
+        "control_annotated_sentences": control_annotated,
+        "control_kept_sentences": control_kept,
+        # how many annotations actually REACH an answer -- the number the contract
+        # lift moved from 15/82 to 76/77
+        **{
+            f"annotated_claims_reaching_an_answer_{arm.rsplit('-', 1)[1]}": (
+                _annotations_reaching_an_answer(results[arm])
+            )
+            for arm in ANNOTATE_ARMS
+        },
+        "errors": errors,
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--limit", type=int, default=400)
@@ -234,55 +311,12 @@ def main() -> int:
         answered = sum(1 for r in results[name].values() if r["answer"].strip())
         print(f"[arm] {name}: {answered}/{len(cases)} answered, {errors[name]} errors", flush=True)
 
-    def _sentence_counts(arm: str) -> tuple[int, int]:
-        annotated = total = 0
-        for record in results[arm].values():
-            for sentence in record["answer"].split(". "):
-                if sentence.strip():
-                    total += 1
-                    annotated += int(is_unverified_annotation(sentence))
-        return annotated, total
-
-    stats = arms["verify-annotate-nogate"].stats
-    annotated_sentences, total_sentences = _sentence_counts("verify-annotate-nogate")
-    routing = {
-        "arm": "verify-annotate-nogate",
-        "claims_routed": stats.claims,
-        "verified": stats.verified,
-        "unverified_annotated": stats.unverified,
-        "dropped_entity_conflict": stats.dropped_entity_conflict,
-        # The direct measurement this round exists for: with the gate observe-only,
-        # what it WOULD have destroyed, and what those claims became instead.
-        "gate_would_drop": stats.gate_would_drop,
-        "gate_would_drop_now_cited": stats.gate_would_drop_now_cited,
-        "gate_would_drop_now_annotated": stats.gate_would_drop_now_annotated,
-        "gate_would_have_picked_other_evidence": stats.gate_changed_citation,
-        # self-check: on the control arm the gate IS routing, so these must agree
-        "control_dropped_entity_conflict": arms[
-            "verify-annotate-open"
-        ].stats.dropped_entity_conflict,
-        "control_gate_would_drop": arms["verify-annotate-open"].stats.gate_would_drop,
-        "claims_with_a_declared_citation": stats.declared_total,
-        "declared_citation_verified": stats.declared_verified,
-        "rescued_by_fallback_scan": stats.rescued_by_scan,
-        "annotated_sentences": annotated_sentences,
-        "kept_sentences": total_sentences,
-        "control_annotated_sentences": _sentence_counts("verify-annotate-open")[0],
-        "control_kept_sentences": _sentence_counts("verify-annotate-open")[1],
-        # how many annotations actually REACH an answer -- the number the contract
-        # lift exists to move (it was 15 of 82 under the cap)
-        **{
-            f"annotated_claims_reaching_an_answer_{arm.rsplit('-', 1)[1]}": sum(
-                1
-                for r in results[arm].values()
-                if r["answer"].strip()
-                for x in r.get("routing", [])
-                if x["outcome"] == "unverified"
-            )
-            for arm in ("verify-annotate-capped", "verify-annotate-open", "verify-annotate-nogate")
-        },
-        "errors": errors,
-    }
+    routing = build_routing_stats(
+        {name: generator.stats for name, generator in arms.items() if name in ANNOTATE_ARMS},
+        results,
+        errors,
+    )
+    stats = arms[SUBJECT_ARM].stats
     (args.output_dir / "routing-stats.json").write_text(
         json.dumps(routing, indent=2), encoding="utf-8"
     )
