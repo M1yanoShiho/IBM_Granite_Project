@@ -44,18 +44,34 @@ def _fail(message: str) -> int:
 
 
 def check_weights_present(repo_id: str) -> str | None:
-    """The repo directory exists in the cache and holds at least one weight file."""
+    """The repo directory exists in the cache and holds loadable weight files.
+
+    ``.bin`` counts as loadable only under torch >= 2.6: transformers refuses to
+    ``torch.load`` a pickle below that (CVE-2025-32434), and this repo ships only
+    ``.bin``. That version boundary is what separated a working account from a
+    failing one across the two G6 attempts, so it is checked rather than assumed.
+    """
+    import torch
+
     cache = Path(os.getenv("HF_HOME", Path.home() / ".cache/huggingface")) / "hub"
     folder = cache / f"models--{repo_id.replace('/', '--')}"
     if not folder.is_dir():
         return f"{repo_id}: not in the offline cache at all ({folder})"
-    weights = [
-        p
-        for p in folder.rglob("*")
-        if p.suffix in {".safetensors", ".bin"} and not p.name.startswith(".")
-    ]
-    if not weights:
+    files = [p for p in folder.rglob("*") if not p.name.startswith(".")]
+    safetensors = [p for p in files if p.suffix == ".safetensors"]
+    pickles = [p for p in files if p.suffix == ".bin"]
+    if safetensors:
+        return None
+    if not pickles:
         return f"{repo_id}: cached but carries no weight files ({folder})"
+    torch_version = tuple(int(part) for part in torch.__version__.split(".")[:2])
+    if torch_version < (2, 6):
+        return (
+            f"{repo_id}: only .bin weights are cached and torch is "
+            f"{torch.__version__} (<2.6), so transformers will refuse to load them "
+            "(CVE-2025-32434). Upgrade torch, or convert to safetensors with "
+            "scripts/convert_bin_to_safetensors.py."
+        )
     return None
 
 

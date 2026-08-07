@@ -199,6 +199,24 @@ def main() -> int:
 
     llm = GraniteLLMClient()
     nli = build_nli_model("true")  # production verifier; never the judge
+
+    # Fail fast, in-process, before 400 cases of swallowed exceptions. A previous
+    # attempt spent 76 GPU-minutes discovering the verifier could not load; every
+    # arm that used it reported bare `OSError` and produced nothing. Loading is not
+    # enough either -- a checkpoint whose tied embeddings were dropped rather than
+    # cloned loads cleanly, runs at speed, and returns plausible-looking scores --
+    # so the check is a pair whose answer is known.
+    from g5_preflight import CONTRADICTING, ENTAILING  # noqa: PLC0415  fail-fast, after load
+
+    verdicts = (
+        nli.classify(premise=ENTAILING[0], hypothesis=ENTAILING[1]),
+        nli.classify(premise=CONTRADICTING[0], hypothesis=CONTRADICTING[1]),
+    )
+    print(f"[preflight] TRUE: entailing -> {verdicts[0]}, contradicting -> {verdicts[1]}", flush=True)
+    if verdicts[0] != "entailment" or verdicts[1] == "entailment":
+        print("[FAIL] the verifier does not answer a known pair correctly", flush=True)
+        return 1
+
     repairer = RecordingRepairer(AnswerRepairer())
     arms: dict[str, Any] = {
         "baseline": GraniteGenerator(llm=llm),
