@@ -368,6 +368,22 @@ NIAH 语料本身仍未被基座见过,但这一点**从此需要证据,而不�
 
 - **检索器冻结 = bm25**(与 E2 同):Graph 2.0 的主张是"给定固定候选池,选择器更可靠",固定候选池正是冻结的模块接口;
   换检索器会把池的组成变成混淆变量,且 E2 exact 臂的 dump 只有在池相同时才可复用。
+
+- **冻结的执行方式 [2026-08-07 加;此前只有文字,无机制]:** 检索器身份在**产出时**写进候选池本体,不事后推断。
+  `candidate_sets.jsonl` 的每条 `CandidateSet` 带 `retriever = {name, implementation_version, parameters_sha256}`,
+  由 `evaluation/runners.py::run_retriever_stage` 在调用 `retrieve` 的**同一循环**里盖章。
+  **身份取自 `index_manifest.json`(即 `build_retriever` 校验过的那一份),不取自 config** ——
+  config 说的是"要求跑什么",index manifest 说的是"实际装载了什么",两者只在没出错时才相同。
+  参数进 digest,因为 `bm25 k1=1.5 b=0.75` 与 `bm25 k1=0.9 b=0.4` **是同名两池,而本条冻的是池**。
+
+- **候选池 hash 必须 pin:** 只有检索器名不够 —— 同一 bm25 跑两遍(语料重建、无关修复后重跑)会给出两个都"合法"的池,
+  而 §3.5 的 `0.4355` 与 §5.2 的 gate-off 参照**只在其中一个上量过**。bm25 跑完后立即执行一次
+  `python -m evidence_rag.cli.pin_candidates --sealed <sealed> --candidates <pool> --top-n 20`,
+  它把 `{retriever, candidate_sha256, n_windows, top_n, sealed_manifest_sha256}` 写进 sealed 目录的
+  `candidate_freeze.json`。**该文件写一次,重写被拒**(理由同 `sealed_manifest.json`)。
+  它是 sealed 目录里**唯一**允许在冻结之后出现的文件:**候选池在 manifest 冻结时还不存在,
+  而一份事后可改写的 manifest 不叫冻结**。`pin_candidates` 拒绝四种池:未署名检索器的、署名多个检索器的、
+  非 bm25 的、不覆盖 sealed query 集合的 —— **这四种都不能靠"补写 id"解决**。
   队友的 StrongBM25/hybrid 作**独立泛化臂单列一张表**,不与主表合并、不进 C1 判定。
 - **语料重建(不共享现有 100k 子采样):** 现有语料的 gold doc 是按 dev 那 2000 query 的 qrels 选进去的,
   sealed-600 新 query 的 gold 大概率不在 ⇒ 共享方案本身不成立。按 sealed-600 的 qrels 保留全部 gold doc +
@@ -441,11 +457,26 @@ GPU kernel 选择与浮点规约顺序可在近似平局处翻转 argmax ⇒ 跨
 - [ ] **§3.5 的 G-FC 基线与 δ 已带数值(依赖 R001)** ← 转 FROZEN 的唯一剩余阻塞
 - [ ] primary label 的 provenance 只能是 `official` 或 `deterministic_rule`
 - [ ] split / group / hash 零重叠(五轴)
-- [ ] 每题 candidate count、Top-20 ID、utility range、derived flags 一致
+- [ ] 每题 candidate count、Top-20 ID 一致,**且候选池自述其检索器 = bm25(§4),
+      且其 sha256 与 `candidate_freeze.json` 相符**;`utility range` / `derived flags`
+      在 D1=A 下记 `not_applicable`(无产出方)
+- [ ] `candidate_freeze.json` 已写,其 `sealed_manifest_sha256` 与本目录 manifest 一致
 - [ ] counterfactual mutation 可逆,且 gold alias 无残留
 - [ ] fresh 600 manifest 在运行前冻结,hash 已记录
 - [ ] 不存在人工标注待办(零新增人工标注约束)
 - [ ] 本文件协议版本号 `g2-proto-4` 与 hash 已记入 [EXPERIMENT_TRACKER.md](EXPERIMENT_TRACKER.md) R000
+
+**第 3 条是三态,不是两态 [2026-08-07]:**
+
+- **检索未跑** ⇒ `unevaluated` ⇒ **INCOMPLETE**(当前状态)。
+- **跑了,但候选文件不带 `retriever` 字段**(该字段存在之前产出的旧池)⇒ **同样 `unevaluated` ⇒ INCOMPLETE,
+  不得默认当作 bm25** —— 那个默认正是本条要堵的缺陷,**且异检索器池的 shape 与 bm25 池逐字相同**。
+  补救是**重跑冻结检索器,不是补标签**。
+- **部分窗口带、部分不带** ⇒ **`fail`**。缺全部是旧文件,缺一半是**被改过的文件** —— 那是阳性发现,不是缺口。
+- **PASS 只在 provenance 与 pin 双双对上时出现。**
+
+`--no-candidates` 是**事实陈述而非跳过开关**:sealed 目录里已存在 `candidate_freeze.json` 时,
+`gate0a` CLI 直接报错退出。
 
 任何一条违规:停止,重建数据或补齐决定,**不得带着 TODO 进 M1**。
 
