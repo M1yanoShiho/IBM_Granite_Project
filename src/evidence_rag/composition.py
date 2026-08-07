@@ -1,11 +1,12 @@
 import hashlib
+import json
 import math
 import os
 from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import Any, Literal
 
-from evidence_rag.contracts.models import Document
+from evidence_rag.contracts.models import Document, RetrieverProvenance
 from evidence_rag.contracts.protocols import Generator, Retriever, Selector
 from evidence_rag.generator.extractive import ExtractiveGenerator
 from evidence_rag.generator.granite import GraniteGenerator, GraniteLLMClient, TextGenerator
@@ -309,6 +310,36 @@ def prepare_retriever_index(
             parameters=parameters,
         )
     return read_index_manifest(directory)
+
+
+def retriever_provenance(manifest: IndexManifest) -> RetrieverProvenance:
+    """The producer identity a candidate pool is stamped with (M0 §4).
+
+    Derived from the INDEX MANIFEST rather than from the experiment config, because the index
+    manifest is the artefact `build_retriever` validated the retriever against — `load_index`
+    raises unless implementation, version and every normalised parameter match. Reading the
+    config instead would record what the operator asked for; this records what was actually
+    loaded, and those are the same thing only when nothing went wrong.
+
+    Parameters collapse to a digest so the identity is fixed-width and exact. Their canonical
+    form is already the one `_index_signature` hashes, so two runs whose pools differ because a
+    parameter moved get two different digests without anyone having to enumerate which
+    parameters matter to which retriever.
+    """
+
+    return RetrieverProvenance(
+        name=manifest.implementation,
+        implementation_version=manifest.implementation_version,
+        parameters_sha256=hashlib.sha256(
+            json.dumps(
+                manifest.parameters,
+                ensure_ascii=True,
+                separators=(",", ":"),
+                sort_keys=True,
+                allow_nan=False,
+            ).encode("utf-8")
+        ).hexdigest(),
+    )
 
 
 def build_retriever(

@@ -14,6 +14,12 @@ item 3 needs the Top-20 windows and retrieval has not run yet — that is the ho
 `--no-candidates` has to be typed so the gap is a stated fact rather than an omission. Re-run
 with `--candidates runs/sealed600-bm25/candidate_sets.jsonl` once the frozen retriever has run.
 
+`--candidates` alone still does not reach PASS. §6 item 3 now also asks WHICH retriever built the
+pool and WHETHER it is the pool that was pinned (M0 §4), so the pool has to be frozen first with
+`python -m evidence_rag.cli.pin_candidates`. A pool written before `CandidateSet.retriever`
+existed names no producer; it is reported as unevaluated and the verdict stays INCOMPLETE. It is
+NOT read as bm25 — that assumption is the defect, not the fallback.
+
 `--utility-labels-absent` is likewise mandatory rather than implied. §6 item 3 also names
 `utility range` and `derived flags`, which came from the v1 LightGBM selector; under D1=A the
 selector has no learned parameters and NOTHING in this repository produces a `utility_grade`.
@@ -42,7 +48,9 @@ from evidence_rag.materializer.gate0a import (
 )
 from evidence_rag.materializer.provenance import read_provenance
 from evidence_rag.materializer.sealed600 import (
+    CANDIDATE_FREEZE_FILE,
     fingerprint_bundle,
+    read_candidate_pin,
     read_sealed_manifest,
     read_split_fingerprint,
     sha256_file,
@@ -96,6 +104,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         # checked".
         parser.error(f"--utility-labels-absent is required: {UTILITY_REASON}")
 
+    pin = read_candidate_pin(arguments.sealed)
+    if arguments.candidates is None and pin is not None:
+        # `--no-candidates` is a statement of fact, not a way to skip an item. A pin exists only
+        # because retrieval has already run and its pool was frozen, so the statement is false —
+        # and letting it through would turn the one check that verifies pool provenance into an
+        # opt-out, which is exactly what a checklist item becomes when nobody has to answer it.
+        parser.error(
+            f"--no-candidates says retrieval has not run, but {arguments.sealed / CANDIDATE_FREEZE_FILE} "
+            "pins a pool that was already retrieved. Pass --candidates with that pool instead."
+        )
+
     manifest = read_sealed_manifest(arguments.sealed)
     bundle = JsonlDatasetAdapter.load(arguments.sealed / "manifest.json")
     records = read_provenance(arguments.sealed / "provenance.jsonl")
@@ -111,7 +130,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     if arguments.candidates is not None:
         checks.append(
             audit_candidates(
-                bundle, records, _read_candidates(arguments.candidates), top_n=arguments.top_n
+                bundle,
+                records,
+                _read_candidates(arguments.candidates),
+                top_n=arguments.top_n,
+                pin=pin,
+                candidate_sha256=sha256_file(arguments.candidates),
             )
         )
     else:

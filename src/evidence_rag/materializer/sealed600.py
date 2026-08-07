@@ -45,7 +45,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
-from evidence_rag.contracts.models import Document, Query
+from evidence_rag.contracts.models import CandidateSet, Document, Query, RetrieverProvenance
 from evidence_rag.infrastructure.datasets import (
     DatasetBundle,
     DatasetManifest,
@@ -70,6 +70,21 @@ SEALED_MANIFEST_FILE = "sealed_manifest.json"
 PARENT_INDEX_FILE = "source_parent.jsonl"
 SEALED_DATASET_ID = "niah/dpr-w100-nq-sealed600"
 SEALED_SPLIT = "sealed-test"
+
+# M0 §4: "检索器冻结 = bm25". Graph 2.0's claim is "given a FIXED candidate pool, the selector is
+# more reliable", so the pool is the frozen module interface. §3.5's G-FC judgement is made
+# against a baseline of 0.4355 and §5.2's recall non-inferiority against a gate-off reference;
+# both were measured on the bm25 pool, so a pool from another retriever does not merely add a
+# confound, it compares across pools while printing entirely plausible numbers. The teammates'
+# StrongBM25/hybrid arms are a separate generalisation table and never enter the C1 judgement.
+FROZEN_RETRIEVER = "bm25"
+
+# The second half of the freeze record. It cannot be written by the builder: the candidate pool
+# does not exist until the frozen retriever has run over the sealed corpus, which is after the
+# sealed manifest is frozen and must stay that way (a manifest that could be rewritten later is
+# not a freeze). So the pin is a separate write-once file, and `audit_manifest_freeze` knows it
+# is the ONE file allowed to appear in a sealed directory after the freeze.
+CANDIDATE_FREEZE_FILE = "candidate_freeze.json"
 
 # M0 §4's size derivation, kept as its INPUTS rather than as the single number 900. Recomputing
 # from the inputs is what makes a later edit to the target or the skip rate fail loudly instead
@@ -603,6 +618,113 @@ def read_sealed_manifest(directory: Path) -> SealedManifest:
     if not path.is_file():
         raise ValueError(f"{path} does not exist: this directory holds no frozen sealed set")
     return SealedManifest.model_validate_json(path.read_text(encoding="utf-8"))
+
+
+class CandidateFreeze(BaseModel):
+    """The frozen identity of the candidate pool the sealed 600 is evaluated on (M0 §4).
+
+    Two things are pinned, and neither is sufficient alone. `retriever` answers "was this pool
+    built by the frozen retriever" — without it a strong-bm25 pool passes every shape check
+    identically. `candidate_sha256` answers "is this the SAME pool" — without it two bm25 runs
+    over two corpus builds both name bm25 and hand §3.5 and §5.2 different windows.
+
+    `sealed_manifest_sha256` binds the pin to one sealed set, so a pin cannot be carried into a
+    directory whose 600 questions it never described.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    schema_version: Literal["1.0"] = "1.0"
+    protocol_version: Literal["g2-proto-4"]
+    sealed_manifest_sha256: str
+    candidate_file: str
+    candidate_sha256: str
+    n_windows: int
+    top_n: int
+    retriever: RetrieverProvenance
+
+
+def freeze_candidate_pin(directory: Path, pin: CandidateFreeze) -> Path:
+    """Write the pin, refusing to replace one that already exists.
+
+    Same reasoning as `freeze_sealed_manifest`. Re-pinning is what "we re-ran retrieval" looks
+    like from the outside, and quietly moving the pin to whatever the newest run produced would
+    make the record follow the data instead of constraining it.
+    """
+    directory = Path(directory)
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / CANDIDATE_FREEZE_FILE
+    if path.exists():
+        raise ValueError(
+            f"{path} is already pinned. The candidate pool is frozen once; replacing the pin "
+            "would let a later retrieval run redefine the windows every pre-registered "
+            "threshold in §3.5 and §5.2 was measured against. Remove it deliberately if the "
+            "pool genuinely has to be rebuilt, and say so in the tracker."
+        )
+    path.write_text(
+        json.dumps(pin.model_dump(mode="json"), ensure_ascii=True, indent=2, sort_keys=True)
+        + "\n",
+        encoding="utf-8",
+    )
+    return path
+
+
+def read_candidate_pin(directory: Path) -> CandidateFreeze | None:
+    """The pin, or None when retrieval has not been pinned yet.
+
+    None is a legitimate state — it is the state a freshly built sealed set is in — so this
+    returns rather than raises. What must not happen is for the audit to read None as "fine".
+    """
+    path = Path(directory) / CANDIDATE_FREEZE_FILE
+    if not path.is_file():
+        return None
+    return CandidateFreeze.model_validate_json(path.read_text(encoding="utf-8"))
+
+
+def candidate_retrievers(
+    candidate_sets: Sequence[CandidateSet],
+) -> tuple[RetrieverProvenance | None, ...]:
+    """The distinct producers a candidate file names, in order of first appearance.
+
+    `None` is carried as a value rather than dropped, because "some windows name a retriever and
+    some do not" is a different and worse finding than "none of them do": the first is a file
+    somebody edited, the second is a file written before the field existed. Callers have to be
+    able to tell them apart.
+    """
+    seen: list[RetrieverProvenance | None] = []
+    for candidate_set in candidate_sets:
+        if candidate_set.retriever not in seen:
+            seen.append(candidate_set.retriever)
+    return tuple(seen)
+
+
+def sole_retriever(candidate_sets: Sequence[CandidateSet]) -> RetrieverProvenance:
+    """The single producer of a candidate file, or a raise.
+
+    Used where a pool is being ADMITTED rather than reported on, so every ambiguity is fatal:
+    the audit needs to describe what it found, but nothing may pin a pool it cannot identify.
+    """
+    if not candidate_sets:
+        raise ValueError(
+            "no candidate windows: an empty pool has no producer to check and no shape to "
+            "violate, so every check over it would pass by having nothing to look at (M0 §4)."
+        )
+    found = candidate_retrievers(candidate_sets)
+    if found == (None,):
+        raise ValueError(
+            "this candidate file names no retriever, so there is no way to establish it came "
+            f"from the frozen {FROZEN_RETRIEVER} pool (M0 §4). It must be re-retrieved, not "
+            "re-labelled: writing the id in now would record an assumption as a measurement."
+        )
+    if len(found) != 1:
+        names = sorted("none" if item is None else item.name for item in found)
+        raise ValueError(
+            f"this candidate file names {len(found)} different producers ({', '.join(names)}), "
+            "so it is not the output of one retrieval run (M0 §4)."
+        )
+    only = found[0]
+    assert only is not None  # len(found) == 1 and found != (None,)
+    return only
 
 
 def verify_artifacts(directory: Path, manifest: SealedManifest) -> tuple[str, ...]:

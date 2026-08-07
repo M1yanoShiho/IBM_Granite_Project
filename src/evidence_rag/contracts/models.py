@@ -12,15 +12,23 @@ from pydantic import (
 )
 
 
-def _omit_absent_metadata(data: dict[str, Any]) -> dict[str, Any]:
-    """Drop a None ``metadata`` key so plain-text corpora serialize exactly as
-    they did before multimodal provenance existed — committed dataset/corpus
-    signatures and frozen artifacts stay byte-stable."""
-    if data.get("metadata") is None:
-        data.pop("metadata", None)
+def _omit_if_none(data: dict[str, Any], key: str) -> dict[str, Any]:
+    """Drop a None-valued optional key so artifacts serialize exactly as they did
+    before the field existed — committed dataset/corpus signatures and frozen
+    artifacts stay byte-stable, and adding provenance to one producer does not
+    force a re-freeze of every artifact that predates it."""
+    if data.get(key) is None:
+        data.pop(key, None)
     return data
 
+
+def _omit_absent_metadata(data: dict[str, Any]) -> dict[str, Any]:
+    """Drop a None ``metadata`` key so plain-text corpora serialize exactly as
+    they did before multimodal provenance existed."""
+    return _omit_if_none(data, "metadata")
+
 NonEmpty = Annotated[str, Field(min_length=1)]
+Digest = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
 PositiveRank = Annotated[int, Field(ge=1)]
 PositiveLimit = Annotated[int, Field(ge=1)]
 
@@ -79,10 +87,35 @@ class EvidenceCandidate(FrozenModel):
         return _omit_absent_metadata(handler(self))
 
 
+class RetrieverProvenance(FrozenModel):
+    """Which retriever produced a candidate pool, recorded by the run that produced it.
+
+    M0 §4 freezes the retriever to bm25 because the Graph 2.0 claim is conditional on a FIXED
+    candidate pool: change the retriever and pool composition becomes a confounding variable,
+    and §3.5's G-FC baseline and §5.2's recall reference — both measured on the bm25 pool —
+    start being compared across pools while printing entirely plausible numbers. A pool that
+    does not say what built it cannot be audited against that freeze, because a pool from a
+    different retriever has exactly the same shape.
+
+    The parameter digest is part of the identity, not decoration. ``bm25 k1=1.5 b=0.75`` and
+    ``bm25 k1=0.9 b=0.4`` are one name over two different pools, and §4's freeze is a statement
+    about the pool.
+    """
+
+    schema_version: Literal["1.0"] = "1.0"
+    name: NonEmpty
+    implementation_version: NonEmpty
+    parameters_sha256: Digest
+
+
 class CandidateSet(FrozenModel):
     schema_version: Literal["1.0"] = "1.0"
     query_id: NonEmpty
     candidates: tuple[EvidenceCandidate, ...]
+    retriever: RetrieverProvenance | None = None
+    """The producer, stamped by the retrieval stage. ``None`` means a pool written before this
+    field existed: it is NOT a claim that the pool came from the frozen retriever, and
+    ``materializer/gate0a.py`` refuses to read it as one."""
 
     @model_validator(mode="after")
     def unique_ids_and_ranks(self) -> "CandidateSet":
@@ -93,6 +126,10 @@ class CandidateSet(FrozenModel):
         if len(ranks) != len(set(ranks)):
             raise ValueError("candidate retrieval ranks must be unique")
         return self
+
+    @model_serializer(mode="wrap")
+    def _serialize(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        return _omit_if_none(handler(self), "retriever")
 
 
 class SelectionItem(FrozenModel):

@@ -12,6 +12,7 @@ from evidence_rag.composition import (
     build_retriever,
     build_selector,
     prepare_retriever_index,
+    retriever_provenance,
     source_parent_provenance,
 )
 from evidence_rag.contracts.models import (
@@ -190,13 +191,19 @@ class ExperimentWorkflow:
             self.corpus,
             index_directory=self._index_directory,
         )
-        self._validate_stored_manifest(index_manifest=read_index_manifest(self._index_directory))
+        index_manifest = read_index_manifest(self._index_directory)
+        self._validate_stored_manifest(index_manifest=index_manifest)
+        # The pool records its own producer. `.metadata.json` already carried the retriever
+        # config, but a sidecar is a separate file: Gate 0A is handed a path to
+        # candidate_sets.jsonl, and a copied or concatenated pool arrives without it. M0 §4's
+        # freeze has to be checkable from the artefact that is actually read.
         run = run_retriever_stage(
             retriever,
             self.dataset.queries,
             self.dataset.gold_cases,
             dataset_signature=self.dataset.dataset_signature,
             top_k=self.config.top_k,
+            retriever_provenance=retriever_provenance(index_manifest),
         )
         self._write_jsonl(
             "candidate_sets.jsonl",

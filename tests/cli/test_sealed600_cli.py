@@ -8,7 +8,14 @@ import pytest
 
 from evidence_rag.cli.build_sealed600 import main as build_main
 from evidence_rag.cli.gate0a import main as gate0a_main
-from evidence_rag.contracts.models import Document, Query
+from evidence_rag.cli.pin_candidates import main as pin_main
+from evidence_rag.contracts.models import (
+    CandidateSet,
+    Document,
+    EvidenceCandidate,
+    Query,
+    RetrieverProvenance,
+)
 from evidence_rag.infrastructure.datasets import DatasetManifest, GoldCase
 from evidence_rag.materializer.answer_bank import build_answer_bank
 from evidence_rag.materializer.provenance import (
@@ -16,7 +23,19 @@ from evidence_rag.materializer.provenance import (
     read_provenance,
     write_provenance,
 )
-from evidence_rag.materializer.sealed600 import read_sealed_manifest
+from evidence_rag.materializer.sealed600 import (
+    FROZEN_RETRIEVER,
+    read_candidate_pin,
+    read_sealed_manifest,
+    sha256_file,
+)
+
+BM25 = RetrieverProvenance(
+    name=FROZEN_RETRIEVER, implementation_version="bm25-v1", parameters_sha256="1" * 64
+)
+STRONG_BM25 = RetrieverProvenance(
+    name="strong-bm25", implementation_version="strong-bm25-v1", parameters_sha256="2" * 64
+)
 
 
 @dataclass(frozen=True)
@@ -259,3 +278,139 @@ def test_the_audit_fails_when_the_protocol_document_changed_after_the_freeze(
         )
         == 1
     )
+
+
+# ------------------------------------------------------- retrieval, pinning, and PASS (M0 §4)
+
+
+def write_candidates(
+    path: Path,
+    sealed: Path,
+    *,
+    retriever: RetrieverProvenance | None = BM25,
+    twin_first: bool = False,
+) -> Path:
+    """A Top-2 pool over the sealed set: each query's own needle and its own twin.
+
+    Written by hand rather than by running BM25, because what is under test is the audit's
+    treatment of the pool's RECORDED producer, not the ranking that produced it. `twin_first`
+    flips the ranking to stand for a second, equally legitimate run of the same retriever.
+    """
+    windows = []
+    for record in read_provenance(sealed / "provenance.jsonl"):
+        document_ids = (record.needle_document_id, record.counterfactual_document_id)
+        if twin_first:
+            document_ids = tuple(reversed(document_ids))
+        windows.append(
+            CandidateSet(
+                query_id=record.query_id,
+                retriever=retriever,
+                candidates=tuple(
+                    EvidenceCandidate(
+                        evidence_id=f"{record.query_id}:{document_id}",
+                        document_id=document_id,
+                        chunk_id=document_id,
+                        text="text",
+                        source_uri=f"fixture://{document_id}",
+                        retrieval_score=1.0 / (rank + 1),
+                        retrieval_rank=rank + 1,
+                    )
+                    for rank, document_id in enumerate(document_ids)
+                ),
+            )
+        )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        "".join(window.model_dump_json() + "\n" for window in windows), encoding="utf-8"
+    )
+    return path
+
+
+def gate0a(sealed: Path, train: Path, protocol: Path, *extra: str) -> int:
+    return gate0a_main(
+        [
+            "--sealed", str(sealed),
+            "--existing-split", str(train),
+            "--protocol-doc", str(protocol),
+            "--utility-labels-absent",
+            *extra,
+        ]
+    )
+
+
+def test_a_pinned_bm25_pool_takes_the_verdict_from_incomplete_to_pass(tmp_path: Path) -> None:
+    """The whole point of the mechanism, end to end. Before retrieval the honest verdict is
+    INCOMPLETE; it becomes PASS only once the pool names bm25 AND its bytes match the pin."""
+    output, train, protocol = build(tmp_path)
+    candidates = write_candidates(tmp_path / "bm25" / "candidate_sets.jsonl", output)
+
+    assert gate0a(output, train, protocol, "--candidates", str(candidates), "--top-n", "2") == 1
+
+    assert pin_main(["--sealed", str(output), "--candidates", str(candidates), "--top-n", "2"]) == 0
+    pin = read_candidate_pin(output)
+    assert pin is not None
+    assert pin.retriever == BM25
+    assert pin.candidate_sha256 == sha256_file(candidates)
+
+    assert gate0a(output, train, protocol, "--candidates", str(candidates), "--top-n", "2") == 0
+
+
+def test_a_pool_that_changed_after_pinning_takes_the_verdict_back_to_fail(
+    tmp_path: Path,
+) -> None:
+    output, train, protocol = build(tmp_path)
+    candidates = write_candidates(tmp_path / "bm25" / "candidate_sets.jsonl", output)
+    assert pin_main(["--sealed", str(output), "--candidates", str(candidates), "--top-n", "2"]) == 0
+
+    # Same retriever, re-run: the windows are legitimate, they are simply not the ones every
+    # pre-registered threshold in §3.5 and §5.2 was measured against.
+    write_candidates(candidates, output, twin_first=True)
+    assert gate0a(output, train, protocol, "--candidates", str(candidates), "--top-n", "2") == 1
+
+
+def test_the_pin_refuses_a_pool_from_a_retriever_other_than_the_frozen_one(
+    tmp_path: Path,
+) -> None:
+    """M0 §4's freeze, enforced at the moment the pool would be admitted rather than argued
+    about afterwards."""
+    output, _train, _protocol = build(tmp_path)
+    candidates = write_candidates(
+        tmp_path / "strong" / "candidate_sets.jsonl", output, retriever=STRONG_BM25
+    )
+    with pytest.raises(ValueError, match="strong-bm25"):
+        pin_main(["--sealed", str(output), "--candidates", str(candidates), "--top-n", "2"])
+    assert read_candidate_pin(output) is None
+
+
+def test_the_pin_refuses_a_pool_that_names_no_retriever_at_all(tmp_path: Path) -> None:
+    """The pin must not become the place where "it was probably bm25" gets written down. An old
+    provenance-less pool has to be re-retrieved, not re-labelled."""
+    output, _train, _protocol = build(tmp_path)
+    candidates = write_candidates(
+        tmp_path / "old" / "candidate_sets.jsonl", output, retriever=None
+    )
+    with pytest.raises(ValueError, match="names no retriever"):
+        pin_main(["--sealed", str(output), "--candidates", str(candidates), "--top-n", "2"])
+    assert read_candidate_pin(output) is None
+
+
+def test_the_pin_refuses_a_pool_that_is_not_over_the_sealed_queries(tmp_path: Path) -> None:
+    output, _train, _protocol = build(tmp_path)
+    candidates = write_candidates(tmp_path / "bm25" / "candidate_sets.jsonl", output)
+    lines = candidates.read_text(encoding="utf-8").splitlines(keepends=True)
+    candidates.write_text("".join(lines[:-1]), encoding="utf-8")
+    with pytest.raises(ValueError, match="sealed"):
+        pin_main(["--sealed", str(output), "--candidates", str(candidates), "--top-n", "2"])
+
+
+def test_declaring_that_retrieval_has_not_run_is_refused_once_a_pin_exists(
+    tmp_path: Path,
+) -> None:
+    """`--no-candidates` is a statement of fact, not a way to skip an item. With a pin on disk
+    the statement is false, and letting it through would turn the one check that verifies pool
+    provenance into an opt-out."""
+    output, train, protocol = build(tmp_path)
+    candidates = write_candidates(tmp_path / "bm25" / "candidate_sets.jsonl", output)
+    assert pin_main(["--sealed", str(output), "--candidates", str(candidates), "--top-n", "2"]) == 0
+    with pytest.raises(SystemExit):
+        gate0a(output, train, protocol, "--no-candidates")

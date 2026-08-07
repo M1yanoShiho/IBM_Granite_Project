@@ -1,12 +1,20 @@
 import json
+from collections.abc import Sequence
 from pathlib import Path
 
 import pytest
 
-from evidence_rag.contracts.models import CandidateSet, Document, EvidenceCandidate, Query
+from evidence_rag.contracts.models import (
+    CandidateSet,
+    Document,
+    EvidenceCandidate,
+    Query,
+    RetrieverProvenance,
+)
 from evidence_rag.infrastructure.datasets import GoldCase, JsonlDatasetAdapter
 from evidence_rag.materializer.answer_bank import build_answer_bank
 from evidence_rag.materializer.gate0a import (
+    CheckReport,
     audit_axes,
     audit_candidates,
     audit_counterfactuals,
@@ -23,17 +31,32 @@ from evidence_rag.materializer.sealed600 import (
     DEV_SAMPLE_INJECTED,
     DEV_SAMPLE_QUERIES,
     DEV_SKIP_RATE,
+    FROZEN_RETRIEVER,
     POOL_SIZE,
+    PROTOCOL_VERSION,
+    SEALED_MANIFEST_FILE,
     TARGET_INJECTED,
+    CandidateFreeze,
     SealedManifest,
     SplitFingerprint,
+    candidate_retrievers,
     fingerprint_bundle,
+    freeze_candidate_pin,
     freeze_sealed_manifest,
+    read_candidate_pin,
     read_sealed_manifest,
+    sha256_file,
+    sole_retriever,
     write_sealed_dataset,
 )
 
 PROTOCOL_HASH = "d" * 64
+BM25 = RetrieverProvenance(
+    name=FROZEN_RETRIEVER, implementation_version="bm25-v1", parameters_sha256="1" * 64
+)
+STRONG_BM25 = RetrieverProvenance(
+    name="strong-bm25", implementation_version="strong-bm25-v1", parameters_sha256="2" * 64
+)
 
 
 def doc(document_id: str, title: str, body: str) -> Document:
@@ -397,9 +420,14 @@ def test_a_sealed_query_without_a_mutation_record_fails(tmp_path: Path) -> None:
 # ---------------------------------------------------------------- candidates (Top-20)
 
 
-def candidates_for(query_id: str, document_ids: tuple[str, ...]) -> CandidateSet:
+def candidates_for(
+    query_id: str,
+    document_ids: tuple[str, ...],
+    retriever: RetrieverProvenance | None = BM25,
+) -> CandidateSet:
     return CandidateSet(
         query_id=query_id,
+        retriever=retriever,
         candidates=tuple(
             EvidenceCandidate(
                 evidence_id=f"{query_id}:{document_id}",
@@ -415,14 +443,70 @@ def candidates_for(query_id: str, document_ids: tuple[str, ...]) -> CandidateSet
     )
 
 
-def test_candidate_windows_of_the_right_shape_pass(tmp_path: Path) -> None:
+def clean_windows(retriever: RetrieverProvenance | None = BM25) -> tuple[CandidateSet, ...]:
+    return (
+        candidates_for("q1", ("d1", "cf::q1::d1"), retriever),
+        candidates_for("q2", ("d2", "cf::q2::d2"), retriever),
+    )
+
+
+CANDIDATE_HASH = "c" * 64
+
+
+def a_pin(**overrides: object) -> CandidateFreeze:
+    payload: dict[str, object] = {
+        "protocol_version": PROTOCOL_VERSION,
+        "sealed_manifest_sha256": "f" * 64,
+        "candidate_file": "runs/sealed600-bm25/candidate_sets.jsonl",
+        "candidate_sha256": CANDIDATE_HASH,
+        "n_windows": 2,
+        "top_n": 2,
+        "retriever": BM25,
+    }
+    payload.update(overrides)
+    return CandidateFreeze.model_validate(payload)
+
+
+def audit(
+    bundle: object,
+    records: Sequence[MutationRecord],
+    windows: Sequence[CandidateSet],
+    *,
+    top_n: int = 2,
+    pin: CandidateFreeze | None = None,
+    candidate_sha256: str = CANDIDATE_HASH,
+) -> CheckReport:
+    return audit_candidates(
+        bundle,  # type: ignore[arg-type]
+        records,
+        windows,
+        top_n=top_n,
+        pin=pin,
+        candidate_sha256=candidate_sha256,
+    )
+
+
+def test_candidate_windows_of_the_right_shape_are_still_incomplete_until_they_are_pinned(
+    tmp_path: Path,
+) -> None:
+    """Shape was the whole check before. It is no longer sufficient: with no pin, nothing stops
+    the NEXT run from handing §3.5 and §5.2 a different set of windows, and the thresholds those
+    sections pre-registered were measured on one pool."""
     directory = build_sealed(tmp_path)
     bundle, records = load(directory)
-    windows = (
-        candidates_for("q1", ("d1", "cf::q1::d1")),
-        candidates_for("q2", ("d2", "cf::q2::d2")),
-    )
-    assert audit_candidates(bundle, records, windows, top_n=2).status == "pass"
+    report = audit(bundle, records, clean_windows())
+    assert report.status == "unevaluated"
+    assert "pin" in report.detail
+
+
+def test_the_check_passes_only_when_shape_provenance_and_the_pinned_hash_all_agree(
+    tmp_path: Path,
+) -> None:
+    directory = build_sealed(tmp_path)
+    bundle, records = load(directory)
+    report = audit(bundle, records, clean_windows(), pin=a_pin())
+    assert report.status == "pass"
+    assert FROZEN_RETRIEVER in report.detail
 
 
 def test_a_query_with_the_wrong_candidate_count_fails(tmp_path: Path) -> None:
@@ -431,14 +515,14 @@ def test_a_query_with_the_wrong_candidate_count_fails(tmp_path: Path) -> None:
     directory = build_sealed(tmp_path)
     bundle, records = load(directory)
     windows = (candidates_for("q1", ("d1",)), candidates_for("q2", ("d2", "cf::q2::d2")))
-    assert audit_candidates(bundle, records, windows, top_n=2).status == "fail"
+    assert audit(bundle, records, windows, pin=a_pin()).status == "fail"
 
 
 def test_a_missing_query_window_fails(tmp_path: Path) -> None:
     directory = build_sealed(tmp_path)
     bundle, records = load(directory)
     windows = (candidates_for("q1", ("d1", "cf::q1::d1")),)
-    assert audit_candidates(bundle, records, windows, top_n=2).status == "fail"
+    assert audit(bundle, records, windows, pin=a_pin(n_windows=1)).status == "fail"
 
 
 def test_a_candidate_pointing_outside_the_sealed_corpus_fails(tmp_path: Path) -> None:
@@ -448,7 +532,7 @@ def test_a_candidate_pointing_outside_the_sealed_corpus_fails(tmp_path: Path) ->
         candidates_for("q1", ("d1", "ghost")),
         candidates_for("q2", ("d2", "cf::q2::d2")),
     )
-    assert audit_candidates(bundle, records, windows, top_n=2).status == "fail"
+    assert audit(bundle, records, windows, pin=a_pin()).status == "fail"
 
 
 def test_a_foreign_twin_in_a_window_is_reported_but_does_not_fail(tmp_path: Path) -> None:
@@ -461,9 +545,224 @@ def test_a_foreign_twin_in_a_window_is_reported_but_does_not_fail(tmp_path: Path
         candidates_for("q1", ("d1", "cf::q2::d2")),
         candidates_for("q2", ("d2", "cf::q2::d2")),
     )
-    report = audit_candidates(bundle, records, windows, top_n=2)
+    report = audit(bundle, records, windows, pin=a_pin())
     assert report.status == "pass"
     assert "foreign_twin" in report.detail
+
+
+# ------------------------------------------------- candidates (retriever provenance, M0 §4)
+
+
+def test_a_pool_that_names_no_retriever_is_unevaluated_and_is_never_read_as_bm25(
+    tmp_path: Path,
+) -> None:
+    """THE design question, answered where someone will hit it. A candidate file written before
+    provenance existed passes every shape check identically to a bm25 pool — that is exactly the
+    defect. Assuming bm25 would be the audit making the claim the audit exists to verify, so the
+    item goes to `unevaluated`: the verdict becomes INCOMPLETE, which is not a pass, and the
+    reason names what has to happen instead."""
+    directory = build_sealed(tmp_path)
+    bundle, records = load(directory)
+    report = audit(bundle, records, clean_windows(retriever=None))
+    assert report.status == "unevaluated"
+    assert "NOT assumed" in report.detail
+    assert FROZEN_RETRIEVER in report.detail
+
+
+def test_an_unpinned_provenance_less_pool_never_reaches_pass(tmp_path: Path) -> None:
+    """The point of the previous test, stated as the property that matters: whatever the audit
+    does with an old file, it must not be able to print PASS."""
+    directory = build_sealed(tmp_path)
+    bundle, records = load(directory)
+    axes = audit_axes(sealed_fingerprint(directory), (full_existing(),))
+    report = gate0a_report(
+        axes=axes, checks=(audit(bundle, records, clean_windows(retriever=None)),)
+    )
+    assert report.verdict == "INCOMPLETE"
+    assert not report.passes
+
+
+def test_a_pool_built_by_a_different_retriever_fails(tmp_path: Path) -> None:
+    """M0 §4 freezes the retriever because the Graph 2.0 claim is conditional on a FIXED
+    candidate pool. A strong-bm25 pool has the same shape and entirely plausible numbers, and it
+    would silently move §3.5's 0.4355 baseline and §5.2's gate-off reference onto a pool they
+    were never measured on."""
+    directory = build_sealed(tmp_path)
+    bundle, records = load(directory)
+    report = audit(bundle, records, clean_windows(retriever=STRONG_BM25), pin=a_pin())
+    assert report.status == "fail"
+    assert "strong-bm25" in report.detail
+
+
+def test_the_wrong_retriever_is_reported_even_when_the_shape_problems_fill_the_detail(
+    tmp_path: Path,
+) -> None:
+    """The report truncates to the first few problems, and a 600-query pool from the wrong
+    retriever also has 600 chances to trip a shape rule. The §4 violation is the expensive one,
+    so it must not be the line that gets cut."""
+    directory = build_sealed(tmp_path)
+    bundle, records = load(directory)
+    windows = (
+        candidates_for("q1", ("d1", "ghost-a", "ghost-b"), STRONG_BM25),
+        candidates_for("q2", ("d2", "ghost-c", "ghost-d"), STRONG_BM25),
+    )
+    report = audit(bundle, records, windows, pin=a_pin())
+    assert report.status == "fail"
+    assert "more)" in report.detail  # the detail really was truncated
+    assert "strong-bm25" in report.detail
+
+
+def test_a_pool_naming_two_retrievers_fails_rather_than_picking_one(tmp_path: Path) -> None:
+    """A file whose windows disagree about their producer was assembled from two runs. Half a
+    pool from each retriever is the confound §4 forbids, in its worst form: within-run pairing
+    still looks internally valid."""
+    directory = build_sealed(tmp_path)
+    bundle, records = load(directory)
+    windows = (
+        candidates_for("q1", ("d1", "cf::q1::d1"), BM25),
+        candidates_for("q2", ("d2", "cf::q2::d2"), STRONG_BM25),
+    )
+    report = audit(bundle, records, windows, pin=a_pin())
+    assert report.status == "fail"
+    assert "one retrieval run" in report.detail
+
+
+def test_a_pool_half_of_which_names_no_retriever_fails_rather_than_being_unevaluated(
+    tmp_path: Path,
+) -> None:
+    """Absent-everywhere is an old file; absent-in-half is a file someone edited. The second is
+    a positive finding, not a gap, so it fails instead of downgrading to INCOMPLETE."""
+    directory = build_sealed(tmp_path)
+    bundle, records = load(directory)
+    windows = (
+        candidates_for("q1", ("d1", "cf::q1::d1"), BM25),
+        candidates_for("q2", ("d2", "cf::q2::d2"), None),
+    )
+    assert audit(bundle, records, windows).status == "fail"
+
+
+def test_a_pin_standing_over_a_pool_that_names_no_producer_fails(tmp_path: Path) -> None:
+    """`pin_candidates` refuses to pin an unstamped pool, so this combination cannot be produced
+    by the tooling. It means the pinned file was replaced by an older one."""
+    directory = build_sealed(tmp_path)
+    bundle, records = load(directory)
+    report = audit(bundle, records, clean_windows(retriever=None), pin=a_pin())
+    assert report.status == "fail"
+
+
+def test_an_empty_candidate_file_fails_instead_of_reporting_nothing_wrong(
+    tmp_path: Path,
+) -> None:
+    """The vacuity guard, on this axis. Zero windows means zero shape violations and zero
+    disagreeing retrievers — a green board produced by an audit that could not look."""
+    directory = build_sealed(tmp_path)
+    bundle, records = load(directory)
+    assert audit(bundle, records, (), pin=a_pin(n_windows=0)).status == "fail"
+
+
+# ------------------------------------------------- candidates (the pinned hash, M0 §4)
+
+
+def test_a_pool_whose_bytes_differ_from_the_pinned_hash_fails(tmp_path: Path) -> None:
+    """Same retriever, different windows. Two runs of bm25 over two corpus builds, or a re-run
+    after an unrelated fix, produce pools that both audit clean on shape and provenance — and
+    the pre-registered thresholds were measured on exactly one of them."""
+    directory = build_sealed(tmp_path)
+    bundle, records = load(directory)
+    report = audit(bundle, records, clean_windows(), pin=a_pin(), candidate_sha256="9" * 64)
+    assert report.status == "fail"
+    assert "sha256" in report.detail
+
+
+def test_a_pin_recording_a_different_retriever_than_the_pool_fails(tmp_path: Path) -> None:
+    directory = build_sealed(tmp_path)
+    bundle, records = load(directory)
+    report = audit(bundle, records, clean_windows(), pin=a_pin(retriever=STRONG_BM25))
+    assert report.status == "fail"
+
+
+def test_a_pin_recording_a_different_window_count_fails(tmp_path: Path) -> None:
+    directory = build_sealed(tmp_path)
+    bundle, records = load(directory)
+    assert audit(bundle, records, clean_windows(), pin=a_pin(n_windows=600)).status == "fail"
+
+
+def test_a_pin_recording_a_different_top_n_fails(tmp_path: Path) -> None:
+    """The pin says which window size the pool was frozen at. Auditing at another one would
+    compare a Top-20 claim against a Top-10 pool."""
+    directory = build_sealed(tmp_path)
+    bundle, records = load(directory)
+    assert audit(bundle, records, clean_windows(), pin=a_pin(top_n=20)).status == "fail"
+
+
+# ------------------------------------------------- the pin as a freeze record
+
+
+def test_the_pin_is_written_once_and_a_second_pin_is_refused(tmp_path: Path) -> None:
+    """Same reasoning as `freeze_sealed_manifest`: silently replacing the pin is what "we re-ran
+    retrieval and re-pinned" looks like from the outside, and that is the confound, not the fix."""
+    directory = build_sealed(tmp_path)
+    freeze_candidate_pin(directory, a_pin())
+    with pytest.raises(ValueError, match="already pinned"):
+        freeze_candidate_pin(directory, a_pin(candidate_sha256="9" * 64))
+
+
+def test_an_unpinned_sealed_set_reads_back_as_no_pin_rather_than_raising(
+    tmp_path: Path,
+) -> None:
+    """The pre-retrieval state is legitimate and is the state the sealed 600 is in today."""
+    assert read_candidate_pin(build_sealed(tmp_path)) is None
+
+
+def test_the_pin_round_trips(tmp_path: Path) -> None:
+    directory = build_sealed(tmp_path)
+    pin = a_pin(sealed_manifest_sha256=sha256_file(directory / SEALED_MANIFEST_FILE))
+    freeze_candidate_pin(directory, pin)
+    assert read_candidate_pin(directory) == pin
+
+
+def test_the_freeze_check_tolerates_the_pin_but_not_any_other_new_file(tmp_path: Path) -> None:
+    """`candidate_freeze.json` is the one file that is SUPPOSED to appear after the freeze —
+    it cannot exist before retrieval has run. It is exempt from `artifact_sha256` and audited by
+    `candidate_windows` instead; nothing else gets that exemption."""
+    directory = build_sealed(tmp_path)
+    manifest = read_sealed_manifest(directory)
+    freeze_candidate_pin(
+        directory, a_pin(sealed_manifest_sha256=sha256_file(directory / SEALED_MANIFEST_FILE))
+    )
+    assert audit_manifest_freeze(directory, manifest, PROTOCOL_HASH).status == "pass"
+
+
+def test_a_pin_bound_to_a_different_sealed_manifest_fails_the_freeze_check(
+    tmp_path: Path,
+) -> None:
+    """A pin copied in from another sealed set would otherwise certify THIS set's pool using a
+    hash measured against a different 600 questions."""
+    directory = build_sealed(tmp_path)
+    manifest = read_sealed_manifest(directory)
+    freeze_candidate_pin(directory, a_pin(sealed_manifest_sha256="0" * 64))
+    report = audit_manifest_freeze(directory, manifest, PROTOCOL_HASH)
+    assert report.status == "fail"
+    assert "candidate_freeze.json" in report.detail
+
+
+# ------------------------------------------------- the producer resolver
+
+
+def test_the_distinct_producers_of_a_pool_are_reported_in_order() -> None:
+    assert candidate_retrievers(clean_windows()) == (BM25,)
+    assert candidate_retrievers(clean_windows(retriever=None)) == (None,)
+    assert candidate_retrievers(()) == ()
+
+
+def test_sole_retriever_raises_on_a_pool_that_names_none() -> None:
+    with pytest.raises(ValueError, match="names no retriever"):
+        sole_retriever(clean_windows(retriever=None))
+
+
+def test_sole_retriever_raises_on_an_empty_pool() -> None:
+    with pytest.raises(ValueError, match="no candidate windows"):
+        sole_retriever(())
 
 
 # ---------------------------------------------------------------- verdict assembly

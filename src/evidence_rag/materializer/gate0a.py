@@ -19,25 +19,39 @@ checklist and a run that never evaluated an item has not passed it. The candidat
 cannot run before retrieval has, so the honest reading of a freshly built set is INCOMPLETE, not
 PASS-with-a-footnote. `not_applicable` is the separate case where an item has no producer at
 all under D1=A — it passes, but the reason travels with the report instead of disappearing.
+
+THE THIRD VALUE IS ALSO THE ANSWER FOR A POOL THAT NAMES NO RETRIEVER. M0 §4 freezes the
+retriever to bm25, and `candidate_sets.jsonl` written before `CandidateSet.retriever` existed
+carries no producer. Reading such a file as bm25 would be the audit ASSUMING the fact the audit
+exists to verify, so it goes to `unevaluated`: the verdict falls to INCOMPLETE, which is not a
+pass, and the reason names the remedy (re-retrieve; do not hand-label). A pool where only SOME
+windows name a producer is a different finding — that file was edited, not merely old — and
+fails outright.
 """
 
 import json
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
 from typing import Any, Literal
 
-from evidence_rag.contracts.models import CandidateSet
+from evidence_rag.contracts.models import CandidateSet, RetrieverProvenance
 from evidence_rag.infrastructure.datasets import DatasetBundle
 from evidence_rag.materializer.injector import alias_occurrences
 from evidence_rag.materializer.provenance import MutationRecord
 from evidence_rag.materializer.sealed600 import (
+    CANDIDATE_FREEZE_FILE,
+    FROZEN_RETRIEVER,
     PROTOCOL_VERSION,
     SEALED_MANIFEST_FILE,
+    CandidateFreeze,
     SealedManifest,
     SplitFingerprint,
+    candidate_retrievers,
+    read_candidate_pin,
     required_pool_size,
+    sha256_file,
     verify_artifacts,
 )
 from evidence_rag.selector.answer_norm import canonicalize_answer
@@ -309,16 +323,47 @@ def audit_manifest_freeze(
             "is auditing it against rules that moved afterwards (M0 §0)."
         )
     recorded = set(manifest.artifact_sha256)
+    # `candidate_freeze.json` is the ONE file that is supposed to appear after the freeze: the
+    # candidate pool cannot exist until the frozen retriever has run, which is necessarily after
+    # the manifest was written. Its exemption is not a hole — it is not unaudited, it is audited
+    # by `audit_candidates` instead, and what it binds itself to is checked right here.
     present = {
         path.name
         for path in directory.iterdir()
-        if path.is_file() and path.name != SEALED_MANIFEST_FILE
+        if path.is_file() and path.name not in {SEALED_MANIFEST_FILE, CANDIDATE_FREEZE_FILE}
     }
     for name in sorted(present - recorded):
         problems.append(f"{name}: present in the sealed directory but not in the freeze record")
+    problems.extend(_pin_binding_problems(directory))
     return _check(
         "manifest_freeze", problems, f"{len(recorded)} artefacts match their frozen hashes"
     )
+
+
+def _pin_binding_problems(directory: Path) -> list[str]:
+    """The candidate pin describes THIS sealed set, under THIS protocol, or it is not evidence.
+
+    A pin copied in from another sealed directory would otherwise certify these 600 questions
+    using a hash measured against a different 600 — and it would do so silently, because the
+    pool it names really does hash to the value it records.
+    """
+    pin = read_candidate_pin(directory)
+    if pin is None:
+        return []
+    problems: list[str] = []
+    manifest_hash = sha256_file(directory / SEALED_MANIFEST_FILE)
+    if pin.sealed_manifest_sha256 != manifest_hash:
+        problems.append(
+            f"{CANDIDATE_FREEZE_FILE}: pinned against sealed manifest "
+            f"{pin.sealed_manifest_sha256[:12]}, this directory's manifest is "
+            f"{manifest_hash[:12]}. The pin describes a different sealed set."
+        )
+    if pin.protocol_version != PROTOCOL_VERSION:
+        problems.append(
+            f"{CANDIDATE_FREEZE_FILE}: pinned under {pin.protocol_version}, this code "
+            f"implements {PROTOCOL_VERSION}"
+        )
+    return problems
 
 
 def audit_label_provenance(
@@ -415,18 +460,35 @@ def audit_counterfactuals(
     )
 
 
+_NO_PROVENANCE = (
+    "this candidate file names no retriever, so M0 §4's freeze cannot be checked against it. It "
+    f"is NOT assumed to have come from the frozen {FROZEN_RETRIEVER} pool — that assumption is "
+    "precisely the defect this check closes, and a pool from any other retriever passes every "
+    "shape check identically. The item is therefore unevaluated and the verdict is INCOMPLETE, "
+    "which is not a pass: re-run the frozen retriever so the pool records its own producer, then "
+    "pin it. Do not write the id in by hand — that records an assumption as a measurement."
+)
+
+
 def audit_candidates(
     bundle: DatasetBundle,
     records: Sequence[MutationRecord],
     candidate_sets: Sequence[CandidateSet],
     *,
     top_n: int,
+    pin: CandidateFreeze | None,
+    candidate_sha256: str,
 ) -> CheckReport:
-    """M0 §6 item 3: per-question candidate count, Top-N ids and derived flags consistent.
+    """M0 §6 item 3: the candidate windows are the right SHAPE, from the right RETRIEVER, and
+    are the same POOL that was pinned.
 
-    A short window is the silent one. Nothing downstream reports how many candidates a query
-    had, so a query retrieved with 14 passages instead of 20 changes its own recall and harmful
-    denominators and reads as an ordinary data point.
+    Shape alone was the whole check and it is not enough. A short window is the silent one:
+    nothing downstream reports how many candidates a query had, so a query retrieved with 14
+    passages instead of 20 changes its own recall and harmful denominators and reads as an
+    ordinary data point. But a pool from a DIFFERENT retriever, and a second pool from the SAME
+    retriever, are silent in the same way and at a coarser granularity — they are shape-identical
+    and they move §3.5's 0.4355 G-FC baseline and §5.2's gate-off recall reference onto windows
+    those numbers were never measured on. Hence three questions, not one.
 
     Twins from OTHER queries are counted and reported, not failed: every twin lives in the one
     shared corpus, so BM25 can legitimately return query 2's twin for query 1. The harmful label
@@ -440,6 +502,14 @@ def audit_candidates(
     windows = {candidate_set.query_id: candidate_set for candidate_set in candidate_sets}
     if len(windows) != len(candidate_sets):
         problems.append("two candidate sets share a query id")
+    if not candidate_sets:
+        # The vacuity guard on this axis. Zero windows means zero shape violations, zero
+        # disagreeing retrievers and zero foreign twins — a clean board produced by an audit
+        # that could not look, which is the failure mode this module exists for.
+        problems.append(
+            "no candidate windows at all: every check below would report zero violations by "
+            "having nothing to look at"
+        )
     for query_id in sorted(sealed_queries - set(windows)):
         problems.append(f"{query_id}: sealed but has no candidate window")
     for query_id in sorted(set(windows) - sealed_queries):
@@ -464,11 +534,93 @@ def audit_candidates(
                 query_id
             ):
                 foreign_twins += 1
+
+    producers = candidate_retrievers(candidate_sets)
+    # Kept apart from the shape problems and reported BEFORE them. `_check` truncates the detail
+    # to the first few entries, and a 600-query pool from the wrong retriever also has 600 chances
+    # to trip a shape rule — so the §4 violation, which is the more expensive one, must not be
+    # the line that gets cut.
+    provenance: list[str] = []
+    pending: str | None = None
+    if len(producers) > 1:
+        named = sorted("none" if item is None else item.name for item in producers)
+        provenance.append(
+            f"this pool names {len(producers)} producers ({', '.join(named)}), so it is not the "
+            "output of one retrieval run: half a pool from each retriever is M0 §4's confound in "
+            "its worst form, because the within-run pairing still looks internally valid"
+        )
+    elif producers == (None,):
+        pending = _NO_PROVENANCE
+        if pin is not None:
+            provenance.append(
+                f"{CANDIDATE_FREEZE_FILE} pins a pool that names no producer. Pinning refuses an "
+                "unstamped pool, so this pin cannot have been written from this file: the pinned "
+                "pool was replaced by an older one"
+            )
+    elif producers:
+        producer = producers[0]
+        assert producer is not None
+        if producer.name != FROZEN_RETRIEVER:
+            provenance.append(
+                f"this pool was built by {producer.name!r}, and M0 §4 freezes the retriever to "
+                f"{FROZEN_RETRIEVER!r}. Graph 2.0's claim is conditional on a fixed candidate "
+                "pool, and §3.5's baseline and §5.2's recall reference were both measured on the "
+                f"{FROZEN_RETRIEVER} pool — judging against them here compares across pools while "
+                "printing entirely plausible numbers"
+            )
+        if pin is None:
+            pending = (
+                f"this pool is not pinned: no {CANDIDATE_FREEZE_FILE} in the sealed directory, so "
+                "nothing stops the next run from handing §3.5 and §5.2 a different set of "
+                f"windows built by the same {FROZEN_RETRIEVER}. Run "
+                "`python -m evidence_rag.cli.pin_candidates` against this pool"
+            )
+        else:
+            provenance.extend(_pin_mismatches(pin, producer, candidate_sha256, windows, top_n))
+
+    if provenance or problems:
+        return _check("candidate_windows", provenance + problems, "")
+    if pending is not None:
+        return unevaluated("candidate_windows", pending)
     return _check(
         "candidate_windows",
-        problems,
-        f"{len(windows)} windows of {top_n}, foreign_twin={foreign_twins}",
+        (),
+        f"{len(windows)} windows of {top_n} from the frozen {FROZEN_RETRIEVER}, matching the "
+        f"pinned sha256 {candidate_sha256[:12]}, foreign_twin={foreign_twins}",
     )
+
+
+def _pin_mismatches(
+    pin: CandidateFreeze,
+    producer: RetrieverProvenance,
+    candidate_sha256: str,
+    windows: Mapping[str, CandidateSet],
+    top_n: int,
+) -> list[str]:
+    """The pool being audited is the pool that was pinned, in every respect that was pinned."""
+    problems: list[str] = []
+    if pin.candidate_sha256 != candidate_sha256:
+        problems.append(
+            f"this pool's sha256 is {candidate_sha256[:12]}, the pin records "
+            f"{pin.candidate_sha256[:12]}. Same retriever, different windows: two bm25 runs over "
+            "two corpus builds both audit clean on shape and provenance, and the pre-registered "
+            "thresholds were measured on exactly one of them"
+        )
+    if pin.retriever != producer:
+        problems.append(
+            f"this pool was built by {producer.name!r} "
+            f"({producer.implementation_version}, parameters {producer.parameters_sha256[:12]}), "
+            f"the pin records {pin.retriever.name!r} ({pin.retriever.implementation_version}, "
+            f"parameters {pin.retriever.parameters_sha256[:12]})"
+        )
+    if pin.n_windows != len(windows):
+        problems.append(f"this pool has {len(windows)} windows, the pin records {pin.n_windows}")
+    if pin.top_n != top_n:
+        problems.append(
+            f"audited at top_n={top_n}, the pin froze the pool at top_n={pin.top_n}: one of the "
+            "two is a different claim about how much evidence the selector saw"
+        )
+    return problems
 
 
 def render(report: Gate0AReport) -> str:
