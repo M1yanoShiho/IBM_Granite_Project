@@ -348,6 +348,14 @@ NIAH 语料本身仍未被基座见过,但这一点**从此需要证据,而不�
 - **fresh NIAH sealed 600** 构建算法沿用 TRAINING_PLAN §4.2 全文。
 - **规模反推:** dev 的 2000 采样落 1479 注入,skip rate .261。落 600 注入题需起始 `600/(1−.261) ≈ 812` 合格 query,
   **取 900 留余量**。写进 manifest;不得跑到一半发现不够再补(补样本 = 看结果后改数据)。
+
+  **[2026-08-06 实测,构建完成后回填 —— 反推略乐观,余量吸收掉了:]**
+  实际 `attempted 816`(非 812)、`realised_skip_rate` **0.2647**(非 .261)、`sealed 600`、`pool 900`。
+  **差值来自本条的 `.261` 是在 2000 条*未经泄漏过滤*的 dev query 上量的**,而 900 是在过滤**之后**取的,
+  两者不是同一个总体。**泄漏过滤自身的拒绝率此前从未量过,现已量到:**
+  `considered 6515` 中拒绝 `4407`(≈68%)—— `leak_query_id 2000` / `leak_parent_page 1213` /
+  `leak_answer_entity 1194`。**它没有在 `select_pool` 挂,但那是余量吸收的结果,不是反推准确。**
+  **谁若按 812 取值将不足。** 本条保留原文以存证,下次重建须按 816 与 .2647 重算。
 - **五轴泄漏审计:**
 
 | 轴 | 判据 | 来源 |
@@ -459,7 +467,14 @@ GPU kernel 选择与浮点规约顺序可在近似平局处翻转 argmax ⇒ 跨
 ## 8. 未决事项汇总
 
 1. **G-FC 的基线与 δ** —— 依赖 R001,是转 FROZEN 的唯一剩余阻塞。
-2. **sealed 600 尚未构建** —— 依赖 §3.4 的 title sidecar(已实现)与语料重建。
+2. ~~**sealed 600 尚未构建**~~ —— **已于 2026-08-06 构建**(`runs/niah-sealed600/`,`sealed 600` /
+   `pool 900` / `documents 100600`,实测数字回填于 §4)。**Gate 0A 审计判 `INCOMPLETE`,exit 1,
+   且这是正确结果**:五个泄漏轴**全部零重叠且两侧均非空**(query 1200/7798、parent_page 2148/20579、
+   answer_entity 600/4247、passage_hash 2884/30054、synthetic_family 600/2679),
+   manifest 六个产物哈希吻合,标签 provenance 与 600 个反事实的可逆性、无 gold 别名残留均通过;
+   `utility_range` 判 `not_applicable`(D1=A 下无生产者,系 TRAINING_PLAN §5 的 LightGBM 时代遗留);
+   **仅 `candidate_windows` 未评** —— §6 第 3 项需要冻结的 bm25 Top-20 窗口,而检索尚未跑。
+   **待 bm25 跑完带 `--candidates` 重审方可能转 PASS;本实现不产生"带脚注的 PASS"。**
 3. 门决策记录是否升级进 `PipelineRun` trace —— 契约变更,另走流程,不阻塞 M0。
 4. ~~修订案 A1(§9)待批准~~ —— **已于 2026-08-03 批准,g2-proto-2 生效。**
    §9.10 的代码改动已于 2026-08-04 落地(commit `221c34a`),并由 A2 **部分回退**(§10.2)。
