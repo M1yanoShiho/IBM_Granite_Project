@@ -216,6 +216,58 @@ on the two datasets the pre-registration promised.
 
 ---
 
+## R5 - Retrieval cost at corpus scale, and a correction to my own measurement
+
+The one item in Bharat's feedback with no data behind it. Measured on SciFact at six corpus
+sizes, CPU only. Ledger entries R5/R6/R6b; full numbers in `docs/results-summary.md` §R5.
+
+- **Cost is linear in corpus size, with no sub-linear region.** Chunk count ×10.33 gives latency
+  ×10.47, and ms per 1k chunks holds inside 16.47–17.86 throughout. Index build is linear and
+  negligible — 1.09s to build against 7.7s for fifty queries — so the cost is **per query, not
+  per index**. Extrapolated, a million-chunk corpus is ~17 s/query and a million documents
+  ~29 s/query. **This does not meet enterprise scale**, and now that is a measurement rather
+  than a worry.
+- **The cost splits in two**: per-query work repeated without regard to the query (a constant),
+  and the absence of an inverted index (the linearity itself).
+- **The constant is fixed: 5.27–5.40×, output bit-for-bit identical.** Four quantities depending
+  only on the corpus or only on the query were being recomputed in the innermost loop — each
+  chunk's term counts, the query's analysis (re-run once per chunk), each term's IDF, each
+  chunk's length normalisation. At 8778 chunks, both arms on one node, a query goes from
+  **138.4 ms to 26.3 ms**. The test transcribes the pre-rewrite loop as a reference
+  implementation and asserts equality exactly, not approximately, because a moved score would
+  break every recorded benchmark number.
+
+**I reported this as 8.29–10.17× two days ago and that was wrong.** Its own data said so: index
+build came out 10–16% *faster* after a change that makes the build do strictly more work, which
+is impossible. The two arms had run on different nodes. Re-run in one allocation on one node,
+with a second control arm as a noise floor (drift 2.0%, 214× below the effect), the answer is
+5.27–5.40× and the build is correctly 0.89–0.96×.
+
+**The lesson generalises past this experiment: the confound was far larger than the proxy that
+revealed it.** Build time differed by 10–16% and I sized the node effect from that. Across nodes
+the unoptimised arm varies by 6.9–13.0% — but the *optimised* arm varies by **41.9–73.5%**,
+because hoisting moves the hot path from CPU-bound to memory-latency-bound work, which is an
+order of magnitude more sensitive to the machine. Estimating a node effect from the part you did
+not optimise understates it systematically. Paired comparisons have to run on one node; they
+cannot be corrected afterwards.
+
+Two further readings from the confounded run are withdrawn rather than quietly dropped: the
+speedup does **not** fall with corpus size (on one node it is flat within ±1.2%), and the residual
+super-linearity I inferred was cross-run noise (+5.0% on one node against the before arm's
++3.7%, not the +26.9% first reported).
+
+### Current limitations
+
+- **Memory cost is unmeasured, not zero.** A local estimate of ~2.9 KB/chunk for the new cache
+  was contradicted twice by peak RSS, which showed no rise at all. Peak RSS is dominated by
+  build-phase transients and is probably the wrong instrument, so the estimate is withdrawn
+  rather than reported; settling it needs steady-state sampling.
+- The measured range tops out at 5183 documents. Within it the ratio is flat to ~5%, but an
+  order of magnitude beyond needs a larger corpus materialised first.
+- These are properties of this Python implementation, not of BM25 as an algorithm.
+
+---
+
 ## The open question
 
 A still-unresolved risk on the ingestion side: hallucinated image captions are indistinguishable
@@ -245,7 +297,11 @@ what ultimately trusts (or doesn't) the retrieved caption.
   now the default, failures are logged rather than swallowed, and the parse path honours
   `on_error` — which it previously ignored, so a single corrupt file used to abort a whole
   ingest. Ids moved to relative paths so recursion cannot silently collide them.
-- **Performance at larger corpus sizes:** not yet started.
+- **Performance at larger corpus sizes:** **done, with a fix landed** (2026-08-05/06, see R5).
+  Cost is linear in corpus size with no sub-linear region, which puts a million-document corpus
+  at roughly 29 s/query — measured, not guessed. The per-query constant has since been cut
+  **5.27–5.40×** with bit-for-bit identical output. What remains is the asymptotics, which only
+  an inverted index changes.
 
 ---
 
@@ -265,9 +321,10 @@ what ultimately trusts (or doesn't) the retrieved caption.
 3. **Measure hallucinated-caption rate on real (non-synthetic) documents** — the OCR-smoke PASS
    proves the mechanism works, not that captions are trustworthy at scale; requires the
    cross-module sync with Generator noted above.
-4. **Test retrieval performance at larger corpus sizes** — check how latency and index build time
-   scale well past our current benchmark scale (SciFact 300 docs, NQ/2Wiki 2000), before it
-   becomes a blocker.
+4. **Build an inverted index** — R5 showed the remaining cost *is* the linearity, and only this
+   changes it. Every query still touches every chunk; the constant has been cut as far as it goes.
+   A corpus an order of magnitude larger than SciFact is needed alongside it, since the measured
+   range tops out at 5183 documents and the extrapolation past that is an assumption.
 5. Configurable chunking, to better support structured documents (tables/sections) instead of
    fixed-length splits.
 6. Broaden ingestion format coverage (docx/pptx/html via Docling) and surface OCR quality signals
