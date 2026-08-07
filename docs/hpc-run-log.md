@@ -2147,7 +2147,81 @@ ClaimSplitter source_text 逐字约束已放宽(`872ed61`)、over-split meta 句
   一个给每句都编造引用的系统召回反而更高,而诚实标注不可验证内容的系统更低。
 - 数据合规:只用 ALCE/ASQA;**HotpotQA / RGB / MuSiQue-Full 从不加载**。
 
-**AFTER:** 未运行。
+**AFTER(第一次尝试,job `18281379`,COMPLETED 01:16:04,exit 0:0)—— 作废,三个验证臂全崩:**
+
+| 臂 | 结果 |
+|---|---|
+| baseline | 370/400 answered,**0 errors** |
+| verify-only | **0/400,365 errors** |
+| verify-annotate-capped | **0/400,365 errors** |
+| verify-annotate-open | **0/400,365 errors** |
+
+`routing-stats.json` 全零,`claims_routed: 0` —— **一条 claim 都没被路由过**。
+`results/g5/*.jsonl` 里三个验证臂各只有 **35 行**(400 − 365),且零答题。
+**没有任何指标产生,本轮不构成 G6 的读数。**
+
+**根因是两层,且串行 —— 修掉第一层才看见第二层:**
+
+1. **`google/t5_xxl_true_nli_mixture` 根本不在离线缓存里。** 目录整个不存在
+   (非负缓存,`.no_exist` 标记也没有)。slurm 设 `HF_HUB_OFFLINE=1`,于是每次调用抛 `OSError`。
+   最可能的时间线:**环境被刷过一次,缓存随之清空** —— G5 第二轮(job `18267966`)
+   用的是同一个验证器,当时是跑通的。
+2. **补下之后仍然加载不了:该 repo 只发 `pytorch_model-*.bin`,不发 safetensors**,
+   而集群是 **transformers 4.57.6 + torch 2.5.1**,后者 < 2.6 ⇒ transformers 按
+   CVE-2025-32434 **拒绝 `torch.load` 任何 `.bin`**。直接实测确认而非推断:
+   `check_torch_load_is_safe()` 在本集群抛异常。
+
+**四个观测量与该解释逐一对得上,这是采信它的依据:** 三臂错误数完全相同(它们共用 `nli`,
+baseline 不用);baseline 全好(Granite 本身无恙);35 条活下来的是**根本没抽出 claim** 的例
+——不调验证器就不报错,这也解释了 `claims_routed: 0`;`[gen]` 时间全程平在 **10.3s/case**,
+那只是 Granite 的开销,**NLI 调用是快速失败,没有任何资源耗尽的斜率**。
+
+**处置:本地转 safetensors(`scripts/convert_bin_to_safetensors.py`)。**
+以 `weights_only=True`(CVE 自身指定的缓解手段)逐分片反序列化并重写,5 分片 512 权重,
+每个输入输出文件的 sha256 记入 `results/true_nli_safetensors_conversion.json`。
+**T5 的三名绑定嵌入按克隆而非丢弃处理** —— 丢一个键会被当作缺失并随机初始化,
+**模型照样跑、照样给出看着合理的分数**。
+
+**转换的值级验证(job `18288235`,COMPLETED 00:04:45,exit 0:0):**
+转换脚本只能做头部校验(keys/shapes/dtypes),查不到数值,故另跑三对已知答案的
+(`scripts/verify_true_nli.slurm`):蕴含 **0.9989** / 矛盾 **0.0005** / 无关 **0.0006**。
+三个数量级的分离 ⇒ 权重正确。**判据写成"蕴含必须跨过 0.5 高于另两个",
+因为一个被转坏成'什么都打 0.5'的模型加载正常、跑得动、日志好看。**
+
+**该验证日志里两条 warning,均已判读,不阻塞:**
+
+- `device_map keys do not match any submodules: [decoder.embed_tokens, encoder.embed_tokens]`
+  —— 克隆决定的直接后果:checkpoint 有三个嵌入键,而 `tie_word_embeddings=True` 下模型里
+  只有 `shared` 是独立子模块。**它无害,但不是碰巧无害 —— 是因为三份克隆逐字节相同**,
+  走哪一份值都一样。
+- `Some parameters are on the meta device because they were offloaded to the cpu`
+  —— TRUE 是 fp32 约 45GB,单张 40GB A100 装不下。**重跑时须看第一条 `[gen]` 的 s/case:
+  上一轮的 10.3s/case 是 NLI 从未运行时测的,不能当基线。**
+
+**本次事故暴露的三个工具缺陷(均在 G 模块,未修,留给该模块负责人):**
+
+1. **`run_g5_verify_annotate.slurm` 缺登录节点预下载。** `run_gate0b.slurm` 有(其头部明写
+   "含登录节点的模型预下载")。**这是根因得以拖到 GPU 上才爆的直接原因。**
+2. **`g5_verify_annotate.py` 的 `except` 只打 `type(exc).__name__`**,不打 message、不打
+   traceback,且每臂只打前 3 次。**若它打的是 `exc` 本身,本次五秒即可定位。**
+3. **吞掉 365 次异常后退出码仍为 0,并照常写出结果文件。**
+   **这次是靠人工看 `[arm]` 四行才发现的** —— 评分作业本会从 35 条空记录产出一份格式完好、
+   数字齐全的报告。建议改为错误率超阈值即失败。
+
+**与 A3 的牵动(已回写 M0 §11.1 限定 2):** 本次采纳的"本地转 safetensors"正是 A3 当时
+列为"未采纳但未否决"的那条绕路,**四天后在另一个模型上被需要并采纳**。于是
+"凭什么验证器可以转、训练基座不可以"成为必须回答的问题。不对称的论证
+(训练基座的 provenance 流进交付物;验证器是两边都由 hash 钉死的仪器)已写入 §11.1,
+**并明确标注它是需要被同意的论证而非既定事实** —— 若该区分不成立,
+**A3 的核心依据相应减弱**。
+
+**另需一并修正的记述:** `run_g5_score.slurm` 的配对显著性循环曾使用 G6 拆分前的旧臂名
+`verify-annotate`,且每次调用带 `|| true` ⇒ **作业会退出 0 而一个检验都没跑**,
+且**归因所需的 open vs capped 那一对连旧名下都不在循环里**。已于 `c2b137e` 修正:
+四个真实臂名、open-vs-capped 排第一、去掉 `|| true`、循环前检查四份 report 是否存在。
+
+**下一步:** 重交生成作业。**先看 `[arm]` 四行确认四臂均有合理答题数,再交评分** ——
+本次的教训正在于此。
 
 ---
 
