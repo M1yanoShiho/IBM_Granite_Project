@@ -12,24 +12,38 @@ that damage from lost content into a lower citation-recall figure, which is a
 strictly better trade: the reader still gets the content and can see it is
 unverified.
 
-Three-way routing per claim:
+Routing per claim, with the entity gate disengaged (the audited default):
 
-    entailed and entity-consistent  -> keep, attach the VERIFIED citation
-    entailed, and the evidence carries a COMPETING value in the same role -> drop
-    anything else                   -> keep, annotated unverified, no citation
+    entailed      -> keep, attach the VERIFIED citation
+    not entailed  -> keep, annotated unverified, no citation
 
-The third row is the substance of the redesign. It covers genuine no-evidence
-cases and verifier misses alike, and deliberately does not try to tell them
-apart -- ``contradicted`` is unavailable under a binary verifier backend, so an
-entity conflict is the only concrete contradiction signal there is, and it alone
-triggers a drop.
+**There is no drop path.** Nothing the Generator produces is destroyed; the
+contract's guarantee -- every ungrounded sentence is labelled -- now holds with no
+exception carved out of it.
 
-Blind adjudication of the first run's drops put the false-veto rate at **0.700**,
-with a further 0.100 that should have been annotated, so two things narrowed the
-destructive path: only a *genuine* conflict drops a claim (an entity the evidence
-never mentions is an absence, and absences are annotated), and proper nouns are
-detected with ``SpacyEntityExtractor`` rather than by capitalisation, which is
-what produced vetoes on ``name:some`` and ``name:season``.
+With the gate engaged (``entity_gate=True``) a third row exists: entailed, but
+the evidence carries a competing value in the same role -> drop. That was the
+default through G6 and is kept runnable as the control arm. It was disengaged
+because two blind adjudications, on disjoint populations with entirely different
+trigger composition, both returned a false-veto rate of 14/20 = 0.700; wrong
+destruction 0.850, CI [0.640, 0.948]. The spaCy switch removed every
+``name:some``-class trigger and moved the error rate not at all, so the failure
+was never about which spans were extracted. The three correctly-dropped items
+settle it: an incomplete claim, a quantifier-scope question and an
+approved-versus-implemented distinction -- none an entity conflict, so even the
+0.150 correct rate is coincidental.
+
+The gate is *not* deleted, and its verdict is still computed and logged on every
+claim in every arm. It measurably helps against adversarial entity substitution
+(G1 counterfactual slice: 0.963 verifier-alone -> 1.000 with the layer engaged),
+so this is a threat-model choice -- a defence that is expensive on benign data --
+rather than a component that failed.
+
+Conflict is deliberately NOT routed to a "the evidence contradicts this" label.
+Roughly 70% of those labels would be wrong, and telling a reader the evidence
+conflicts with a claim the evidence actually supports asserts something false
+about the evidence; deleting at least asserts nothing. A signal that unreliable
+must not drive a user-visible label.
 """
 
 import re
@@ -112,6 +126,12 @@ class ClaimRouting:
     conflict_evidence_id: str | None = None
     conflict_detail: tuple[str, ...] = ()
     """which entities clashed, for auditing the one path that destroys content"""
+    gated_outcome: str = ""
+    gated_citation: str | None = None
+    """What the entity gate WOULD have decided, recorded whether or not the gate is
+    driving routing. With the gate engaged these equal ``outcome``/``citation`` by
+    construction; with it disengaged they are the observe-only log, which turns
+    "the gate would have destroyed ~51 claims" from an extrapolation into a count."""
 
 
 @dataclass
@@ -125,6 +145,13 @@ class RoutingStats:
     declared_verified: int = 0
     """of those, ones whose declared citation actually supported the claim"""
     rescued_by_scan: int = 0
+    gate_would_drop: int = 0
+    """claims the entity gate would have destroyed, counted in every arm"""
+    gate_would_drop_now_cited: int = 0
+    """of those, ones that instead received a citation -- the direct measurement"""
+    gate_would_drop_now_annotated: int = 0
+    gate_changed_citation: int = 0
+    """claims cited either way, but the gate would have picked other evidence"""
     routings: list[ClaimRouting] = field(default_factory=list)
 
 
@@ -137,12 +164,31 @@ class CitationRoutedVerifier:
     Routing only changes the *order* of comparisons, never a verdict.
     """
 
-    def __init__(self, nli: NLIModel, entity_checker: EntityChecker | None = None) -> None:
+    def __init__(
+        self,
+        nli: NLIModel,
+        entity_checker: EntityChecker | None = None,
+        *,
+        entity_gate: bool = True,
+    ) -> None:
         self.nli = nli
         # spaCy NER for the proper-noun side: the capitalisation heuristic in the
         # rule-based extractor treats sentence-initial common nouns as names, which
         # the audit found to be the dominant false-veto mechanism.
         self.entity_checker = entity_checker or EntityConsistencyChecker(SpacyEntityExtractor())
+        self.entity_gate = entity_gate
+        """Whether entity consistency may *change routing*. The check runs either
+        way; with the gate off its verdict is recorded and ignored.
+
+        Off is the audited setting. Two blind adjudications on disjoint populations
+        with entirely different trigger composition both returned a false-veto rate
+        of 14/20 = 0.700 -- the spaCy switch removed every ``name:some``-class
+        trigger and moved the error rate not at all, so the failure was never about
+        which spans were extracted. Wrong destruction is 0.850, CI [0.640, 0.948].
+        The layer is not worthless: on the G1 adversarial entity-substitution slice
+        it took the verifier from 0.963 to 1.000. It is a defence against
+        adversarial substitution that is expensive on benign data, and the gate
+        setting is where that trade-off is made."""
 
     def _supports(
         self, evidence_text: str, claim_text: str
@@ -173,51 +219,74 @@ class CitationRoutedVerifier:
         answer_text: str,
         selected: SelectedEvidenceSet,
     ) -> ClaimRouting:
+        """Route one claim, computing BOTH the entailment-only verdict and the
+        verdict the entity gate would have reached.
+
+        The declared citation is tried first and the full scan is mandatory, in
+        both modes: models frequently get the content right and the citation index
+        wrong, and without the scan a mislabelled reference would delete or
+        un-cite a true statement for no reason.
+        """
         evidence = list(selected.evidence)
         by_index = {position: item for position, item in enumerate(evidence, start=1)}
         declared = declared_indices(answer_text, claim)
 
-        for index in declared:
-            item = by_index.get(index)
-            if item is None:
-                continue
-            entailed, consistent, _genuine, _detail = self._supports(item.text, claim.text)
-            if entailed and consistent:
-                return ClaimRouting(
-                    claim_id=claim.claim_id,
-                    outcome="verified",
-                    citation=item.evidence_id,
-                    declared_indices=declared,
-                    declared_verified=True,
-                    claim_text=claim.text,
-                )
-
-        # mandatory fallback: the declared citation may simply be mislabelled
+        entailed_id: str | None = None  # entailment alone -- the ungated citation
+        entailed_declared = False
+        gated_id: str | None = None  # entailed AND entity-consistent
+        gated_declared = False
         conflict_id: str | None = None
         conflict_detail: tuple[str, ...] = ()
-        for item in evidence:
+
+        declared_items = [by_index[i] for i in declared if i in by_index]
+        # The declared prefix is scanned first and then the full evidence set; an
+        # item appearing in both is examined twice, which the memo-free NLI call
+        # makes cheap enough and which keeps this behaviourally identical to the
+        # two-pass version it replaces.
+        for from_declared, item in [(True, i) for i in declared_items] + [
+            (False, i) for i in evidence
+        ]:
             entailed, consistent, genuine, detail = self._supports(item.text, claim.text)
-            if entailed and consistent:
-                return ClaimRouting(
-                    claim_id=claim.claim_id,
-                    outcome="verified",
-                    citation=item.evidence_id,
-                    declared_indices=declared,
-                    rescued_by_scan=bool(declared),
-                    claim_text=claim.text,
-                )
-            # Only a GENUINE conflict earns destructive power. An entity the
-            # evidence never mentions is an absence, and absences are annotated.
-            if entailed and genuine and conflict_id is None:
-                conflict_id = item.evidence_id
-                conflict_detail = detail
+            if not entailed:
+                continue
+            if entailed_id is None:
+                entailed_id, entailed_declared = item.evidence_id, from_declared
+            if consistent:
+                gated_id, gated_declared = item.evidence_id, from_declared
+                break  # both verdicts are now settled
+            if genuine and conflict_id is None and not from_declared:
+                # Only a GENUINE conflict earns destructive power. An entity the
+                # evidence never mentions is an absence, and absences are annotated.
+                # Restricted to the full-evidence pass so that which evidence gets
+                # named as the conflict is unchanged from the two-pass version --
+                # the control arm has to stay comparable to G6 exactly.
+                conflict_id, conflict_detail = item.evidence_id, detail
+
+        gated_outcome = (
+            "verified"
+            if gated_id
+            else "dropped_entity_conflict"
+            if conflict_id
+            else "unverified"
+        )
+        if self.entity_gate:
+            citation, from_declared = gated_id, gated_declared
+            outcome = gated_outcome
+        else:
+            citation, from_declared = entailed_id, entailed_declared
+            outcome = "verified" if entailed_id else "unverified"
         return ClaimRouting(
             claim_id=claim.claim_id,
-            outcome="dropped_entity_conflict" if conflict_id else "unverified",
+            outcome=outcome,
+            citation=citation,
             declared_indices=declared,
+            declared_verified=bool(citation) and from_declared,
+            rescued_by_scan=bool(citation) and not from_declared and bool(declared),
             claim_text=claim.text,
             conflict_evidence_id=conflict_id,
             conflict_detail=conflict_detail,
+            gated_outcome=gated_outcome,
+            gated_citation=gated_id,
         )
 
 
@@ -238,6 +307,7 @@ class VerifyAnnotateGenerator:
         llm: TextGenerator | None = None,
         nli: NLIModel | None = None,
         abstain_when_unverified: bool = False,
+        entity_gate: bool = True,
     ) -> None:
         self.abstain_when_unverified = abstain_when_unverified
         """The pre-lift behaviour, kept so the capped arm can be run as the
@@ -246,7 +316,9 @@ class VerifyAnnotateGenerator:
         if draft_generator is None:
             shared_llm = shared_llm or GraniteLLMClient()
         self.draft_generator = draft_generator or DraftAnswerGenerator(llm=shared_llm)
-        self.verifier = verifier or CitationRoutedVerifier(nli or build_nli_model())
+        self.verifier = verifier or CitationRoutedVerifier(
+            nli or build_nli_model(), entity_gate=entity_gate
+        )
         self.stats = RoutingStats()
         self.last_routings: list[ClaimRouting] = []
         """Routing for the most recent query, carrying each kept sentence and the
@@ -339,6 +411,21 @@ class VerifyAnnotateGenerator:
             self.stats.unverified += 1
         else:
             self.stats.dropped_entity_conflict += 1
+        # Observe-only accounting. Counted in every arm, so the gated arms report
+        # the same quantity as a self-check and the ungated arm reports what the
+        # gate would have cost -- measured, not extrapolated.
+        if routing.gated_outcome == "dropped_entity_conflict":
+            self.stats.gate_would_drop += 1
+            if routing.outcome == "verified":
+                self.stats.gate_would_drop_now_cited += 1
+            elif routing.outcome == "unverified":
+                self.stats.gate_would_drop_now_annotated += 1
+        elif (
+            routing.outcome == "verified"
+            and routing.gated_outcome == "verified"
+            and routing.citation != routing.gated_citation
+        ):
+            self.stats.gate_changed_citation += 1
 
 
 def annotation_rate(sentences: Sequence[str]) -> float:

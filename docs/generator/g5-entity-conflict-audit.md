@@ -1,79 +1,98 @@
-# Entity-conflict audit — the only content-destroying path is 80% wrong
+# Entity-conflict audit — the fix changed the population completely and the error rate not at all
 
-Blind human adjudication of the entity-conflict drops from the G5
-verify-and-annotate run. 20 items sampled from a population of **72**, seed 13,
-protocol as before: verdict hidden, no highlighting, no score ordering.
+Blind human adjudication of the entity-conflict drops, run twice: once before the
+spaCy/genuine-conflict fix and once after. Protocol both times: verdict hidden,
+no highlighting, no score ordering, adjudicator sees claim + one evidence passage
++ the question.
 
 Under verify-and-annotate everything unsupported is kept and labelled, so an
 entity conflict is the **sole remaining reason a claim is deleted outright**.
 That makes `entity_check`'s precision decisive in a way it was not when other
 deletion paths shared the load.
 
-## Result
+## Result — round 2 (post-fix), 20 items of 66, seed 17
 
 | human verdict | count | share | consequence |
 |---|---|---|---|
 | **supported** | **14** | **0.700** | **false veto — correct content destroyed** |
-| conflicting | 4 | 0.200 | the drop was right |
-| unrelated | 2 | 0.100 | should have been **annotated**, not dropped |
+| conflicting | 3 | 0.150 | the drop was right |
+| unrelated | 3 | 0.150 | should have been **annotated**, not dropped |
 
-**80% of drops were wrong**: 70% destroyed content the evidence actually
-supports, and a further 10% had no conflict to justify deletion and belonged in
-the annotate path.
+**False-veto rate 0.700, 95% Wilson CI [0.481, 0.855].**
+**Wrongly destroyed (supported + unrelated) 17/20 = 0.850, CI [0.640, 0.948].**
 
-Population breakdown (all 72 drops): triggering entity type **name 75**, number
-9, date 5 (89 triggers, some claims firing more than one); by reason, **value
-conflict 87 vs absent-from-evidence 2**; 57 drops fired on a single mismatch.
+### Against round 1
 
-## Two distinct mechanisms produce the false vetoes
+| | round 1 (pre-fix, n=20 of 72) | round 2 (post-fix, n=20 of 66) |
+|---|---|---|
+| supported (false veto) | 14 (0.700) | **14 (0.700)** |
+| conflicting (correct) | 4 (0.200) | 3 (0.150) |
+| unrelated (should annotate) | 2 (0.100) | 3 (0.150) |
+| trigger types | `name` 75, number 9, date 5 | org 29, location 18, person 13, product 12, number 4, date 3 |
+| reason | value conflict 87 / absent 2 | value conflict 78 / absent 1 |
 
-**1. Common nouns extracted as proper names.** The rule-based extractor
-recognises names by capitalisation, so a sentence-initial common noun becomes a
-"name" and then vetoes on it. Actual triggers from the audited sample:
+**The fix worked on exactly what it targeted and bought nothing.** Every trigger
+is now a real NER type — `name:some`, `name:season`, `name:unemployment` are gone
+from the population entirely, which is what the spaCy switch was for. Routing
+`absent` to annotate rather than drop left only 1 absent case in 78. And the
+false-veto rate is **unchanged to the item**: 14/20 both times.
 
-```
-name:some            name:season         name:small
-name:substitutions   name:unemployment   name:household
-```
+Two blind rounds, disjoint mechanisms, same answer. This is not sampling noise
+around a real improvement; it is evidence that the failure was never mainly about
+which spans the extractor picked up.
 
-This is the residual risk `REQUIRE_PRESENCE`'s own docstring describes and
-declares "bounded by the fact that this check only ever runs on pairs NLI already
-labelled entailment". **The audit shows it is not bounded in practice** — it is
-the dominant failure mode.
+## Why: the check fires on a comparison it is not equipped to make
 
-**2. Compatible alternatives read as conflicts.** When the evidence carries
-several values in the same role, any difference is scored as a conflict even
-where the values are compatible. From the adjudicator's reasons:
+The round-1 diagnosis was extraction quality. Round 2 rules that out and points
+at the comparison itself. Reading the adjudicator's reasons on the three drops
+that were *correct*:
 
-- E07 — "West Germany win the world cup two times, but that is not conflicting,
-  they are compatible."
-- E06 — "There are several names for the bait car, but that is not conflicting,
-  they are compatible."
-- E05 — "The claim successfully caught the final release date. There are other
-  dates but not the real one."
+- **E06** — "we fought against Italy" vs evidence naming Germany, Italy, and
+  Japan. Conflicting because the claim is **incomplete**, not because an entity
+  was swapped.
+- **E17** — "Washington's minimum age is 18" vs evidence saying all 50 states
+  require 18 but "most states permit under 18 with parental permission".
+  Conflicting because of an unresolved **quantifier scope**.
+- **E18** — "permitted women as bishops on 14 July 2014" vs evidence saying the
+  Synod *approved* on that date and implementation followed in November.
+  Conflicting on **approved vs implemented** — a temporal-semantic distinction.
 
-A third, narrower case appeared once: E03, where the adjudicator notes the check
-fired on a *name* when "the focus of entity check should be time instead of
-name" — the check has no notion of which entity the question is actually about.
+None of the three is an entity mismatch. The entity checker got the right verdict
+on all three for reasons it does not model. Meanwhile the 14 false vetoes are
+cases where the evidence plainly states the claim and the checker vetoed on a
+surface difference in some role.
 
-## What this does to the G5 numbers
+So the layer is close to **never right for the right reason**: 0.150 correct, and
+that 0.150 is coincidental.
 
-The G5 citation-precision figures were computed with these drops in place. If
-~80% of them are wrong, roughly 58 claims were removed from the pipeline that
-should not have been, most of which were entailed and would have become **cited**
-sentences. Every G5 metric is therefore measured on a pipeline that is deleting
-correct, citable content at a rate the audit puts at four in five drops.
+A related pattern in the *supported* group is worth recording because it is a
+different module's problem: E01, E07, E09, E12, E16 and E20 are all adjudicated
+supported but flagged by the adjudicator as **partial or ambiguous answers** —
+"the claim is not complete to the question, which should include Maureen O'Hara
+as well" (E12, with E07 supplying the other half). That is a claim-splitting and
+checklist-coverage issue, not an entity issue, and it does not affect this
+audit's verdict.
 
-The direction of the bias is not obvious and should not be guessed: returning
-those claims would add cited sentences (affecting precision either way), raise
-recall's denominator, and raise correctness. It needs to be measured, not
-inferred.
+## What this does to the G6 numbers
 
-## Status
+The G6 figures were computed with these drops in place: 60 claims dropped of 434
+routed (13.8%). At a 0.850 wrongly-destroyed rate that is roughly **51 claims
+deleted that should have survived**, most of them entailed and therefore
+destined to become **cited** sentences.
 
-Reported, not acted on. Fixing `entity_check` is bug-fix class by the standing
-test — the defect is stateable without reference to any metric ("the extractor
-treats sentence-initial common nouns as proper names and vetoes on them"; "several
-compatible values in the same role are scored as a conflict") and it was
-established by human adjudication, not by a number moving. But it is a
-substantial change this close to freeze, so the call is the reviewer's.
+The direction of the bias should not be guessed. Returning those claims would add
+cited sentences (moving precision either way), raise recall's denominator, and
+raise coverage and correctness. It needs measuring, not inferring.
+
+## Recommendation
+
+Route entity conflict to a **distinct annotation** ("evidence conflicts with this
+claim") instead of deletion. The system would then destroy nothing at all, which
+is the coherent end state of annotate-not-delete: the contract already guarantees
+every ungrounded sentence is labelled, and there is no longer a defensible reason
+for one path to bypass that guarantee at a measured 85% error rate.
+
+Two rounds of blind adjudication now support it and the last calibration round is
+spent. **Not implemented here** — it would confound the contract lift measured in
+G6, which was pre-registered as a one-change round. It is the first item for the
+next round, or a strong future-work item with an audit behind it.
