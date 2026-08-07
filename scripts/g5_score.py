@@ -35,14 +35,48 @@ for _p in (REPO_ROOT / "src", REPO_ROOT / "scripts"):
 from alce_metrics import ScoredExample, compute_citation_metrics  # noqa: E402, I001
 from g3_baseline_comparison import str_em  # noqa: E402
 from g3_sentence_rescore import remove_citations, sent_split  # noqa: E402
+from evidence_rag.contracts.models import UNVERIFIED_ANNOTATION  # noqa: E402
 from evidence_rag.generator.verify_annotate import (  # noqa: E402
     is_unverified_annotation,
     strip_unverified_marker,
 )
 
-ARMS = ("baseline", "verify-only", "verify-annotate-capped", "verify-annotate-open")
+ARMS = (
+    "baseline",
+    "verify-only",
+    "verify-annotate-capped",
+    "verify-annotate-open",
+    "verify-annotate-nogate",
+)
 
 _MATCH_NOISE = re.compile(r"\[\d+\]|[^\w\s]")
+
+
+def annotated_sent_split(answer: str) -> list[str]:
+    """`sent_split`, with the annotation marker re-attached to the sentence it labels.
+
+    The Generator writes ``"<sentence>. [unverified]"`` -- the marker sits *after*
+    the terminator, so a sentence splitter carries it onto the FOLLOWING sentence
+    (or strands it alone, at the end of the answer). Two consequences, both of
+    which land only on the arms that annotate:
+
+    * the marker lands on the wrong sentence, so a genuinely unverified sentence
+      is scored as if it were unlabelled and its successor as if it were annotated;
+    * a stranded marker counts as an extra uncited sentence, inflating ALCE's
+      recall denominator by one per annotated sentence.
+
+    Numerators are unaffected -- neither piece is ever cited -- so this only ever
+    understated the annotate arms.
+    """
+    parts: list[str] = []
+    for raw in sent_split(answer):
+        text = raw.strip()
+        while text.startswith(UNVERIFIED_ANNOTATION) and parts:
+            parts[-1] = f"{parts[-1]} {UNVERIFIED_ANNOTATION}"
+            text = text[len(UNVERIFIED_ANNOTATION) :].strip()
+        if text:
+            parts.append(text)
+    return parts
 
 
 def _match_key(text: str) -> str:
@@ -79,7 +113,7 @@ def build(records: list[dict[str, Any]]) -> tuple[list[ScoredExample], dict[str,
             }
             sentences: list[str] = []
             citations: list[tuple[str, ...]] = []
-            for raw in sent_split(answer):
+            for raw in annotated_sent_split(answer):
                 kept += 1
                 if is_unverified_annotation(raw):
                     annotated += 1
@@ -140,10 +174,24 @@ def main() -> int:
         citation = compute_citation_metrics(examples, entails)
         # attach the per-example citation scores so paired_metric_cli can read them
         by_id = {row["example_id"]: row for row in citation.per_example}
+        prec_cited: list[float] = []
         for case in extra["per_case"]:
             row = by_id.get(case["query_id"])
+            # ALCE scores an example that produced NO citations as precision 0. That
+            # matches the reference implementation, but it contradicts this study's
+            # pre-registered rule -- "annotated claims are neither numerator nor
+            # denominator" -- and it only bites once an arm can emit a fully
+            # annotated answer. Report both: the ALCE-convention mean for
+            # comparability with published numbers, and precision over examples that
+            # actually cited, which is the quantity the pre-registration named. The
+            # per-case field carries the latter so paired tests compare like with
+            # like; a zero-citation example simply has no precision to compare.
+            has_citations = bool(row and row["citations"])
+            if has_citations:
+                assert row is not None
+                prec_cited.append(row["citation_prec"])
             case["metrics"]["citation_precision"] = (
-                {"value": row["citation_prec"]} if row else None
+                {"value": row["citation_prec"]} if row and has_citations else None
             )
             case["metrics"]["citation_recall"] = {"value": row["citation_rec"]} if row else None
             for key in ("coverage", "answer_correctness"):
@@ -165,6 +213,10 @@ def main() -> int:
             "coverage": mean("coverage"),
             "answer_correctness": mean("answer_correctness"),
             "citation_prec": citation.citation_prec / 100,
+            "citation_prec_cited_examples": (
+                sum(prec_cited) / len(prec_cited) if prec_cited else None
+            ),
+            "examples_with_citations": len(prec_cited),
             "citation_rec": citation.citation_rec / 100,
             "annotated_sentences": extra["annotated_sentences"],
             "kept_sentences": extra["kept_sentences"],
@@ -172,7 +224,10 @@ def main() -> int:
         }
         print(f"[score] {arm}: {json.dumps(summary[arm])}", flush=True)
 
-    lines = ["# G5 — verify-and-annotate, three-arm calibration", ""]
+    def fmt(x: float | None) -> str:
+        return f"{x:.3f}" if x is not None else "n/a"
+
+    lines = ["# G5 — verify-and-annotate, four-arm calibration", ""]
     lines.append(
         "ALCE sentence-level citation metrics, judge **MiniCheck** (TRUE is the "
         "production verifier and never judges). Annotated sentences carry no "
@@ -180,26 +235,35 @@ def main() -> int:
         "recall denominator -- the intended, visible cost of the redesign."
     )
     lines.append("")
-    lines.append("| arm | coverage | correctness (STR-EM) | cite precision | cite recall | answered |")
-    lines.append("|---|---|---|---|---|---|")
+    lines.append(
+        "`cite prec` is ALCE's convention, under which an example that cited nothing "
+        "at all scores 0. `cite prec (cited)` restricts the mean to examples that "
+        "actually produced a citation, which is what the pre-registration specified; "
+        "the two differ only for an arm that can emit a fully annotated answer."
+    )
+    lines.append("")
+    lines.append(
+        "| arm | coverage | correctness (STR-EM) | cite prec | cite prec (cited) "
+        "| cite recall | answered |"
+    )
+    lines.append("|---|---|---|---|---|---|---|")
     for arm in ARMS:
         s = summary[arm]
-
-        def fmt(x: float | None) -> str:
-            return f"{x:.3f}" if x is not None else "n/a"
-
         lines.append(
             f"| {arm} | {fmt(s['coverage'])} | {fmt(s['answer_correctness'])} | "
-            f"{fmt(s['citation_prec'])} | {fmt(s['citation_rec'])} | {s['answered']}/{s['n']} |"
+            f"{fmt(s['citation_prec'])} | {fmt(s['citation_prec_cited_examples'])} "
+            f"({s['examples_with_citations']}) | {fmt(s['citation_rec'])} | "
+            f"{s['answered']}/{s['n']} |"
         )
     lines.append("")
-    annotate = summary["verify-annotate"]
-    if annotate["kept_sentences"]:
-        lines.append(
-            f"Annotation rate: **{annotate['annotated_sentences']}/{annotate['kept_sentences']}** "
-            f"({annotate['annotated_sentences'] / annotate['kept_sentences']:.3f}) of kept "
-            "sentences carry the unverified marker."
-        )
+    for arm in ARMS:
+        s = summary[arm]
+        if s["kept_sentences"] and s["annotated_sentences"]:
+            lines.append(
+                f"- **{arm}** — {s['annotated_sentences']}/{s['kept_sentences']} "
+                f"({s['annotated_sentences'] / s['kept_sentences']:.3f}) of kept "
+                "sentences carry the unverified marker."
+            )
     lines.append("")
     report = "\n".join(lines)
     args.report.parent.mkdir(parents=True, exist_ok=True)

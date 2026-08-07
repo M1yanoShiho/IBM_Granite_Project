@@ -374,6 +374,148 @@ def test_unfaithful_claims_are_never_routed() -> None:
     assert result.answer == ""
 
 
+# --- entity gate removal (observe-only) -------------------------------------
+#
+# Two blind adjudications on disjoint populations both returned a false-veto rate
+# of 14/20; wrong destruction 0.850, CI [0.640, 0.948]. Entailment alone now
+# decides citation. The check still runs -- its verdict is logged and ignored --
+# so "the gate would have destroyed ~51 claims" becomes a measured count.
+
+
+def _ungated(nli: ScriptedNLI, entity=None) -> CitationRoutedVerifier:  # type: ignore[no-untyped-def]
+    return CitationRoutedVerifier(nli, entity or StubEntityChecker(), entity_gate=False)
+
+
+def test_ungated_cites_a_claim_the_gate_would_have_destroyed() -> None:
+    selected = SelectedEvidenceSet(query_id="q", evidence=(evidence("ev-1", "Globex rose 8%."),))
+    nli = ScriptedNLI({("Globex rose 8%.", "Acme rose 8%.")})
+    verifier = _ungated(nli, StubEntityChecker(inconsistent={"Globex rose 8%."}))
+
+    routing = verifier.route(_claim("claim-1", "Acme rose 8%.", 0, 13), "Acme rose 8%.", selected)
+
+    assert routing.outcome == "verified"
+    assert routing.citation == "ev-1"
+
+
+def test_the_gate_verdict_is_still_recorded_when_it_is_disengaged() -> None:
+    """Observe-only means logged, not skipped -- otherwise the cost of removing the
+    gate could only be extrapolated, which is what this round replaces."""
+    selected = SelectedEvidenceSet(query_id="q", evidence=(evidence("ev-1", "Globex rose 8%."),))
+    nli = ScriptedNLI({("Globex rose 8%.", "Acme rose 8%.")})
+    verifier = _ungated(nli, StubEntityChecker(inconsistent={"Globex rose 8%."}))
+
+    routing = verifier.route(_claim("claim-1", "Acme rose 8%.", 0, 13), "Acme rose 8%.", selected)
+
+    assert routing.gated_outcome == "dropped_entity_conflict"
+    assert routing.gated_citation is None
+    assert routing.conflict_evidence_id == "ev-1"
+
+
+def test_ungated_routing_has_no_drop_path_at_all() -> None:
+    draft = DraftAnswer(
+        query_id="q",
+        answer_text="Acme rose 8% [1].",
+        claims=(_claim("claim-1", "Acme rose 8%.", 0, 17),),
+    )
+    selected = SelectedEvidenceSet(query_id="q", evidence=(evidence("ev-1", "Globex rose 8%."),))
+    generator = VerifyAnnotateGenerator(
+        draft_generator=FixedDraft(draft),
+        verifier=_ungated(
+            ScriptedNLI({("Globex rose 8%.", "Acme rose 8%.")}),
+            StubEntityChecker(inconsistent={"Globex rose 8%."}),
+        ),
+    )
+
+    result = generator.generate(
+        Query(query_id="q", text="what?"),
+        QueryChecklist(query_id="q", focus="f", required_facts=()),
+        selected,
+    )
+
+    assert generator.stats.dropped_entity_conflict == 0
+    assert generator.stats.gate_would_drop == 1
+    assert generator.stats.gate_would_drop_now_cited == 1
+    assert result.cited_evidence_ids == ("ev-1",)
+
+
+def test_a_claim_with_no_support_is_still_annotated_when_ungated() -> None:
+    """Removing the gate removes the DROP path, not the annotate path -- an
+    unentailed claim must not be silently promoted to cited."""
+    selected = SelectedEvidenceSet(query_id="q", evidence=(evidence("ev-1", "Unrelated."),))
+    verifier = _ungated(ScriptedNLI(set()))
+
+    routing = verifier.route(_claim("claim-1", "Acme rose 8%.", 0, 13), "Acme rose 8%.", selected)
+
+    assert routing.outcome == "unverified"
+    assert routing.citation is None
+
+
+def test_the_gate_still_drops_when_engaged() -> None:
+    """The control arm has to stay exactly what G6 measured."""
+    selected = SelectedEvidenceSet(query_id="q", evidence=(evidence("ev-1", "Globex rose 8%."),))
+    nli = ScriptedNLI({("Globex rose 8%.", "Acme rose 8%.")})
+    verifier = CitationRoutedVerifier(
+        nli, StubEntityChecker(inconsistent={"Globex rose 8%."}), entity_gate=True
+    )
+
+    routing = verifier.route(_claim("claim-1", "Acme rose 8%.", 0, 13), "Acme rose 8%.", selected)
+
+    assert routing.outcome == "dropped_entity_conflict"
+    assert routing.gated_outcome == routing.outcome
+    assert routing.gated_citation == routing.citation
+
+
+def test_clean_evidence_elsewhere_is_preferred_over_a_conflicting_one_when_gated() -> None:
+    """Gated and ungated can legitimately cite DIFFERENT evidence for the same
+    claim, and that divergence is counted rather than hidden."""
+    selected = SelectedEvidenceSet(
+        query_id="q",
+        evidence=(evidence("ev-1", "Globex rose 8%.", 1), evidence("ev-2", "Acme rose 8%.", 2)),
+    )
+    entailing = {("Globex rose 8%.", "Acme rose 8%."), ("Acme rose 8%.", "Acme rose 8%.")}
+    entity = StubEntityChecker(inconsistent={"Globex rose 8%."})
+    claim = _claim("claim-1", "Acme rose 8%.", 0, 13)
+
+    gated = CitationRoutedVerifier(ScriptedNLI(entailing), entity).route(
+        claim, "Acme rose 8%.", selected
+    )
+    ungated = _ungated(ScriptedNLI(entailing), entity).route(claim, "Acme rose 8%.", selected)
+
+    assert gated.citation == "ev-2"
+    assert ungated.citation == "ev-1"
+    assert ungated.gated_citation == "ev-2"
+
+
+def test_gate_changed_citation_is_counted_separately_from_a_drop() -> None:
+    draft = DraftAnswer(
+        query_id="q",
+        answer_text="Acme rose 8% [1].",
+        claims=(_claim("claim-1", "Acme rose 8%.", 0, 17),),
+    )
+    selected = SelectedEvidenceSet(
+        query_id="q",
+        evidence=(evidence("ev-1", "Globex rose 8%.", 1), evidence("ev-2", "Acme rose 8%.", 2)),
+    )
+    generator = VerifyAnnotateGenerator(
+        draft_generator=FixedDraft(draft),
+        verifier=_ungated(
+            ScriptedNLI(
+                {("Globex rose 8%.", "Acme rose 8%."), ("Acme rose 8%.", "Acme rose 8%.")}
+            ),
+            StubEntityChecker(inconsistent={"Globex rose 8%."}),
+        ),
+    )
+
+    generator.generate(
+        Query(query_id="q", text="what?"),
+        QueryChecklist(query_id="q", focus="f", required_facts=()),
+        selected,
+    )
+
+    assert generator.stats.gate_would_drop == 0
+    assert generator.stats.gate_changed_citation == 1
+
+
 # --- marker helpers ---------------------------------------------------------
 
 

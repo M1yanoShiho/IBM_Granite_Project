@@ -25,6 +25,7 @@ import json
 import random
 import sys
 import time
+import traceback
 from pathlib import Path
 from typing import Any
 
@@ -43,7 +44,13 @@ from evidence_rag.generator.verify_annotate import (  # noqa: E402
     VerifyAnnotateGenerator,
     is_unverified_annotation,
 )
-ARMS = ("baseline", "verify-only", "verify-annotate-capped", "verify-annotate-open")
+ARMS = (
+    "baseline",
+    "verify-only",
+    "verify-annotate-capped",
+    "verify-annotate-open",
+    "verify-annotate-nogate",
+)
 
 
 class RecordingRepairer:
@@ -97,6 +104,17 @@ def main() -> int:
     parser.add_argument("--top-k", type=int, default=5)
     parser.add_argument("--seed", type=int, default=13)
     parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument(
+        "--max-error-rate",
+        type=float,
+        default=0.10,
+        help=(
+            "Fail the run if any arm's error rate exceeds this. A previous G6 attempt "
+            "swallowed 365 errors per arm, exited 0, and wrote result files from 35 "
+            "empty records -- the scoring job would have produced a well-formed report "
+            "full of numbers from nothing."
+        ),
+    )
     args = parser.parse_args()
 
     cases = g3.build_cases(g3.vt.ensure_asqa(), args.limit, random.Random(args.seed), args.top_k)
@@ -113,7 +131,12 @@ def main() -> int:
         "verify-annotate-capped": VerifyAnnotateGenerator(
             llm=llm, nli=nli, abstain_when_unverified=True
         ),
+        # control: G6's routing, entity gate active
         "verify-annotate-open": VerifyAnnotateGenerator(llm=llm, nli=nli),
+        # subject: entailment alone decides citation, no drop path. The entity
+        # check still runs and its verdict is logged, so what the gate would have
+        # destroyed is measured on this arm rather than extrapolated from an audit.
+        "verify-annotate-nogate": VerifyAnnotateGenerator(llm=llm, nli=nli, entity_gate=False),
     }
 
     results: dict[str, dict[str, Any]] = {name: {} for name in arms}
@@ -127,8 +150,19 @@ def main() -> int:
                 generation = generator.generate(query, checklist, case.selected)
             except Exception as exc:  # noqa: BLE001 -- record, keep the sample aligned
                 errors[name] += 1
-                if errors[name] <= 3:
-                    print(f"[warn] {name} {case.query_id}: {type(exc).__name__}", flush=True)
+                # The old handler printed only `type(exc).__name__`. When TRUE's
+                # weights stopped loading, that turned a one-line diagnosis into a
+                # forensic exercise across two jobs: every arm reported `OSError`
+                # and nothing said which file was missing. Print the message always,
+                # and the first traceback per arm.
+                if errors[name] == 1:
+                    print(f"[error] {name} {case.query_id}: first failure", flush=True)
+                    traceback.print_exc()
+                elif errors[name] <= 5:
+                    print(
+                        f"[error] {name} {case.query_id}: {type(exc).__name__}: {exc}",
+                        flush=True,
+                    )
                 continue
             record: dict[str, Any] = {
                 "query_id": case.query_id,
@@ -159,6 +193,10 @@ def main() -> int:
                         "rescued_by_scan": r.rescued_by_scan,
                         "conflict_evidence_id": r.conflict_evidence_id,
                         "conflict_detail": list(r.conflict_detail),
+                        # observe-only: what the entity gate would have decided,
+                        # recorded on every arm so the gated arms double as a check
+                        "gated_outcome": r.gated_outcome,
+                        "gated_citation": r.gated_citation,
                     }
                     for r in generator.last_routings
                 ]
@@ -166,6 +204,26 @@ def main() -> int:
         if n % 25 == 0:
             elapsed = time.perf_counter() - started
             print(f"[gen] {n}/{len(cases)}  ({elapsed / n:.1f}s/case)", flush=True)
+
+    # Refuse to write anything from a run that mostly failed. The previous attempt
+    # swallowed 365 errors per arm and still exited 0 with result files on disk;
+    # the scoring job would then have produced a well-formed, fully populated
+    # report out of 35 empty records. A run this broken must be loud and empty,
+    # not quiet and plausible.
+    broken = {
+        name: count / len(cases)
+        for name, count in errors.items()
+        if len(cases) and count / len(cases) > args.max_error_rate
+    }
+    if broken:
+        for name, rate in sorted(broken.items()):
+            print(
+                f"[FAIL] {name}: {errors[name]}/{len(cases)} errors ({rate:.3f}) "
+                f"exceeds --max-error-rate {args.max_error_rate}",
+                flush=True,
+            )
+        print("[FAIL] no result files written -- fix the cause and re-run", flush=True)
+        return 1
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
     for name in ARMS:
@@ -176,40 +234,53 @@ def main() -> int:
         answered = sum(1 for r in results[name].values() if r["answer"].strip())
         print(f"[arm] {name}: {answered}/{len(cases)} answered, {errors[name]} errors", flush=True)
 
-    stats = arms["verify-annotate-open"].stats
-    annotated_sentences = 0
-    total_sentences = 0
-    for record in results["verify-annotate-open"].values():
-        for sentence in record["answer"].split(". "):
-            if sentence.strip():
-                total_sentences += 1
-                annotated_sentences += int(is_unverified_annotation(sentence))
+    def _sentence_counts(arm: str) -> tuple[int, int]:
+        annotated = total = 0
+        for record in results[arm].values():
+            for sentence in record["answer"].split(". "):
+                if sentence.strip():
+                    total += 1
+                    annotated += int(is_unverified_annotation(sentence))
+        return annotated, total
+
+    stats = arms["verify-annotate-nogate"].stats
+    annotated_sentences, total_sentences = _sentence_counts("verify-annotate-nogate")
     routing = {
+        "arm": "verify-annotate-nogate",
         "claims_routed": stats.claims,
         "verified": stats.verified,
         "unverified_annotated": stats.unverified,
         "dropped_entity_conflict": stats.dropped_entity_conflict,
+        # The direct measurement this round exists for: with the gate observe-only,
+        # what it WOULD have destroyed, and what those claims became instead.
+        "gate_would_drop": stats.gate_would_drop,
+        "gate_would_drop_now_cited": stats.gate_would_drop_now_cited,
+        "gate_would_drop_now_annotated": stats.gate_would_drop_now_annotated,
+        "gate_would_have_picked_other_evidence": stats.gate_changed_citation,
+        # self-check: on the control arm the gate IS routing, so these must agree
+        "control_dropped_entity_conflict": arms[
+            "verify-annotate-open"
+        ].stats.dropped_entity_conflict,
+        "control_gate_would_drop": arms["verify-annotate-open"].stats.gate_would_drop,
         "claims_with_a_declared_citation": stats.declared_total,
         "declared_citation_verified": stats.declared_verified,
         "rescued_by_fallback_scan": stats.rescued_by_scan,
         "annotated_sentences": annotated_sentences,
         "kept_sentences": total_sentences,
+        "control_annotated_sentences": _sentence_counts("verify-annotate-open")[0],
+        "control_kept_sentences": _sentence_counts("verify-annotate-open")[1],
         # how many annotations actually REACH an answer -- the number the contract
         # lift exists to move (it was 15 of 82 under the cap)
-        "annotated_claims_reaching_an_answer": sum(
-            1
-            for r in results["verify-annotate-open"].values()
-            if r["answer"].strip()
-            for x in r.get("routing", [])
-            if x["outcome"] == "unverified"
-        ),
-        "annotated_claims_reaching_an_answer_capped": sum(
-            1
-            for r in results["verify-annotate-capped"].values()
-            if r["answer"].strip()
-            for x in r.get("routing", [])
-            if x["outcome"] == "unverified"
-        ),
+        **{
+            f"annotated_claims_reaching_an_answer_{arm.rsplit('-', 1)[1]}": sum(
+                1
+                for r in results[arm].values()
+                if r["answer"].strip()
+                for x in r.get("routing", [])
+                if x["outcome"] == "unverified"
+            )
+            for arm in ("verify-annotate-capped", "verify-annotate-open", "verify-annotate-nogate")
+        },
         "errors": errors,
     }
     (args.output_dir / "routing-stats.json").write_text(

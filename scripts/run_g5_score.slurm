@@ -33,16 +33,21 @@ echo "=== paired significance ==="
 # every call carried `|| true` -- so the job would have exited 0 having run no test at
 # all. Check the reports exist first, and let a failure stop the script: the per-arm
 # reports are already written by this point, so nothing is lost by stopping here.
-for ARM in baseline verify-only verify-annotate-capped verify-annotate-open; do
+for ARM in baseline verify-only verify-annotate-capped verify-annotate-open \
+           verify-annotate-nogate; do
   test -f "results/g5-scored/$ARM-report.json" \
     || { echo "missing report for arm '$ARM' -- check ARMS in scripts/g5_score.py" >&2; exit 1; }
 done
 
 for M in citation_precision citation_recall coverage answer_correctness; do
-  # open vs capped comes first because it is the ATTRIBUTION pair: it is the only
-  # comparison that isolates the contract lift from the verification filter, which is
-  # the whole reason G6 keeps the capped arm (G6 BEFORE, hpc-run-log).
-  for PAIR in "verify-annotate-open verify-annotate-capped" \
+  # The two ATTRIBUTION pairs come first, because each is the only comparison that
+  # isolates one change: nogate vs open isolates the entity gate (G7), open vs
+  # capped isolates the contract lift from the verification filter (G6). Neither
+  # may go missing from this list -- that is what happened before.
+  for PAIR in "verify-annotate-nogate verify-annotate-open" \
+              "verify-annotate-open verify-annotate-capped" \
+              "verify-annotate-nogate verify-only" \
+              "verify-annotate-nogate baseline" \
               "verify-annotate-open verify-only" \
               "verify-annotate-open baseline" \
               "verify-annotate-capped verify-only" \
