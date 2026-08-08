@@ -1976,17 +1976,36 @@ premise 质量、premise 长度、hypothesis 形式、argmax 记账、canonical-
 本项目实测最优的验证器、且是 M0 §9.8 指定的 A1 出样检验之一。**故"任何零训练模型都不够"的
 族级断言依然不成立**,§3.8 可启动但不得携带该断言。
 
-### R011 — VitaminC adapter 与 revision-family 去污染 [DONE 2026-07-31]
+### R011 — VitaminC adapter 与 revision-family 去污染 [DONE 2026-07-31;读数 2026-08-08 SUPERSEDED]
 
 - **命令:** `python -m evidence_rag.cli.export_vitaminc --out-test data/gate0b/vitaminc_test.jsonl
   --removed-log data/gate0b/vitaminc_decontamination.json`(登录节点,纯 CPU,约 5 秒)
-- **AFTER(实测):**
+- **AFTER(实测)—— ⚠ 本表已于 2026-08-08 被 SUPERSEDED,保留不删,修正表在其下:**
 
 | split | official | 去污染后 | 移除 |
 |---|---:|---:|---:|
 | train | 370653 | **369843** | 810 行 / **38 个 page** |
 | validation | 63054 | **62984** | 70 行 / **2 个 page** |
 | test | 55197 | **55197** | **0 —— official test 一行未动** ✅ |
+
+- **SUPERSEDING 读数(2026-08-08,commit `c901310` 之后重导出):** 上表的量是在**原始字符串**
+  这个等价关系下数的,而下游每一个泄漏检查用的是 `normalize_parent`(casefold + 折叠空白)。
+  缺陷本身与三条轴的全量实测记在下一条目 R013-smoke。
+
+| split | official | 去污染后 | 移除 |
+|---|---:|---:|---:|
+| train | 370653 | **369819** | **834 行 / 39 个 page** |
+| validation | 63054 | **62984** | 70 行 / 2 个 page(**未变**) |
+| test | 55197 | **55197** | **0 —— 仍逐行未动** ✅ |
+
+- **差额 24 行 / 1 个 page:** 新增移除 train 侧的 `XXx-COLON- Return of Xander Cage`,
+  因为 dev 保有同一页的另一种拼法 `XXX-COLON- Return of Xander Cage`。
+  **dev 侧不变,而且这是可推导的、不是巧合:** 该页在 dev 的拼法不出现在 test 里,
+  故它留在 `kept_dev`,让路的必然是 train 那侧。
+- **本条的定性结论不变** —— official split 确有跨 split 的 revision-family 重叠,
+  去污染不是形式主义,test-preserving 满足。**变的是量,以及量是在哪个等价关系下数的。**
+- **三项预测在重导出之前写死,回来后逐条命中:** `n_dev` 不变 ✅ /
+  `n_train` 低于 369843 ✅(369819)/ `removed_train_groups` 增至 39 条且新增项恰为该页 ✅。
 
 - **移除的 dev page:** `John Frusciante`、`Linkin Park`(两者均出现在 official test 中)。
 - **移除的 train page(38):** 含 `World War II`、`China`、`Aristotle`、`French Revolution`、`YouTube` 等。
@@ -1998,28 +2017,75 @@ premise 质量、premise 长度、hypothesis 形式、argmax 记账、canonical-
 - **未导出 train/dev 的去污染副本:** Gate 0B-1 只需 official test;去污染后的 train/dev 仅在
   §3.8 训练路径被启动时才需要,届时加 `--out-train` / `--out-dev` 重跑即可(确定性,可复现)。
 
-### R013-smoke — §3.8 训练路径的首次执行尝试 [三次 FAIL,已重交 2026-08-08]
+### R013-smoke — §3.8 训练路径的首次执行尝试 [四次 FAIL;第四次拦出真实数据缺陷,已修 2026-08-08]
 
 **本条不是 R013。** R013 是三 seed 的正式 fine-tune;这里记的是冒烟(`--max-examples 2000`),
 它只验代码能否在真实数据上走完一遍,**不产生任何可引用的读数**。
 
-**三次 FAIL,三次都在开跑前被守卫拦下,一张 GPU 都没烧:**
+**四次 FAIL,四次都在开跑前被守卫拦下,一张 GPU 都没烧:**
 
 | job | 臂 | Elapsed | ExitCode | 原因 |
 |---|---|---:|---|---|
 | `18290519` | VitaminC 半 | 00:00:37 | 1:0 | `export_vitaminc` 尚未跑 ⇒ `data/gate0b/vitaminc_train.jsonl` 不存在 |
 | `18290571` | 含域适配半 | 00:00:04 | 1:0 | 同上;`FileNotFoundError` 原文即该路径 |
-| `18300333` | **未记录** | 00:00:12 | 1:0 | **原因未记录** —— 须从 slurm 日志补,**不得假定与前两次同因** |
+| `18300333` | **未记录** | 00:00:12 | 1:0 | **原因未记录** —— 须从 slurm 日志补,**不得假定与前三次同因** |
+| `18318996` | VitaminC 半 | 00:00:25 | 1:0 | `assert_decontaminated`:train 与 dev 共享 1 个页。**这一条是真实数据缺陷,详见下节** |
 
-- **37 秒 / 4 秒 / 12 秒这三个数本身就是结果:** 前置检查在拿到卡之后、加载模型之前失败,
-  说明守卫的位置是对的 —— 缺前提的代价是秒,不是一个 GPU 小时。
-- **这三条此前一条都没进台账。** 按本文件规则,没有条目的运行不算已记录,故补录;
+- **秒级失败本身就是结果:** 四次都在拿到卡之后、加载模型之前失败,说明守卫的位置是对的 ——
+  缺前提的代价是秒,不是一个 GPU 小时。
+- **前三条此前一条都没进台账。** 按本文件规则,没有条目的运行不算已记录,故补录;
   `EXPERIMENT_TRACKER.md` 的 R013 行当时写的是"smoke 验证中",与实际不符,已同步改正。
-- **前提已补齐(2026-08-08):** `export_vitaminc` 已跑,train **369843** / dev **62984** /
-  test **55197**,与上一条目 R011 的三项逐项吻合。
-- **已重交:** `18318996`,PENDING(Priority)。用 `--gres=gpu:1`(通用卡),
-  不与 `18318915`(g5-score)争 a100,两条线可并行。
-  命令:`sbatch scripts/run_r013_train_relations.slurm 13 runs/r013/smoke "--max-examples 2000"`。
+- **第一、二次的前提已补齐(2026-08-08):** `export_vitaminc` 已跑,train 369843 / dev 62984 /
+  test 55197 —— 该组数字随后被下节的修法 supersede(见 R011)。
+- 重交命令:`sbatch scripts/run_r013_train_relations.slurm 13 runs/r013/smoke "--max-examples 2000"`。
+  用 `--gres=gpu:1`(通用卡),不与 g5-score 争 a100,两条线可并行。
+
+#### 第四次拦出的是数据缺陷,不是配置失误 [根因已闭合]
+
+守卫报 train 与 dev 共享 1 个页(`page:xxx-colon- return of xander cage`)。
+**它给的补救办法是错的** —— 它说"用 `export_vitaminc` 导出,别直接加载 `tals/vitaminc`",
+而导出器已经用过:`_check_against_decontamination_log` 在守卫之前通过,
+逐项对上了日志的 `n_train` / `n_dev`。再跑一次导出器不会有任何变化。
+
+**根因:两层对"同一个页"用了不同的定义。**
+
+| 位置 | 比什么 |
+|---|---|
+| `relations/vitaminc.py` `decontaminate` | **原始字符串** `pair.group` |
+| `relations/training.py` `assert_decontaminated` | `page_key` = `page:` + `normalize_parent` |
+
+`normalize_parent` = `" ".join(title.split()).casefold()`。同一个维基页面的两种拼法
+(只差大小写或空白)在导出器眼里是**两个页、一个都不删**,在守卫眼里是**一个页、交集非空**。
+**`page_key` 的 docstring 恰好写着这条** —— "comparing them raw would report no shared article
+for two spellings of one — an audit that passes because it cannot see" ——
+而 `decontaminate` 就是那个 raw comparison。**导出器犯了守卫的辅助函数为之而写的那个 bug。**
+
+**三条轴全量实测(bp1 登录节点,秒级):**
+
+| 轴 | 归一化后共享的页 |
+|---|---|
+| train ∩ dev | **1** —— train `XXx-COLON- Return of Xander Cage` / dev `XXX-COLON- Return of Xander Cage` |
+| train ∩ **test** | **0** |
+| dev ∩ **test** | **0** |
+
+**评测面从未被污染。** R012 / R012b / R012c / R012d 一个数字都不动 —— 它们跑在 official test 上,
+而 test 逐行原样导出、从不过滤。**但这条只在"test 从不被过滤"成立时才成立**,
+且 `assert_decontaminated` 只查 train-vs-dev,**test 两条轴上没有守卫** ——
+这次崩溃是撞上了有守卫的那条轴,不是把 bug 抓全了。零碰撞是实测,不是推论。
+
+**修法(`c901310`):** `decontaminate` 改按 `normalize_parent` 分组,与 `page_key` 对齐。
+**守卫不动** —— 放松成 raw 才是反方向。`removed_*_groups` 仍报原始拼写,
+报归一化 key 会把造成删除的那个差异本身藏掉。
+先写两条红测试(train/dev 轴与 test 轴各一)再改;逐字 CI:`ruff check src tests` 通过、
+`mypy src tests/typecheck.py` 122 文件通过、`pytest` **1216 passed / 1 xfailed**。
+
+**一次被证伪的部署预测,以及它为什么留在这里。** 修完后第一次重导出,
+`n_train` 仍是 369843、`removed_train_groups` 仍是 38 条 —— **预注册的预测失败**。
+原因不是根因链断了:**bp1 是另一个 checkout,改动还在本地未提交,跑的是旧代码**。
+提交推送并在 bp1 拉取后重跑,三项预测全部命中(见 R011)。
+**若当时没有把预测写死,"369843,和之前一样"会被自然读成"没影响,继续"**,
+下一次提交会在同一个守卫上第五次挂掉。
+⇒ **纪律:部署也要有可证伪的读数,不能只看命令有没有报错。**
 - **过了再跑带域适配的那一半**(`--niah-manifest` / `--niah-provenance` / `--niah-parents` /
   `--sealed-dir runs/niah-sealed600` / `--niah-twin-label REFUTES`)。
   **那一次才是 Line A / Line B 接口的首次真实数据执行** —— sealed-600 零重叠检查、
