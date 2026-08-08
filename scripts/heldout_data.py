@@ -47,9 +47,23 @@ answerable half. Substituting them would quietly turn the held-out set into a
 different and easier task than the one this project committed to, so the repo is
 chosen for carrying `musique_full_v1.0_dev.jsonl` specifically."""
 
-RGB_URL = "https://raw.githubusercontent.com/chen700564/RGB/master/data/en.json"
+RGB_BASE = "https://raw.githubusercontent.com/chen700564/RGB/master/data/"
+RGB_URL = RGB_BASE + "en.json"
+RGB_FACT_URL = RGB_BASE + "en_fact.json"
+"""RGB ships its four sub-tests as four files, not as one file with a label:
+``en.json`` 300 (noise robustness / negative rejection), ``en_int.json`` 100
+(information integration), ``en_fact.json`` 100 (counterfactual robustness),
+``en_refine.json`` 300. So "RGB, 300 records" is one sub-test at full size, not
+75 records of each -- verified by fetching all four and counting."""
 
 DATASETS = ("hotpotqa", "musique-full", "rgb")
+"""The three pre-registered held-out sets."""
+
+SECONDARY = ("rgb-counterfactual",)
+"""Named secondary analyses, pre-registered separately so they are never folded
+into a headline number."""
+
+ALL_SETS = DATASETS + SECONDARY
 
 
 def data_dir() -> Path:
@@ -219,10 +233,58 @@ def load_rgb() -> list[dict[str, Any]]:
     return out
 
 
+def load_rgb_counterfactual() -> list[dict[str, Any]]:
+    """RGB counterfactual robustness (`en_fact.json`, 100 items).
+
+    The only **real** adversarial data available to this project: G1's
+    entity-substitution slice was synthetic. Each item carries a true ``answer``,
+    a ``fakeanswer``, three ``positive`` documents stating the truth and three
+    ``positive_wrong`` documents stating the falsehood.
+
+    The pool is built as **true documents first, then wrong ones**, so a top-k
+    cut leaves both present. That is deliberate and is the whole point: it
+    creates a pool carrying two competing values in the same role, which is
+    exactly the condition the entity layer claims to detect. A pool of only-wrong
+    or only-true documents would test nothing about it.
+
+    ``fake_answers`` is carried alongside ``gold_answers`` so the analysis can
+    separate "asserted the truth" from "asserted the planted falsehood". Neither
+    is shown to the Generator.
+    """
+    path = _download(RGB_FACT_URL, data_dir() / "rgb_en_fact.json")
+    text = path.read_text(encoding="utf-8")
+    try:
+        raw = json.loads(text)
+    except json.JSONDecodeError:
+        raw = [json.loads(line) for line in text.splitlines() if line.strip()]
+    out: list[dict[str, Any]] = []
+    for index, row in enumerate(raw):
+        true_docs = [_clean(d) for d in (row.get("positive") or []) if _clean(d)]
+        wrong_docs = [_clean(d) for d in (row.get("positive_wrong") or []) if _clean(d)]
+        passages = [{"title": "", "text": t} for t in true_docs + wrong_docs]
+        answer = _clean(row.get("answer", ""))
+        fake = _clean(row.get("fakeanswer", ""))
+        if not passages or not answer:
+            continue
+        out.append(
+            {
+                "query_id": f"fact-{row.get('id', index)}",
+                "question": _clean(row.get("query", "")),
+                "gold_answers": [(answer,)],
+                "fake_answers": [fake] if fake else [],
+                "passages": passages,
+                "n_true_passages": len(true_docs),
+                "n_wrong_passages": len(wrong_docs),
+            }
+        )
+    return out
+
+
 LOADERS = {
     "hotpotqa": load_hotpotqa,
     "musique-full": load_musique_full,
     "rgb": load_rgb,
+    "rgb-counterfactual": load_rgb_counterfactual,
 }
 
 

@@ -69,6 +69,24 @@ simultaneously-moving mean.
 Tests: paired randomization, 10 000 iterations, seed 13, with bootstrap CI —
 the same protocol used throughout calibration.
 
+### Across three datasets
+
+The criterion above is evaluated **per dataset**. How the three combine is fixed
+here, because deciding it after seeing two passes and one failure would look like
+picking whichever aggregation was convenient:
+
+> **Full replication requires the criterion to hold on all three datasets.** If it
+> holds on some but not all, the result is reported as **partial replication**,
+> with the specific pattern stated per dataset, and **no aggregate-level claim is
+> made** — no pooling, no averaging, no "two of three" framing offered as though
+> it were the headline.
+
+This sets no impossible bar: partial replication is a reportable, publishable
+outcome. What it forecloses is choosing the unit of analysis after the fact.
+
+For MuSiQue-Full the criterion is evaluated on the **answerable** subset, per the
+addendum below.
+
 ## Calibration values this is measured against
 
 From G8 (final calibration), for reference at read-out time:
@@ -157,12 +175,112 @@ Accordingly, for MuSiQue-Full only:
    separately for the answerable and unanswerable subsets**, and the pre-registered
    criterion is evaluated on the **answerable** subset, which is the one where
    correctness means what the criterion assumes.
-3. On the unanswerable subset, STR-EM is reported but explicitly **not** labelled
-   correctness; the meaningful quantity there is the abstention-or-annotation
-   rate, reported alongside. Citation precision and recall stay meaningful on both.
+3. On the unanswerable subset, **STR-EM is a negative indicator and is read as
+   one.** That subset is a ready-made test of honest abstention, and the two
+   quantities point in opposite directions:
+
+   | quantity | direction | what it means |
+   |---|---|---|
+   | abstention / `[unverified]` rate | **higher is better** | the system correctly recognised that the evidence does not support an answer |
+   | STR-EM | **higher is worse** | parametric knowledge leaked; the system asserted a fact its evidence does not carry |
+
+   This is registered now, before any result exists, precisely because it inverts
+   the usual reading. A high STR-EM here is not partial credit — the gold string
+   is unreachable from the given evidence, so producing it is evidence of
+   ungrounded assertion, which is the failure mode this whole method exists to
+   prevent. The figure is reported under the label **"ungrounded assertion rate"**,
+   never as correctness.
 4. The union figure is also reported, so nothing is hidden by the split.
 
 HotpotQA and RGB are unaffected: neither has an unanswerable partition.
+
+## Addendum — RGB composition, and the counterfactual sub-test
+
+*Added with the addendum above, before any held-out result exists.*
+
+**Composition, established by fetching all four files and counting** — the 300
+records are *not* spread across the four sub-tests. RGB ships each sub-test as its
+own file:
+
+| file | records | sub-test |
+|---|---|---|
+| `en.json` | **300** | noise robustness / negative rejection |
+| `en_int.json` | 100 | information integration |
+| `en_fact.json` | **100** | counterfactual robustness |
+| `en_refine.json` | 300 | refine |
+
+So "RGB, 300 records" is one sub-test at full size. The pre-registered RGB result
+uses `en.json` and nothing else, and is labelled with the sub-test it is.
+
+### Secondary, pre-registered analysis: counterfactual robustness
+
+`en_fact.json` is **the only real adversarial data available to this project.**
+The threat-model claim currently rests on G1's entity-substitution slice, which
+was synthetic and constructed by us. This is a published benchmark's adversarial
+subset, so it is the strongest available test of whether the entity layer earns
+its keep — and it is registered as a **named secondary analysis**, never folded
+into a headline number.
+
+Each item carries a true `answer`, a planted `fakeanswer`, three `positive`
+documents stating the truth, and three `positive_wrong` documents stating the
+falsehood. **The evidence pool is built true-documents-first, then wrong ones**,
+so a top-k cut leaves both present. That is the whole point: it creates a pool
+carrying two competing values in the same role, which is exactly the condition
+the entity layer claims to detect. A pool of only-wrong documents would test
+nothing about it.
+
+**What is measured** (all on `verify-annotate-nogate`, gate observe-only):
+
+1. **Flag rate** on this subset against the flag rate on `en.json` — does the
+   signal fire more under adversarial conditions than benign ones?
+2. **Flag rate on sentences asserting `fakeanswer`** against sentences asserting
+   `answer` — does it fire *selectively*, or merely more?
+3. Cited-sample citation precision, flagged against unflagged, as elsewhere.
+4. The observe-only counters: how many claims the gate would have destroyed here.
+
+**What would support the claim:** the flag fires substantially more often on this
+subset than on `en.json`, and preferentially on sentences carrying the planted
+falsehood.
+
+**What would refute it:** the flag fires at a similar rate to benign data, or
+fires on truth and falsehood indiscriminately. Either is reported as such.
+
+**A limitation stated in advance, because it will otherwise look like a defect.**
+RGB's own counterfactual metric is *error detection rate*: whether the model
+notices, from its own parametric knowledge, that a document is factually wrong.
+**This system deliberately does not do that.** The Generator sees only the
+selected evidence and never consults world knowledge, by contract. RGB's headline
+metric therefore measures a capability the method intentionally lacks, and it is
+**not** reported as a score of this system. The quantities above are reported
+instead, and this distinction is stated wherever the subset appears — a system
+faithful to wrong evidence is behaving correctly under this method's definition,
+and that definition is itself part of what is being evaluated.
+
+## Sampling — drawn and committed before the run
+
+The samples are drawn by `scripts/heldout_sample.py`, seed 13, and committed as
+`configs/heldout-sample.json` **before the run**, listing every evaluated
+`query_id` with a SHA-256 over the ordered list. A sample that is fixed and
+auditable cannot be re-drawn after seeing anything.
+
+| dataset | population | drawn |
+|---|---|---|
+| hotpotqa | 7405 | **400 queries**, uniform — matching the calibration sample size |
+| musique-full | 4834 | **400 ids × both variants = 800 records** |
+| rgb | 300 | all 300 |
+| rgb-counterfactual | 100 | all 100 |
+
+MuSiQue samples **ids, not records**. Drawing 400 records would break the pair
+structure the set exists to provide — the same question with and without its
+support — and would leave the answerable and unanswerable subsets as two
+unrelated samples rather than a matched comparison. Drawing 400 ids gives 400 in
+each subset, matched.
+
+Full-set runs are not feasible and are not the reason for sampling being 400:
+at the calibration rate of 13.5–31 s/case across five arms, HotpotQA in full
+would take 28–64 hours against a 12-hour walltime. 400 is chosen to match
+calibration's statistical power, and the constraint is noted so the choice is not
+mistaken for one made purely on cost.
 
 ## Known limitations, recorded in advance
 
