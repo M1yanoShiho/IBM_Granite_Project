@@ -99,6 +99,71 @@ citation recall +0.071 (p = 0.009).
    rather than *suboptimal* — in which case the correction is made, disclosed, and
    the affected numbers are re-reported as corrected.
 
+### If a job fails partway
+
+Decided now, because deciding it after a crash — with results possibly
+half-written — is not a decision anyone should trust.
+
+- **Infrastructure failure before any results exist may be re-run.** Out of
+  memory, walltime exceeded, node failure, a model that will not load, a crash in
+  the generation stage. Nothing was observed, so nothing is contaminated. The
+  re-run is a first run.
+- **Once results exist, they stand.** No re-run, whatever they show. "Results
+  exist" means the scoring stage produced a metric for that dataset — not that
+  generation completed, and not that a partial file is on disk.
+- **The boundary is the scorer, not the eye.** A generation job that finished but
+  was never scored may be re-run; whether anyone happened to look at a log is not
+  the test, because a test that depends on what a person remembers seeing is not
+  a test.
+- A dataset whose generation completes but whose scoring fails is re-scored, not
+  re-generated: scoring is deterministic given the same inputs and the same judge,
+  so re-scoring observes nothing new.
+- Every re-run, and its reason, is recorded in `docs/hpc-run-log.md` at the time
+  it happens.
+
+The one case this deliberately does not permit: re-running because the numbers
+look wrong. That is the failure mode the whole document exists to prevent.
+
+**Per-dataset independence.** Each dataset is one job containing all five arms
+(cross-job non-determinism was measured at 11% answer churn under fixed seed,
+code, model and node, so no arm may be split across jobs). A failure on one
+dataset does not invalidate another that already produced results.
+
+## Addendum — MuSiQue-Full subsets
+
+*Added after the plumbing dry run, **before any held-out result exists**. It is a
+reporting refinement forced by the dataset's structure, not a reaction to any
+number, and it is recorded separately from the original text so the distinction
+stays visible.*
+
+The dry run established, by counting rather than assumption, that MuSiQue-Full's
+dev split is **4834 records = 2417 ids appearing twice**, once answerable and
+once not — and that **both variants carry a non-empty gold answer string**.
+
+For an unanswerable item the supporting paragraphs have been removed, so the
+evidence does not support that gold answer. String-match correctness would
+therefore **reward a system for asserting the answer anyway, and penalise
+abstention or an unverified label** — the precise inversion of what this project
+claims to be good at. A single blended STR-EM over MuSiQue-Full would flatter the
+baseline and punish the main method for behaving correctly, and would be
+misleading in either direction.
+
+Accordingly, for MuSiQue-Full only:
+
+1. The two variants are given distinct query IDs (`{id}#ans`, `{id}#unans`); the
+   raw id is not unique and would collide in every id-keyed structure, the paired
+   tests included.
+2. **Coverage, correctness, citation precision and citation recall are reported
+   separately for the answerable and unanswerable subsets**, and the pre-registered
+   criterion is evaluated on the **answerable** subset, which is the one where
+   correctness means what the criterion assumes.
+3. On the unanswerable subset, STR-EM is reported but explicitly **not** labelled
+   correctness; the meaningful quantity there is the abstention-or-annotation
+   rate, reported alongside. Citation precision and recall stay meaningful on both.
+4. The union figure is also reported, so nothing is hidden by the split.
+
+HotpotQA and RGB are unaffected: neither has an unanswerable partition.
+
 ## Known limitations, recorded in advance
 
 Stated now so they cannot be presented later as though they were anticipated only
