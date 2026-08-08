@@ -31,13 +31,23 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT / "src") not in sys.path:
     sys.path.insert(0, str(REPO_ROOT / "src"))
 
-HOTPOT_URL = "http://curtis.ml.cmu.edu/datasets/hotpot/hotpot_dev_distractor_v1.json"
+HOTPOT_URL = (
+    "https://huggingface.co/datasets/hotpotqa/hotpot_qa/resolve/main/"
+    "distractor/validation-00000-of-00001.parquet"
+)
+"""The original CMU host (`curtis.ml.cmu.edu`) is unreachable from the cluster --
+the connection times out rather than refusing, so it looks like a hang. The HF
+mirror carries the same dev distractor split."""
+
 MUSIQUE_URL = (
-    "https://huggingface.co/datasets/dgslibisey/MuSiQue/resolve/main/data/validation-00000-of-00001.parquet"
+    "https://huggingface.co/datasets/bdsaglam/musique/resolve/main/musique_full_v1.0_dev.jsonl"
 )
-RGB_URL = (
-    "https://raw.githubusercontent.com/chen700564/RGB/master/data/en.json"
-)
+"""**Full, not Ans.** The commonly-mirrored `musique_ans_*` files contain only the
+answerable half. Substituting them would quietly turn the held-out set into a
+different and easier task than the one this project committed to, so the repo is
+chosen for carrying `musique_full_v1.0_dev.jsonl` specifically."""
+
+RGB_URL = "https://raw.githubusercontent.com/chen700564/RGB/master/data/en.json"
 
 DATASETS = ("hotpotqa", "musique-full", "rgb")
 
@@ -74,14 +84,27 @@ def _clean(text: str) -> str:
 
 
 def load_hotpotqa() -> list[dict[str, Any]]:
-    """HotpotQA dev, distractor setting: 10 paragraphs, 2 gold + 8 distractors."""
-    path = _download(HOTPOT_URL, data_dir() / "hotpot_dev_distractor_v1.json")
-    raw = json.loads(path.read_text(encoding="utf-8"))
+    """HotpotQA dev, distractor setting: 10 paragraphs, 2 gold + 8 distractors.
+
+    The HF mirror stores ``context`` column-wise (``{"title": [...],
+    "sentences": [[...], ...]}``) rather than as a list of pairs, so it is
+    transposed back here.
+    """
+    try:
+        import pandas as pd
+    except ImportError as exc:  # pragma: no cover - environment-dependent
+        raise SystemExit("reading the HotpotQA parquet needs pandas + pyarrow") from exc
+
+    path = _download(HOTPOT_URL, data_dir() / "hotpot_dev_distractor.parquet")
+    frame = pd.read_parquet(path)
     out: list[dict[str, Any]] = []
-    for row in raw:
+    for _, row in frame.iterrows():
+        context = row["context"]
+        titles = list(context["title"])
+        bodies = list(context["sentences"])
         passages = [
             {"title": _clean(title), "text": _clean("".join(sentences))}
-            for title, sentences in row.get("context", [])
+            for title, sentences in zip(titles, bodies, strict=False)
             if "".join(sentences).strip()
         ]
         answer = _clean(row.get("answer", ""))
@@ -89,7 +112,7 @@ def load_hotpotqa() -> list[dict[str, Any]]:
             continue
         out.append(
             {
-                "query_id": str(row["_id"]),
+                "query_id": str(row["id"]),
                 "question": _clean(row["question"]),
                 "gold_answers": [(answer,)],
                 "passages": passages,
@@ -99,27 +122,29 @@ def load_hotpotqa() -> list[dict[str, Any]]:
 
 
 def load_musique_full() -> list[dict[str, Any]]:
-    """MuSiQue validation, full setting: 20 paragraphs, answerable and not.
+    """MuSiQue dev, **full** setting: 20 paragraphs, answerable and unanswerable.
 
-    The unanswerable half is kept -- dropping it would turn the held-out set into
-    a different, easier task than the one named.
+    The unanswerable half is kept. Dropping it -- which is what loading
+    ``musique_ans`` instead would do -- would turn the held-out set into a
+    different and easier task than the one this project committed to.
+
+    An unanswerable item carries no gold answer, so it cannot be scored for
+    correctness and is excluded here. That exclusion is a property of the metric,
+    not a quiet swap of dataset: the count of items dropped for this reason is
+    reported by the dry run so the difference from the full file is visible.
     """
-    try:
-        import pandas as pd
-    except ImportError as exc:  # pragma: no cover - environment-dependent
-        raise SystemExit("reading the MuSiQue parquet needs pandas + pyarrow") from exc
-
-    path = _download(MUSIQUE_URL, data_dir() / "musique_validation.parquet")
-    frame = pd.read_parquet(path)
+    path = _download(MUSIQUE_URL, data_dir() / "musique_full_v1.0_dev.jsonl")
     out: list[dict[str, Any]] = []
-    for _, row in frame.iterrows():
-        paragraphs = row.get("paragraphs")
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        row = json.loads(line)
         passages = [
             {
                 "title": _clean(p.get("title", "")),
                 "text": _clean(p.get("paragraph_text", "")),
             }
-            for p in (paragraphs if paragraphs is not None else [])
+            for p in row.get("paragraphs", [])
             if _clean(p.get("paragraph_text", ""))
         ]
         answer = _clean(row.get("answer", "") or "")
@@ -135,6 +160,7 @@ def load_musique_full() -> list[dict[str, Any]]:
                 "question": _clean(row["question"]),
                 "gold_answers": [tuple(dict.fromkeys(aliases))],
                 "passages": passages,
+                "answerable": bool(row.get("answerable", True)),
             }
         )
     return out
