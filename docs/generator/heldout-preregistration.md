@@ -99,6 +99,36 @@ citation recall +0.071 (p = 0.009).
    rather than *suboptimal* — in which case the correction is made, disclosed, and
    the affected numbers are re-reported as corrected.
 
+### If a job fails partway
+
+Decided now, because deciding it after a crash — with results possibly
+half-written — is not a decision anyone should trust.
+
+- **Infrastructure failure before any results exist may be re-run.** Out of
+  memory, walltime exceeded, node failure, a model that will not load, a crash in
+  the generation stage. Nothing was observed, so nothing is contaminated. The
+  re-run is a first run.
+- **Once results exist, they stand.** No re-run, whatever they show. "Results
+  exist" means the scoring stage produced a metric for that dataset — not that
+  generation completed, and not that a partial file is on disk.
+- **The boundary is the scorer, not the eye.** A generation job that finished but
+  was never scored may be re-run; whether anyone happened to look at a log is not
+  the test, because a test that depends on what a person remembers seeing is not
+  a test.
+- A dataset whose generation completes but whose scoring fails is re-scored, not
+  re-generated: scoring is deterministic given the same inputs and the same judge,
+  so re-scoring observes nothing new.
+- Every re-run, and its reason, is recorded in `docs/hpc-run-log.md` at the time
+  it happens.
+
+The one case this deliberately does not permit: re-running because the numbers
+look wrong. That is the failure mode the whole document exists to prevent.
+
+**Per-dataset independence.** Each dataset is one job containing all five arms
+(cross-job non-determinism was measured at 11% answer churn under fixed seed,
+code, model and node, so no arm may be split across jobs). A failure on one
+dataset does not invalidate another that already produced results.
+
 ## Known limitations, recorded in advance
 
 Stated now so they cannot be presented later as though they were anticipated only

@@ -27,10 +27,16 @@ Calibration is frozen here. The held-out protocol is pre-registered separately i
 | citation precision | **+0.203 (p = 0.0)** | +0.191 (p = 0.0) |
 | citation recall | **+0.079 (p = 0.002)** | +0.071 (p = 0.009) |
 
+**Each column is a within-job paired comparison; the two columns are not
+subtracted from one another.** Reading this as "precision improved by 0.012
+between rounds" would be exactly the cross-job error documented below. The claim
+is only that a finding established within G7 also holds within G8, on
+independently generated answers — which is what replication means and all it
+means here.
+
 Statistically indistinguishable from the baseline on coverage and correctness,
 while carrying +0.20 citation precision and +0.08 citation recall. Both null
-results are still null and both gains are still significant, on an independently
-generated set of answers.
+results are still null and both gains are still significant.
 
 `nogate vs open` also replicates: coverage +0.128 (p = 0.0), correctness +0.048
 (p = 0.0), citation precision −0.014 (p = 0.145), citation recall −0.002
@@ -68,18 +74,28 @@ is deliberately left alone.
 would-drop claim is dropped, so an ablation arm cannot produce the label, and the
 ablations are untouched by construction rather than by inspection.
 
-### Enrichment on this run
+### Enrichment on this run, with intervals
 
-| | precision | error rate | n |
-|---|---|---|---|
-| flagged examples | **0.763** | 0.237 | 59 |
-| unflagged examples | **0.897** | 0.103 | 247 |
+| | precision | error rate | 95% Wilson | n |
+|---|---|---|---|---|
+| flagged examples | 0.763 | **0.237** | **[0.147, 0.360]** | 59 |
+| unflagged examples | 0.897 | **0.103** | **[0.070, 0.145]** | 247 |
 
-**Lift: 2.3× the error rate.** Lower than G7's 2.9× (0.678 / 0.888), and this is
-the operative figure — it is measured on the run being reported rather than
-inherited from the round that motivated the flag. The screening claim holds:
-roughly one in four flagged sentences has a citation the judge rejects, against
-one in ten elsewhere.
+**Lift: 2.3× the error rate — but the point estimate carries most of the weight
+here and it should not.** The two intervals do separate, which is what the
+screening claim needs, but they separate by **0.002** (0.147 against 0.145).
+Taking the interval corners, the lift is compatible with anything from **1.01× to
+5.18×**.
+
+So the honest statement is: *the flagged cohort has a higher citation-error rate
+than the unflagged one, at the 95% level, and the size of that difference is not
+well determined by n = 59.* The estimate's own instability across rounds says the
+same thing — 2.9× in G7 (0.678/0.888), 2.3× here. The G8 figure is the operative
+one because it is measured on the run being reported, not because it is better.
+
+This is a screening flag on a presentation surface, so an imprecise but
+directionally sound signal is fit for purpose. It would not be sufficient to
+justify a destructive action, which is the reason the layer no longer takes one.
 
 ## Task 3 — metrics-neutrality, proved rather than inferred
 
@@ -150,6 +166,48 @@ Routing for nogate: 439 claims, 359 verified, 80 annotated, **0 dropped**. The
 gate would have destroyed **66**; all 66 are cited instead, none fell through to
 annotation, and the control-arm self-check is exact (`gate_would_drop` = 66 =
 `dropped_entity_conflict`).
+
+## The residual parse failures
+
+Two queries fail per verify arm. Non-random failure has twice produced sampling
+bias in this project — the `source_text` verbatim constraint failed preferentially
+on heavily paraphrased answers, and the recheck JSON crash killed whole queries
+with the same skew — so these were checked rather than assumed harmless.
+
+**They are systematic, in the sense of being stable.** The same two queries fail
+in G8 and in G7:
+
+| round | distinct failing queries |
+|---|---|
+| G6 | 4 |
+| G7 | 6 — a superset of G8's |
+| G8 | **2**, both also present in G7 |
+
+Both are `LLM output must be valid JSON` from the claim splitter:
+
+```
+-1401070853739059360  "Who wrote the song where do we go from here?"
+ 8224675151111585010  "When was the first pirates of the caribbean movie released?"
+```
+
+They cluster on nothing measurable: both carry 500 evidence words against a
+corpus median of 500, ordinary-length questions, and the baseline answers both
+without difficulty (15 and 13 words). The failure is in the splitter's JSON
+emission, not in any property of the query.
+
+**They cannot bias any arm-vs-arm comparison**, because they fail in the *shared*
+upstream claim-splitting stage: all four verify arms lose the same two queries,
+and the paired tests match on `query_id`, so an unmatched query is excluded from
+both sides rather than counted against one.
+
+**They do mildly flatter the verify arms at arm level**, and this belongs in
+limitations. Baseline has 0 errors and is scored over 400; the verify arms are
+scored over 398. Counting the two failures as unanswered would move verify-only's
+coverage from 252/398 = 0.633 to 252/400 = 0.630 — **+0.003 in the verify arms'
+favour**. The paired comparisons, which carry every claim in this document, are
+unaffected.
+
+Not fixed: calibration is frozen.
 
 ## Status
 

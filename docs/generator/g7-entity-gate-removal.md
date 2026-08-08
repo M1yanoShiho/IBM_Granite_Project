@@ -20,11 +20,40 @@ that cited nothing scores 0. Cited-sample precision is alongside.
 | verify-annotate-open (control) | 0.784 | 0.223 | 0.723 | 0.890 (251) | 0.707 | 309/394 |
 | **verify-annotate-nogate** | **0.911** | **0.268** | 0.718 | 0.848 (304) | 0.703 | 359/394 |
 
-**The control arm reproduced G6 exactly: 394/394 answers byte-identical.** The
-routing refactor that computes both verdicts in one pass changed nothing, and
-baseline and verify-only reproduce their G6 numbers to the digit. Cross-run
-comparability, which has confounded this project twice, is verified rather than
-assumed here.
+**The control arm reproduced G6 exactly: 394/394 answers byte-identical**, and
+baseline and verify-only reproduced their G6 numbers to the digit, including
+their error counts. The routing refactor that computes both verdicts in one pass
+changed nothing — that inference is sound and is what the comparison was for.
+
+> ### Correction — what this does NOT establish
+>
+> The original wording continued "cross-run comparability … is verified rather
+> than assumed here". **That inference was wrong and is withdrawn.**
+>
+> G8 re-ran the identical five arms and found the **baseline** arm — which
+> contains no changes whatsoever — reproducing G7 on only **356/400 (0.890)**.
+> Two candidate explanations were checked against the job logs:
+>
+> * *G7 reused cached generations.* **Ruled out.** G7 logged a full generation
+>   pass at **6.06 s/arm/case** against G6's **6.03**, with per-arm answered and
+>   error counts produced afresh; the runner has no caching path.
+> * *Execution conditions happened to match.* **Supported.** G6 and G7 ran within
+>   0.5% of each other per arm-case; G8 ran the same code on the same node
+>   (`bp1-gpu035`) at **2.70 s/arm/case**, 2.2× faster, and diverged on 11% of
+>   queries. Decoding is greedy (`temperature=0.0`), so the arithmetic is
+>   deterministic but the GPU reduction order is not, and near-ties flip.
+>
+> The honest claim is therefore: **cross-run identity was observed between two
+> runs that happened to execute alike. It is conditional on execution conditions,
+> not guaranteed, and must never be relied on.** The rule that follows is applied
+> throughout this repository: **no reported comparison may span two jobs.**
+>
+> Concretely, `verify-annotate-capped` — an arm untouched between the two rounds
+> — reads citation precision 0.890 here and 0.911 in G8. That 0.021 gap is pure
+> cross-job drift and is not a result.
+
+Every comparison reported below is between arms **within this single job**, which
+is why the all-arms-in-one-job discipline exists.
 
 ## The pre-registered failure criterion is breached
 
