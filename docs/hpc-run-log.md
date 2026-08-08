@@ -2497,6 +2497,23 @@ baseline 不用);baseline 全好(Granite 本身无恙);35 条活下来的是**�
   结构性惩罚任何 coverage 增益),**第三次就会被读成"结果不合意就重新解释规则"**。
 - 数据合规:本轮只用 ALCE/ASQA;**HotpotQA / RGB / MuSiQue-Full 从不加载**。
 
+**中性检验的量化门槛(把新切句器作用于 G7 自己的答案算出,运行前写下):**
+
+| 臂 | G7 句数 | 新规则下句数 | delta | 受影响答案 |
+|---|---|---|---|---|
+| baseline | 427 | 415 | **−12** | 10 |
+| verify-only | 275 | 268 | **−7** | 6 |
+| verify-annotate-capped | 328 | 320 | **−8** | 7 |
+| verify-annotate-open | 391 | 383 | **−8** | 7 |
+| verify-annotate-nogate | 455 | 446 | **−9** | 8 |
+
+外加:open 与 nogate 各**救回 1 条**被 validator 误拒的答案(coverage +1/394)——
+G7 的记录里看不到,因为被拒的答案根本没写盘。
+
+**判读规则:** 答案是重新生成的,不预期逐字复现;上表是**量级门槛**。
+**baseline 与 verify-only 不含任何标记,若这两臂的移动超出上表,那是生成随机性;
+而 nogate 若相对 open 出现超出该量级的、方向一致的偏移,即须怀疑审阅标记漏进了指标。**
+
 **AFTER:** 未运行。
 
 ---
