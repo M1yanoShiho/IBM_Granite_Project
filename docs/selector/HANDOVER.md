@@ -28,16 +28,20 @@
 
 | 任务 | 状态 |
 |---|---|
-| **R013 冒烟** | 刚提交(`--max-examples 2000`)。前面五次全 FAIL,五种挂法已逐一排掉:VitaminC 未导出 ×2、原因未查 ×1、`decontaminate` 比较函数缺陷 ×1、基座未下载到 work 缓存 ×1 |
-| **g5-score** | G 模块的评分作业,排队中。与 selector 无关,但和 R013 争 GPU 分区 —— R013 用 `--gres=gpu:1`(通用卡),不抢 a100 |
+| **R013 冒烟** | ~~刚提交(`--max-examples 2000`)~~ **那次就是 `18319801`,已 FAIL(第五次)**:基座不在 work 缓存,死因由 blob 落盘时间实证(晚于作业死亡四小时),见 hpc-run-log R013-smoke 第五行。**当前:预检已按"作业同款 env"纪律全绿、`--gres` 已钉 `a100`,待交。** 五种挂法仍然成立且已逐一排掉:VitaminC 未导出 ×2、原因未查 ×1、`decontaminate` 比较函数缺陷 ×1、基座未下载到 work 缓存 ×1 |
+| **g5-score** | G 模块的评分作业。~~R013 用 `--gres=gpu:1`(通用卡),不抢 a100~~ **已作废(2026-08-08):** gpu 分区实测以 rtx_2080/V100 为主,均无 bf16,而 §3.8(b) 冻结 bf16 ⇒ R013 脚本已改钉 `--gres=gpu:a100:1`,**两条线现在争同一个节点(bp1-gpu035),15 次 fine-tune 的排队压力要计入日程** |
 
-**冒烟的下一个可能挂点是 bf16。** sentence-transformers 3.x 没有 bf16 开关时会**报错而不是静默降成 fp16**
+~~**冒烟的下一个可能挂点是 bf16。** sentence-transformers 3.x 没有 bf16 开关时会**报错而不是静默降成 fp16**
 ——报错是正确行为。但接下来的裁决**不能随手做**:装 ≥4 是环境变更,改 §3.8(b) 是协议修订,两者代价不是一个量级。
-**这一条请交回毛威凯裁,不要自己选。**
+**这一条请交回毛威凯裁,不要自己选。**~~
+**↑ 该岔路已由实测消解(2026-08-08),不需要任何人裁:** venv 里是 **sentence-transformers 5.5.1**,不是 3.x
+——"装 ≥4"早已是事实,`_train` 按模块存在性分派走 `CrossEncoderTrainer`,bf16 原生传入。
+**bf16 的风险换到了硬件上**(多数卡不支持),已由 gres 钉 a100 解决;那是调度改动,不动 §3.8(b)。
 
-**冒烟跑完要看三件事:**
-1. 走的是 v3 `.fit()` 还是 v4/v5 `CrossEncoderTrainer`
-2. bf16 报不报错
+**冒烟跑完要看的,三件缩成一件:**
+1. ~~走的是 v3 `.fit()` 还是 v4/v5 `CrossEncoderTrainer`~~ —— 提前有答案(5.5.1 ⇒ Trainer),
+   日志里确认一行 `[train_relations] fold 0: CrossEncoderTrainer API` 即可
+2. ~~bf16 报不报错~~ —— 岔路已消解,见上
 3. ~~分类头有没有被重初始化~~ —— **不用看**,`_construct_scaffold` 已经硬失败;
    2026-08-08 在登录节点正面确认过:`id2label` 回来是有名字的三类,`label_order` 与登记值一致
 
@@ -164,7 +168,8 @@ MiniCheck 的 label token id 按文本查表(不报错,只是给两个无关词�
 | 坑 | 怎么避 |
 |---|---|
 | **登录节点只跑秒级检查** | 曾在 login03 跑 `build_sealed600` 把节点跑挂,管理员群发过警告。重活一律进 compute 作业 |
-| **`HF_HOME` 必须显式 export** | 2026-08-08 刚踩:8-06 的 preflight 没 export,模型下到了 `~/.cache/huggingface`;作业体把 HF_HOME 指向 `/user/work/$USER/hf_cache`,于是在正确的地方找不到东西。两份缓存并存至今 |
+| **预检必须在作业同款 env 下跑**(不只是"记得 export HF_HOME") | 2026-08-08 以 `18319801` 复发实证:8-06 的 preflight 在**有网、没 export HF_HOME** 的 shell 里跑,`from_pretrained` 顺手把模型下到 `~/.cache/huggingface` 并给出六项全 PASS ——**预检自己制造了它所验证的前提**,而作业指向 `/user/work/$USER/hf_cache`,那里是空的。正确顺序:`export HF_HOME=...` → 下载/preflight → 再用 `HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1` 复演一次 `--scaffold-check-only`(它执行的正是作业里会崩的那行代码)。两份缓存并存至今 |
+| **bf16 只在 Ampere+ 上有;`--gres=gpu:1` 抽到的多半不是** | `sinfo` 实测:gpu 分区 13 节点 rtx_2080(7.5)+ 3 节点 V100(7.0),均无 bf16;仅 gpu030(rtx_3090)与 gpu035(a100)支持。§3.8(b) 冻结 bf16 ⇒ 重活一律钉 `--gres=gpu:a100:1`(R013 脚本已改);3090 那个节点历史上长期 drain,用前先看 `sinfo` |
 | **compute 节点无外网** | 所有作业跑 `HF_HUB_OFFLINE=1`。基座必须**先在登录节点** `hf download` 进 work 缓存 |
 | **`torch < 2.6` 是项目 pin** | 加载权重必须 `use_safetensors=True`。这条也是修订案 A3 的全部前提:原定基座只发 `.bin`,在这个 pin 下不可加载 |
 | **`.no_exist` 负缓存** | 一次失败的查找会写下标记,之后即使文件已就位仍可能继续失败。症状是"下载明明成功却还报找不到" |
@@ -191,7 +196,9 @@ MiniCheck 的 label token id 按文本查表(不报错,只是给两个无关词�
 
 ## 7. 请交回毛威凯裁决,不要自己决定
 
-1. **bf16 那个岔路** —— 装 sentence-transformers ≥4 是环境变更,改 §3.8(b) 是协议修订。
+1. ~~**bf16 那个岔路** —— 装 sentence-transformers ≥4 是环境变更,改 §3.8(b) 是协议修订。~~
+   **已由实测消解(2026-08-08),无须裁决:** venv 实测 sentence-transformers 5.5.1,"装 ≥4"早已成立,
+   两难的前提(3.x)是假的。bf16 残余风险在硬件,由 gres 钉 a100 处理(调度改动,不动协议)。
 2. **official test 的一次性额度是否已被 R012 消耗** —— 见 2(2)。
 3. **止损线** —— **这条最要紧。** 诚实的可能性是:微调也过不了 .85,图层永远建不起来,
    selector 的贡献变成"严谨地证明了一整族方法不行"。这是合法的科学结果,按本项目自己的标准

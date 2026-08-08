@@ -125,7 +125,10 @@
 #SBATCH --account=coms039904
 #SBATCH --partition=gpu
 #SBATCH --qos=normal
-#SBATCH --gres=gpu:1
+# a100 is pinned, not preferred: §3.8(b) freezes bf16, and this partition is mostly
+# rtx_2080 (13 nodes) + V100 (3) which have no bf16 -- an unpinned gpu:1 usually lands
+# there (18319801 drew bp1-gpu002, a 2080). Scheduling constraint, not a recipe change.
+#SBATCH --gres=gpu:a100:1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=48G
 #SBATCH --time=24:00:00

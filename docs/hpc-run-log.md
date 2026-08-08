@@ -2017,28 +2017,77 @@ premise 质量、premise 长度、hypothesis 形式、argmax 记账、canonical-
 - **未导出 train/dev 的去污染副本:** Gate 0B-1 只需 official test;去污染后的 train/dev 仅在
   §3.8 训练路径被启动时才需要,届时加 `--out-train` / `--out-dev` 重跑即可(确定性,可复现)。
 
-### R013-smoke — §3.8 训练路径的首次执行尝试 [四次 FAIL;第四次拦出真实数据缺陷,已修 2026-08-08]
+### R013-smoke — §3.8 训练路径的首次执行尝试 [五次 FAIL;第四次拦出真实数据缺陷,已修 2026-08-08]
 
 **本条不是 R013。** R013 是三 seed 的正式 fine-tune;这里记的是冒烟(`--max-examples 2000`),
 它只验代码能否在真实数据上走完一遍,**不产生任何可引用的读数**。
 
-**四次 FAIL,四次都在开跑前被守卫拦下,一张 GPU 都没烧:**
+**五次 FAIL,五次都在任何训练步之前失败,GPU 计算为零:**
 
 | job | 臂 | Elapsed | ExitCode | 原因 |
 |---|---|---:|---|---|
 | `18290519` | VitaminC 半 | 00:00:37 | 1:0 | `export_vitaminc` 尚未跑 ⇒ `data/gate0b/vitaminc_train.jsonl` 不存在 |
 | `18290571` | 含域适配半 | 00:00:04 | 1:0 | 同上;`FileNotFoundError` 原文即该路径 |
-| `18300333` | **未记录** | 00:00:12 | 1:0 | **原因未记录** —— 须从 slurm 日志补,**不得假定与前三次同因** |
-| `18318996` | VitaminC 半 | 00:00:25 | 1:0 | `assert_decontaminated`:train 与 dev 共享 1 个页。**这一条是真实数据缺陷,详见下节** |
+| `18300333` | **未记录** | 00:00:12 | 1:0 | **原因未记录** —— 须从 slurm 日志补,**不得假定与其余四次同因** |
+| `18318996` | VitaminC 半 | 00:00:25 | 1:0 | `assert_decontaminated`:train 与 dev 共享 1 个页。**这一条是真实数据缺陷,详见「第四次拦出的是数据缺陷」一节** |
+| `18319801` | VitaminC 半 | 00:01:37 | 1:0 | **基座不在 work 缓存**(HF_HOME 坑复发)。`LocalEntryNotFoundError` → `OSError`,栈顶是 `_construct_scaffold` 的 `CrossEncoder(...)`。**死因由物证确认而非推断**:blob 落盘 08-08 21:14:49–21:14:59,晚于本作业死亡(17:14:37 + 97s)约四小时 ⇒ 作业运行时该缓存确为空。**排除** `.no_exist` 负缓存解释——该目录是 HF 缓存的标准组成,其存在本身无异常,且离线 scaffold 检查随后通过 |
 
-- **秒级失败本身就是结果:** 四次都在拿到卡之后、加载模型之前失败,说明守卫的位置是对的 ——
-  缺前提的代价是秒,不是一个 GPU 小时。
+- **失败位置本身就是结果:** 五次全部死在训练开始之前,说明守卫的位置是对的 ——
+  缺前提的代价是秒,不是一个 GPU 小时。**第五次走得最远**(97s):它过了 VitaminC 加载、
+  `assert_decontaminated`(37 万行上首次通过,`c901310` 的修复在作业环境下随之得证)与 fold 规划,
+  死在模型构造的第一行。**数据路径自此全绿。**
 - **前三条此前一条都没进台账。** 按本文件规则,没有条目的运行不算已记录,故补录;
   `EXPERIMENT_TRACKER.md` 的 R013 行当时写的是"smoke 验证中",与实际不符,已同步改正。
+  **第五条同样漏记过一轮:** 2026-08-08 的 `HANDOVER.md` 在正文里数了"五次",而本表与台账当时都只有四行,
+  三份文档彼此不一致 —— 恰是 `HANDOVER.md` §0 自己禁止的"把事实读数复制进交接文档"所导致。已一并补齐。
 - **第一、二次的前提已补齐(2026-08-08):** `export_vitaminc` 已跑,train 369843 / dev 62984 /
   test 55197 —— 该组数字随后被下节的修法 supersede(见 R011)。
-- 重交命令:`sbatch scripts/run_r013_train_relations.slurm 13 runs/r013/smoke "--max-examples 2000"`。
-  用 `--gres=gpu:1`(通用卡),不与 g5-score 争 a100,两条线可并行。
+
+#### 第五次的根因与两条由它带出的纪律 [2026-08-08]
+
+**根因不是"忘了下载",是"预检与作业活在两个缓存里"。** 2026-08-06 的 §11.9 预检在**有网、未 export
+`HF_HOME`** 的登录 shell 里跑,`from_pretrained` 于是**顺手把基座下到了 `~/.cache/huggingface`**,
+六项全 PASS;而作业体把 `HF_HOME` 指向 `/user/work/$USER/hf_cache`,那里始终是空的。
+**预检不是没做,是它自己制造了它所验证的前提** —— 又一例"产出合理数字而非崩溃",
+且这次产出的不是数字,是一份绿色的 PASS。
+
+⇒ **纪律一:预检必须在作业同款环境变量下执行。** 否则它验证的是另一个世界。
+落地形式是先 `export HF_HOME=/user/work/$USER/hf_cache`,再跑 `scripts/a3_preflight.py`;
+随后另跑一次带 `HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1` 的 `--scaffold-check-only`,
+**它执行的正是作业里崩掉的那一行代码、在作业的离线约束下** —— 这是可证伪的读数,不是"命令没报错"。
+
+**2026-08-08 补齐后的实测(登录节点,均 PASS):** §11.9(A) 六项全过;
+基座权重指纹 `cross-encoder/nli-deberta-v3-base@c95d83f857fd4fcd`,**与 08-06 记录逐字相同**
+⇒ work 缓存中这份与当初选型所测为同一份权重(指纹只证权重同一,不证当时位于哪个缓存,故不能替代上面的时间证据);
+`id2label = {0: contradiction, 1: entailment, 2: neutral}`,待注册条目
+`"cross-encoder/nli-deberta-v3-base": ('REFUTES', 'SUPPORTS', 'UNKNOWN')` —— **第三种顺序**
+(albert 为 SUPPORTS/REFUTES/UNKNOWN,DeBERTa-large-mnli 为 SUPPORTS/UNKNOWN/REFUTES),按位置猜不会报错,
+只会把每条边重新贴标签而下游每个数字看着都正常。离线 `--scaffold-check-only` 输出的 `label_order` 与之一致。
+
+⇒ **纪律二(§11.9(B) 之外的新增前置):`--gres` 必须钉死支持 bf16 的卡。** 详见下节。
+
+#### bf16 与硬件:`--gres=gpu:1` 在本集群上不可能跑通 [2026-08-08 实测,提交前发现]
+
+**这一条在任何作业失败之前就成立,靠的是查 `sinfo` 而不是再挂一次。**
+
+`sinfo -p gpu -N -o "%N %G"` 实测的 gpu 分区构成:`rtx_2080` 十三个节点(Turing,compute 7.5)、
+`V100`/`v100` 三个(Volta,7.0)—— **两类均无 bf16**;支持 bf16 的只有 `bp1-gpu030` 的 `rtx_3090`
+(Ampere 8.6)与 `bp1-gpu035` 的 `a100`(Ampere 8.0)。而 `--gres=gpu:1` 不挑卡:
+**`18319801` 落的 `bp1-gpu002` 就是 rtx_2080**。
+
+§3.8(b) 把 **bf16 冻进配方**且明写无合法调参面 ⇒ **不能改配方去迁就硬件,只能让硬件满足配方**。
+在 Turing 上 `torch.cuda.is_bf16_supported()` 的行为取决于是否计入模拟路径:
+**报错与"以模拟方式跑完"都是可能结局,而后者更坏** —— 它会产出一个 per-class F1 看着完全正常的模型,
+而执行的数值路径与记录在案的配方不是一回事。**故不去赌它是哪一种,直接不落到那类卡上。**
+
+**改动(本次一并落地):** `scripts/run_r013_train_relations.slurm` 的 `--gres=gpu:1` → **`--gres=gpu:a100:1`**,
+与仓库其余九个重活脚本一致(`run_g5_*`、`run_g3_*`、`run_verified_generator` 等,G8 昨日即跑在 `bp1-gpu035`)。
+**这是调度改动,不是配方改动** —— bf16 本身一字未动,§3.8(b) 不受影响,不需要开修订。
+
+**代价必须同时记:** `HANDOVER.md` 原记"R013 用通用卡、不抢 a100、两条线可并行"**自此作废** ——
+R013/R014/R015 与 G 模块的评分作业**将争同一个节点**。5 折 × 3 seed = 15 次全量 fine-tune,
+排队压力须计入 9 月 4 日的日程。备选是 `--gres=gpu:rtx_3090:1`(同为 Ampere,仓库另有三个脚本在用),
+**但该节点历史上长期 drain,选它须先看 `sinfo` 当时状态**。
 
 #### 第四次拦出的是数据缺陷,不是配置失误 [根因已闭合]
 
@@ -2091,15 +2140,27 @@ for two spellings of one — an audit that passes because it cannot see" ——
   **那一次才是 Line A / Line B 接口的首次真实数据执行** —— sealed-600 零重叠检查、
   两侧同一个 `normalize_parent` 归一,在此之前全部只有 fixture 覆盖。
 
-**跑完须人工确认两项;第三项已由代码承担,不需要看日志:**
+**跑完须人工确认的清单,三项已缩为一项(2026-08-08 更新):**
 
-1. **fit-API 走哪条路** —— v3 `.fit()` 还是 v4/v5 `CrossEncoderTrainer`。
-2. **bf16** —— sentence-transformers 3.x 无 bf16 开关时**报错而非静默降成 fp16**,报错是正确行为。
-   但随后的裁决不能随手做:装 ≥4 是**环境变更**,改 §3.8(b) 是**协议修订**,两者代价不是一个量级。
+1. ~~fit-API 走哪条路~~ —— **提前有答案,日志里只做确认。** 实测 venv 装的是
+   **sentence-transformers 5.5.1**,且 18319801 的 traceback 已显示 5.x 的模块结构
+   (`base/model.py` / `_load_default_modules`)。`_train` 按**模块存在性**分派
+   (`_optional_module("sentence_transformers.cross_encoder.trainer")`),5.5.1 上该模块存在
+   ⇒ 走 `CrossEncoderTrainer`。日志判据:`[train_relations] fold 0: CrossEncoderTrainer API`。
+2. ~~bf16 报不报错~~ —— **该岔路已由实测消解。** 原两难(装 ≥4 是环境变更 vs 改 §3.8(b) 是协议修订)
+   的前提是"装的是 3.x",而实测是 5.5.1,早已 ≥4:`bf16=hyperparameters.bf16` 原样进
+   `CrossEncoderTrainingArguments`,3.x 那段 `RuntimeError` 在本环境是死代码。
+   **bf16 存活的风险换了位置——硬件**(gpu 分区多数卡无 bf16),已由 `--gres=gpu:a100:1` 钉死,
+   见上方「bf16 与硬件」一节。
 3. ~~分类头重初始化警告~~ —— **无须人工看。** `_construct_scaffold` 在
    `CrossEncoder(base, num_labels=3)` 之后回读 `id2label` 并送进 `derive_label_order`,
    名字一旦丢成 `LABEL_0/1/2` 即硬失败,且明确拒绝就地补回名字(补回去的顺序是断言,不是读数)。
    §11.6 的前提因此是机制而非约定。
+
+**重交命令(gres 已钉 a100 之后):**
+`sbatch scripts/run_r013_train_relations.slurm 13 runs/r013/smoke "--max-examples 2000"`。
+交前按「第五次的根因」一节的纪律一走一遍作业同款 env 的预检;
+**与 g5-score 争 a100 的代价已在「bf16 与硬件」一节记账。**
 
 ---
 
