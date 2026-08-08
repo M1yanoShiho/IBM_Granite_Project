@@ -129,6 +129,41 @@ look wrong. That is the failure mode the whole document exists to prevent.
 code, model and node, so no arm may be split across jobs). A failure on one
 dataset does not invalidate another that already produced results.
 
+## Addendum — MuSiQue-Full subsets
+
+*Added after the plumbing dry run, **before any held-out result exists**. It is a
+reporting refinement forced by the dataset's structure, not a reaction to any
+number, and it is recorded separately from the original text so the distinction
+stays visible.*
+
+The dry run established, by counting rather than assumption, that MuSiQue-Full's
+dev split is **4834 records = 2417 ids appearing twice**, once answerable and
+once not — and that **both variants carry a non-empty gold answer string**.
+
+For an unanswerable item the supporting paragraphs have been removed, so the
+evidence does not support that gold answer. String-match correctness would
+therefore **reward a system for asserting the answer anyway, and penalise
+abstention or an unverified label** — the precise inversion of what this project
+claims to be good at. A single blended STR-EM over MuSiQue-Full would flatter the
+baseline and punish the main method for behaving correctly, and would be
+misleading in either direction.
+
+Accordingly, for MuSiQue-Full only:
+
+1. The two variants are given distinct query IDs (`{id}#ans`, `{id}#unans`); the
+   raw id is not unique and would collide in every id-keyed structure, the paired
+   tests included.
+2. **Coverage, correctness, citation precision and citation recall are reported
+   separately for the answerable and unanswerable subsets**, and the pre-registered
+   criterion is evaluated on the **answerable** subset, which is the one where
+   correctness means what the criterion assumes.
+3. On the unanswerable subset, STR-EM is reported but explicitly **not** labelled
+   correctness; the meaningful quantity there is the abstention-or-annotation
+   rate, reported alongside. Citation precision and recall stay meaningful on both.
+4. The union figure is also reported, so nothing is hidden by the split.
+
+HotpotQA and RGB are unaffected: neither has an unanswerable partition.
+
 ## Known limitations, recorded in advance
 
 Stated now so they cannot be presented later as though they were anticipated only

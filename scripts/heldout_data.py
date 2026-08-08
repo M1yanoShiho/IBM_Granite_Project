@@ -128,10 +128,19 @@ def load_musique_full() -> list[dict[str, Any]]:
     ``musique_ans`` instead would do -- would turn the held-out set into a
     different and easier task than the one this project committed to.
 
-    An unanswerable item carries no gold answer, so it cannot be scored for
-    correctness and is excluded here. That exclusion is a property of the metric,
-    not a quiet swap of dataset: the count of items dropped for this reason is
-    reported by the dry run so the difference from the full file is visible.
+    Structure, verified rather than assumed: 4834 dev records = 2417 ids each
+    appearing **twice**, once answerable and once not, and **both variants carry a
+    non-empty ``answer`` string**. Two consequences:
+
+    * The raw ``id`` is not unique, so it is suffixed. Using it as-is would collide
+      in every id-keyed structure downstream, including the paired tests.
+    * On an unanswerable item the evidence does *not* support that answer, because
+      the supporting paragraphs were removed to construct it. String-match
+      correctness would therefore **reward a system for producing it anyway** and
+      penalise the correct behaviour of abstaining or labelling it unverified --
+      exactly backwards for what this project measures. ``answerable`` is carried
+      through so the two subsets are reported separately; see the pre-registration
+      addendum.
     """
     path = _download(MUSIQUE_URL, data_dir() / "musique_full_v1.0_dev.jsonl")
     out: list[dict[str, Any]] = []
@@ -154,13 +163,14 @@ def load_musique_full() -> list[dict[str, Any]]:
         for alias in row.get("answer_aliases") or []:
             if _clean(alias):
                 aliases.append(_clean(alias))
+        answerable = bool(row.get("answerable", True))
         out.append(
             {
-                "query_id": str(row["id"]),
+                "query_id": f"{row['id']}#{'ans' if answerable else 'unans'}",
                 "question": _clean(row["question"]),
                 "gold_answers": [tuple(dict.fromkeys(aliases))],
                 "passages": passages,
-                "answerable": bool(row.get("answerable", True)),
+                "answerable": answerable,
             }
         )
     return out
