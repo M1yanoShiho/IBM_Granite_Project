@@ -176,17 +176,125 @@ It lives in ``contracts`` because ``GenerationResult`` now depends on it: the
 contract's guarantee is stated in terms of this label, so the label is part of
 the contract rather than an implementation detail of one generator."""
 
+REVIEW_ANNOTATION = "[may warrant review]"
+"""Marks a sentence that IS supported and IS cited, but which a secondary check
+disagreed about.
+
+Deliberately not "the evidence conflicts with this claim". That phrasing is a
+factual assertion about the evidence and two blind adjudications put it wrong
+about 70% of the time; asserting it would be worse than the deletion it replaces,
+which at least asserted nothing. This label asserts low confidence about itself.
+
+It means something entirely different from ``UNVERIFIED_ANNOTATION`` and the two
+must never be conflated by a reader: ``[unverified]`` is "no supporting evidence
+was found, and this sentence carries no citation", while this is "supporting
+evidence was found and cited, and a screening check flagged it anyway". A flagged
+sentence always carries a citation."""
+
+_ANNOTATIONS = (UNVERIFIED_ANNOTATION, REVIEW_ANNOTATION)
+
 _SENTENCE_SPLIT = re.compile(r"[.!?]+(?:\s|$)")
+
+_ABBREVIATIONS = frozenset(
+    """
+    mr mrs ms dr prof rev hon st mt ft jr sr inc ltd co corp dept est
+    vs v etc eg ie no nos vol op fig al approx dept univ
+    jan feb mar apr jun jul aug sep sept oct nov dec
+    mon tue tues wed thu thur thurs fri sat sun
+    ave blvd rd gen col sgt capt lt maj pres sen gov
+    """.split()
+)
+"""Tokens whose trailing period does not end a sentence.
+
+Kept deliberately small: every entry has to be a word that essentially never ends
+a sentence, because a wrong entry here MERGES two real sentences, which is the
+more damaging error. ``may``/``march``/``august`` are absent for that reason.
+"""
+
+_TRAILING_TOKEN = re.compile(r"([A-Za-z][A-Za-z.]*)$")
+_DOTTED_ACRONYM = re.compile(r"(?:[A-Za-z]\.)+[A-Za-z]$")
+
+
+def _terminator_ends_a_sentence(text: str, terminator_start: int) -> bool:
+    """Whether the terminator at ``terminator_start`` really ends a sentence.
+
+    It does not when the period belongs to an abbreviation or an initial. This is
+    load-bearing rather than cosmetic: ``GenerationResult`` requires every sentence
+    of an uncited answer to carry the unverified label, so counting ``Mount St.
+    Helens erupted.`` as two sentences with one label made the validator REJECT a
+    correctly annotated answer and destroy it.
+    """
+    match = _TRAILING_TOKEN.search(text[:terminator_start])
+    if match is None:
+        return True
+    token = match.group(1)
+    if len(token) == 1:  # an initial: "Patrick S. Castagne"
+        return False
+    if token.lower() in _ABBREVIATIONS:  # "Mount St. Helens"
+        return False
+    return not _DOTTED_ACRONYM.fullmatch(token)  # "the 1913 U.S. Open"
+
+
+def split_sentences(text: str) -> list[str]:
+    """Sentences in ``text``, treating abbreviations and initials as interior.
+
+    The single sentence rule the contract and the scorer both use, so a sentence
+    the validator demands a label for is the same sentence the metric scores.
+    """
+    parts: list[str] = []
+    start = 0
+    for match in _SENTENCE_SPLIT.finditer(text):
+        if not _terminator_ends_a_sentence(text, match.start()):
+            continue
+        piece = text[start : match.end()].strip()
+        if piece:
+            parts.append(piece)
+        start = match.end()
+    tail = text[start:].strip()
+    if tail:
+        parts.append(tail)
+    return parts
+
+
+def ends_with_abbreviation(part: str) -> bool:
+    """True when ``part``'s trailing period is an abbreviation's, not a sentence's.
+
+    Lets a caller that splits with someone else's tokenizer (the scorer uses
+    ALCE's) repair the same false boundaries without adopting a different rule.
+    """
+    stripped = part.rstrip()
+    if not stripped.endswith("."):
+        return False
+    return not _terminator_ends_a_sentence(stripped, len(stripped) - 1)
 
 
 def is_unverified_annotation(sentence: str) -> bool:
-    """True for a sentence the Generator kept without being able to verify it."""
+    """True for a sentence the Generator kept without being able to verify it.
+
+    False for a review-flagged sentence: that one is verified and cited.
+    """
     return UNVERIFIED_ANNOTATION in sentence
+
+
+def is_review_flagged(sentence: str) -> bool:
+    """True for a cited sentence a secondary check flagged for review."""
+    return REVIEW_ANNOTATION in sentence
+
+
+def strip_annotations(text: str) -> str:
+    """The text with every annotation label removed -- the prose alone.
+
+    What a judge, a correctness scorer, or a reader-facing surface should see. A
+    label left in would be scored as part of the sentence.
+    """
+    for label in _ANNOTATIONS:
+        text = text.replace(label, " ")
+    return " ".join(text.split())
 
 
 def strip_unverified_annotation(text: str) -> str:
     """The text with annotation labels removed, for correctness scoring or display."""
-    return " ".join(text.replace(UNVERIFIED_ANNOTATION, " ").split())
+    return strip_annotations(text)
 
 
 def count_sentences(answer: str) -> int:
@@ -195,10 +303,7 @@ def count_sentences(answer: str) -> int:
     The label is appended *after* a sentence's terminator, so it must be removed
     before counting or it would be read as a sentence of its own.
     """
-    stripped = strip_unverified_annotation(answer)
-    if not stripped:
-        return 0
-    return len([part for part in _SENTENCE_SPLIT.split(stripped) if part.strip()])
+    return len(split_sentences(strip_unverified_annotation(answer)))
 
 
 class GenerationResult(FrozenModel):

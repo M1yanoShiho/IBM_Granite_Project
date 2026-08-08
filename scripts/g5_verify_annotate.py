@@ -151,6 +151,10 @@ def build_routing_stats(
         "gate_would_drop_now_cited": stats.gate_would_drop_now_cited,
         "gate_would_drop_now_annotated": stats.gate_would_drop_now_annotated,
         "gate_would_have_picked_other_evidence": stats.gate_changed_citation,
+        # Presentation only: flagged claims stay cited. Equals gate_would_drop by
+        # construction, and reported separately so a drift between them is visible.
+        "review_flagged": stats.review_flagged,
+        "control_review_flagged": stats_by_arm[CONTROL_ARM].review_flagged,
         # Self-check: on the control arm the gate IS routing, so its observe-only
         # count must equal its actual drop count. If these ever disagree, the
         # observe-only log is not recording what the gate really does.
@@ -292,6 +296,7 @@ def main() -> int:
                         # recorded on every arm so the gated arms double as a check
                         "gated_outcome": r.gated_outcome,
                         "gated_citation": r.gated_citation,
+                        "review_flagged": r.review_flagged,
                     }
                     for r in generator.last_routings
                 ]

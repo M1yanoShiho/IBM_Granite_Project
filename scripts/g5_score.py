@@ -35,11 +35,18 @@ for _p in (REPO_ROOT / "src", REPO_ROOT / "scripts"):
 from alce_metrics import ScoredExample, compute_citation_metrics  # noqa: E402, I001
 from g3_baseline_comparison import str_em  # noqa: E402
 from g3_sentence_rescore import remove_citations, sent_split  # noqa: E402
-from evidence_rag.contracts.models import UNVERIFIED_ANNOTATION  # noqa: E402
-from evidence_rag.generator.verify_annotate import (  # noqa: E402
+from evidence_rag.contracts.models import (  # noqa: E402
+    REVIEW_ANNOTATION,
+    UNVERIFIED_ANNOTATION,
+    ends_with_abbreviation,
+    is_review_flagged,
     is_unverified_annotation,
-    strip_unverified_marker,
+    strip_annotations,
 )
+
+strip_unverified_marker = strip_annotations
+"""Every annotation label comes off before scoring. A label left in would be
+handed to the judge as part of the sentence, and would count toward STR-EM."""
 
 ARMS = (
     "baseline",
@@ -71,11 +78,25 @@ def annotated_sent_split(answer: str) -> list[str]:
     parts: list[str] = []
     for raw in sent_split(answer):
         text = raw.strip()
-        while text.startswith(UNVERIFIED_ANNOTATION) and parts:
-            parts[-1] = f"{parts[-1]} {UNVERIFIED_ANNOTATION}"
-            text = text[len(UNVERIFIED_ANNOTATION) :].strip()
-        if text:
-            parts.append(text)
+        moved = True
+        while moved and parts:
+            moved = False
+            for label in (UNVERIFIED_ANNOTATION, REVIEW_ANNOTATION):
+                if text.startswith(label):
+                    parts[-1] = f"{parts[-1]} {label}"
+                    text = text[len(label) :].strip()
+                    moved = True
+        if not text:
+            continue
+        # Repair the same false boundaries the contract's splitter knows about, so
+        # the sentence the validator demanded a label for is the sentence scored
+        # here. ALCE's tokenizer stays the primary splitter; where it is punkt this
+        # is a no-op, and where it is the regex fallback it is the difference
+        # between "Mount St. Helens erupted." being one sentence and two.
+        if parts and ends_with_abbreviation(parts[-1]):
+            parts[-1] = f"{parts[-1]} {text}"
+            continue
+        parts.append(text)
     return parts
 
 
@@ -92,10 +113,11 @@ def _match_key(text: str) -> str:
 def build(records: list[dict[str, Any]]) -> tuple[list[ScoredExample], dict[str, Any]]:
     examples: list[ScoredExample] = []
     per_case: list[dict[str, Any]] = []
-    annotated = kept = 0
+    annotated = kept = flagged = 0
     for record in records:
         answer = record["answer"]
         answered = bool(answer.strip())
+        has_flag = False  # reset per record: a stale value would leak across records
         docs = {item["evidence_id"]: item["text"] for item in record["evidence"]}
         cited = tuple(c for c in record["cited_evidence_ids"] if c in docs)
         gold = tuple(tuple(a) for a in record.get("gold_answers", []))
@@ -113,8 +135,15 @@ def build(records: list[dict[str, Any]]) -> tuple[list[ScoredExample], dict[str,
             }
             sentences: list[str] = []
             citations: list[tuple[str, ...]] = []
+            has_flag = False
             for raw in annotated_sent_split(answer):
                 kept += 1
+                if is_review_flagged(raw):
+                    # Counted, then treated exactly like any other cited sentence:
+                    # the label is stripped below and the citation lookup is the
+                    # same one. The flag must not touch a metric.
+                    flagged += 1
+                    has_flag = True
                 if is_unverified_annotation(raw):
                     annotated += 1
                     refs: tuple[str, ...] = ()
@@ -137,11 +166,18 @@ def build(records: list[dict[str, Any]]) -> tuple[list[ScoredExample], dict[str,
                 examples.append(
                     ScoredExample(record["query_id"], tuple(sentences), tuple(citations), docs)
                 )
-        per_case.append({"query_id": record["query_id"], "metrics": metrics})
+        per_case.append(
+            {
+                "query_id": record["query_id"],
+                "metrics": metrics,
+                "has_review_flag": bool(answered and has_flag),
+            }
+        )
     return examples, {
         "per_case": per_case,
         "annotated_sentences": annotated,
         "kept_sentences": kept,
+        "review_flagged_sentences": flagged,
     }
 
 
@@ -175,6 +211,8 @@ def main() -> int:
         # attach the per-example citation scores so paired_metric_cli can read them
         by_id = {row["example_id"]: row for row in citation.per_example}
         prec_cited: list[float] = []
+        prec_flagged: list[float] = []
+        prec_unflagged: list[float] = []
         for case in extra["per_case"]:
             row = by_id.get(case["query_id"])
             # ALCE scores an example that produced NO citations as precision 0. That
@@ -190,6 +228,11 @@ def main() -> int:
             if has_citations:
                 assert row is not None
                 prec_cited.append(row["citation_prec"])
+                # The screening claim: does the flag concentrate the errors? This
+                # is the enrichment figure, computed on THIS run rather than
+                # inherited from the round that motivated the flag.
+                bucket = prec_flagged if case.get("has_review_flag") else prec_unflagged
+                bucket.append(row["citation_prec"])
             case["metrics"]["citation_precision"] = (
                 {"value": row["citation_prec"]} if row and has_citations else None
             )
@@ -220,6 +263,15 @@ def main() -> int:
             "citation_rec": citation.citation_rec / 100,
             "annotated_sentences": extra["annotated_sentences"],
             "kept_sentences": extra["kept_sentences"],
+            "review_flagged_sentences": extra["review_flagged_sentences"],
+            "prec_flagged_examples": (
+                sum(prec_flagged) / len(prec_flagged) if prec_flagged else None
+            ),
+            "n_flagged_examples": len(prec_flagged),
+            "prec_unflagged_examples": (
+                sum(prec_unflagged) / len(prec_unflagged) if prec_unflagged else None
+            ),
+            "n_unflagged_examples": len(prec_unflagged),
             "overcite": citation.sent_mcite_overcite,
         }
         print(f"[score] {arm}: {json.dumps(summary[arm])}", flush=True)
@@ -264,6 +316,32 @@ def main() -> int:
                 f"({s['annotated_sentences'] / s['kept_sentences']:.3f}) of kept "
                 "sentences carry the unverified marker."
             )
+    lines.append("")
+    lines.append("## Review flag — screening enrichment")
+    lines.append("")
+    lines.append(
+        "Flagged sentences are cited and enter both metrics identically; the label "
+        "is stripped before judging. A screening signal is useful when it has lift "
+        "over the base rate, not when it is precise."
+    )
+    lines.append("")
+    lines.append("| arm | flagged sentences | prec, flagged examples | prec, unflagged | lift |")
+    lines.append("|---|---|---|---|---|")
+    for arm in ARMS:
+        s = summary[arm]
+        if not s["review_flagged_sentences"]:
+            continue
+        flagged, unflagged = s["prec_flagged_examples"], s["prec_unflagged_examples"]
+        lift = (
+            f"{(1 - flagged) / (1 - unflagged):.2f}x error rate"
+            if flagged is not None and unflagged is not None and unflagged < 1
+            else "n/a"
+        )
+        lines.append(
+            f"| {arm} | {s['review_flagged_sentences']} | "
+            f"{fmt(flagged)} ({s['n_flagged_examples']}) | "
+            f"{fmt(unflagged)} ({s['n_unflagged_examples']}) | {lift} |"
+        )
     lines.append("")
     report = "\n".join(lines)
     args.report.parent.mkdir(parents=True, exist_ok=True)

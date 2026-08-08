@@ -43,7 +43,15 @@ Conflict is deliberately NOT routed to a "the evidence contradicts this" label.
 Roughly 70% of those labels would be wrong, and telling a reader the evidence
 conflicts with a claim the evidence actually supports asserts something false
 about the evidence; deleting at least asserts nothing. A signal that unreliable
-must not drive a user-visible label.
+must not drive a user-visible *assertion*.
+
+It can drive a user-visible *hedge*, and does: a flagged claim stays cited and
+carries ``REVIEW_MARKER``. G7 measured the enrichment that justifies this --
+flagged samples score 0.678 cited-precision against 0.888 for the rest, an error
+rate of 0.322 against 0.112. A screening signal does not need high precision, it
+needs lift over the base rate. The label is presentation only: it changes no
+routing decision and the scorer strips it before judging, so a flagged sentence
+enters precision and recall exactly as any other cited sentence does.
 """
 
 import re
@@ -51,6 +59,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 
 from evidence_rag.contracts.models import (
+    REVIEW_ANNOTATION,
     UNVERIFIED_ANNOTATION,
     GenerationResult,
     Query,
@@ -73,6 +82,9 @@ UNVERIFIED_MARKER = UNVERIFIED_ANNOTATION
 """Re-exported from ``contracts``: the label is now part of the GenerationResult
 guarantee ("every ungrounded sentence is labelled"), so the contract owns it and
 generator, scorer and validator cannot drift apart."""
+
+REVIEW_MARKER = REVIEW_ANNOTATION
+"""Re-exported alongside it, for the same reason."""
 
 CITATION_RE = re.compile(r"\[(\d+)\]")
 SENTENCE_END = re.compile(r"[.!?]")
@@ -126,6 +138,15 @@ class ClaimRouting:
     conflict_evidence_id: str | None = None
     conflict_detail: tuple[str, ...] = ()
     """which entities clashed, for auditing the one path that destroys content"""
+    review_flagged: bool = False
+    """Cited, but the entity check disagreed -- carries the review label.
+
+    Screening, not adjudication. Flagged samples score 0.678 cited-precision
+    against 0.888 for the rest: an error rate of 0.322 against 0.112, roughly
+    threefold enrichment. A screening signal does not need high precision, it
+    needs lift over the base rate, and this has it. It does not need to be right
+    about *why*, which is exactly why the label says nothing about the evidence.
+    """
     gated_outcome: str = ""
     gated_citation: str | None = None
     """What the entity gate WOULD have decided, recorded whether or not the gate is
@@ -152,6 +173,8 @@ class RoutingStats:
     gate_would_drop_now_annotated: int = 0
     gate_changed_citation: int = 0
     """claims cited either way, but the gate would have picked other evidence"""
+    review_flagged: int = 0
+    """cited claims carrying the review label"""
     routings: list[ClaimRouting] = field(default_factory=list)
 
 
@@ -287,6 +310,12 @@ class CitationRoutedVerifier:
             conflict_detail=conflict_detail,
             gated_outcome=gated_outcome,
             gated_citation=gated_id,
+            # Presentation only. Routing above is already decided and is not
+            # consulted here -- with the gate engaged a would-drop claim is
+            # dropped, so no arm can be both gated and flagged.
+            review_flagged=(
+                outcome == "verified" and gated_outcome == "dropped_entity_conflict"
+            ),
         )
 
 
@@ -372,6 +401,8 @@ class VerifyAnnotateGenerator:
                 continue
             if routing.outcome == "verified" and routing.citation is not None:
                 verified_any = True
+                if routing.review_flagged:
+                    sentence = f"{sentence} {REVIEW_MARKER}"
                 routing.sentence = sentence
                 parts.append(sentence)
                 if routing.citation not in seen:
@@ -414,6 +445,8 @@ class VerifyAnnotateGenerator:
         # Observe-only accounting. Counted in every arm, so the gated arms report
         # the same quantity as a self-check and the ungated arm reports what the
         # gate would have cost -- measured, not extrapolated.
+        if routing.review_flagged:
+            self.stats.review_flagged += 1
         if routing.gated_outcome == "dropped_entity_conflict":
             self.stats.gate_would_drop += 1
             if routing.outcome == "verified":

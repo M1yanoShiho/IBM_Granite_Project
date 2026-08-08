@@ -71,6 +71,14 @@ def test_the_observe_only_counters_are_reported() -> None:
     assert report["gate_would_drop_now_annotated"] == 1
 
 
+def test_the_review_flag_count_is_reported_for_both_arms() -> None:
+    """Reported separately from gate_would_drop, which it equals by construction,
+    so a drift between them is visible rather than silent."""
+    report = build_routing_stats(*_fixture())
+    assert "review_flagged" in report
+    assert report["control_review_flagged"] == 0
+
+
 def test_the_control_arm_self_check_is_present() -> None:
     """With the gate engaged, what it *would* drop and what it *did* drop must be
     the same number. Reporting both is how a broken observe-only log gets caught."""
