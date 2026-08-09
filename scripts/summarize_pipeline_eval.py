@@ -9,11 +9,12 @@ ends of the chain on one line; reading two separate tables is how a non-transfer
 missed. Columns run left to right in pipeline order: retriever, then selector, then
 system.
 
-The last column is the one the question turns on. `transfer` divides the spread in
-`system.core.answer_match` by the spread in `retriever.core.document_mrr` across the
-arms shown — how much downstream movement each point of upstream movement bought. It
-is printed once, under the table, because it is a property of the comparison rather
-than of any single arm.
+Under the table it reports how much downstream movement each point of upstream movement
+bought — but *segment by segment*, between adjacent arms sorted by MRR, not as one ratio
+over the whole span. R7 measured slopes of 0.416, 0.719 and 1.728 across its three
+segments, so a single span-endpoint ratio (0.506 there) averages away a fourfold
+difference and reads as a constant that does not exist. The earlier version of this
+script printed exactly that, and the R7 entry records it as a defect of this tool.
 
 A saturation warning fires when every arm scores above 0.9 on answer_match. With the
 extractive generator that metric is substring containment over the selected chunks, so
@@ -101,18 +102,34 @@ def main(argv: Sequence[str] | None = None) -> int:
         cells = "  ".join(f"{_fmt(metrics[key]):>9}" for _, key in METRICS)
         print(f"{str(r['config']):<{name_width}}  {cells}   {r['n_scored']}/{r['n_total']}")
 
-    scored = [r["metrics"] for r in rows if r["found"]]
-    mrrs = [m[MRR_KEY] for m in scored if m.get(MRR_KEY) is not None]
-    answers = [m[ANSWER_KEY] for m in scored if m.get(ANSWER_KEY) is not None]
+    paired = [
+        (r["config"], r["metrics"][MRR_KEY], r["metrics"][ANSWER_KEY])
+        for r in rows
+        if r["found"]
+        and r["metrics"].get(MRR_KEY) is not None
+        and r["metrics"].get(ANSWER_KEY) is not None
+    ]
+    paired.sort(key=lambda item: item[1])
 
     print()
-    if len(mrrs) >= 2 and len(answers) >= 2:
-        mrr_span = max(mrrs) - min(mrrs)
-        answer_span = max(answers) - min(answers)
-        print(f"MRR span    : {min(mrrs):.4f} -> {max(mrrs):.4f}  (spread {mrr_span:+.4f})")
-        print(f"answer span : {min(answers):.4f} -> {max(answers):.4f}  (spread {answer_span:+.4f})")
-        if mrr_span > 0:
-            print(f"transfer    : {answer_span / mrr_span:.3f} downstream points per upstream point")
+    if len(paired) >= 2:
+        mrrs = [m for _, m, _ in paired]
+        answers = [a for _, _, a in paired]
+        print(f"MRR span    : {min(mrrs):.4f} -> {max(mrrs):.4f}  (spread {max(mrrs) - min(mrrs):+.4f})")
+        print(f"answer span : {min(answers):.4f} -> {max(answers):.4f}  (spread {max(answers) - min(answers):+.4f})")
+        print("transfer, by segment (downstream points per upstream point):")
+        # strict=False is deliberate: paired[1:] is one shorter by construction.
+        for (low, mrr_low, ans_low), (high, mrr_high, ans_high) in zip(
+            paired, paired[1:], strict=False
+        ):
+            gap = mrr_high - mrr_low
+            segment = f"{low} -> {high}"
+            if gap <= 0:
+                print(f"  {segment:<58} (arms tie on MRR; slope undefined)")
+                continue
+            print(f"  {segment:<58} {(ans_high - ans_low) / gap:>7.3f}")
+        print("  a single whole-span ratio is not reported: R7 found these slopes to differ")
+        print("  fourfold, so one number would read as a constant that does not exist.")
     else:
         print("transfer    : needs at least two scored arms")
 
