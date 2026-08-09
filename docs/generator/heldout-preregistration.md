@@ -131,7 +131,101 @@ commonly-answered queries — the values this criterion is measured against:
 Superseded reference, kept for the record: G7 gave −0.018 (p = 0.297) on the same
 comparison.
 
+## Amendment — the held-out set becomes QAMPARI
+
+*Committed **before any QAMPARI data is loaded**. Only the dataset and the
+correctness metric change. **Everything else in this document stands unaltered**:
+the criterion's form, the paired comparison on commonly-answered queries, the
+−0.0152 coverage reference, the ALCE-standard primary convention, the load-once
+rule, the report-whatever-it-shows rule, the no-system-change-after rule, the
+partial-replication rule, and the failure/re-run clauses.*
+
+**Why.** HotpotQA, RGB and MuSiQue-Full are the **team's system-level** held-out
+for the integrated three-module pipeline. Spending them on a module-level
+Generator evaluation would consume the system test, and waiting for the
+integrated pipeline would put this module's results behind other people's
+timelines. The Generator therefore needs its own held-out set, evaluated the way
+calibration was: on evidence supplied by the dataset.
+
+The original three-set text is retained below rather than overwritten, as with
+the reference-value update.
+
+**QAMPARI**, ALCE's sibling to ASQA:
+
+- the passage setting carries over exactly — `qampari_eval_gtr_top100.json` is the
+  analogue of the `asqa_eval_gtr_top100.json` calibration used: same retriever
+  family (GTR), same top-100 pool, same **top-5** cut. The comparison therefore
+  tests the method rather than evidence quality;
+- it is **citation-native**, so citation metrics are the same measurement;
+- its task shape genuinely differs — many-answer questions rather than
+  disambiguation — which is what makes it a generalisation test rather than a
+  second sample of the same thing;
+- **it has never been loaded here.** Verified rather than assumed: no reference in
+  any tracked file, and none in any commit on any branch (`git log --all -S`). The
+  ALCE archive containing it has been on disk since 2026-07-28, but only the ASQA
+  member was ever extracted; the QAMPARI member has never been opened.
+
+ELI5, the third ALCE set, is rejected: no short gold answers, so correctness would
+need a different claim-based pipeline whose plumbing buys nothing the headline
+claim needs.
+
+One set is sufficient. The claim under test is that the calibration result is not
+an ASQA artefact, and one untouched set with a different task shape settles that.
+
+### Correctness metric on QAMPARI — decided and fixed here
+
+**Citation precision and recall are unchanged, and they are the axis the claim
+rests on.** They are MiniCheck entailment between cited passages and answer
+sentences, with no dataset-specific gold citation labels, so they are *the same
+measurement* on QAMPARI as on ASQA.
+
+Correctness cannot transfer directly, and the choice is registered now:
+
+> **Answer recall by containment over gold answer sets** — for each gold answer (a
+> set of aliases), the answer is credited if any alias appears in it; the score is
+> the share of gold answers credited. Reported both uncapped and **capped at 5**
+> (`rec@5`), the cap being ALCE's own concession that QAMPARI questions can carry
+> very many answers.
+
+Three things stated in advance about this choice:
+
+1. **It is not ALCE's official QAMPARI F1.** That metric parses the output as a
+   comma-separated entity list. This system emits prose — one claim per sentence
+   with inline citations — so list-parsing would mis-read every arm's output. The
+   official metric is not applicable to this output format and is not reported as
+   though it were.
+2. **It is computationally the same function as ASQA's STR-EM** (containment
+   against gold alias sets, averaged over gold items), which keeps the correctness
+   axis internally consistent across the two datasets even though the *values* are
+   not comparable.
+3. **It is recall-only, and that is a limitation.** Precision over predicted
+   entities is undefined without list parsing, so a verbose answer cannot be
+   penalised for over-generation. Applied identically to every arm it does not
+   bias the comparison, but it does make correctness on QAMPARI a weaker quantity
+   than on ASQA. **Correctness is not directly comparable across the two datasets;
+   citation metrics are** — and the generalisation test is strongest precisely on
+   the axis the claim rests on.
+
+### Sampling and scale
+
+400 queries at seed 13, matched to calibration for comparable power and directly
+comparable scale. Drawn by `scripts/heldout_sample.py` and committed before the
+run, as before.
+
+### Still registered, unchanged
+
+The claim-splitter clause applies here as written: **if claim-splitter failure on
+QAMPARI is materially above the calibration rate of roughly 0.5%, coverage
+comparisons are reported as unreliable and the failure rate is stated with the
+results.** It is restated here because QAMPARI's entity-list answers are exactly
+the input most likely to move that rate.
+
 ## Procedure
+
+*Steps 1–4 below were written for the three-set system-level evaluation. For the
+Generator's module-level held-out, read "the three held-out sets" as "QAMPARI"
+per the amendment above; every rule is otherwise unchanged. The three-set text
+stands as written for whoever runs the system-level evaluation.*
 
 1. The three held-out sets — **HotpotQA, RGB, MuSiQue-Full** — are loaded **once**,
    and only after this document is committed. They have never been loaded during
