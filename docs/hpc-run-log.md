@@ -2722,14 +2722,24 @@ sbatch --gres=gpu:rtx_3090:1 --time=02:00:00 scripts/run_r013_train_relations.sl
 适配池(`niah-train-injected`)与 dev(`niah-injected`)是两个不同目录,与守卫按 query-id **集合**比
 而不读 `split` 标签的设计一致(脚本头部注明三个 NIAH 目录的标签都写着 `dev`,标签无意义)。
 `--niah-twin-label REFUTES` 按 §3.8(a) 显式传,该 flag 无默认值。
-注:`scontrol show job` 的 `Command=` **不显示位置参数**,只能靠 `SubmitLine` 认回作业配置 ——
-一度据此误以为本作业未传参(那将使它变成不带 `--max-examples` 的全量跑),`SubmitLine` 排除。
+注:`scontrol show job` 的 `Command=` **不显示位置参数**,一度据此误以为本作业未传参
+(那将使它变成 seed 13 → `runs/r013/seed-13`、不带 `--max-examples` 的全量跑,顶着冒烟的作业号)。
+**这条 `5afd69d`(同日 03:18)已写进 `HANDOVER.md`**,原话称其为"又一个因看不见而通过的审计" ——
+**今日第三次撞上"知识已成文却未被用上"**(另两次:E2-lenient 的 index 运维注、本节的多臂预检)。
+三次的共同点仍是同一条:**文字义务没有代码执行,就等于不存在。**
 
-**执行的树 ≠ 提交时的树(排队作业的一般性质,此处已实际发生):** 本作业 03:32:30 提交,
-而 bp1 的工作副本在其起跑前被 `git pull` 前移过。排队作业执行的是**起跑那一刻**的
-`/user/work/$USER/IBM_Granite_Project`,不是提交那一刻的。已核:该批改动无一触及
-`cli/train_relations.py` 或 `relations/`,功能上无影响。**纪律:在队作业期间不在 bp1 上 pull;
-起跑前记下 HEAD,AFTER 里写明实际执行的是哪棵树。**
+**执行的树 ≠ 提交时的树(排队作业的一般性质,此处已实际发生):**
+提交时刻(03:32:30)分支头为 **`3637934`**;bp1 工作副本在起跑前被 `git pull` 前移到 **`9dcefc0`**
+(2026-08-09 16:5x 实测 `rev-parse`)。排队作业执行的是**起跑那一刻**的工作副本,不是提交那一刻的。
+
+**漂移已证无害,而且是逐字证的:** `git diff 3637934..9dcefc0 -- src/` 的全部内容是
+**新增一个文件** `relations/backbone_agreement.py`(+160,R012f 用),`src/` 其余部分零改动。
+该文件对训练路径**不可达** —— `cli/train_relations.py`、`relations/training.py`、
+`relations/niah_adaptation.py` 均无引用,`relations/__init__.py` 只有 docstring 不做导入。
+
+**纪律:在队作业期间不在 bp1 上 pull;起跑前记下 HEAD,AFTER 里写明实际执行的是哪棵树。**
+本作业按此执行(`9dcefc0`),`5d59b22`(索引持久化改 `write_bytes`)**不在**其执行树内,
+且与训练路径无交集,两条独立理由都指向"无需重跑"。
 
 **预注册读数(提交前在登录节点算好,跑完必须逐字相等):**
 
