@@ -1,6 +1,7 @@
 #!/bin/bash
 # R013 / R014 / R015 -- the M0 §3.8 relation-model training path, ONE SEED PER JOB.
-# Protocol: docs/selector/M0_PROTOCOL_FREEZE.md §3.8, base set by A3 (§11.5), seeds by §5.4.
+# Historical protocol: restore M0_PROTOCOL_FREEZE.md from the recorded experiment commit;
+# this script belongs to the retired Graph/MIS route.
 #
 # Three jobs, not one loop inside one job. §5.4's three-seed clause is reinstated for this path
 # and each seed must leave its own manifest, log and checkpoints -- a run that quietly produced
@@ -120,6 +121,16 @@
 # rows. That is the pre-registered recipe, not a knob. Budget accordingly and run the smoke job
 # first; the walltime below is for ONE seed's five folds.
 #
+# BEFORE EVERY SUBMISSION, on the login node -- same flags, seconds, no GPU, no queue:
+#   PYTHONPATH=src python -m evidence_rag.cli.train_relations --check-paths-only \
+#     --vitaminc-train data/gate0b/vitaminc_train.jsonl \
+#     --vitaminc-dev data/gate0b/vitaminc_dev.jsonl \
+#     --decontamination-log data/gate0b/vitaminc_decontamination.json \
+#     --seed 13 --output-dir runs/r013/seed-13 <the same --niah-* / --sealed-dir flags>
+# It stats every input and names ALL the absent ones at once. Three submissions in this series
+# died because a path on the command line was not on disk (18290519, 18290571, 18322821), the
+# last after seventeen hours in the queue -- for a fact decidable here in a second.
+#
 # Submit from the project root. Positional args, in order:
 #   SEED  OUTPUT_DIR  EXTRA_FLAGS
 #   mkdir -p logs runs
@@ -162,6 +173,15 @@ export WANDB_DISABLED=true HF_HUB_DISABLE_TELEMETRY=1
 source /user/work/$USER/venv/bin/activate
 cd /user/work/$USER/IBM_Granite_Project
 export PYTHONPATH=src
+
+# A queued job runs the working tree as it stands when it STARTS, not when it was submitted.
+# 18322821 was submitted against 3637934 and will start against something else, because the
+# checkout was pulled forward twice in between -- the second time hours after "do not pull while
+# a job is queued" had been written down as a rule. Asking people to hold still did not survive
+# the afternoon it was written, so record the tree instead of trying to freeze it: the .out log
+# then carries what actually ran, and the ledger cites that rather than a rev-parse someone
+# remembered to take at the right moment.
+echo "[tree] $(git rev-parse HEAD 2>/dev/null || echo unknown)$(git diff --quiet 2>/dev/null || echo ' +uncommitted')"
 
 python -c "import torch; print('CUDA:', torch.cuda.is_available(), '| torch', torch.__version__)"
 

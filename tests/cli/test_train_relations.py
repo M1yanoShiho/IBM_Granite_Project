@@ -288,7 +288,13 @@ def _sealed_dir(
     module = types.ModuleType("evidence_rag.materializer.sealed600")
     module.read_split_fingerprint = lambda directory: _Fingerprint(titles)  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "evidence_rag.materializer.sealed600", module)
-    return ["--sealed-dir", str(tmp_path / "sealed600")]
+    # The directory has to exist even though the reader above ignores it: in production
+    # --sealed-dir names a real build directory, and the CLI now refuses inputs that are not on
+    # disk. Without the mkdir this fixture would pass a path that could never work outside the
+    # test, which is the kind of stand-in that lets a real absence go unnoticed.
+    sealed = tmp_path / "sealed600"
+    sealed.mkdir(exist_ok=True)
+    return ["--sealed-dir", str(sealed)]
 
 
 def test_the_niah_half_runs_once_a_disjoint_sealed_600_is_supplied(
@@ -415,3 +421,70 @@ def test_no_flag_can_move_a_frozen_hyperparameter(tmp_path: Path) -> None:
     unrecognised flag; a run that silently ignored --epochs would be worse than one that stops."""
     with pytest.raises(SystemExit):
         train_relations.main(_argv(_corpus(tmp_path), tmp_path / "run", "--epochs", "5"))
+
+
+def test_every_missing_input_path_is_named_at_once(tmp_path: Path) -> None:
+    """One submission should buy the complete list, not the first item on it.
+
+    18322821 spent seventeen hours in the queue to be told that one file was absent. Dying on
+    the first missing path makes a second missing path cost a second queue wait, which is how
+    this series already lost three submissions.
+    """
+
+    files = _corpus(tmp_path)
+    argv = _argv(
+        files,
+        tmp_path / "run",
+        "--niah-manifest",
+        str(tmp_path / "gone-manifest.json"),
+        "--niah-provenance",
+        str(tmp_path / "gone-provenance.jsonl"),
+        "--niah-parents",
+        str(tmp_path / "gone-parents.jsonl"),
+        "--niah-dev-manifest",
+        str(tmp_path / "gone-dev.json"),
+        "--sealed-dir",
+        str(tmp_path / "gone-sealed"),
+        "--niah-twin-label",
+        "REFUTES",
+    )
+
+    with pytest.raises(ValueError) as raised:
+        train_relations.main(argv)
+
+    message = str(raised.value)
+    for absent in (
+        "gone-manifest.json",
+        "gone-provenance.jsonl",
+        "gone-parents.jsonl",
+        "gone-dev.json",
+        "gone-sealed",
+    ):
+        assert absent in message, f"{absent} was not named; the list is not complete"
+
+
+def test_check_paths_only_answers_without_running_anything(tmp_path: Path) -> None:
+    """A preflight has to be runnable on a login node before sbatch, or it is not a preflight."""
+
+    output = tmp_path / "run"
+    assert train_relations.main(_argv(_corpus(tmp_path), output, "--check-paths-only")) == 0
+    assert not output.exists(), "the check must not start the run it is checking"
+
+
+def test_check_paths_only_refuses_a_missing_input(tmp_path: Path) -> None:
+    files = _corpus(tmp_path)
+    files["train"].unlink()
+
+    with pytest.raises(ValueError, match="vitaminc-train"):
+        train_relations.main(_argv(files, tmp_path / "run", "--check-paths-only"))
+
+
+def test_no_path_flag_escapes_the_input_output_split(tmp_path: Path) -> None:
+    """The preflight checks inputs and ignores outputs, so a new Path flag that lands in neither
+    would be silently unchecked -- the same shape as the asymmetry that killed 18322821, where
+    the dev sidecar existed and nothing noticed the train one did not."""
+
+    declared = {
+        action.dest for action in train_relations._parser()._actions if action.type is Path
+    }
+    assert declared == train_relations.INPUT_PATHS | train_relations.OUTPUT_PATHS

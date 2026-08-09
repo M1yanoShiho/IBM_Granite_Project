@@ -5,9 +5,12 @@
       --sealed runs/niah-sealed600 \
       --existing-split runs/niah-injected \
       --existing-split runs/niah-train-injected \
-      --protocol-doc docs/selector/M0_PROTOCOL_FREEZE.md \
+      --protocol-doc /path/to/restored/M0_PROTOCOL_FREEZE.md \
       --no-candidates --utility-labels-absent \
       --output results/sealed600/gate0a.json
+
+The historical M0 protocol is no longer a live Selector document. Restore its frozen version
+from the recorded experiment commit before reproducing this legacy audit.
 
 Exit code is 0 only for PASS. A freshly built set audits as INCOMPLETE and exits 1, because §6
 item 3 needs the Top-20 windows and retrieval has not run yet — that is the honest reading, and

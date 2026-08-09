@@ -1,0 +1,24 @@
+[dataset]
+manifest = "../../runs/twowiki-train/manifest.json"
+
+[output]
+directory = "../../runs/selector-beam-v1/pools/2wiki-train"
+
+[retriever]
+name = "hybrid"
+
+[retriever.parameters]
+fusion = "rrf"
+k = 60
+retrievers = [ { name = "strong-bm25" }, { name = "granite-dense" } ]
+
+[selector]
+name = "top-k"
+
+[generator]
+name = "extractive"
+
+[run]
+top_k = 20
+max_selected = 10
+seed = 13

@@ -1,5 +1,9 @@
 # Gated Corroboration Selector — 设计规格
 
+> **历史文档（已退役）:** 本路线已被实验判定不再继续。当前方案见
+> [Beam Selector 实验计划](../../selector/BEAM_SELECTOR_EXPERIMENT_PLAN.md)，退役原因见
+> [旧方法记录](../../selector/LEGACY_METHODS.md)。
+
 **日期:** 2026-07-20
 
 **状态:** 设计已过口头评审,待用户确认书面 spec
@@ -199,7 +203,7 @@ winner votes、票差、四条件逐条布尔值、最终动作(keep/drop)。
 - 不做多答案/列表题支持(门在该任务形态下必须关闭);
 - 不修改三模块契约与 Generator 拒答逻辑。
 
-Graph 2.0(`docs/selector/TRAINING_PLAN.md`)与本设计的关系:不是竞争者,
+Graph 2.0（旧训练计划已删除，见 [旧方法记录](../../selector/LEGACY_METHODS.md)）与本设计的关系:不是竞争者,
 是独立票底座的升级路径——SAME_SOURCE/CLAIM_REFUTES 边替换"怎么数票",
 不替换门的四条件结构。
 

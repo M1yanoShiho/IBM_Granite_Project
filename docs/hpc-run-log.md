@@ -2981,9 +2981,42 @@ sbatch --gres=gpu:rtx_3090:1 --time=02:00:00 scripts/run_r013_train_relations.sl
 该文件对训练路径**不可达** —— `cli/train_relations.py`、`relations/training.py`、
 `relations/niah_adaptation.py` 均无引用,`relations/__init__.py` 只有 docstring 不做导入。
 
-**纪律:在队作业期间不在 bp1 上 pull;起跑前记下 HEAD,AFTER 里写明实际执行的是哪棵树。**
-本作业按此执行(`9dcefc0`),`5d59b22`(索引持久化改 `write_bytes`)**不在**其执行树内,
-且与训练路径无交集,两条独立理由都指向"无需重跑"。
+**该纪律当天即失效,故已改为代码执行。** 上面那条"在队作业期间不在 bp1 上 pull"写下数小时后
+bp1 再次被 pull,`9dcefc0` → **`1558ee4`**(2026-08-09 17:5x,快进,无合并提交,工作树仅三个未跟踪文件)。
+**这是同日第四次"成文的纪律没能阻止它所禁止的事"**(另三次:E2 索引运维注、多臂预检、`SubmitLine`)。
+⇒ 不再试图冻住树,改为**让作业自己记**:`run_r013_train_relations.slurm` 与 `run_selector_gate.slurm`
+在 `cd` 之后打印 `[tree] <rev-parse HEAD>[ +uncommitted]`,`.out` 日志从此自带执行树,
+台账引它而不是引某人恰好记得去取的一次 `rev-parse`。**漂移由此变成被记录的,而不是被禁止的。**
+
+**本作业的最终认定:执行树 `1558ee4`(非提交时的 `3637934`)。** 两次漂移合计对 `src/` 的改动是
+**两个文件**:新增 `relations/backbone_agreement.py`(训练路径不可达,已证)与
+`retriever/indexing.py` 的 `write_bytes` 修复(`5d59b22`)。后者只在 `ExperimentWorkflow.prepare`
+路径上被调用,而 `train_relations` 不走 `ExperimentWorkflow` ⇒ **训练路径零改动,漂移可证惰性,无需重跑。**
+
+**第一次提交:FAILED [job `18322821`,2026-08-09]**
+
+| 项 | 值 |
+|---|---|
+| State / Exit | **FAILED / 1:0** |
+| Elapsed | **00:00:28**(死于任何训练步之前,GPU 计算为零) |
+| 起跑 / 节点 | 2026-08-09T20:24:08 / bp1-gpu030(rtx_3090) |
+| 死因 | `FileNotFoundError: runs/niah-train-injected/source_parent.jsonl` —— `_load_niah_examples` 第一行 `read_parent_index` |
+
+**根因:train split 的 parent sidecar 从未构建过。** dev 那份(`runs/niah-injected/source_parent.jsonl`)
+早就存在并在同日 R001b 里用过,**train 那份没有** —— 两个 split 的产物不对称,而没有任何东西检查这件事。
+已补建(登录节点,纯 CPU):`n_documents 101472 / n_parents 91595 / n_resolved 101472 / **n_unresolved 0**`
+(对照 dev:101479 / 91492 / 0)。**`n_unresolved 0` 是必须核的一项** —— 若有未解析文档,
+`ParentIndex` 的自 parent 回退会让后续零重叠比较**必然通过**,又是一个"因看不见而通过的审计"。
+
+**这是冒烟第三次死于"命令行里写的路径在盘上没有"**(前两次 `18290519` / `18290571`,缺
+`data/gate0b/vitaminc_train.jsonl`)。三次的 GPU 计算量都是零 —— 守卫的位置是对的;
+**但本次的真实代价是 17 小时排队**,而该判定在提交前一秒即可完成。
+与本日反复出现的同一形状一致:**能在零成本处判定的事被放到了昂贵的位置上。**
+⇒ 待办(未做,见下轮):给 `cli/train_relations.py` 加 `--check-paths-only`
+(已有 `--scaffold-check-only` 先例),**一次报出全部缺失路径而非死在第一个**,并写进 slurm 头部作提交前必跑步骤。
+八条路径的临时 stat 检查已用过一次,但那是文字纪律,按本日四次实证迟早被跳过。
+
+**第二次提交:`18329580`**(同一命令行,仅补齐 sidecar),队列 reason `(Resources)`。
 
 **预注册读数(提交前在登录节点算好,跑完必须逐字相等):**
 

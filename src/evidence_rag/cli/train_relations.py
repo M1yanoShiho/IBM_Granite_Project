@@ -151,17 +151,9 @@ def _load_niah_examples(
     supplied = [name for name in NIAH_FLAGS if getattr(arguments, name) is not None]
     if not supplied:
         return (), None, None, ()
-    missing = [name for name in NIAH_FLAGS if getattr(arguments, name) is None]
-    if missing:
-        raise ValueError(
-            f"the NIAH domain-adaptation half needs all of {sorted(NIAH_FLAGS)};"
-            f" missing {sorted(missing)}. --sealed-dir in particular is not optional:"
-            " §3.8's hard constraint is zero parent-page overlap with sealed-600, and a run"
-            " without it is indistinguishable afterwards from one that passed the check."
-            " --niah-dev-manifest is likewise not optional (ruling 2026-08-09 / A4): the"
-            " adaptation pool shares queries with the dev evaluation run, and the excluded"
-            " families are only auditable if the dev set is named here."
-        )
+    incomplete = _incomplete_niah_flags(arguments)
+    if incomplete:
+        raise ValueError(incomplete)
     sealed = load_sealed_parents(arguments.sealed_dir)
     dev_queries = load_dev_queries(arguments.niah_dev_manifest)
     bundle = JsonlDatasetAdapter.load(arguments.niah_manifest)
@@ -466,6 +458,67 @@ def _manifest(
     }
 
 
+# Every Path-typed flag is either an input that must already exist or an output this run
+# creates. `_missing_input_paths` checks the first group and ignores the second; the test
+# `test_no_path_flag_escapes_the_input_output_split` fails if a new Path flag joins neither, so
+# the split cannot drift away from the parser it describes.
+INPUT_PATHS = frozenset(
+    {
+        "vitaminc_train",
+        "vitaminc_dev",
+        "decontamination_log",
+        "niah_manifest",
+        "niah_provenance",
+        "niah_parents",
+        "niah_dev_manifest",
+        "sealed_dir",
+    }
+)
+OUTPUT_PATHS = frozenset({"output_dir"})
+
+
+def _incomplete_niah_flags(arguments: argparse.Namespace) -> str | None:
+    """The all-or-nothing check on the six domain-adaptation flags, or None if it passes.
+
+    Hoisted so `main` can run it BEFORE the path check: the shape of the request is more
+    actionable than the state of the disk. Told "these three files are absent" first, an
+    operator fixes the paths, resubmits, and only then learns a flag was missing -- two queue
+    waits for one mistake, which is exactly what the path check exists to stop.
+    """
+
+    if not any(getattr(arguments, name) is not None for name in NIAH_FLAGS):
+        return None
+    missing = [name for name in NIAH_FLAGS if getattr(arguments, name) is None]
+    if not missing:
+        return None
+    return (
+        f"the NIAH domain-adaptation half needs all of {sorted(NIAH_FLAGS)};"
+        f" missing {sorted(missing)}. --sealed-dir in particular is not optional:"
+        " §3.8's hard constraint is zero parent-page overlap with sealed-600, and a run"
+        " without it is indistinguishable afterwards from one that passed the check."
+        " --niah-dev-manifest is likewise not optional (ruling 2026-08-09 / A4): the"
+        " adaptation pool shares queries with the dev evaluation run, and the excluded"
+        " families are only auditable if the dev set is named here."
+    )
+
+
+def _missing_input_paths(arguments: argparse.Namespace) -> tuple[str, ...]:
+    """Every declared input that is not on disk -- all of them, not the first one.
+
+    Three submissions in this series died because a path named on the command line did not
+    exist, and 18322821 waited seventeen hours in the queue to be told about one file. Stopping
+    at the first would make a second absent file cost a second wait, which is the whole reason
+    this is reported as a list and runnable before sbatch (`--check-paths-only`).
+    """
+
+    return tuple(
+        f"--{dest.replace('_', '-')} {getattr(arguments, dest)}"
+        for dest in sorted(INPUT_PATHS)
+        if getattr(arguments, dest, None) is not None
+        and not Path(getattr(arguments, dest)).exists()
+    )
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="R013-R015: M0 §3.8 relation-model training")
     parser.add_argument("--vitaminc-train", required=True, type=Path)
@@ -497,6 +550,12 @@ def _parser() -> argparse.ArgumentParser:
         "--scaffold-check-only",
         action="store_true",
         help="construct the CrossEncoder and report the head's id2label, then stop",
+    )
+    parser.add_argument(
+        "--check-paths-only",
+        action="store_true",
+        help="stat every input path and stop. Run it on the LOGIN NODE before sbatch: an "
+        "absent file is decidable in a second there, and costs a queue wait from inside a job",
     )
     parser.add_argument("--niah-manifest", type=Path)
     parser.add_argument("--niah-provenance", type=Path)
@@ -531,7 +590,24 @@ def main(argv: Sequence[str] | None = None) -> int:
     require_base_model(arguments.base_model)
 
     if arguments.scaffold_check_only:
+        # Deliberately before the path check: this mode constructs the model and touches none
+        # of the data, so requiring the corpus to be present would only make it harder to run.
         return _scaffold_check(arguments.base_model)
+
+    incomplete = _incomplete_niah_flags(arguments)
+    if incomplete:
+        raise ValueError(incomplete)
+
+    missing = _missing_input_paths(arguments)
+    if missing:
+        raise ValueError(
+            "these input paths do not exist:\n  "
+            + "\n  ".join(missing)
+            + "\n(--check-paths-only runs this same check on a login node, before sbatch)"
+        )
+    if arguments.check_paths_only:
+        print(json.dumps({"check_paths_only": True, "inputs_present": sorted(INPUT_PATHS)}))
+        return 0
 
     train_pairs = _read_pairs(arguments.vitaminc_train)
     dev_pairs = _read_pairs(arguments.vitaminc_dev)

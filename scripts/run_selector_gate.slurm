@@ -46,6 +46,10 @@ cd /user/work/$USER/IBM_Granite_Project
 export PYTHONPATH=src
 if [ -n "$PARENT_INDEX" ]; then export SOURCE_PARENT_INDEX="$PARENT_INDEX"; fi
 
+# The tree that ran, recorded rather than assumed -- a queued job executes the checkout as it
+# stands when it STARTS, and "do not pull while a job is queued" has already failed as a rule.
+echo "[tree] $(git rev-parse HEAD 2>/dev/null || echo unknown)$(git diff --quiet 2>/dev/null || echo ' +uncommitted')"
+
 python -c "import torch; print('CUDA:', torch.cuda.is_available(), '| torch', torch.__version__)"
 
 # EVERY arm's stored manifest is checked before ANY arm computes. `prepare` makes this check
