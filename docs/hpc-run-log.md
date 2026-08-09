@@ -2544,6 +2544,30 @@ n_records 1472 / n_skipped_records 0`)已于 2026-08-03 重导对上,但**冻结
 slurm 头部同步。逐字 CI 全树:ruff 干净、mypy 122 文件干净、pytest **1245 passed / 1 xfailed**
 (含并发合入的 G9 代码)。**A4 正式文本已入 M0 §12;同日批准,协议升 `g2-proto-5`,域适配半暂停解除。**
 
+#### 第七次提交:COMPLETED —— 训练路径首次在真实数据上走通 [job `18321128`,2026-08-09]
+
+| 项 | 值 |
+|---|---|
+| State / Exit | **COMPLETED / 0:0**(sacct 按 id 直查) |
+| Elapsed | **00:03:31**(2000 例 × 5 折 + 5 次模型加载 + OOF,量级符合预期) |
+| 节点 | bp1-gpu035(a100 ⇒ bf16 硬件无碍) |
+| 启动方式 | **backfill 兑现**:g5-score(18318915)04:31:39 FAILED 释放卡,本作业 **04:31:40** 接上 —— 间隔 1 秒。TimeLimit 降到 1h/2h 那次操作的直接收益,比调度器原估的 08-12 提前约三天 |
+
+六种已知死法全部在提交前排除,第七次一次通过。**对冲副本 18321139 按第 4 条纪律的同构规则撤销**
+(赛跑结束,保留者 = 18321128;smoke-niah 18322821 是独立作业,不在此规则内,继续排队)。
+
+**待回填两项(日志与 manifest 的验证读数):**
+1. `[train_relations] fold N: CrossEncoderTrainer API` 行 —— 同时是裁决 1(bf16 注销)的关闭证据;
+2. manifest:`is_smoke_run: true`、`n_examples 2000`、`niah_domain_adaptation.status: "not run"`、
+   `protocol_version`(本作业起跑于 A4 批准与 `g2-proto-5` 升版**之后**,bp1 若已 pull 则应读 g2-proto-5;
+   读到 g2-proto-4 则说明作业跑的是升版前的 checkout,**如实记录即可,不构成缺陷** —— VitaminC 半的
+   语义两版本无差)。
+
+**冒烟不是 R013**:不产生任何可引用读数;`runs/r013/smoke/oof_predictions.jsonl` 是训练数据上的诊断。
+下一步:smoke-niah(18322821,在队)→ 两个冒烟都过 ⇒ 提交正式 R013/R014/R015(六 flag 全量,无 `--max-examples`)。
+
+顺带:`18318915`(g5-score)31 秒 FAILED —— G 线作业,前提类失败形态,已提醒其负责人自查日志。
+
 #### smoke-niah BEFORE(job `18322821`,提交于 2026-08-09,rtx_3090 / 2h 上限)
 
 **六 flag 全量命令**(含 `--niah-dev-manifest runs/niah-injected/manifest.json`),
