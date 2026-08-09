@@ -110,7 +110,24 @@ def _match_key(text: str) -> str:
     return " ".join(_MATCH_NOISE.sub(" ", strip_unverified_marker(text)).lower().split())
 
 
-def build(records: list[dict[str, Any]]) -> tuple[list[ScoredExample], dict[str, Any]]:
+def correctness(answer: str, gold: tuple[tuple[str, ...], ...], dataset: str) -> float:
+    """The pre-registered correctness metric for this dataset.
+
+    ASQA: STR-EM. QAMPARI: answer recall by containment over gold alias sets --
+    computationally the same function, but named differently because the values
+    are **not comparable across datasets** and must not be read as if they were.
+    QAMPARI additionally reports rec@5; see the pre-registration.
+    """
+    if dataset == "qampari":
+        from qampari_data import answer_recall
+
+        return answer_recall(answer, list(gold))
+    return str_em(answer, gold)
+
+
+def build(
+    records: list[dict[str, Any]], dataset: str = "asqa"
+) -> tuple[list[ScoredExample], dict[str, Any]]:
     examples: list[ScoredExample] = []
     per_case: list[dict[str, Any]] = []
     annotated = kept = flagged = 0
@@ -123,8 +140,14 @@ def build(records: list[dict[str, Any]]) -> tuple[list[ScoredExample], dict[str,
         gold = tuple(tuple(a) for a in record.get("gold_answers", []))
         metrics: dict[str, float | None] = {
             "coverage": 1.0 if answered else 0.0,
-            "answer_correctness": str_em(strip_unverified_marker(answer), gold),
+            "answer_correctness": correctness(strip_unverified_marker(answer), gold, dataset),
         }
+        if dataset == "qampari":
+            from qampari_data import answer_recall
+
+            metrics["answer_recall_at5"] = answer_recall(
+                strip_unverified_marker(answer), list(gold), cap=5
+            )
         if answered:
             # Exact per-sentence mapping when the arm recorded it; the flat-list
             # convention only as a fallback for arms that cannot.
@@ -186,6 +209,12 @@ def main() -> int:
     parser.add_argument("--input-dir", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--report", type=Path, required=True)
+    parser.add_argument(
+        "--dataset",
+        choices=("asqa", "qampari"),
+        default="asqa",
+        help="selects the pre-registered correctness metric; citation metrics are identical",
+    )
     args = parser.parse_args()
 
     from evidence_rag.generator.nli import build_nli_model
@@ -205,7 +234,7 @@ def main() -> int:
             for line in path.read_text(encoding="utf-8").splitlines()
             if line.strip()
         ]
-        examples, extra = build(records)
+        examples, extra = build(records, args.dataset)
         print(f"[score] {arm}: {len(examples)} answered of {len(records)}", flush=True)
         citation = compute_citation_metrics(examples, entails)
         # attach the per-example citation scores so paired_metric_cli can read them
@@ -237,7 +266,9 @@ def main() -> int:
                 {"value": row["citation_prec"]} if row and has_citations else None
             )
             case["metrics"]["citation_recall"] = {"value": row["citation_rec"]} if row else None
-            for key in ("coverage", "answer_correctness"):
+            for key in ("coverage", "answer_correctness", "answer_recall_at5"):
+                if key not in case["metrics"]:
+                    continue
                 value = case["metrics"][key]
                 case["metrics"][key] = {"value": value} if value is not None else None
         (args.output_dir / f"{arm}-report.json").write_text(
@@ -255,6 +286,7 @@ def main() -> int:
             "answered": len(examples),
             "coverage": mean("coverage"),
             "answer_correctness": mean("answer_correctness"),
+            "answer_recall_at5": mean("answer_recall_at5"),
             "citation_prec": citation.citation_prec / 100,
             "citation_prec_cited_examples": (
                 sum(prec_cited) / len(prec_cited) if prec_cited else None

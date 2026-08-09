@@ -92,6 +92,38 @@ class RecordingRepairer:
         return result
 
 
+def build_qampari_cases(limit: int, rng: random.Random, top_k: int) -> list[Any]:
+    """QAMPARI cases in the same shape the ASQA builder produces.
+
+    ``G3Case.gold_answers`` is already "one tuple of acceptable answers per gold
+    item", which is exactly QAMPARI's alias-set-per-answer shape -- so no new
+    case type is needed and the arms are constructed identically.
+    """
+    from qampari_data import load_qampari
+
+    rows = load_qampari(top_k=top_k)
+    order = list(range(len(rows)))
+    rng.shuffle(order)
+    cases = []
+    for index in order[:limit]:
+        row = rows[index]
+        cases.append(
+            g3.G3Case(
+                query_id=str(row["query_id"]),
+                question=row["question"],
+                required_facts=(),
+                constraints=(),
+                selected=g3._selected(str(row["query_id"]), _as_docs(row["passages"]), top_k),
+                gold_answers=tuple(tuple(a) for a in row["gold_answers"]),
+            )
+        )
+    return cases
+
+
+def _as_docs(passages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [{"title": p["title"], "text": p["text"]} for p in passages]
+
+
 def _empty_checklist(query_id: str, question: str) -> QueryChecklist:
     """Completeness is retired, so the checklist is inert in every arm. It stays in
     the signature because the contract is unchanged."""
@@ -186,6 +218,12 @@ def main() -> int:
     parser.add_argument("--seed", type=int, default=13)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument(
+        "--dataset",
+        choices=("asqa", "qampari"),
+        default="asqa",
+        help="asqa = calibration; qampari = the pre-registered module-level held-out",
+    )
+    parser.add_argument(
         "--max-error-rate",
         type=float,
         default=0.10,
@@ -198,8 +236,12 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    cases = g3.build_cases(g3.vt.ensure_asqa(), args.limit, random.Random(args.seed), args.top_k)
-    print(f"[data] {len(cases)} cases", flush=True)
+    rng = random.Random(args.seed)
+    if args.dataset == "qampari":
+        cases = build_qampari_cases(args.limit, rng, args.top_k)
+    else:
+        cases = g3.build_cases(g3.vt.ensure_asqa(), args.limit, rng, args.top_k)
+    print(f"[data] {args.dataset}: {len(cases)} cases", flush=True)
 
     llm = GraniteLLMClient()
     nli = build_nli_model("true")  # production verifier; never the judge
