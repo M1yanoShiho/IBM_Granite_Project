@@ -2277,7 +2277,9 @@ n_records 1472 / n_skipped_records 0`)已于 2026-08-03 重导对上,但**冻结
 3. **止损线 —— 2026-08-09 决定暂缓,此为有意决定而非遗忘。** 队列实测(a100 三天/空位)已入材料;
    延迟的代价随日历递增,后续每次触及此条须在台账留痕。
 4. **NIAH split —— 采纳「剔除加守卫」。** 要点:**(a)** 域适配训练对只取与 dev 评测运行
-   (`runs/niah-injected`)零重合的 query family,**202 个重合 family 从训练面剔除**(约保留 90% 适配信号);
+   (`runs/niah-injected`)零重合的 query family,重合 family 从训练面剔除
+   (**计数订正 2026-08-09:query 级重合 202/2000,其中有记录、实际构成 family 的为 151/1472**,
+   保留 1321 ≈ 89.7% 适配信号;原记"202 个 family"把 query 数误作 family 数);
    **(b)** 探针不重造 —— 探针是评测件,池内循环性由 5-fold 按 parent page + synthetic family
    分组的 OOF 处理;**(c)** 新增与 `assert_decontaminated` 对称的 NIAH 轴守卫,
    **守卫比对 query ID 集合、不读 `split` 标签**(本次事实已证标签不承载语义:标签会说谎,集合不会);
@@ -2291,6 +2293,28 @@ n_records 1472 / n_skipped_records 0`)已于 2026-08-03 重导对上,但**冻结
 (域适配 flag 集合五→六,仍全有或全无),manifest 记录 dev 集身份与 `n_families_excluded_dev_overlap`;
 slurm 头部同步。逐字 CI 全树:ruff 干净、mypy 122 文件干净、pytest **1245 passed / 1 xfailed**
 (含并发合入的 G9 代码)。**A4 正式文本已入 M0 §12;同日批准,协议升 `g2-proto-5`,域适配半暂停解除。**
+
+#### smoke-niah BEFORE(job `18322821`,提交于 2026-08-09,rtx_3090 / 2h 上限)
+
+**六 flag 全量命令**(含 `--niah-dev-manifest runs/niah-injected/manifest.json`),
+`--max-examples 2000`,输出 `runs/r013/smoke-niah`。**三个"第一次":** 剔除逻辑首碰真实数据、
+sealed-600 零重叠检查首次真实执行、`g2-proto-5` 的第一份 manifest。
+
+**预注册读数(提交前在登录节点算好,跑完必须逐字相等):**
+
+| 读数 | 预期 | 依据 |
+|---|---:|---|
+| `n_families_excluded_dev_overlap` | **151** | 有记录 query 1472 ∩ dev 2000 = 151(实测) |
+| `chain.n_niah` | **5284** | (1472 − 151) × 4 pairs = 1321 × 4 |
+| `dev_eval_n_queries` | **2000** | dev 评测运行的 query 数 |
+| sealed-600 零重叠检查 | PASS | Gate 0A 审计五轴零重叠(§8),此为其一的真实数据复核 |
+| `is_smoke_run` | true | `--max-examples` 存在 |
+
+**判读注记(提前写死,防事后误读):** `--max-examples 2000` 截断的是 chain,而 chain 的顺序是
+VitaminC 在前 ⇒ **本次实际参与训练的 2000 行全部是 VitaminC**;NIAH 行在构建、剔除、守卫、
+sealed 检查层被完整执行但不进训练。这正是本冒烟要验的东西(接口而非训练效果);
+**真正把 NIAH 行训进模型的是不带 `--max-examples` 的正式 R013**。manifest 的 `chain.n_vitaminc` /
+`chain.n_niah` 记的是截断前的两半规模,与 `n_examples=2000` 不相加相等,属已知展示口径,不是缺陷。
 
 ---
 

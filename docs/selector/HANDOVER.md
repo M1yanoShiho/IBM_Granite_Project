@@ -83,8 +83,9 @@ R000 从 DRAFT 转 FROZEN 卡在这一项。
 问题不是划分被违反,是**划分从来没做**。且 NIAH 轴上**没有**等价于 `assert_decontaminated` 的守卫
 (`niah_adaptation.py` 只查 parent page 与 sealed-600 零重叠,那是防评测集泄漏)。
 **已发表读数无一受影响**(0B-1 在 VitaminC test 上;0B-2 是零训练诊断,无训练即无泄漏);
-**受影响的是尚未跑过一步的 R013 域适配半**。**2026-08-09 已裁:「剔除加守卫」**(202 个重合
-family 从训练面剔除、探针不重造、新守卫比对 ID 集合不读 split 标签,详见 hpc-run-log「裁决记录」)。
+**受影响的是尚未跑过一步的 R013 域适配半**。**2026-08-09 已裁:「剔除加守卫」**(重合 family 从训练面剔除——query 级重合 202/2000,
+其中实际构成 family 的 **151**/1472;探针不重造、新守卫比对 ID 集合不读 split 标签,
+详见 hpc-run-log「裁决记录」)。
 **A4 已于 2026-08-09 批准(M0 §12,协议升 `g2-proto-5`):域适配半解锁,执行必须用含
 `--niah-dev-manifest` 的六 flag 命令(slurm 头部),旧五 flag 形式被 CLI 整体拒绝。**
 全文见 hpc-run-log「NIAH split 的可核验性」与 M0 §12。
