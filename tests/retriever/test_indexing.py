@@ -1,4 +1,5 @@
 import json
+from hashlib import sha256
 from pathlib import Path
 
 import pytest
@@ -263,3 +264,54 @@ def test_load_reports_missing_or_corrupt_file_path(
         load_bm25(tmp_path, snapshot)
 
     assert str(path) in str(raised.value)
+
+
+# Golden constants over `corpus()`, recorded 2026-08-09. Two of them, because a reshape of the
+# signature payload breaks two different things and only one is visible from inside the process.
+GOLDEN_INDEX_SIGNATURE = "7868c59e2b3cc305a8b79be655abb0c30c2b57d7718ff4f019321dbd96304fb9"
+GOLDEN_MANIFEST_SHA256 = "9daeaeff89817e4d39dc7b0f05aa4f73684a73129214e6df7fb7018f40671cbc"
+
+
+def test_index_identity_is_pinned_so_a_reshape_cannot_pass_silently(tmp_path: Path) -> None:
+    """A payload reshape must fail here, in seconds, not on the cluster hours later.
+
+    `d5f7908` moved BM25's `k1`/`b` from flat `IndexManifest` fields into a nested
+    `parameters` dict. Same corpus, same retriever, same k1/b -- but `_index_signature`
+    hashes that payload, so the identity changed and `index_manifest.json` changed
+    byte-for-byte. `implementation_version` stayed `bm25-v1`, so nothing announced it.
+
+    Every run directory prepared before that commit became permanently unloadable, because
+    `ArtifactStore` records the sha256 of the manifest FILE in `run_manifest.json.metadata.json`
+    and that file had been deleted and rebuilt. The failure does not surface at the commit; it
+    surfaces as an opaque `upstream artifact hashes mismatch` on a compute node -- job 18235971
+    reached it after burning 5h19m on the arm that ran first.
+
+    Hence two constants. `index_signature` is the identity two runs are compared on;
+    `GOLDEN_MANIFEST_SHA256` is the exact quantity `_validate_stored_manifest` compares, and it
+    moves under changes the signature alone would not catch (key order, separators, the trailing
+    newline `write_index` appends).
+
+    WHEN THIS GOES RED the change is not necessarily wrong -- but it is no longer invisible.
+    Either revert it, or bump `implementation_version` in the same commit and re-record both
+    constants below. Note what the bump costs: every index manifest already on disk says
+    `bm25-v1`, so bumping makes `load_index` reject all of them. That belongs at a deliberate
+    re-index boundary, not inside a refactor.
+    """
+
+    snapshot = corpus()
+    build_bm25_index(tmp_path, snapshot)
+    raw = (tmp_path / "index_manifest.json").read_bytes()
+
+    assert read_index_manifest(tmp_path).index_signature == GOLDEN_INDEX_SIGNATURE
+    assert sha256(raw).hexdigest() == GOLDEN_MANIFEST_SHA256
+
+
+def test_pinned_identity_actually_discriminates(tmp_path: Path) -> None:
+    """The pin is worthless if it holds under a real parameter change; prove it does not."""
+
+    snapshot = corpus()
+    build_bm25_index(tmp_path, snapshot, k1=1.2, b=0.75)
+    raw = (tmp_path / "index_manifest.json").read_bytes()
+
+    assert read_index_manifest(tmp_path).index_signature != GOLDEN_INDEX_SIGNATURE
+    assert sha256(raw).hexdigest() != GOLDEN_MANIFEST_SHA256

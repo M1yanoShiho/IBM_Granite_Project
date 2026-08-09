@@ -1288,7 +1288,12 @@ supporting-fact 标签);与 conflict 边(false/missed-conflict)、duplicate 边(
   schema → 旧 index cache 全失效 → run_manifest hash 守卫会拒重建的 index → 离线比 selected dump 最省"。
   R001b 的提交命令走的正是它说会被拒的那条路,**六天后原样再撞,代价 5h19m**。
   这是 R013-smoke 那节「可复用教训二」的教科书实例:**纯文字的义务没有代码执行,迟早被跳过。**
-  ⇒ **新纪律(落 `run_selector_gate.slurm`):多臂作业必须在跑任何一臂之前,把所有臂的 manifest 校验一遍。**
+  ⇒ **新纪律,已落地而非写下:`scripts/preflight_arms.py` + `run_selector_gate.slurm` 在第一个 `prepare`
+  之前调用它**,把所有臂的 stored manifest 与盘上 index 逐一对拍,**一次报完所有臂**(预检的意义是一分钟
+  看清全部问题,不是一次提交查出一个)。四种判读:`OK` / `FRESH`(无 run_manifest,prepare 会写)/
+  `INDEX ABSENT`(**故意判失败** —— prepare 会重建索引再跟一个已不存在的文件的哈希比,能否通过取决于当前
+  代码是否与当初逐字同序,从这里不可知;真想干净重建就把 `run_manifest.json` 与其 sidecar 一并删掉)/
+  `MISMATCH`。四格与两个退出码均已用 fixture 实测。`set -euo pipefail` 使其非零退出在任何 `prepare` 之前终止作业。
   它查的东西第 0 秒就完全可判定,成本零 GPU 秒;R013–R015 是十五次全量 fine-tune,这条会立刻回本。
   与 R013-smoke 那节"五次全部死在训练开始之前,说明守卫的位置是对的"恰成反例——同一原则,位置放反。
 
@@ -1296,8 +1301,13 @@ supporting-fact 标签);与 conflict 边(false/missed-conflict)、duplicate 边(
   `bm25-v1`,bump 会让 `load_index` 对**所有**既有 run 目录失配(E2 三臂 / lenient / lenient-parent /
   niah-injected 全部要重 prepare),距 9/4 四周不划算;且 bump 是一次性动作、不产生纪律。
   **`bm25-v1` 现同时指两套 payload schema,这是真实的溯源缺陷,在此登记。**
-  替代防守是对 `_index_signature` 加 golden 常量测试(payload 形状一改 CI 秒级红),零运行时代价、
-  对既有产物零影响、且是测试非行为改动。真要 bump,应挑一次自然的全量重建索引作边界。
+  **替代防守已落地**(`tests/retriever/test_indexing.py`):对固定 fixture 语料钉住**两个**常量 ——
+  `index_signature`(两次运行据以判同一的身份)与 **`index_manifest.json` 文件本身的 sha256**
+  (`_validate_stored_manifest` 实际比对的那个量,且它对键序、分隔符、尾换行这些 signature 抓不到的
+  改动也敏感)。payload 形状一改,CI 秒级红。配一条判别性测试:k1 由 1.5 改 1.2 两个常量都必须变,
+  否则这个钉子是假的。零运行时代价、对既有产物零影响、且是**测试非行为改动**,加进他人模块摩擦最小。
+  测试的 docstring 写明红了以后怎么办:要么撤回,要么在同一个 commit 里 bump `implementation_version`
+  并重录两个常量 —— 并写明 bump 的代价。真要 bump,应挑一次自然的全量重建索引作边界。
 
   **命令(登录节点,秒级):**
   ```

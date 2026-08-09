@@ -9,6 +9,11 @@
 #   hf download ibm-granite/granite-4.1-3b
 #   python -m evidence_rag.materializer.base_cli --split dev --output runs/niah-base --corpus-size 100000 --query-limit 2000 --seed 42
 #   python -m evidence_rag.materializer.cli --base-manifest runs/niah-base/manifest.json --output runs/niah-injected --seed 42
+#
+# Then, before every submission (seconds, login node, no GPU) -- this is the same check the job
+# runs below, and running it here turns a rejected arm into a message instead of a queue slot:
+#   PYTHONPATH=src python scripts/preflight_arms.py configs/experiments/A.toml configs/experiments/B.toml
+#
 # Submit from the project root:
 #   mkdir -p logs && sbatch scripts/run_selector_gate.slurm \
 #     configs/experiments/niah_e2_gate_on.toml configs/experiments/niah_e2_gate_off.toml runs/niah-injected/provenance.jsonl
@@ -42,6 +47,15 @@ export PYTHONPATH=src
 if [ -n "$PARENT_INDEX" ]; then export SOURCE_PARENT_INDEX="$PARENT_INDEX"; fi
 
 python -c "import torch; print('CUDA:', torch.cuda.is_available(), '| torch', torch.__version__)"
+
+# EVERY arm's stored manifest is checked before ANY arm computes. `prepare` makes this check
+# itself, but only when that arm's turn comes -- so in a sequential job the last arm's verdict
+# arrives after every earlier arm has finished. Job 18235971 died in arm 2's prepare over a
+# mismatch that was decidable at second zero, five hours and nineteen minutes in. The check
+# needs no GPU and no corpus; there is no reason for it to run late. `set -e` above makes a
+# non-zero exit here end the job before the first prepare.
+echo "=== preflight: stored manifests vs index on disk, all arms ==="
+python scripts/preflight_arms.py "$CONFIG_ON" "$CONFIG_OFF"
 
 for CONFIG in "$CONFIG_ON" "$CONFIG_OFF"; do
   echo "=== $CONFIG : prepare -> retriever -> selector (no generator) ==="
