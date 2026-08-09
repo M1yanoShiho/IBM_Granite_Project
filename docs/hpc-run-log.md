@@ -2951,17 +2951,25 @@ slurm 头部同步。逐字 CI 全树:ruff 干净、mypy 122 文件干净、pyte
 `--max-examples 2000`,输出 `runs/r013/smoke-niah`。**三个"第一次":** 剔除逻辑首碰真实数据、
 sealed-600 零重叠检查首次真实执行、`g2-proto-5` 的第一份 manifest。
 
-**提交行(`sacct -j 18322821 -o SubmitLine%500` 实取,2026-08-09 核验,六 flag 逐条到位):**
+**提交行(六 flag 逐条到位。⚠ 引号是语义的一部分,见下):**
 
 ```
 sbatch --gres=gpu:rtx_3090:1 --time=02:00:00 scripts/run_r013_train_relations.slurm \
-  13 runs/r013/smoke-niah --max-examples 2000 \
-  --niah-manifest runs/niah-train-injected/manifest.json \
-  --niah-provenance runs/niah-train-injected/provenance.jsonl \
-  --niah-parents runs/niah-train-injected/source_parent.jsonl \
-  --niah-dev-manifest runs/niah-injected/manifest.json \
-  --sealed-dir runs/niah-sealed600 --niah-twin-label REFUTES
+  13 runs/r013/smoke-niah \
+  "--max-examples 2000 \
+   --niah-manifest runs/niah-train-injected/manifest.json \
+   --niah-provenance runs/niah-train-injected/provenance.jsonl \
+   --niah-parents runs/niah-train-injected/source_parent.jsonl \
+   --niah-dev-manifest runs/niah-injected/manifest.json \
+   --sealed-dir runs/niah-sealed600 --niah-twin-label REFUTES"
 ```
+
+**本条曾以无引号形式记录,那份记录是错的,不可执行。** 脚本的 `EXTRA="${3:-}"` 只取**第三个**位置
+参数,六个 flag 必须整体作为一个 `$3`;裸着排在后面时 `$4` 起全部被静默丢弃。
+错误来源:该记录是从 `sacct -o SubmitLine` 的输出重建的,**而 SubmitLine 不保留引号** ——
+它把解析后的参数列表用空格拼回一行,看起来是可直接执行的命令行,实际上不能往返。
+**与 `scontrol` 的 `Command=` 不显示位置参数是同一族陷阱,且两次都咬在同一个作业上。**
+⇒ **纪律:要逐字复现一次提交,取台账里记录的命令,不取调度器的显示输出。**
 
 适配池(`niah-train-injected`)与 dev(`niah-injected`)是两个不同目录,与守卫按 query-id **集合**比
 而不读 `split` 标签的设计一致(脚本头部注明三个 NIAH 目录的标签都写着 `dev`,标签无意义)。
@@ -3016,7 +3024,28 @@ bp1 再次被 pull,`9dcefc0` → **`1558ee4`**(2026-08-09 17:5x,快进,无合并
 (已有 `--scaffold-check-only` 先例),**一次报出全部缺失路径而非死在第一个**,并写进 slurm 头部作提交前必跑步骤。
 八条路径的临时 stat 检查已用过一次,但那是文字纪律,按本日四次实证迟早被跳过。
 
-**第二次提交:`18329580`**(同一命令行,仅补齐 sidecar),队列 reason `(Resources)`。
+**第二次提交:FAILED [job `18329580`,2026-08-09 23:26,bp1-gpu030]**
+
+`FAILED / **2:0** / 00:00:23` —— **退出码 2 而非 1**,是 argparse 拒绝参数,比前几次更早一层:
+
+```
+train_relations.py: error: argument --max-examples: expected one argument
+```
+
+**根因是引号丢失,不是缺文件。** 重交时六个 flag 裸着排在位置参数里,于是
+`$3 = "--max-examples"`(无值)、`$4` 起**六个 flag 全部被静默丢弃**。命令是从
+`sacct SubmitLine` 重建的,而那个输出不保留引号(见上)。
+
+**这次失败是运气好。** 若引号恰好只裹住 `"--max-examples 2000"`、其余仍裸着,EXTRA 就合法,
+作业会**正常起跑**,跑成一个只训 VitaminC 的运行,manifest 写 `niah_domain_adaptation: not run`,
+**却顶着 smoke-niah 的作业号和输出目录** —— 而一个 COMPLETED 的作业没人会回头读 manifest。
+**argparse 那声报错挡住的是这个。** GPU 计算量 0,23 秒。
+
+⇒ 已加守卫(`b384101`):`scripts/run_r013_train_relations.slurm` 检查 `$#`,超过 3 个位置参数
+即 **exit 2 并打印带引号的正确写法**,不再静默丢弃。两个方向都实测过。
+**该守卫不在 `18330465` 的执行树内**(bp1 停在 `1558ee4`),从正式 R013–R015 起生效。
+
+**第三次提交:`18330465`**(2026-08-10,引号正确,六 flag 完整)。
 
 **预注册读数(提交前在登录节点算好,跑完必须逐字相等):**
 
