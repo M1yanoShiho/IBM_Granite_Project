@@ -225,17 +225,24 @@ def main() -> int:
     arms: dict[str, Any] = {
         "baseline": GraniteGenerator(llm=llm),
         "verify-only": VerifiedGenerator(llm=llm, nli=nli, repairer=repairer),
+        # Every arm names its gate mode explicitly. Two of these used to rely on
+        # the default, which was "gate"; G9 changed the default to "observe" (the
+        # main method's setting), so leaving them implicit would have silently
+        # turned the control arm into a second copy of the subject arm.
+        #
         # the capped arm is what isolates the contract lift: same routing, old
         # wholesale abstention when nothing verified
         "verify-annotate-capped": VerifyAnnotateGenerator(
-            llm=llm, nli=nli, abstain_when_unverified=True
+            llm=llm, nli=nli, entity_gate="gate", abstain_when_unverified=True
         ),
-        # control: G6's routing, entity gate active
-        "verify-annotate-open": VerifyAnnotateGenerator(llm=llm, nli=nli),
+        # control: G6's routing, entity gate active and destructive
+        "verify-annotate-open": VerifyAnnotateGenerator(llm=llm, nli=nli, entity_gate="gate"),
         # subject: entailment alone decides citation, no drop path. The entity
         # check still runs and its verdict is logged, so what the gate would have
         # destroyed is measured on this arm rather than extrapolated from an audit.
-        "verify-annotate-nogate": VerifyAnnotateGenerator(llm=llm, nli=nli, entity_gate=False),
+        "verify-annotate-nogate": VerifyAnnotateGenerator(
+            llm=llm, nli=nli, entity_gate="observe"
+        ),
     }
 
     results: dict[str, dict[str, Any]] = {name: {} for name in arms}

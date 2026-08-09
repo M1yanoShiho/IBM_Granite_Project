@@ -57,6 +57,7 @@ enters precision and recall exactly as any other cited sentence does.
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass, field
+from typing import Literal
 
 from evidence_rag.contracts.models import (
     REVIEW_ANNOTATION,
@@ -88,6 +89,37 @@ REVIEW_MARKER = REVIEW_ANNOTATION
 
 CITATION_RE = re.compile(r"\[(\d+)\]")
 SENTENCE_END = re.compile(r"[.!?]")
+
+EntityGateMode = Literal["gate", "observe", "off"]
+"""What the entity layer is allowed to do. **This switch is where the threat model
+is declared**, so it reads as a three-way choice rather than a flag left set:
+
+* ``gate`` -- the layer may destroy content. The pre-G7 behaviour, kept runnable
+  as the control arm. Two blind audits put wrong destruction at 0.850, so this is
+  defensible only against an adversarial-substitution threat model.
+* ``observe`` -- **the default.** The layer runs, its verdict is logged and
+  ignored by routing, and it drives the ``[may warrant review]`` label. Screening,
+  not adjudication.
+* ``off`` -- the layer does not run at all. For a deployment that wants neither
+  the destruction nor the label, and does not want to pay for NER on every
+  entailed pair.
+"""
+
+_GATE_ALIASES: dict[object, EntityGateMode] = {True: "gate", False: "observe"}
+
+
+def _normalise_gate(value: "EntityGateMode | bool") -> EntityGateMode:
+    """Accept the superseded boolean so existing call sites keep their meaning.
+
+    ``True``/``False`` used to mean gate-on/gate-off, where "off" still ran the
+    check for the observe-only log -- which is exactly ``observe``, not ``off``.
+    Mapping ``False`` to ``off`` would silently stop the review flag firing.
+    """
+    if isinstance(value, bool):
+        return _GATE_ALIASES[value]
+    if value not in ("gate", "observe", "off"):
+        raise ValueError(f"entity_gate must be gate/observe/off, got {value!r}")
+    return value
 
 
 # Re-exported so existing importers (scorers) keep working; the definitions live
@@ -192,14 +224,18 @@ class CitationRoutedVerifier:
         nli: NLIModel,
         entity_checker: EntityChecker | None = None,
         *,
-        entity_gate: bool = True,
+        entity_gate: "EntityGateMode | bool" = "observe",
+        memoise: bool = True,
     ) -> None:
         self.nli = nli
+        self.memoise = memoise
+        """Off only for the equivalence test that pins the memo as behaviour-neutral."""
+        self._memo: dict[tuple[str, str], tuple[bool, bool, bool, tuple[str, ...]]] = {}
         # spaCy NER for the proper-noun side: the capitalisation heuristic in the
         # rule-based extractor treats sentence-initial common nouns as names, which
         # the audit found to be the dominant false-veto mechanism.
         self.entity_checker = entity_checker or EntityConsistencyChecker(SpacyEntityExtractor())
-        self.entity_gate = entity_gate
+        self.entity_gate: EntityGateMode = _normalise_gate(entity_gate)
         """Whether entity consistency may *change routing*. The check runs either
         way; with the gate off its verdict is recorded and ignored.
 
@@ -213,7 +249,7 @@ class CitationRoutedVerifier:
         adversarial substitution that is expensive on benign data, and the gate
         setting is where that trade-off is made."""
 
-    def _supports(
+    def _supports_uncached(
         self, evidence_text: str, claim_text: str
     ) -> tuple[bool, bool, bool, tuple[str, ...]]:
         """(entailed, entity_consistent, genuine_conflict, mismatch detail).
@@ -226,6 +262,12 @@ class CitationRoutedVerifier:
         """
         if self.nli.classify(premise=evidence_text, hypothesis=claim_text) != "entailment":
             return False, False, False, ()
+        if self.entity_gate == "off":
+            # The layer does not run. Reported as consistent so entailment alone
+            # decides, with no conflict and no detail -- and nothing downstream can
+            # mistake "not checked" for "checked and clean", because `gated_outcome`
+            # is left empty rather than being filled in with a guess.
+            return True, True, False, ()
         consistency = self.entity_checker.check(claim_text, evidence_text)
         mismatches = tuple(getattr(consistency, "mismatches", ()))
         detail = tuple(
@@ -235,6 +277,30 @@ class CitationRoutedVerifier:
         )
         genuine = any(m.evidence_values for m in mismatches)
         return True, consistency.consistent, genuine, detail
+
+    def _supports(
+        self, evidence_text: str, claim_text: str
+    ) -> tuple[bool, bool, bool, tuple[str, ...]]:
+        """``_supports_uncached``, memoised for the duration of one ``route`` call.
+
+        ``route`` scans the declared-citation prefix and then the whole evidence
+        list, and the declared entries are members of that list -- 538 of 2733
+        checks on G8's 439 claims were re-examinations of a pair already judged.
+
+        Removing them is not only ~20% of the verifier's work. Without the memo
+        the same pair can be evaluated twice inside one run, and G8 established
+        that this stack is not bitwise deterministic across execution conditions,
+        so two evaluations of one pair are not guaranteed to agree. The memo makes
+        a run *more* internally consistent, not merely faster.
+        """
+        if not self.memoise:
+            return self._supports_uncached(evidence_text, claim_text)
+        key = (evidence_text, claim_text)
+        hit = self._memo.get(key)
+        if hit is None:
+            hit = self._supports_uncached(evidence_text, claim_text)
+            self._memo[key] = hit
+        return hit
 
     def route(
         self,
@@ -261,11 +327,12 @@ class CitationRoutedVerifier:
         conflict_id: str | None = None
         conflict_detail: tuple[str, ...] = ()
 
+        self._memo.clear()  # scoped to one claim: the memo is a de-duplicator, not a cache
         declared_items = [by_index[i] for i in declared if i in by_index]
-        # The declared prefix is scanned first and then the full evidence set; an
-        # item appearing in both is examined twice, which the memo-free NLI call
-        # makes cheap enough and which keeps this behaviourally identical to the
-        # two-pass version it replaces.
+        # The declared prefix is scanned first, then the full evidence set. An item
+        # in both is reached twice, which keeps this behaviourally identical to the
+        # two-pass version it replaces; `_supports` memoises so the second reach
+        # costs nothing and cannot return a different verdict from the first.
         for from_declared, item in [(True, i) for i in declared_items] + [
             (False, i) for i in evidence
         ]:
@@ -285,14 +352,19 @@ class CitationRoutedVerifier:
                 # the control arm has to stay comparable to G6 exactly.
                 conflict_id, conflict_detail = item.evidence_id, detail
 
+        # Empty when the layer did not run: "not checked" must not be recorded as
+        # "checked and clean", or the observe-only counters would silently count
+        # an `off` run as one where the gate found nothing.
         gated_outcome = (
-            "verified"
+            ""
+            if self.entity_gate == "off"
+            else "verified"
             if gated_id
             else "dropped_entity_conflict"
             if conflict_id
             else "unverified"
         )
-        if self.entity_gate:
+        if self.entity_gate == "gate":
             citation, from_declared = gated_id, gated_declared
             outcome = gated_outcome
         else:
@@ -336,7 +408,7 @@ class VerifyAnnotateGenerator:
         llm: TextGenerator | None = None,
         nli: NLIModel | None = None,
         abstain_when_unverified: bool = False,
-        entity_gate: bool = True,
+        entity_gate: EntityGateMode | bool = "observe",
     ) -> None:
         self.abstain_when_unverified = abstain_when_unverified
         """The pre-lift behaviour, kept so the capped arm can be run as the

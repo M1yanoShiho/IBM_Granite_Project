@@ -10,6 +10,8 @@ from evidence_rag.contracts.models import Document, RetrieverProvenance
 from evidence_rag.contracts.protocols import Generator, Retriever, Selector
 from evidence_rag.generator.extractive import ExtractiveGenerator
 from evidence_rag.generator.granite import GraniteGenerator, GraniteLLMClient, TextGenerator
+from evidence_rag.generator.nli import NLIModel, build_nli_model
+from evidence_rag.generator.verify_annotate import EntityGateMode, VerifyAnnotateGenerator
 from evidence_rag.infrastructure.config import ExperimentConfig, ModuleConfig
 from evidence_rag.infrastructure.corpus import CorpusSnapshot
 from evidence_rag.materializer.source_parent import read_parent_index
@@ -484,11 +486,44 @@ def build_selector(config: ModuleConfig, *, llm: TextGenerator | None = None) ->
     raise ValueError(f"unknown selector: {config.name}")
 
 
-def build_generator(config: ModuleConfig) -> Generator:
-    if config.name != "extractive":
-        raise ValueError(f"unknown generator: {config.name}")
-    _reject_parameters(config, "generator")
-    return ExtractiveGenerator()
+def build_generator(
+    config: ModuleConfig,
+    *,
+    llm: TextGenerator | None = None,
+    nli: NLIModel | None = None,
+) -> Generator:
+    """Build the configured Generator.
+
+    ``llm`` and ``nli`` are injectable for the same reason ``build_selector``'s
+    are: **`GraniteLLMClient` loads its weights in `__init__`**, not on first use,
+    unlike every other model client in this package. So constructing a
+    Granite-backed generator is not free, and a caller that only wants to check
+    the wiring needs a seam. See `docs/generator/design-review.md`.
+    """
+    if config.name == "extractive":
+        _reject_parameters(config, "generator")
+        return ExtractiveGenerator()
+    if config.name == "granite":
+        _reject_parameters(config, "generator")
+        return GraniteGenerator(llm=llm)
+    if config.name == "verify-annotate":
+        # The main method. Until G9 this factory could only build the 29-line
+        # `extractive` placeholder, so the config-driven CLI could not run the
+        # method this project is about -- it existed only inside the experiment
+        # script. Behaviour is unchanged: the script path constructs the same
+        # object with the same defaults.
+        parameters = dict(config.parameters)
+        gate = parameters.pop("entity_gate", "observe")
+        abstain = bool(parameters.pop("abstain_when_unverified", False))
+        if parameters:
+            raise ValueError(f"unknown generator parameters: {sorted(parameters)}")
+        return VerifyAnnotateGenerator(
+            llm=llm,
+            nli=nli,
+            entity_gate=gate,
+            abstain_when_unverified=abstain,
+        )
+    raise ValueError(f"unknown generator: {config.name}")
 
 
 def build_baseline_from_corpus(
@@ -577,4 +612,34 @@ def build_q2d_corroboration_granite(
         retriever=Query2DocRetriever(dense_retriever, shared_llm),
         selector=CorroborationSelector(shared_llm, alpha=alpha),
         generator=GraniteGenerator(llm=shared_llm),
+    )
+
+
+def build_q2d_corroboration_verify_annotate(
+    documents: Iterable[Document],
+    *,
+    embedder: TextEmbedder | None = None,
+    llm: TextGenerator | None = None,
+    nli: NLIModel | None = None,
+    alpha: float = 0.6,
+    entity_gate: EntityGateMode = "observe",
+    chunker: Chunker | None = None,
+) -> EvidenceRAGPipeline:
+    """The full main-line pipeline: Q2D retrieval, corroboration selection, and
+    the verify-and-annotate Generator.
+
+    The Generator's own defaults are the calibrated ones -- entity layer
+    observe-only, no wholesale abstention -- so this builds what G8/G9 measured
+    rather than a differently-configured cousin of it.
+    """
+    shared_llm = llm or GraniteLLMClient()
+    dense_retriever = GraniteDenseRetriever(documents, embedder=embedder, chunker=chunker)
+    return EvidenceRAGPipeline(
+        retriever=Query2DocRetriever(dense_retriever, shared_llm),
+        selector=CorroborationSelector(shared_llm, alpha=alpha),
+        generator=VerifyAnnotateGenerator(
+            llm=shared_llm,
+            nli=nli or build_nli_model(),
+            entity_gate=entity_gate,
+        ),
     )

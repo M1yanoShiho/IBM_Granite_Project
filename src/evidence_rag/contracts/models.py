@@ -193,7 +193,15 @@ sentence always carries a citation."""
 
 _ANNOTATIONS = (UNVERIFIED_ANNOTATION, REVIEW_ANNOTATION)
 
-_SENTENCE_SPLIT = re.compile(r"[.!?]+(?:\s|$)")
+_SENTENCE_SPLIT = re.compile(r"[.!?]+[\"'”’)\]]*(?:\s|$)")
+"""A terminator, then any closing quotes or brackets, then a break.
+
+The closing-punctuation class is load-bearing. Without it ``'Manifest Destiny."
+It means ...'`` does not split at all, because the character after the period is
+a quote rather than a space -- and **merging two real sentences is the more
+damaging error**: ``GenerationResult`` counts sentences to decide whether every
+uncited one is labelled, so an under-count would let an unlabelled sentence
+through the validator."""
 
 _ABBREVIATIONS = frozenset(
     """
@@ -235,25 +243,41 @@ def _terminator_ends_a_sentence(text: str, terminator_start: int) -> bool:
     return not _DOTTED_ACRONYM.fullmatch(token)  # "the 1913 U.S. Open"
 
 
-def split_sentences(text: str) -> list[str]:
-    """Sentences in ``text``, treating abbreviations and initials as interior.
+def sentence_spans(text: str) -> list[tuple[int, int]]:
+    """``(start, end)`` offsets of each sentence, whitespace trimmed.
 
-    The single sentence rule the contract and the scorer both use, so a sentence
-    the validator demands a label for is the same sentence the metric scores.
+    **The single sentence rule for the whole system.** The contract validator, the
+    claim splitter and the scorer all read it, so "what counts as a sentence" has
+    one answer rather than three. Three implementations with three different
+    abbreviation lists is how G7 lost an answer: the validator counted
+    ``Mount St. Helens erupted.`` as two sentences carrying one label and rejected
+    a correctly annotated answer.
+
+    Offsets rather than strings because the claim splitter anchors claims to
+    positions in the draft; ``split_sentences`` is the string view of the same rule.
     """
-    parts: list[str] = []
+    spans: list[tuple[int, int]] = []
     start = 0
     for match in _SENTENCE_SPLIT.finditer(text):
         if not _terminator_ends_a_sentence(text, match.start()):
             continue
-        piece = text[start : match.end()].strip()
-        if piece:
-            parts.append(piece)
-        start = match.end()
-    tail = text[start:].strip()
-    if tail:
-        parts.append(tail)
-    return parts
+        end = match.end()
+        piece = text[start:end]
+        stripped = piece.strip()
+        if stripped:
+            offset = start + (len(piece) - len(piece.lstrip()))
+            spans.append((offset, offset + len(stripped)))
+        start = end
+    tail = text[start:]
+    if tail.strip():
+        offset = start + (len(tail) - len(tail.lstrip()))
+        spans.append((offset, offset + len(tail.strip())))
+    return spans
+
+
+def split_sentences(text: str) -> list[str]:
+    """Sentences in ``text``, treating abbreviations and initials as interior."""
+    return [text[start:end] for start, end in sentence_spans(text)]
 
 
 def ends_with_abbreviation(part: str) -> bool:
