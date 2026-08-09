@@ -36,7 +36,7 @@ def _mapping(value: object, label: str) -> Mapping[str, object]:
 
 
 def _metric(arm: Mapping[str, object], key: str) -> object:
-    return _mapping(arm.get("metrics"), "arm metrics").get(key)
+    return arm.get(key)
 
 
 def _float(value: object, label: str) -> float:

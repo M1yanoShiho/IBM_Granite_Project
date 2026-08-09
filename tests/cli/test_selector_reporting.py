@@ -188,14 +188,12 @@ def test_error_analysis_uses_frozen_outcomes_without_retuning(tmp_path: Path) ->
         selected_id: str,
     ) -> dict[str, object]:
         return {
-            "metrics": {
-                "selected_ids": [selected_id],
-                "required_document_ids": ["required"],
-                "harmful_document_id": "harmful",
-                "harmful_pool_hit": True,
-                "harmful_selected": harmful_selected,
-                "required_evidence_recall": recall,
-            }
+            "selected_ids": [selected_id],
+            "required_document_ids": ["required"],
+            "harmful_document_id": "harmful",
+            "harmful_pool_hit": True,
+            "harmful_selected": harmful_selected,
+            "required_evidence_recall": recall,
         }
 
     comparison = tmp_path / "comparison.jsonl"
