@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from evidence_rag.cli.selector_error_analysis import main as error_analysis_main
 from evidence_rag.cli.selector_final_report import main as report_main
 from evidence_rag.cli.selector_stability import main as stability_main
 from evidence_rag.contracts.models import EvidenceCandidate, SelectedEvidenceSet
@@ -177,3 +178,87 @@ def test_final_tables_put_metrics_in_rows_and_methods_in_columns(tmp_path: Path)
     assert json.loads((output / "primary_summary.json").read_text())["final_selector"] == (
         "reliability-mis"
     )
+
+
+def test_error_analysis_uses_frozen_outcomes_without_retuning(tmp_path: Path) -> None:
+    def arm(
+        recall: float,
+        *,
+        harmful_selected: bool,
+        selected_id: str,
+    ) -> dict[str, object]:
+        return {
+            "metrics": {
+                "selected_ids": [selected_id],
+                "required_document_ids": ["required"],
+                "harmful_document_id": "harmful",
+                "harmful_pool_hit": True,
+                "harmful_selected": harmful_selected,
+                "required_evidence_recall": recall,
+            }
+        }
+
+    comparison = tmp_path / "comparison.jsonl"
+    comparison.write_text(
+        "\n".join(
+            json.dumps(row)
+            for row in (
+                {
+                    "query_id": "q-success",
+                    "top_k": arm(1.0, harmful_selected=True, selected_id="harmful#0"),
+                    "reliability_mis": arm(1.0, harmful_selected=False, selected_id="required#0"),
+                },
+                {
+                    "query_id": "q-failure",
+                    "top_k": arm(1.0, harmful_selected=True, selected_id="required#0"),
+                    "reliability_mis": arm(0.0, harmful_selected=True, selected_id="harmful#0"),
+                },
+            )
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    events = tmp_path / "events.jsonl"
+    events.write_text(
+        "\n".join(
+            json.dumps(row)
+            for row in (
+                {
+                    "query_id": "q-success",
+                    "diagnostic": {"mode": "mis", "unresolved_parent_count": 0},
+                },
+                {
+                    "query_id": "q-failure",
+                    "diagnostic": {
+                        "mode": "topk_backend_fallback",
+                        "unresolved_parent_count": 0,
+                    },
+                },
+            )
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    output = tmp_path / "error-analysis"
+    assert (
+        error_analysis_main(
+            (
+                "--comparison",
+                str(comparison),
+                "--events",
+                str(events),
+                "--output",
+                str(output),
+                "--limit",
+                "20",
+            )
+        )
+        == 0
+    )
+    report = json.loads((output / "error_analysis.json").read_text(encoding="utf-8"))
+    assert report["category_counts"] == {
+        "backend_or_parent_failure": 1,
+        "harmful_not_removed": 1,
+        "harmful_removed_required_retained": 1,
+        "required_dropped": 1,
+    }
