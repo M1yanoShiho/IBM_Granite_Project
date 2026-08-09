@@ -59,7 +59,27 @@ is inconvenient. Both lessons are encoded directly in the wording below:
 > **The calibration result replicates if, on queries answered by both arms,
 > nogate's citation precision exceeds baseline's at p < 0.05, and nogate's
 > coverage deficit against baseline is not significantly worse than the
-> calibration value of −0.018.**
+> calibration value of −0.0152.**
+
+> ### Reference-value update — G7's −0.018 → G9's −0.0152
+>
+> **Only the reference point moved. The criterion's form, its comparisons, its
+> threshold and its per-dataset rule are unchanged.**
+>
+> The original figure came from G7. Calibration was re-run as G9 after the fix
+> pass, so the value the criterion points at had gone stale; the number below is
+> G9's, produced by the same code the held-out run will execute.
+>
+> A pre-registration edit is normally suspect, and this one is legitimate only
+> because **it predates the held-out data and changes no logic**. Making that
+> checkable rather than asking for trust:
+>
+> * the edit is committed **before any held-out set is loaded** — the commit
+>   containing this paragraph precedes the first held-out generation job in
+>   `git log`, and `docs/hpc-run-log.md` records both;
+> * G9's own value is `−0.0152` (p = 0.386, CI [−0.0430, +0.0127], n = 395), from
+>   job `18322643`, unchanged in form from the G7 measurement it replaces;
+> * the previous value stays written here rather than being overwritten silently.
 
 Two properties this wording has that the previous two did not: it is **paired on
 commonly-answered queries**, so neither arm is charged for answering more; and it
@@ -98,9 +118,18 @@ From G8 (final calibration), for reference at read-out time:
 | citation precision (ALCE) | see G8 | see G8 |
 | citation recall | see G8 | see G8 |
 
-The G7 values the criterion's −0.018 comes from: coverage deficit −0.018
-(p = 0.297), correctness +0.001 (p = 0.888), citation precision +0.191 (p = 0.0),
-citation recall +0.071 (p = 0.009).
+**G9** (job `18322642` + `18322643`), nogate against baseline, paired on
+commonly-answered queries — the values this criterion is measured against:
+
+| axis | delta | p | 95% CI |
+|---|---|---|---|
+| coverage | **−0.0152** | 0.386 | [−0.0430, +0.0127] |
+| correctness (STR-EM) | +0.0015 | 0.892 | [−0.0184, +0.0216] |
+| citation precision | **+0.1913** | 0.0 | [+0.1339, +0.2473] |
+| citation recall | **+0.0711** | 0.0094 | [+0.0187, +0.1231] |
+
+Superseded reference, kept for the record: G7 gave −0.018 (p = 0.297) on the same
+comparison.
 
 ## Procedure
 

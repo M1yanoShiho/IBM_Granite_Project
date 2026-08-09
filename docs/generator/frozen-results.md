@@ -12,8 +12,12 @@ never subtracted from anything.
 | 1 | Verifier selection, six arms | `18240434` triage | human-labelled slices |
 | 2 | The ALCE-artefact finding | `18267966` + `18268709` | MiniCheck |
 | 3 | Blind human adjudication, three rounds | n/a (human) | the adjudicator |
-| 4 | Five-arm calibration | `18307720` + `18307721` | MiniCheck |
-| 5 | Cross-job non-determinism | `18269703`, `18295681`, `18307720` | byte comparison |
+| 4 | **Five-arm calibration (final)** | **`18322642` + `18322643` (G9)** | MiniCheck |
+| 5 | Cross-job non-determinism | `18269703`, `18295681`, `18307720`, `18322642` | byte comparison |
+| 6 | Sentence-splitter unification | none — deterministic, on G8's recorded text | direct diff |
+
+**§4 was rebuilt on G9.** The G8 tables it replaced are superseded, not merged:
+no figure below is carried over from `18307720`.
 
 ---
 
@@ -90,56 +94,63 @@ aggregate could have produced.
 
 ---
 
-## 4. Five-arm calibration — job `18307720` / `18307721`
+## 4. Five-arm calibration — job `18322642` / `18322643` (G9, final)
 
 Judge MiniCheck. Primary precision figure is the ALCE-standard convention;
 cited-sample precision alongside.
 
 | arm | coverage | correctness (STR-EM) | cite prec (ALCE) | cite prec (cited) | cite recall | answered |
 |---|---|---|---|---|---|---|
-| baseline | 0.933 | 0.273 | 0.613 | 0.613 (373) | 0.647 | 373/400 |
-| verify-only | 0.633 | 0.197 | 0.871 | 0.871 (252) | 0.871 | 252/398 |
-| verify-annotate-capped | 0.633 | 0.196 | 0.911 | 0.911 (252) | 0.885 | 252/398 |
-| verify-annotate-open | 0.789 | 0.219 | 0.731 | 0.911 (252) | 0.710 | 314/398 |
-| **verify-annotate-nogate** | **0.917** | **0.267** | 0.731 | 0.871 (306) | 0.712 | 365/398 |
+| baseline | 0.925 | 0.266 | 0.597 | 0.597 (370) | 0.635 | 370/400 |
+| verify-only | 0.641 | 0.206 | 0.862 | 0.862 (253) | 0.862 | 253/395 |
+| verify-annotate-capped | 0.635 | 0.202 | 0.890 | 0.890 (251) | 0.870 | 251/395 |
+| verify-annotate-open | 0.785 | 0.223 | 0.720 | 0.890 (251) | 0.705 | 310/395 |
+| **verify-annotate-nogate** | **0.911** | **0.267** | 0.716 | 0.848 (304) | 0.701 | 360/395 |
 
 Paired randomization, 10 000 iterations, seed 13, bootstrap CI — all within-job:
 
 | comparison | coverage | correctness | cite precision | cite recall |
 |---|---|---|---|---|
-| **nogate vs baseline** | −0.015 (**p=0.352**) | −0.006 (**p=0.572**) | **+0.203 (p=0.0)** | **+0.079 (p=0.002)** |
-| nogate vs open | +0.128 (p=0.0) | +0.048 (p=0.0) | −0.014 (p=0.145) | −0.002 (p=0.924) |
-| nogate vs verify-only | +0.284 (p=0.0) | +0.070 (p=0.0) | +0.024 (p=0.232) | −0.002 (p=0.954) |
-| open vs capped | +0.156 (p=0.0) | +0.023 (p=0.0) | 0.000 (p=1.0) | 0.000 (p=1.0) |
+| **nogate vs baseline** | −0.0152 (**p=0.386**) | +0.0015 (**p=0.892**) | **+0.1913 (p=0.0)** | **+0.0711 (p=0.009)** |
+| nogate vs open | +0.1266 (p=0.0) | +0.0441 (p=0.0) | −0.0046 (p=0.698) | +0.0043 (p=0.720) |
+| nogate vs verify-only | +0.2709 (p=0.0) | +0.0609 (p=0.0) | +0.0224 (p=0.238) | +0.0011 (p=0.970) |
+| open vs capped | +0.1494 (p=0.0) | +0.0213 (p=0.0001) | 0.000 (p=1.0) | 0.000 (p=1.0) |
+| verify-only vs baseline | −0.2861 (p=0.0) | −0.0594 (p=0.0) | +0.1712 (p=0.0) | +0.1306 (p=0.0001) |
 
 **The result:** indistinguishable from the baseline on coverage and correctness,
-with +0.20 citation precision and +0.08 citation recall. Every earlier round had
+with +0.19 citation precision and +0.07 citation recall. Every earlier round had
 to trade away coverage to buy citation quality; that trade is gone.
 
 Sentence composition:
 
-| arm | verified & cited | annotated unverified | of which review-flagged | total |
-|---|---|---|---|---|
-| baseline | 384 | 0 | 0 | 384 |
-| verify-only | 257 | 0 | 0 | 257 |
-| verify-annotate-capped | 290 | 15 | 0 | 305 |
-| verify-annotate-open | 290 | 82 | 0 | 372 |
-| **verify-annotate-nogate** | **358** | 80 | **66** | 438 |
+| arm | verified & cited | annotated unverified | of which review-flagged | uncited & unlabelled | total |
+|---|---|---|---|---|---|
+| baseline | 415 | 0 | 0 | 0 | 415 |
+| verify-only | 268 | 0 | 0 | 0 | 268 |
+| verify-annotate-capped | 305 | 14 | 0 | 1 | 320 |
+| verify-annotate-open | 305 | 76 | 0 | 3 | 384 |
+| **verify-annotate-nogate** | **370** | 74 | **60** | 3 | 447 |
 
-Routing, nogate: 439 claims → 359 verified, 80 annotated, **0 destroyed**. The
-entity gate would have destroyed 66; all 66 are cited instead. Control-arm
-self-check exact (`gate_would_drop` = 66 = `dropped_entity_conflict`).
+(Sentence counts here use the unified splitter, so they run slightly higher than
+the scorer's `kept_sentences`, which is computed on the pre-repair split.)
+
+Routing, nogate: 434 claims → 359 verified, 75 annotated, **0 destroyed**. The
+entity gate would have destroyed 60; all 60 are cited instead, none fell through
+to annotation. Control-arm self-check exact (`gate_would_drop` = 60 =
+`dropped_entity_conflict`). Declared-citation survival 283/399 (0.709).
 
 **Review flag** (`[may warrant review]`), enrichment with intervals:
 
 | | error rate | 95% Wilson | n |
 |---|---|---|---|
-| flagged | 0.237 | [0.147, 0.360] | 59 |
-| unflagged | 0.103 | [0.070, 0.145] | 247 |
+| flagged | 0.322 | [0.221, 0.456] | 58 |
+| unflagged | 0.112 | [0.080, 0.160] | 246 |
 
-Lift 2.3×, intervals separating by 0.002; the lift is compatible with 1.01×–5.18×.
-Directionally sound, poorly determined at n = 59 — adequate for a presentation
-hedge, and explicitly not adequate to justify destroying anything.
+Lift **2.86×**, corners 1.38×–5.70×. The intervals separate cleanly (0.221
+against 0.160), unlike the G8 measurement where they parted by 0.002 — but the
+width tells the same story: at n = 58 the multiplier is not well determined.
+Adequate for a presentation hedge, explicitly not adequate to justify destroying
+anything.
 
 ---
 
@@ -152,6 +163,14 @@ Same code, same seed, same models, same node (`bp1-gpu035`), greedy decoding
 |---|---|---|
 | G6 `18269703` → G7 `18295681` | 6.03 → 6.06 s/arm/case | **394/394 (1.000)** |
 | G7 `18295681` → G8 `18307720` | 6.06 → **2.70** s/arm/case | **356/400 (0.890)** |
+| G8 `18307720` → G9 `18322642` | 2.70 → **5.78** s/arm/case | **356/400 (0.890)** |
+| **G7 `18295681` → G9 `18322642`** | 6.06 → 5.78 s/arm/case | **400/400 (1.000)** |
+
+G9 is the confirmation the pattern needed, because it was not designed to be one.
+It landed back on the ~6 s/arm/case profile and reproduced G7 **exactly** — 400/400
+on baseline and 395/395 on every other arm — while remaining 11% divergent from
+G8, which sits between them in time. **Runs agree when they execute alike and
+disagree when they do not, irrespective of ordering.**
 
 The caching explanation was checked and ruled out: G7 logged a full generation
 pass at G6's speed with freshly produced per-arm answered and error counts, and
@@ -177,6 +196,47 @@ instance of a reproducibility failure mode that fixed seeds are widely assumed t
 exclude.
 
 ---
+
+## 6. Sentence-splitter unification — measured in isolation
+
+Three implementations of "what is a sentence" existed, with three abbreviation
+lists (contract ~50, claim splitter 10, scorer ALCE's). G8 unified two of them
+after a disagreement destroyed an answer; G9 unified the third.
+
+Measured **on fixed inputs** — the old and the new rule run over the same 1808
+recorded G8 answers — because a run-to-run comparison could not have isolated it:
+
+| | |
+|---|---|
+| answers examined | 1808 |
+| answers whose boundaries change | **69 (3.816%)** |
+| sentences | 2336 → 2262 (**−74**) |
+
+Every change is a merge of a wrongly-split sentence:
+
+```
+old: ['Patrick S.', 'Castagne']
+new: ['Patrick S. Castagne']
+
+old: ['The Brown v.', 'Board of Education case took place in Topeka, Kansas.']
+new: ['The Brown v. Board of Education case took place in Topeka, Kansas.']
+
+old: ['...played the parents in "The Parent Trap.', '"']
+new: ['...played the parents in "The Parent Trap."']
+```
+
+**This measurement caught a regression before it shipped.** The first unified rule
+required whitespace immediately after the terminator, so `."` never split and
+`'"Manifest Destiny." It means …'` merged into one sentence. Merging two real
+sentences is the more damaging direction — `GenerationResult` counts sentences to
+decide whether every uncited one carries a label, so an under-count lets an
+unlabelled sentence through the validator. Fixed before G9 ran.
+
+**Effect on the calibration answers: one query.** G9 differs from G7 on exactly
+`-5608871660568079389` — `"Matt Kuchar won the 2018 U.S. Open golf championship."`
+— which G7's validator destroyed and which now survives. Every other answer in
+all five arms is identical. So the unification removed a **latent** inconsistency
+rather than a manifesting one, on this corpus.
 
 ## Known limitations
 
