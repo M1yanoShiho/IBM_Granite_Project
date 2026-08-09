@@ -38,7 +38,13 @@ def _git_commit(root: Path) -> str:
 def _source_hashes(directory: Path) -> dict[str, str]:
     return {
         name: sha256_file(directory / name)
-        for name in ("manifest.json", "documents.jsonl", "gold_cases.jsonl", "provenance.jsonl")
+        for name in (
+            "manifest.json",
+            "documents.jsonl",
+            "queries.jsonl",
+            "gold_cases.jsonl",
+            "provenance.jsonl",
+        )
     }
 
 

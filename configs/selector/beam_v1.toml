@@ -11,12 +11,21 @@ epochs = 3
 batch_size = 4
 gradient_accumulation_steps = 4
 niah_twowiki_ratio = "1:1"
+hard_negatives_per_query = 4
+
+[sanity]
+questions_per_dataset = 16
+epochs = 30
+minimum_training_accuracy = 0.95
+required_threshold = 0.50
+reject_threshold = 0.80
 
 [selection]
 beam_size = 2
 max_selected = 10
 required_thresholds = [0.40, 0.50, 0.60, 0.70]
 reject_thresholds = [0.60, 0.70, 0.80, 0.90]
+threshold_policy = "credible-harm_then_minimax-recall"
 
 [evaluation]
 top_n = 20

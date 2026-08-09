@@ -97,7 +97,7 @@ Beam Retrieval 面向多跳问答：从 10–20 条候选 passage 中，逐步�
 5. 若模型不确定，保留原 TopK 顺序，避免为追求过滤而误删必要证据；
 6. 最终最多 10 条，不足时不得使用 Generator 或参数知识补证据。
 
-阈值只能在开发集选择。候选网格在第一次开发运行前写入 frozen config，并画出“减少多少 harmful、同时损失多少 recall”的权衡曲线。先删除同时在两个指标上都更差的配置，再选择 recall 损失较小、harmful 降幅明显的拐点。不能看 sealed600 的结果再改阈值。
+阈值只能在开发集选择。候选网格在第一次开发运行前写入 frozen config，并画出“减少多少 harmful、同时损失多少 recall”的权衡曲线。选择规则也在看结果前固定：先保留 harmful 至少下降 3 个百分点、95% CI 上界小于 0、且两个 recall 损失都不超过 5 个百分点的配置；若其中有两个 recall 损失都不超过 3 的清晰通过项，只在这些项中选择；随后优先最小化两个 recall 损失中的较大值，再优先 harmful 降幅更大的配置。仍并列时选择更保守的较高 reject threshold，再选择较高 required threshold。不能看 sealed600 的结果再改规则或阈值。
 
 ## 6. 数据准备
 
@@ -128,7 +128,7 @@ Beam Retrieval 面向多跳问答：从 10–20 条候选 passage 中，逐步�
 
 - NIAH 与 2Wiki 采用 1:1 的 batch 来源交替，避免大数据集压倒另一任务；
 - 每道题保留全部 `REQUIRED` 和 `HARMFUL`；
-- `IRRELEVANT` 从 Top-20 的高排名困难负例中按固定 seed 采样；
+- `IRRELEVANT` 从 Top-20 的高排名困难负例中按固定 seed 每题采样 4 条；
 - 数据比例、采样数和哈希必须在数据准备阶段结束时冻结，不得根据 sealed600 结果修改。
 
 ## 7. 实验阶段与停止顺序
@@ -143,10 +143,12 @@ Beam Retrieval 面向多跳问答：从 10–20 条候选 passage 中，逐步�
 
 **停止条件：** 任一标签无法映射、Top-20 数量错误、训练与 sealed600 有任何重合，均不得训练。
 
+这里“标签无法映射”指 provenance/gold 中的文档 ID 在原始数据文档中不存在。某条正确或误导文档没有被 Retriever 放进 Top-20，不是映射 bug，而是表 1 必须如实报告的候选池 miss；这种全负题不产生训练样本。M1 的 32 题则只从全部必要证据（NIAH 还包括 harmful twin）确实出现在 Top-20 的题中抽取，防止 sanity Gate 被缺标签样本虚假通过。
+
 ### M1：最小正确性检查
 
 1. 用 32 题运行完整训练和推理；
-2. 确认模型能够过拟合这 32 题；
+2. 用 16 道 NIAH 加 16 道 2Wiki、最多 30 个 sanity epoch，确认模型能够过拟合这 32 题；正式训练仍固定为 3 epoch；
 3. 确认输出 ID 都来自输入 Top-20；
 4. 确认 Selector 全程没有调用 Generator；
 5. 确认未把 `cf::`、provenance 或 gold answer 泄漏给模型。
