@@ -41,6 +41,7 @@ value correct, and a default would make the correct value invisible in the manif
 """
 
 import importlib
+import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from hashlib import sha256
@@ -134,6 +135,98 @@ def load_sealed_parents(directory: Path) -> SealedCorpus:
     )
 
 
+@dataclass(frozen=True)
+class DevEvaluationQueries:
+    """The dev-side evaluation run's query ids, plus enough provenance to say which dev set.
+
+    Mirror of `SealedCorpus`, for the second leakage axis the 2026-08-09 finding opened: the
+    adaptation pool and the dev evaluation run were drawn from ONE pool (202 of 2000 queries
+    shared), the manifests' `split` labels all read 'dev' — including `runs/niah-train*` — and
+    no code compared the two query sets. The comparison is therefore over ID SETS, and nothing
+    on this path ever reads a `split` label: the label lied; the sets cannot.
+    """
+
+    query_ids: frozenset[str]
+    query_ids_sha256: str
+    source: str
+
+    @property
+    def n_queries(self) -> int:
+        return len(self.query_ids)
+
+
+def load_dev_queries(manifest_path: Path) -> DevEvaluationQueries:
+    """Read the dev evaluation run's query-id set off its dataset manifest.
+
+    Contracts only on `queries_file` — the one field the guard needs — and applies the same
+    degeneracy checks as `load_sealed_parents`: an empty set makes every disjointness check
+    vacuously true, and a blank id can never match a real one, so both refuse.
+    """
+    manifest_path = Path(manifest_path)
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise ValueError(
+            f"cannot read the dev evaluation manifest at {manifest_path}: {error}. Without it"
+            " the adaptation set's disjointness from the dev evaluation cannot be checked, and"
+            " the NIAH half must not run."
+        ) from error
+    queries_file = manifest.get("queries_file")
+    if not queries_file:
+        raise ValueError(
+            f"the dev evaluation manifest at {manifest_path} names no queries_file, so its"
+            " query-id set cannot be read."
+        )
+    ids = {
+        str(json.loads(line)["query_id"])
+        for line in (manifest_path.parent / queries_file)
+        .read_text(encoding="utf-8")
+        .splitlines()
+        if line.strip()
+    }
+    if not ids:
+        raise ValueError(
+            f"the dev evaluation run at {manifest_path} lists no queries. Disjointness against"
+            " an empty set is true for every input, so this would let the check report success"
+            " while checking nothing."
+        )
+    if any(not query_id.strip() for query_id in ids):
+        raise ValueError(
+            f"the dev evaluation run at {manifest_path} contains a blank query id. A blank can"
+            " never match a real id, so it is a hole in the audit that looks like a clean row."
+        )
+    return DevEvaluationQueries(
+        query_ids=frozenset(ids),
+        query_ids_sha256=sha256("\n".join(sorted(ids)).encode("utf-8")).hexdigest(),
+        source=str(manifest_path),
+    )
+
+
+def partition_dev_overlap(
+    records: Sequence[MutationRecord], dev_queries: DevEvaluationQueries
+) -> tuple[tuple[MutationRecord, ...], tuple[str, ...]]:
+    """The sanctioned filter (ruling 2026-08-09 / A4): drop dev-overlapping families, visibly.
+
+    Returns the kept records AND the sorted excluded query ids, because the excluded count
+    belongs in the run manifest — `build_niah_examples` refuses overlapping records rather than
+    filtering them itself precisely so that the removal cannot happen without leaving this
+    trace.
+    """
+    kept = tuple(
+        record for record in records if record.query_id not in dev_queries.query_ids
+    )
+    excluded = tuple(
+        sorted(
+            {
+                record.query_id
+                for record in records
+                if record.query_id in dev_queries.query_ids
+            }
+        )
+    )
+    return kept, excluded
+
+
 def build_niah_examples(
     *,
     records: Sequence[MutationRecord],
@@ -141,6 +234,7 @@ def build_niah_examples(
     text_by_document: Mapping[str, str],
     parent_by_document: Mapping[str, str],
     sealed: SealedCorpus | None,
+    dev_queries: DevEvaluationQueries | None,
     twin_label: RelationLabel,
     hypothesis_form: HypothesisForm = build_hypothesis,
     gold_answer_source: GoldAnswerSource = "canonical",
@@ -166,6 +260,31 @@ def build_niah_examples(
             " three-class target for the mutation-log twin rows, so the caller must; but"
             " SUPPORTS would train the degenerate arm 0B-2's joint gate exists to block, and"
             " NOT_SUPPORTED is a derived label with no logit in a three-class head."
+        )
+    if dev_queries is None:
+        raise ValueError(
+            "the NIAH domain-adaptation half cannot run without the dev evaluation run's"
+            " query-id set. The 2026-08-09 finding: the adaptation pool and the dev evaluation"
+            " run were drawn from one pool (202 of 2000 queries shared), the manifests' split"
+            " labels all read 'dev' and carry no meaning, and nothing compared the two sets."
+            " Pass load_dev_queries(<dev evaluation manifest.json>); running with the check off"
+            " would be undetectable afterwards, exactly like the sealed-600 case above."
+        )
+    leaking = sorted(
+        {
+            record.query_id
+            for record in records
+            if record.query_id in dev_queries.query_ids
+        }
+    )
+    if leaking:
+        raise ValueError(
+            f"{len(leaking)} record(s) belong to queries in the dev evaluation set (e.g."
+            f" {leaking[:5]}). Ruling 2026-08-09 (A4): dev-overlapping families are EXCLUDED"
+            " from the adaptation set — call partition_dev_overlap() first and record its"
+            " excluded count in the run manifest. This builder refuses rather than filtering"
+            " silently, because a silent filter would leave no trace of how much of the pool"
+            " was removed."
         )
 
     # Pass 1: resolve every parent page and run the §3.8 constraint BEFORE any pair is built,

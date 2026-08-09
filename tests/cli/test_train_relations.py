@@ -249,6 +249,16 @@ def _niah_fixture(tmp_path: Path) -> list[str]:
             {"document_id": "cf::needle", "source_parent_id": "JFK"},
         ],
     )
+    # The dev evaluation run this adaptation set must stay disjoint from (ruling 2026-08-09 /
+    # A4). Disjoint by default; a test that wants the overlap path writes its own.
+    dev = niah / "dev-eval"
+    dev.mkdir()
+    (dev / "queries.jsonl").write_text(
+        json.dumps({"query_id": "dev-q", "text": "?"}) + "\n", encoding="utf-8"
+    )
+    (dev / "manifest.json").write_text(
+        json.dumps({"queries_file": "queries.jsonl", "split": "dev"}), encoding="utf-8"
+    )
     return [
         "--niah-manifest",
         str(niah / "manifest.json"),
@@ -256,6 +266,8 @@ def _niah_fixture(tmp_path: Path) -> list[str]:
         str(niah / "provenance.jsonl"),
         "--niah-parents",
         str(niah / "source_parent.jsonl"),
+        "--niah-dev-manifest",
+        str(dev / "manifest.json"),
         "--niah-twin-label",
         "REFUTES",
     ]
@@ -300,6 +312,34 @@ def test_the_niah_half_runs_once_a_disjoint_sealed_600_is_supplied(
     assert adaptation["twin_label_ruling"] == "M0 §3.8(a)"
     assert adaptation["sealed_n_parent_pages"] == 1
     assert len(adaptation["sealed_parent_pages_sha256"]) == 64
+    assert adaptation["dev_eval_n_queries"] == 1
+    assert len(adaptation["dev_eval_query_ids_sha256"]) == 64
+    assert adaptation["n_families_excluded_dev_overlap"] == 0
+
+
+def test_a_dev_overlapping_family_is_excluded_and_the_manifest_says_so(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Ruling 2026-08-09 (A4) at the CLI boundary: the fixture's one family shares its query
+    with the dev evaluation run, so the adaptation half runs but contributes zero rows, and the
+    removal is auditable in the manifest rather than silent."""
+    niah_flags = _niah_fixture(tmp_path)
+    dev_manifest = Path(niah_flags[niah_flags.index("--niah-dev-manifest") + 1])
+    (dev_manifest.parent / "queries.jsonl").write_text(
+        json.dumps({"query_id": "q1", "text": "?"}) + "\n", encoding="utf-8"
+    )
+    output = tmp_path / "run"
+    argv = _argv(
+        _corpus(tmp_path),
+        output,
+        *niah_flags,
+        *_sealed_dir(tmp_path, monkeypatch, "Some other article"),
+    )
+    assert train_relations.main(argv) == 0
+    manifest = json.loads((output / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["chain"]["n_niah"] == 0
+    adaptation = manifest["niah_domain_adaptation"]
+    assert adaptation["n_families_excluded_dev_overlap"] == 1
 
 
 def test_a_sealed_600_that_shares_an_article_stops_the_run(

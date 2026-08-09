@@ -63,7 +63,14 @@
 #        "--max-examples 2000 --niah-manifest runs/niah-train-injected/manifest.json \
 #         --niah-provenance runs/niah-train-injected/provenance.jsonl \
 #         --niah-parents runs/niah-train-injected/source_parent.jsonl \
+#         --niah-dev-manifest runs/niah-injected/manifest.json \
 #         --sealed-dir runs/niah-sealed600 --niah-twin-label REFUTES"
+#
+#    ⚠ smoke-niah AND the real adaptation half are PAUSED until amendment A4 (M0 §12, DRAFT)
+#    is approved: the 2026-08-09 finding is that the adaptation pool shares 202 of 2000 queries
+#    with the dev evaluation run and no split was ever actually made. The CLI now refuses the
+#    half without --niah-dev-manifest and excludes dev-overlapping families, recording the
+#    count in the manifest. The VitaminC half is unaffected.
 #
 #    §3.8(b) freezes the optimisation recipe -- AdamW, lr 2e-5, linear decay, warmup ratio .06,
 #    batch 32, 2 epochs, max_length 256, weight decay .01, max_grad_norm 1.0, bf16 -- and records
@@ -81,12 +88,18 @@
 # a sealed-600 parent-page set that the pairs actually clear. There is no flag that disables the
 # check. Omitting the NIAH flags runs the VitaminC half alone and the manifest says so in words.
 #
-# Once sealed-600 exists, add -- all five together, the CLI refuses a partial set:
-#   --niah-manifest   runs/niah-train-injected/manifest.json
-#   --niah-provenance runs/niah-train-injected/provenance.jsonl
-#   --niah-parents    runs/niah-train-injected/source_parent.jsonl
-#   --sealed-dir      runs/niah-sealed600
-#   --niah-twin-label REFUTES
+# Once sealed-600 exists, add -- all six together, the CLI refuses a partial set:
+#   --niah-manifest     runs/niah-train-injected/manifest.json
+#   --niah-provenance   runs/niah-train-injected/provenance.jsonl
+#   --niah-parents      runs/niah-train-injected/source_parent.jsonl
+#   --niah-dev-manifest runs/niah-injected/manifest.json
+#   --sealed-dir        runs/niah-sealed600
+#   --niah-twin-label   REFUTES
+#
+# --niah-dev-manifest names the dev evaluation run the adaptation set must stay disjoint from
+# (ruling 2026-08-09 / A4). The guard compares query-id SETS and never reads a manifest's
+# `split` label -- on 2026-08-09 all three NIAH runs' labels read 'dev', including
+# runs/niah-train*; the label carries no meaning, the sets do.
 #
 # --sealed-dir is the corpus line's BUILD DIRECTORY, not a file: the check reads that build's
 # own frozen split fingerprint (`sealed600.read_split_fingerprint(dir).parent_pages`), so the

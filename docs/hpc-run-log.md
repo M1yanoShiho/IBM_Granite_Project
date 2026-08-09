@@ -2285,6 +2285,13 @@ n_records 1472 / n_skipped_records 0`)已于 2026-08-03 重导对上,但**冻结
    域适配半保持暂停;VitaminC 主训半不受影响**。已排队的两份冒烟(18321128 / 18321139)
    均为 VitaminC 半,不因本裁决取消。
 
+**执行进度(同日):** 守卫代码 + 红测试已落地 —— `relations/niah_adaptation.py` 新增
+`DevEvaluationQueries` / `load_dev_queries` / `partition_dev_overlap`,`build_niah_examples`
+对未剔除的相交记录拒绝而非静默过滤;`cli/train_relations.py` 新增必填 `--niah-dev-manifest`
+(域适配 flag 集合五→六,仍全有或全无),manifest 记录 dev 集身份与 `n_families_excluded_dev_overlap`;
+slurm 头部同步。逐字 CI 全树:ruff 干净、mypy 122 文件干净、pytest **1245 passed / 1 xfailed**
+(含并发合入的 G9 代码)。**A4 正式文本已入 M0 §12(DRAFT);暂停解除条件 = §12 批准。**
+
 ---
 
 ## G3 — 基线对照:verified vs 生成时引用(方法头条主张)

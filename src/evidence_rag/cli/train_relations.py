@@ -46,9 +46,12 @@ from evidence_rag.materializer.source_parent import read_parent_index
 from evidence_rag.relations.models import RelationLabel, RelationPair
 from evidence_rag.relations.niah_adaptation import (
     PERMITTED_TWIN_LABELS,
+    DevEvaluationQueries,
     SealedCorpus,
     build_niah_examples,
+    load_dev_queries,
     load_sealed_parents,
+    partition_dev_overlap,
 )
 from evidence_rag.relations.predictor import (
     NLIRelationPredictor,
@@ -78,6 +81,7 @@ from evidence_rag.relations.training import (
 )
 
 NIAH_FLAGS = (
+    "niah_dev_manifest",
     "niah_manifest",
     "niah_parents",
     "niah_provenance",
@@ -137,11 +141,16 @@ def _check_against_decontamination_log(
 
 def _load_niah_examples(
     arguments: argparse.Namespace,
-) -> tuple[tuple[TrainingExample, ...], SealedCorpus | None]:
+) -> tuple[
+    tuple[TrainingExample, ...],
+    SealedCorpus | None,
+    DevEvaluationQueries | None,
+    tuple[str, ...],
+]:
     """Build the domain-adaptation half, or return nothing if it was not asked for."""
     supplied = [name for name in NIAH_FLAGS if getattr(arguments, name) is not None]
     if not supplied:
-        return (), None
+        return (), None, None, ()
     missing = [name for name in NIAH_FLAGS if getattr(arguments, name) is None]
     if missing:
         raise ValueError(
@@ -149,12 +158,19 @@ def _load_niah_examples(
             f" missing {sorted(missing)}. --sealed-dir in particular is not optional:"
             " §3.8's hard constraint is zero parent-page overlap with sealed-600, and a run"
             " without it is indistinguishable afterwards from one that passed the check."
+            " --niah-dev-manifest is likewise not optional (ruling 2026-08-09 / A4): the"
+            " adaptation pool shares queries with the dev evaluation run, and the excluded"
+            " families are only auditable if the dev set is named here."
         )
     sealed = load_sealed_parents(arguments.sealed_dir)
+    dev_queries = load_dev_queries(arguments.niah_dev_manifest)
     bundle = JsonlDatasetAdapter.load(arguments.niah_manifest)
     parent_index = read_parent_index(arguments.niah_parents)
+    kept, excluded = partition_dev_overlap(
+        tuple(read_provenance(arguments.niah_provenance)), dev_queries
+    )
     examples = build_niah_examples(
-        records=read_provenance(arguments.niah_provenance),
+        records=kept,
         question_by_query={query.query_id: query.text for query in bundle.queries},
         text_by_document={
             document.document_id: document.text for document in bundle.documents
@@ -164,9 +180,10 @@ def _load_niah_examples(
         # sealed title. See relations/niah_adaptation.py.
         parent_by_document=parent_index.parent_by_document,
         sealed=sealed,
+        dev_queries=dev_queries,
         twin_label=RelationLabel(arguments.niah_twin_label),
     )
-    return examples, sealed
+    return examples, sealed, dev_queries, excluded
 
 
 def load_fold_fitter(
@@ -382,6 +399,8 @@ def _manifest(
     n_vitaminc: int,
     n_niah: int,
     sealed: SealedCorpus | None,
+    dev_queries: DevEvaluationQueries | None,
+    excluded_dev_overlap: tuple[str, ...],
     decontamination: Mapping[str, Any],
     hyperparameters: Hyperparameters,
     run: OofRun | None,
@@ -422,8 +441,16 @@ def _manifest(
                 "sealed_dir": sealed.source,
                 "sealed_parent_pages_sha256": sealed.parent_pages_sha256,
                 "sealed_n_parent_pages": sealed.n_parent_pages,
+                "dev_eval_manifest": dev_queries.source,
+                "dev_eval_query_ids_sha256": dev_queries.query_ids_sha256,
+                "dev_eval_n_queries": dev_queries.n_queries,
+                "n_families_excluded_dev_overlap": len(excluded_dev_overlap),
+                "dev_overlap_ruling": (
+                    "2026-08-09 (A4): dev-overlapping families excluded; the guard compares"
+                    " query-id sets and never reads a manifest's split label"
+                ),
             }
-            if sealed is not None
+            if sealed is not None and dev_queries is not None
             else {
                 "status": "not run",
                 "reason": (
@@ -475,6 +502,15 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--niah-provenance", type=Path)
     parser.add_argument("--niah-parents", type=Path, help="source_parent sidecar for NIAH train")
     parser.add_argument(
+        "--niah-dev-manifest",
+        type=Path,
+        help=(
+            "manifest.json of the dev evaluation run the adaptation set must stay disjoint"
+            " from (ruling 2026-08-09 / A4): its query-id set drives partition_dev_overlap,"
+            " and the guard compares ID sets, never split labels"
+        ),
+    )
+    parser.add_argument(
         "--sealed-dir",
         type=Path,
         help="sealed-600 build directory; its frozen split fingerprint is what §3.8's "
@@ -510,7 +546,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     # so this guard can run.
     assert_decontaminated(train=vitaminc, dev=vitaminc_examples(dev_pairs))
 
-    niah, sealed = _load_niah_examples(arguments)
+    niah, sealed, dev_queries, excluded_dev_overlap = _load_niah_examples(arguments)
     chain: tuple[TrainingExample, ...] = (*vitaminc, *niah)
     if arguments.max_examples is not None:
         chain = chain[: arguments.max_examples]
@@ -541,6 +577,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         n_vitaminc=len(vitaminc),
         n_niah=len(niah),
         sealed=sealed,
+        dev_queries=dev_queries,
+        excluded_dev_overlap=excluded_dev_overlap,
         decontamination=decontamination,
         hyperparameters=hyperparameters,
         run=run,
