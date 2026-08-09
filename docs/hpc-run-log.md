@@ -2017,7 +2017,7 @@ premise 质量、premise 长度、hypothesis 形式、argmax 记账、canonical-
 - **未导出 train/dev 的去污染副本:** Gate 0B-1 只需 official test;去污染后的 train/dev 仅在
   §3.8 训练路径被启动时才需要,届时加 `--out-train` / `--out-dev` 重跑即可(确定性,可复现)。
 
-### R013-smoke — §3.8 训练路径的首次执行尝试 [五次 FAIL;第四次拦出真实数据缺陷,已修 2026-08-08]
+### R013-smoke — §3.8 训练路径的首次执行尝试 [五次 FAIL、四种挂法;数据缺陷在第三、四次两度被拦,已修 2026-08-08]
 
 **本条不是 R013。** R013 是三 seed 的正式 fine-tune;这里记的是冒烟(`--max-examples 2000`),
 它只验代码能否在真实数据上走完一遍,**不产生任何可引用的读数**。
@@ -2028,7 +2028,7 @@ premise 质量、premise 长度、hypothesis 形式、argmax 记账、canonical-
 |---|---|---:|---|---|
 | `18290519` | VitaminC 半 | 00:00:37 | 1:0 | `export_vitaminc` 尚未跑 ⇒ `data/gate0b/vitaminc_train.jsonl` 不存在 |
 | `18290571` | 含域适配半 | 00:00:04 | 1:0 | 同上;`FileNotFoundError` 原文即该路径 |
-| `18300333` | **未记录** | 00:00:12 | 1:0 | **原因未记录** —— 须从 slurm 日志补,**不得假定与其余四次同因** |
+| `18300333` | VitaminC 半 | 00:00:12 | 1:0 | ~~原因未记录~~ **2026-08-09 从日志补录:与 `18318996` 同因** —— `assert_decontaminated` 报 train∩dev 共享同一个页(`xxx-colon- return of xander cage`)。**即数据缺陷在第三次就被守卫拦下,当时日志未读,第四次原样再撞,根因定位晚了一整个提交周期。**"不得假定同因"按方法论是对的,如今由实测闭合。附带证据:它能走到该守卫 ⇒ 彼时 `export_vitaminc` 的产物已存在(pre-fix 版) |
 | `18318996` | VitaminC 半 | 00:00:25 | 1:0 | `assert_decontaminated`:train 与 dev 共享 1 个页。**这一条是真实数据缺陷,详见「第四次拦出的是数据缺陷」一节** |
 | `18319801` | VitaminC 半 | 00:01:37 | 1:0 | **基座不在 work 缓存**(HF_HOME 坑复发)。`LocalEntryNotFoundError` → `OSError`,栈顶是 `_construct_scaffold` 的 `CrossEncoder(...)`。**死因由物证确认而非推断**:blob 落盘 08-08 21:14:49–21:14:59,晚于本作业死亡(17:14:37 + 97s)约四小时 ⇒ 作业运行时该缓存确为空。**排除** `.no_exist` 负缓存解释——该目录是 HF 缓存的标准组成,其存在本身无异常,且离线 scaffold 检查随后通过 |
 
@@ -2089,7 +2089,12 @@ R013/R014/R015 与 G 模块的评分作业**将争同一个节点**。5 折 × 3
 排队压力须计入 9 月 4 日的日程。备选是 `--gres=gpu:rtx_3090:1`(同为 Ampere,仓库另有三个脚本在用),
 **但该节点历史上长期 drain,选它须先看 `sinfo` 当时状态**。
 
-#### 第四次拦出的是数据缺陷,不是配置失误 [根因已闭合]
+#### 第三、四次拦出的是数据缺陷,不是配置失误 [根因已闭合;18300333 于 2026-08-09 补录归入]
+
+**补录(2026-08-09):`18300333` 的日志与本节完全同因** —— 同一守卫、同一个页。缺陷首次被拦是第三次
+提交,当时日志未读、台账记为"原因未记录";第四次(`18318996`)再撞后才定位。
+⇒ **新纪律:FAIL 后先读日志再重交。** 守卫的收益 = 拦截 × 日志是否被读;
+拦下而无人读,等价于把发现推迟一个提交周期 —— 本例的实价是一次排队加一次提交。
 
 守卫报 train 与 dev 共享 1 个页(`page:xxx-colon- return of xander cage`)。
 **它给的补救办法是错的** —— 它说"用 `export_vitaminc` 导出,别直接加载 `tals/vitaminc`",
@@ -2164,7 +2169,8 @@ for two spellings of one — an audit that passes because it cannot see" ——
 
 #### 第六次提交与 a100 队列的实测代价 [2026-08-08 深夜]
 
-**六次提交前的状态:已知六种死法全部排除** —— 五种见上表,第六种(`CrossEncoderTrainer` 路径的
+**六次提交前的状态:已知死法全部排除** —— 上表五行(2026-08-09 补录后实为**四种**挂法:
+导出缺失 ×2、decontaminate 缺陷 ×2、缓存 ×1),另有一种(`CrossEncoderTrainer` 路径的
 `datasets` / `accelerate` 未装)于提交前在登录节点实测排除:**datasets 4.8.5 / accelerate 1.13.0**。
 bp1 已 fast-forward 到 `02b08a4` 并**逐字核对 `131:#SBATCH --gres=gpu:a100:1`**
 —— 该核对不是形式:`c901310` 那次"bp1 是另一个 checkout、跑的是旧代码"就发生在同一个位置。
