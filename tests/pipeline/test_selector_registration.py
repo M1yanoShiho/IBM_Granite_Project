@@ -1,9 +1,12 @@
 import pytest
 
+import evidence_rag.composition as composition_module
 from evidence_rag.composition import build_selector
 from evidence_rag.infrastructure.config import ModuleConfig
 from evidence_rag.selector.corroboration import CorroborationSelector
+from evidence_rag.selector.deberta_contradiction import DebertaContradictionScorer
 from evidence_rag.selector.gated import GatedCorroborationSelector, GatedCoverageSelector
+from evidence_rag.selector.reliability_mis import ReliabilityMISSelector
 from evidence_rag.selector.top_k import TopKSelector
 
 
@@ -12,8 +15,102 @@ class FakeLLM:
         return "NONE"
 
 
+class FakeContradictionScorer:
+    def score_pairs(self, pairs):
+        return tuple(0.0 for _pair in pairs)
+
+
+def write_parent_sidecar(tmp_path, monkeypatch):
+    import json
+
+    index = tmp_path / "source_parent.jsonl"
+    index.write_text(
+        json.dumps({"document_id": "d1", "source_parent_id": "page a"}) + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("SOURCE_PARENT_INDEX", str(index))
+    return index
+
+
 def test_top_k_still_builds() -> None:
     assert isinstance(build_selector(ModuleConfig(name="top-k")), TopKSelector)
+
+
+def test_reliability_mis_builds_with_injected_offline_backends(tmp_path, monkeypatch) -> None:
+    write_parent_sidecar(tmp_path, monkeypatch)
+    scorer = FakeContradictionScorer()
+    implementation = build_selector(
+        ModuleConfig(name="reliability-mis", parameters={"top_n": 10}),
+        llm=FakeLLM(),
+        contradiction_scorer=scorer,
+    )
+    assert isinstance(implementation, ReliabilityMISSelector)
+    assert implementation._contradiction_scorer is scorer
+
+
+def test_reliability_mis_defaults_to_fixed_deberta_scorer(tmp_path, monkeypatch) -> None:
+    write_parent_sidecar(tmp_path, monkeypatch)
+    implementation = build_selector(ModuleConfig(name="reliability-mis"), llm=FakeLLM())
+    assert isinstance(implementation, ReliabilityMISSelector)
+    assert isinstance(implementation._contradiction_scorer, DebertaContradictionScorer)
+    assert implementation._top_n == 20
+
+
+def test_reliability_mis_does_not_construct_granite_during_composition(
+    tmp_path, monkeypatch
+) -> None:
+    write_parent_sidecar(tmp_path, monkeypatch)
+
+    class ExplodingGranite:
+        def __init__(self, *args, **kwargs) -> None:
+            raise AssertionError("Granite must remain lazy")
+
+    monkeypatch.setattr(composition_module, "GraniteLLMClient", ExplodingGranite)
+    implementation = build_selector(
+        ModuleConfig(name="reliability-mis"),
+        contradiction_scorer=FakeContradictionScorer(),
+    )
+    assert isinstance(implementation, ReliabilityMISSelector)
+
+
+def test_reliability_mis_rejects_non_frozen_parameters(tmp_path, monkeypatch) -> None:
+    write_parent_sidecar(tmp_path, monkeypatch)
+    with pytest.raises(ValueError, match="unknown selector parameter"):
+        build_selector(
+            ModuleConfig(name="reliability-mis", parameters={"threshold": 0.7}),
+            llm=FakeLLM(),
+            contradiction_scorer=FakeContradictionScorer(),
+        )
+
+
+def test_reliability_mis_rejects_window_above_twenty(tmp_path, monkeypatch) -> None:
+    write_parent_sidecar(tmp_path, monkeypatch)
+    with pytest.raises(ValueError, match="top_n"):
+        build_selector(
+            ModuleConfig(name="reliability-mis", parameters={"top_n": 21}),
+            llm=FakeLLM(),
+            contradiction_scorer=FakeContradictionScorer(),
+        )
+
+
+def test_reliability_mis_rejects_zero_window(tmp_path, monkeypatch) -> None:
+    write_parent_sidecar(tmp_path, monkeypatch)
+    with pytest.raises(ValueError, match="top_n"):
+        build_selector(
+            ModuleConfig(name="reliability-mis", parameters={"top_n": 0}),
+            llm=FakeLLM(),
+            contradiction_scorer=FakeContradictionScorer(),
+        )
+
+
+def test_reliability_mis_requires_source_parent_sidecar(monkeypatch) -> None:
+    monkeypatch.delenv("SOURCE_PARENT_INDEX", raising=False)
+    with pytest.raises(ValueError, match="SOURCE_PARENT_INDEX"):
+        build_selector(
+            ModuleConfig(name="reliability-mis"),
+            llm=FakeLLM(),
+            contradiction_scorer=FakeContradictionScorer(),
+        )
 
 
 def test_corroboration_builds_with_parameters() -> None:
@@ -185,6 +282,19 @@ def test_source_parent_provenance_records_path_and_hash(tmp_path, monkeypatch) -
     )
     assert recorded["source_parent_index"] == str(index)
     assert recorded["source_parent_sha256"] == hashlib.sha256(index.read_bytes()).hexdigest()
+
+
+def test_reliability_mis_provenance_always_records_parent_sidecar(tmp_path, monkeypatch) -> None:
+    import hashlib
+
+    from evidence_rag.composition import source_parent_provenance
+
+    index = write_parent_sidecar(tmp_path, monkeypatch)
+    recorded = source_parent_provenance(ModuleConfig(name="reliability-mis"))
+    assert recorded == {
+        "source_parent_index": str(index),
+        "source_parent_sha256": hashlib.sha256(index.read_bytes()).hexdigest(),
+    }
 
 
 def test_source_parent_provenance_fails_loudly_without_the_sidecar(monkeypatch) -> None:
