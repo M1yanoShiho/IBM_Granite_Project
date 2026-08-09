@@ -2707,6 +2707,30 @@ slurm 头部同步。逐字 CI 全树:ruff 干净、mypy 122 文件干净、pyte
 `--max-examples 2000`,输出 `runs/r013/smoke-niah`。**三个"第一次":** 剔除逻辑首碰真实数据、
 sealed-600 零重叠检查首次真实执行、`g2-proto-5` 的第一份 manifest。
 
+**提交行(`sacct -j 18322821 -o SubmitLine%500` 实取,2026-08-09 核验,六 flag 逐条到位):**
+
+```
+sbatch --gres=gpu:rtx_3090:1 --time=02:00:00 scripts/run_r013_train_relations.slurm \
+  13 runs/r013/smoke-niah --max-examples 2000 \
+  --niah-manifest runs/niah-train-injected/manifest.json \
+  --niah-provenance runs/niah-train-injected/provenance.jsonl \
+  --niah-parents runs/niah-train-injected/source_parent.jsonl \
+  --niah-dev-manifest runs/niah-injected/manifest.json \
+  --sealed-dir runs/niah-sealed600 --niah-twin-label REFUTES
+```
+
+适配池(`niah-train-injected`)与 dev(`niah-injected`)是两个不同目录,与守卫按 query-id **集合**比
+而不读 `split` 标签的设计一致(脚本头部注明三个 NIAH 目录的标签都写着 `dev`,标签无意义)。
+`--niah-twin-label REFUTES` 按 §3.8(a) 显式传,该 flag 无默认值。
+注:`scontrol show job` 的 `Command=` **不显示位置参数**,只能靠 `SubmitLine` 认回作业配置 ——
+一度据此误以为本作业未传参(那将使它变成不带 `--max-examples` 的全量跑),`SubmitLine` 排除。
+
+**执行的树 ≠ 提交时的树(排队作业的一般性质,此处已实际发生):** 本作业 03:32:30 提交,
+而 bp1 的工作副本在其起跑前被 `git pull` 前移过。排队作业执行的是**起跑那一刻**的
+`/user/work/$USER/IBM_Granite_Project`,不是提交那一刻的。已核:该批改动无一触及
+`cli/train_relations.py` 或 `relations/`,功能上无影响。**纪律:在队作业期间不在 bp1 上 pull;
+起跑前记下 HEAD,AFTER 里写明实际执行的是哪棵树。**
+
 **预注册读数(提交前在登录节点算好,跑完必须逐字相等):**
 
 | 读数 | 预期 | 依据 |
