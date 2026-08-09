@@ -1,4 +1,13 @@
-"""B5 -- assemble the VerificationReport that A consumes to patch the draft.
+"""ABLATION-ONLY. Not on the live path.
+
+Part of the retired generate -> verify -> patch design (roles A/B), reached only
+through ``verified.VerifiedGenerator``, which exists solely as the ``verify-only``
+arm -- the published delete-filter baseline the main method is measured against.
+Deleting it would make that comparison irreproducible. The live path is
+``verify_annotate.VerifyAnnotateGenerator``; do not extend this code. See
+``docs/generator/design-review.md``.
+
+B5 -- assemble the VerificationReport that A consumes to patch the draft.
 
 Single pass, verification only: no patching (A3/A4) and no iteration (plan
 section 9, "只跑一轮"). The report is validated against its own inputs before it

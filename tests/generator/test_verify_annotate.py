@@ -174,7 +174,9 @@ def test_unsupported_claim_is_annotated_not_deleted() -> None:
 def test_entity_conflict_is_the_only_thing_that_drops_a_claim() -> None:
     selected = SelectedEvidenceSet(query_id="q", evidence=(evidence("ev-1", "Globex rose 8%."),))
     nli = ScriptedNLI({("Globex rose 8%.", "Acme rose 8%.")})
-    verifier = CitationRoutedVerifier(nli, StubEntityChecker(inconsistent={"Globex rose 8%."}))
+    verifier = CitationRoutedVerifier(
+        nli, StubEntityChecker(inconsistent={"Globex rose 8%."}), entity_gate="gate"
+    )
 
     routing = verifier.route(_claim("claim-1", "Acme rose 8%.", 0, 13), "Acme rose 8%.", selected)
 
@@ -187,7 +189,9 @@ def test_absent_entity_is_annotated_not_dropped() -> None:
     audit put the false-veto rate on the old rule at 0.700."""
     selected = SelectedEvidenceSet(query_id="q", evidence=(evidence("ev-1", "Something else."),))
     nli = ScriptedNLI({("Something else.", "Acme rose 8%.")})
-    verifier = CitationRoutedVerifier(nli, StubEntityChecker(absent={"Something else."}))
+    verifier = CitationRoutedVerifier(
+        nli, StubEntityChecker(absent={"Something else."}), entity_gate="gate"
+    )
 
     routing = verifier.route(_claim("claim-1", "Acme rose 8%.", 0, 13), "Acme rose 8%.", selected)
 
@@ -202,7 +206,9 @@ def test_clean_support_elsewhere_beats_a_conflict() -> None:
     nli = ScriptedNLI(
         {("Globex rose 8%.", "Acme rose 8%."), ("Acme rose 8%.", "Acme rose 8%.")}
     )
-    verifier = CitationRoutedVerifier(nli, StubEntityChecker(inconsistent={"Globex rose 8%."}))
+    verifier = CitationRoutedVerifier(
+        nli, StubEntityChecker(inconsistent={"Globex rose 8%."}), entity_gate="gate"
+    )
 
     routing = verifier.route(_claim("claim-1", "Acme rose 8%.", 0, 13), "Acme rose 8%.", selected)
 
@@ -299,7 +305,9 @@ def test_entity_conflict_records_the_offending_evidence_for_audit() -> None:
     to be auditable: which passage caused it, and which entities clashed."""
     selected = SelectedEvidenceSet(query_id="q", evidence=(evidence("ev-1", "Globex rose 8%."),))
     nli = ScriptedNLI({("Globex rose 8%.", "Acme rose 8%.")})
-    verifier = CitationRoutedVerifier(nli, StubEntityChecker(inconsistent={"Globex rose 8%."}))
+    verifier = CitationRoutedVerifier(
+        nli, StubEntityChecker(inconsistent={"Globex rose 8%."}), entity_gate="gate"
+    )
 
     routing = verifier.route(_claim("claim-1", "Acme rose 8%.", 0, 13), "Acme rose 8%.", selected)
 
@@ -383,7 +391,7 @@ def test_unfaithful_claims_are_never_routed() -> None:
 
 
 def _ungated(nli: ScriptedNLI, entity=None) -> CitationRoutedVerifier:  # type: ignore[no-untyped-def]
-    return CitationRoutedVerifier(nli, entity or StubEntityChecker(), entity_gate=False)
+    return CitationRoutedVerifier(nli, entity or StubEntityChecker(), entity_gate="observe")
 
 
 def test_ungated_cites_a_claim_the_gate_would_have_destroyed() -> None:
@@ -455,7 +463,7 @@ def test_the_gate_still_drops_when_engaged() -> None:
     selected = SelectedEvidenceSet(query_id="q", evidence=(evidence("ev-1", "Globex rose 8%."),))
     nli = ScriptedNLI({("Globex rose 8%.", "Acme rose 8%.")})
     verifier = CitationRoutedVerifier(
-        nli, StubEntityChecker(inconsistent={"Globex rose 8%."}), entity_gate=True
+        nli, StubEntityChecker(inconsistent={"Globex rose 8%."}), entity_gate="gate"
     )
 
     routing = verifier.route(_claim("claim-1", "Acme rose 8%.", 0, 13), "Acme rose 8%.", selected)
@@ -476,7 +484,7 @@ def test_clean_evidence_elsewhere_is_preferred_over_a_conflicting_one_when_gated
     entity = StubEntityChecker(inconsistent={"Globex rose 8%."})
     claim = _claim("claim-1", "Acme rose 8%.", 0, 13)
 
-    gated = CitationRoutedVerifier(ScriptedNLI(entailing), entity).route(
+    gated = CitationRoutedVerifier(ScriptedNLI(entailing), entity, entity_gate="gate").route(
         claim, "Acme rose 8%.", selected
     )
     ungated = _ungated(ScriptedNLI(entailing), entity).route(claim, "Acme rose 8%.", selected)

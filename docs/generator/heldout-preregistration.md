@@ -282,6 +282,29 @@ would take 28–64 hours against a 12-hour walltime. 400 is chosen to match
 calibration's statistical power, and the constraint is noted so the choice is not
 mistaken for one made purely on cost.
 
+## Addendum — claim-splitter failure rate
+
+*Added with the addenda above, before any held-out result exists.*
+
+> **If claim-splitter failure on any held-out set is materially above the
+> calibration rate of roughly 0.5%, coverage comparisons on that set are reported
+> as unreliable, and the failure rate is stated with the results.**
+
+The splitter is the **single point of total failure**. It sits upstream of every
+verification arm, so one failure removes the same query from all of them while
+leaving the baseline — which does not use it — scored on the full set. At
+calibration this cost 2 queries in 400 (0.5%) and shifted arm-level coverage by
++0.003 in the verify arms' favour, which is negligible. On an unseen distribution
+the rate is unknown.
+
+`--max-error-rate 0.10` is a **wide** guard: at a 9% failure rate the job
+completes, writes every file, and produces a report that looks entirely
+plausible. This criterion is the narrow one, and it is about *interpretation*
+rather than about aborting — the run still completes and is still reported, with
+the caveat attached where a reader will see it.
+
+The rate is reported per dataset regardless of whether it clears the bar.
+
 ## Known limitations, recorded in advance
 
 Stated now so they cannot be presented later as though they were anticipated only

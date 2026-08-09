@@ -86,6 +86,17 @@ Selector 不直接告诉 Generator “证据是否充分”“是否冲突”“
 
 目标：基于 Selector 给出的证据，生成正确、可引用、尽量忠实于证据的答案。
 
+**当前主方法是 `VerifyAnnotateGenerator`**（`generator/verify_annotate.py`）：起草 → 逐条声明路由 →
+组装。有证据蕴含就附**已验证**引用，没有就保留并标注 `[unverified]`，**不存在丢弃路径**。
+实体层三态(`gate` / `observe` / `off`)，默认 `observe`：只记录判决、不影响路由，
+并驱动 `[may warrant review]` 标签。**那个开关就是声明威胁模型的地方。**
+
+> **`verifier.py` / `completeness.py` / `attribution.py` / `evidence_recheck.py` /
+> `repair.py` / `verified.py` 是消融专用,不在活路径上。** 它们实现的是已退休的
+> generate → verify → patch 设计,只通过 `VerifiedGenerator` 到达,
+> 而后者只作为 `verify-only` 臂(被对比的已发表 delete 基线)存在 —— 删掉它那个对比就不可复现。
+> 新工作不要扩展这部分,详见 `docs/generator/design-review.md`。
+
 输入：
 
 - 用户问题 `Query`

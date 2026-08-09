@@ -1,4 +1,13 @@
-"""B4 -- completeness: does the draft answer cover every required fact?
+"""ABLATION-ONLY. Not on the live path.
+
+Part of the retired generate -> verify -> patch design (roles A/B), reached only
+through ``verified.VerifiedGenerator``, which exists solely as the ``verify-only``
+arm -- the published delete-filter baseline the main method is measured against.
+Deleting it would make that comparison irreproducible. The live path is
+``verify_annotate.VerifyAnnotateGenerator``; do not extend this code. See
+``docs/generator/design-review.md``.
+
+B4 -- completeness: does the draft answer cover every required fact?
 
 The other half of the checklist-driven loop (plan section 3, step 4). Where B2
 deletes what is unsupported, this finds what is *missing* and hands A4 a

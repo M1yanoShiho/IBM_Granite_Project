@@ -1,6 +1,7 @@
 import json
 import re
 
+from evidence_rag.contracts.models import sentence_spans
 from evidence_rag.generator.granite import GraniteLLMClient, TextGenerator
 from evidence_rag.generator.json_parsing import parse_json_object
 from evidence_rag.generator.models import Claim, ClaimSpan
@@ -55,10 +56,6 @@ _UNRESOLVED_SUBJECT = re.compile(
     re.IGNORECASE,
 )
 
-_NON_TERMINAL_ABBREVIATIONS = frozenset(
-    {"dr", "mr", "mrs", "ms", "prof", "sr", "jr", "st", "vs", "etc"}
-)
-
 def _is_meta_narrative(text: str) -> bool:
     """Talks about the answer or where it came from, rather than asserting a fact."""
     return bool(_META_NARRATIVE.search(text))
@@ -109,37 +106,13 @@ def _content_tokens(text: str) -> set[str]:
     }
 
 
-def _sentence_spans(text: str) -> list[tuple[int, int]]:
-    """Return sentence offsets without splitting common abbreviations or decimals."""
-    spans: list[tuple[int, int]] = []
-    start = 0
-    for index, character in enumerate(text):
-        if character not in ".!?":
-            continue
-        if character == ".":
-            previous = text[index - 1] if index else ""
-            following = text[index + 1] if index + 1 < len(text) else ""
-            if previous.isdigit() and following.isdigit():
-                continue
-            if previous.isupper() and following.isupper():
-                continue
-            if re.search(r"(?:\b[A-Z]\.)+[A-Z]$", text[start:index]):
-                continue
-            word_match = re.search(r"([A-Za-z]+)$", text[start:index])
-            if (
-                word_match is not None
-                and word_match.group(1).casefold() in _NON_TERMINAL_ABBREVIATIONS
-            ):
-                continue
-        end = index + 1
-        if text[start:end].strip():
-            spans.append((start, end))
-        start = end
-        while start < len(text) and text[start].isspace():
-            start += 1
-    if text[start:].strip():
-        spans.append((start, len(text)))
-    return spans
+_sentence_spans = sentence_spans
+"""The system's one sentence rule, from ``contracts``.
+
+This module used to carry its own, knowing 10 abbreviations against the
+contract's ~50 -- so ``"Acme Inc. in Ohio"`` was two sentences to the splitter and
+one to the validator. G7 lost an answer to exactly that class of disagreement
+between two other copies of the rule; this was the third copy."""
 
 
 def _locate_span(answer_text: str, source_text: str, claim_text: str, cursor: int) -> ClaimSpan | None:
