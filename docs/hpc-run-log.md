@@ -2517,6 +2517,7 @@ n_records 1472 / n_skipped_records 0`)已于 2026-08-03 重导对上,但**冻结
 1. **bf16 岔路 —— 注销,非裁决。** 前提("集群是 sentence-transformers 3.x")被实测证伪:
    venv 为 **5.5.1**,`CrossEncoderTrainer` 路径存在、bf16 原生。关闭证据 = 冒烟日志中的
    `[train_relations] fold N: CrossEncoderTrainer API` 行,出现后回填于此。
+   **✅ 已回填(2026-08-09):job 18321128 五折全部打印该行,a100 上 bf16 无异常,本条正式关闭。**
 2. **official test 一次性额度 —— 按「门 × 模型族」计。** R012(job 18235972)消耗的是
    **零训练族在 Gate 0B-1** 的那一次;**训练所得模型在 R020(M2 关系门)保有其一次**。
    依据:两者都是 M0 预注册的独立门(run table 同时排有 R012 与 R020);§3.6 所防的
@@ -2556,12 +2557,13 @@ slurm 头部同步。逐字 CI 全树:ruff 干净、mypy 122 文件干净、pyte
 六种已知死法全部在提交前排除,第七次一次通过。**对冲副本 18321139 按第 4 条纪律的同构规则撤销**
 (赛跑结束,保留者 = 18321128;smoke-niah 18322821 是独立作业,不在此规则内,继续排队)。
 
-**待回填两项(日志与 manifest 的验证读数):**
-1. `[train_relations] fold N: CrossEncoderTrainer API` 行 —— 同时是裁决 1(bf16 注销)的关闭证据;
-2. manifest:`is_smoke_run: true`、`n_examples 2000`、`niah_domain_adaptation.status: "not run"`、
-   `protocol_version`(本作业起跑于 A4 批准与 `g2-proto-5` 升版**之后**,bp1 若已 pull 则应读 g2-proto-5;
-   读到 g2-proto-4 则说明作业跑的是升版前的 checkout,**如实记录即可,不构成缺陷** —— VitaminC 半的
-   语义两版本无差)。
+**验证读数(2026-08-09 回填,两项全过):**
+1. **五折全部打印 `[train_relations] fold N: CrossEncoderTrainer API`**(fold 0–4),
+   前置 `CUDA: True | torch 2.5.1+cu121` —— fit-API 走 v4/v5 路径实锤,
+   **裁决 1(bf16 岔路注销)的关闭证据就此到位**;
+2. manifest:`is_smoke_run True | n_examples 2000 | protocol g2-proto-5 | niah not run` ——
+   四字段逐字命中预期;`g2-proto-5` 说明作业跑在 A4 批准后的 checkout 上。
+3. 对冲副本 **18321139 已 scancel**(在其起跑前),台账里"冒烟"唯一对应 18321128 一次执行。
 
 **冒烟不是 R013**:不产生任何可引用读数;`runs/r013/smoke/oof_predictions.jsonl` 是训练数据上的诊断。
 下一步:smoke-niah(18322821,在队)→ 两个冒烟都过 ⇒ 提交正式 R013/R014/R015(六 flag 全量,无 `--max-examples`)。
