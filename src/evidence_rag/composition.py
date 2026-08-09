@@ -9,7 +9,12 @@ from typing import Any, Literal
 from evidence_rag.contracts.models import Document, RetrieverProvenance
 from evidence_rag.contracts.protocols import Generator, Retriever, Selector
 from evidence_rag.generator.extractive import ExtractiveGenerator
-from evidence_rag.generator.granite import GraniteGenerator, GraniteLLMClient, TextGenerator
+from evidence_rag.generator.granite import (
+    GraniteGenerationConfig,
+    GraniteGenerator,
+    GraniteLLMClient,
+    TextGenerator,
+)
 from evidence_rag.generator.nli import NLIModel, build_nli_model
 from evidence_rag.generator.verify_annotate import EntityGateMode, VerifyAnnotateGenerator
 from evidence_rag.infrastructure.config import ExperimentConfig, ModuleConfig
@@ -39,7 +44,15 @@ from evidence_rag.retriever.indexing import (
 )
 from evidence_rag.retriever.strong_bm25 import StrongBM25Retriever
 from evidence_rag.selector.corroboration import CorroborationSelector
+from evidence_rag.selector.deberta_contradiction import DebertaContradictionScorer
 from evidence_rag.selector.gated import GatedCorroborationSelector, GatedCoverageSelector
+from evidence_rag.selector.reliability_mis import (
+    DEFAULT_CONTRADICTION_THRESHOLD,
+    MAX_WINDOW_SIZE,
+    ContradictionScorer,
+    LazyAnswerGenerator,
+    ReliabilityMISSelector,
+)
 from evidence_rag.selector.top_k import TopKSelector
 
 
@@ -413,7 +426,7 @@ def _source_parent_index_path() -> Path:
     raw_path = os.environ.get(SOURCE_PARENT_INDEX_ENV)
     if not raw_path:
         raise ValueError(
-            f"support_unit='parent' needs the {SOURCE_PARENT_INDEX_ENV} environment variable "
+            f"source-parent-aware selector needs the {SOURCE_PARENT_INDEX_ENV} environment variable "
             "pointing at a source_parent.jsonl sidecar; build one with "
             "'python -m evidence_rag.cli.build_source_parent'"
         )
@@ -421,14 +434,14 @@ def _source_parent_index_path() -> Path:
 
 
 def source_parent_provenance(config: ModuleConfig) -> dict[str, str]:
-    """Identity of the sidecar a `support_unit="parent"` run actually loaded.
+    """Identity of the sidecar a source-parent-aware selector actually loaded.
 
     The sidecar comes from the environment, not the config, so without this the archived
     provenance cannot distinguish a run against a stale sidecar from one against a regenerated
     one — the config would read `support_unit = "parent"` in both cases. Empty for every other
     selector, so callers can merge it unconditionally.
     """
-    if config.parameters.get("support_unit") != "parent":
+    if config.name != "reliability-mis" and config.parameters.get("support_unit") != "parent":
         return {}
     path = _source_parent_index_path()
     digest = hashlib.sha256(path.read_bytes()).hexdigest()
@@ -439,7 +452,12 @@ def _load_parent_index() -> Mapping[str, str]:
     return read_parent_index(_source_parent_index_path()).parent_by_document
 
 
-def build_selector(config: ModuleConfig, *, llm: TextGenerator | None = None) -> Selector:
+def build_selector(
+    config: ModuleConfig,
+    *,
+    llm: TextGenerator | None = None,
+    contradiction_scorer: ContradictionScorer | None = None,
+) -> Selector:
     if config.name == "top-k":
         _reject_parameters(config, "selector")
         return TopKSelector()
@@ -450,6 +468,27 @@ def build_selector(config: ModuleConfig, *, llm: TextGenerator | None = None) ->
             client,
             alpha=float(parameters.get("alpha", 0.6)),
             top_n=int(parameters.get("top_n", 20)),
+        )
+    if config.name == "reliability-mis":
+        parameters = _selector_parameters(config, frozenset({"top_n"}))
+        top_n = int(parameters.get("top_n", MAX_WINDOW_SIZE))
+        if top_n > MAX_WINDOW_SIZE:
+            raise ValueError(f"invalid selector parameter top_n: must be <= {MAX_WINDOW_SIZE}")
+        reliability_parent_by_document = _load_parent_index()
+
+        def answer_factory() -> TextGenerator:
+            if llm is not None:
+                return llm
+            return GraniteLLMClient(
+                config=GraniteGenerationConfig(max_new_tokens=32, temperature=0.0)
+            )
+
+        return ReliabilityMISSelector(
+            LazyAnswerGenerator(answer_factory),
+            contradiction_scorer or DebertaContradictionScorer(),
+            reliability_parent_by_document,
+            top_n=top_n,
+            contradiction_threshold=DEFAULT_CONTRADICTION_THRESHOLD,
         )
     if config.name in {"gated-corroboration", "gated-coverage-corroboration"}:
         parameters = _selector_parameters(
