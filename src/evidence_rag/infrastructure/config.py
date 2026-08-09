@@ -3,10 +3,11 @@ import tomllib
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 NonEmpty = Annotated[str, Field(min_length=1)]
 PositiveInteger = Annotated[int, Field(gt=0)]
+NonNegativeInteger = Annotated[int, Field(ge=0)]
 
 
 class FrozenModel(BaseModel):
@@ -45,6 +46,37 @@ class ModuleConfig(FrozenModel):
         return value
 
 
+class ChunkerConfig(FrozenModel):
+    """Corpus chunking, which until now was fixed at ``WordChunker``'s own defaults.
+
+    The chunk is the unit of evidence for all three modules, so these two numbers set
+    what the selector ranks and what the generator can cite — yet no experiment could
+    vary them, and the values in use were never chosen on evidence. Defaults here are
+    exactly ``WordChunker()``'s, so a config without a ``[chunker]`` table produces the
+    same corpus, the same signature and the same recorded results as before.
+
+    Changing either value changes ``corpus_signature``, which is already folded into the
+    index signature, so a sweep cannot silently reuse another point's index — the runner
+    refuses before retrieving rather than after.
+    """
+
+    schema_version: Literal["1.0"] = "1.0"
+    name: Literal["word"] = "word"
+    chunk_size: PositiveInteger = 120
+    overlap: NonNegativeInteger = 20
+
+    @model_validator(mode="after")
+    def overlap_must_be_smaller_than_chunk(self) -> "ChunkerConfig":
+        # WordChunker raises on this too, but failing at config load names the file and
+        # happens before a job reaches the cluster.
+        if self.overlap >= self.chunk_size:
+            raise ValueError(
+                f"chunker overlap must satisfy 0 <= overlap < chunk_size, "
+                f"got overlap={self.overlap} chunk_size={self.chunk_size}"
+            )
+        return self
+
+
 class ExperimentConfig(FrozenModel):
     schema_version: Literal["1.0"] = "1.0"
     dataset_manifest_path: Path
@@ -52,6 +84,7 @@ class ExperimentConfig(FrozenModel):
     retriever: ModuleConfig
     selector: ModuleConfig
     generator: ModuleConfig
+    chunker: ChunkerConfig = Field(default_factory=ChunkerConfig)
     top_k: PositiveInteger
     max_selected: PositiveInteger
     seed: int
@@ -77,6 +110,9 @@ class _TomlExperimentConfig(FrozenModel):
     retriever: ModuleConfig
     selector: ModuleConfig
     generator: ModuleConfig
+    # Optional so every config written before chunking was configurable keeps parsing,
+    # and keeps producing the identical corpus.
+    chunker: ChunkerConfig = Field(default_factory=ChunkerConfig)
     run: _RunToml
 
 
@@ -164,6 +200,7 @@ def load_experiment_config(path: Path) -> ExperimentConfig:
         retriever=parsed.retriever,
         selector=parsed.selector,
         generator=parsed.generator,
+        chunker=parsed.chunker,
         top_k=parsed.run.top_k,
         max_selected=parsed.run.max_selected,
         seed=parsed.run.seed,

@@ -37,7 +37,7 @@ from evidence_rag.infrastructure.config import (
     ModuleConfig,
     load_experiment_config,
 )
-from evidence_rag.infrastructure.corpus import CorpusBuilder, CorpusSnapshot
+from evidence_rag.infrastructure.corpus import CorpusBuilder, CorpusSnapshot, WordChunker
 from evidence_rag.infrastructure.datasets import DatasetBundle, JsonlDatasetAdapter
 from evidence_rag.retriever.indexing import IndexManifest, read_index_manifest
 
@@ -95,7 +95,12 @@ class ExperimentWorkflow:
     def __init__(self, config: ExperimentConfig, *, config_path: Path) -> None:
         self.config = config
         self.dataset: DatasetBundle = JsonlDatasetAdapter.load(config.dataset_manifest_path)
-        self.corpus: CorpusSnapshot = CorpusBuilder().build(
+        self.corpus: CorpusSnapshot = CorpusBuilder(
+            WordChunker(
+                chunk_size=config.chunker.chunk_size,
+                overlap=config.chunker.overlap,
+            )
+        ).build(
             self.dataset.documents,
             self.dataset.dataset_signature,
         )

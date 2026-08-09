@@ -99,11 +99,15 @@ def materialize_2wiki(
     *,
     query_limit: int,
     seed: int,
+    split: str = "dev",
 ) -> TwoWikiMaterialization:
     """Subsample ``query_limit`` well-formed questions (seeded) and write the bundle."""
 
     if query_limit <= 0:
         raise ValueError("query_limit must be positive")
+    split = split.strip()
+    if not split:
+        raise ValueError("split must not be blank")
 
     pool = list(rows)
     rng = random.Random(seed)
@@ -129,7 +133,7 @@ def materialize_2wiki(
                 Document(
                     document_id=title,
                     text=f"{title}\n\n{body}",
-                    source_uri=f"2wiki://dev/{title}",
+                    source_uri=f"2wiki://{split}/{title}",
                 )
             )
 
@@ -149,8 +153,8 @@ def materialize_2wiki(
 
     manifest = DatasetManifest(
         dataset_id="2wiki/multihop",
-        dataset_version=f"dev-subsample-{query_limit}",
-        split="dev",
+        dataset_version=f"{split}-subsample-{query_limit}",
+        split=split,
         documents_file="documents.jsonl",
         queries_file="queries.jsonl",
         gold_cases_file="gold_cases.jsonl",

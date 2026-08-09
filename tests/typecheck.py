@@ -1,3 +1,5 @@
+from collections.abc import Sequence
+
 from evidence_rag.contracts.models import Document, PipelineRun, Query
 from evidence_rag.contracts.protocols import Generator, Retriever, Selector
 from evidence_rag.evaluation.evaluator import (
@@ -16,13 +18,30 @@ from evidence_rag.pipeline.service import EvidenceRAGPipeline
 from evidence_rag.relations.cache import CachedRelationPredictor, RelationCache
 from evidence_rag.relations.predictor import NLIRelationPredictor, RelationPredictor
 from evidence_rag.retriever.bm25 import BM25Retriever
+from evidence_rag.selector.reliability_mis import ReliabilityMISSelector
 from evidence_rag.selector.top_k import TopKSelector
+
+
+class TypecheckAnswerGenerator:
+    def generate(self, prompt: str) -> str:
+        return "NONE"
+
+
+class TypecheckContradictionScorer:
+    def score_pairs(self, pairs: Sequence[tuple[str, str]]) -> tuple[float, ...]:
+        return tuple(0.0 for _pair in pairs)
+
 
 documents = (
     Document(document_id="doc", text="text", source_uri="fixture://doc"),
 )
 retriever: Retriever = BM25Retriever(documents)
 selector: Selector = TopKSelector()
+reliability_selector: Selector = ReliabilityMISSelector(
+    TypecheckAnswerGenerator(),
+    TypecheckContradictionScorer(),
+    {},
+)
 generator: Generator = ExtractiveGenerator()
 pipeline = EvidenceRAGPipeline(retriever, selector, generator)
 trace: PipelineRun = pipeline.run_with_trace(Query(query_id="q", text="text"))

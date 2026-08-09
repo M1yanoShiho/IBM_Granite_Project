@@ -10,8 +10,11 @@ login node; it is pure CPU.
       --train-manifest runs/niah-train-injected/manifest.json \
       --existing-split runs/niah-injected \
       --existing-split runs/niah-train-injected \
-      --protocol-doc docs/selector/M0_PROTOCOL_FREEZE.md \
+      --protocol-doc /path/to/restored/M0_PROTOCOL_FREEZE.md \
       --corpus-size 100000 --seed 42
+
+The historical M0 protocol is no longer a live Selector document. Restore its frozen version
+from the recorded experiment commit before reproducing this legacy build.
 
 --split has NO default. Which pool the fresh queries come from is a protocol decision (the
 unused remainder of NQ dev, or the train pool), it is recorded in the manifest, and a default

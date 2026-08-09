@@ -1,0 +1,27 @@
+[model]
+model_id = "cross-encoder/nli-deberta-v3-base"
+revision = "6c749ce3425cd33b46d187e45b92bbf96ee12ec7"
+model_sha256 = "d8148c6d49e0a7925134294c56326c71fe0ab1dc390e37355e00c7efbb488afa"
+max_length = 512
+
+[training]
+seeds = [13, 42, 73]
+learning_rate = 0.00002
+epochs = 3
+batch_size = 4
+gradient_accumulation_steps = 4
+niah_twowiki_ratio = "1:1"
+
+[selection]
+beam_size = 2
+max_selected = 10
+required_thresholds = [0.40, 0.50, 0.60, 0.70]
+reject_thresholds = [0.60, 0.70, 0.80, 0.90]
+
+[evaluation]
+top_n = 20
+bootstrap_samples = 10000
+bootstrap_seed = 20260809
+clear_recall_loss_pp = 3.0
+maximum_recall_loss_pp = 5.0
+minimum_harm_reduction_pp = 3.0
