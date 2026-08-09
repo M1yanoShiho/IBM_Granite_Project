@@ -1,0 +1,55 @@
+{
+  "audit": {
+    "harmful_label_count": 600,
+    "harmful_pool_hit_count": 571,
+    "harmful_pool_hit_rate": 0.9516666666666667,
+    "required_recall_at_top_n": 0.9635879616039511,
+    "required_recall_n": 600,
+    "unresolved_parent_count": 0,
+    "unresolved_parent_ids": []
+  },
+  "candidate_pool": {
+    "exact_top_n_count": 600,
+    "exact_top_n_rate": 1.0,
+    "path": "/home/fl25387/projects/IBM_Granite_Project_latest/runs/selector-reliability-mis/sealed600/pool/candidate_sets.jsonl",
+    "query_count": 600,
+    "sha256": "777391fac4854448a47a7cdc9543cd77710b17f4e960084a26f4640f340ae590",
+    "top_n": 20
+  },
+  "created_at_utc": "2026-08-09T22:55:47.068238+00:00",
+  "dataset": {
+    "artifact_sha256": {
+      "documents.jsonl": "6904f09c09703dec678e13d0032c246b6931aa21d22773203357be0ca929d857",
+      "gold_cases.jsonl": "b1a3fcf131247a5f9a11916accbb495280f8e65acdd00f218d2bedd988aabab4",
+      "queries.jsonl": "20a3f8d548aaf6713d1f1c514e548cf4a3b11f36062fe8c8747a8b09a81be748"
+    },
+    "id": "niah/dpr-w100-nq-sealed600",
+    "manifest_path": "/home/fl25387/projects/IBM_Granite_Project_latest/runs/niah-sealed600/manifest.json",
+    "manifest_sha256": "cd091bfd1d298e1c5d12a2b9b4e1efcb00465c4746f99381657e0a69e492ab2d",
+    "signature": "57b89ef69e409623f38ac111311dddb47248c9c2ed84f4cdba0d4854ae5ec7bb",
+    "split": "sealed-test",
+    "version": "sealed600-seed42"
+  },
+  "embedding": {
+    "model_id": "ibm-granite/granite-embedding-english-r2",
+    "revision": "47ea694b257b703fee9253d75c2b1f2985180498"
+  },
+  "git_commit": "fd3854b0005e86e04a3645256adc5fade81dd3d9",
+  "git_dirty": false,
+  "retriever": {
+    "implementation_version": "hybrid-v1",
+    "name": "hybrid",
+    "parameters_sha256": "67333c6f3fcf6567756b382048961bc150da0ee26af4f9cecc59f58f30b5d78d",
+    "schema_version": "1.0"
+  },
+  "retriever_config": {
+    "path": "/home/fl25387/projects/IBM_Granite_Project_latest/configs/experiments/selector_mis_sealed600_pool.toml",
+    "sha256": "a080af3a10cb08bd27181363e493a5aa7208cc225c13124f744470389096ef26"
+  },
+  "schema_version": "1.0",
+  "seed": 13,
+  "source_parent": {
+    "path": "/home/fl25387/projects/IBM_Granite_Project_latest/runs/niah-sealed600/source_parent.jsonl",
+    "sha256": "e5a20e0f99ccff6697aec921dcfe74fc79f7962dd8c03a6f1ea42ef33117e766"
+  }
+}

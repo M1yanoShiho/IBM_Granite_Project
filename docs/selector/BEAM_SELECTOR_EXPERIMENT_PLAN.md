@@ -2,7 +2,7 @@
 
 **日期：** 2026-08-09
 
-**状态：** 待数据与代码检查完成后冻结
+**状态：** M0 已通过；候选池、数据切分、模型和配置已冻结，下一步为 M1
 
 **范围：** 只验证 Selector；Retriever 固定，Generator 不参与
 
@@ -143,6 +143,11 @@ Beam Retrieval 面向多跳问答：从 10–20 条候选 passage 中，逐步�
 
 **停止条件：** 任一标签无法映射、Top-20 数量错误、训练与 sealed600 有任何重合，均不得训练。
 
+**实际结果：PASS。** NIAH train/dev/sealed 在 query、source parent 和 synthetic family
+三个轴上的重合均为 0；2Wiki train/dev/held-out 的 query 重合为 0；六个候选池全部为
+Hybrid RRF Top-20，来源映射缺失为 0。完整哈希见
+`results/selector-beam-v1/m0/M0_REPORT.json`。
+
 这里“标签无法映射”指 provenance/gold 中的文档 ID 在原始数据文档中不存在。某条正确或误导文档没有被 Retriever 放进 Top-20，不是映射 bug，而是表 1 必须如实报告的候选池 miss；这种全负题不产生训练样本。M1 的 32 题则只从全部必要证据（NIAH 还包括 harmful twin）确实出现在 Top-20 的题中抽取，防止 sanity Gate 被缺标签样本虚假通过。
 
 ### M1：最小正确性检查
@@ -230,12 +235,12 @@ Evidence precision 继续报告，但不再因为一次很小的波动直接判�
 
 | 指标 | sealed600 | 2Wiki |
 |---|---:|---:|
-| Questions (#) | 待实验 | 待实验 |
+| Questions (#) | 600 | 2,000 |
 | Candidates per query | 20 | 20 |
-| Required/supporting recall@20 (%) ↑ | 待实验 | 待实验 |
-| Harmful pool-hit (%) | 待实验 | N/A |
-| Label mapping failures (#) | 待实验 | 待实验 |
-| Candidate pool SHA | 待实验 | 待实验 |
+| Required/supporting recall@20 (%) ↑ | 96.36 | 77.36 |
+| Harmful pool-hit (%) | 95.17 | N/A |
+| Label mapping failures (#) | 0 | 0 |
+| Candidate pool SHA | `777391fac485…` | `fcca691ed086…` |
 
 ### 表 2：sealed600 Selector 核心结果
 
@@ -256,7 +261,9 @@ Evidence precision 继续报告，但不再因为一次很小的波动直接判�
 
 ## 10. 结果存储
 
-服务器运行目录：
+服务器运行目录。固定候选池已在项目工作区生成；模型、开发运行和正式运行使用
+`/scratch/fl25387/IBM_Granite_Project_latest/runs/selector-beam-v1/`，避免把约 735 MB/seed
+的模型和大体积逐题结果继续写入只剩约 40 GB 的系统盘：
 
 ```text
 runs/selector-beam-v1/
