@@ -35,7 +35,9 @@ import argparse
 import dataclasses
 import importlib
 import json
-from collections.abc import Mapping, Sequence
+import random
+import sys
+from collections.abc import Callable, Mapping, Sequence
 from hashlib import sha256
 from pathlib import Path
 from typing import Any, cast
@@ -61,6 +63,7 @@ from evidence_rag.relations.predictor import (
 from evidence_rag.relations.training import (
     BASE_LABEL_ORDER,
     BASE_MODEL,
+    DEFAULT_HYPERPARAMETERS,
     N_FOLDS,
     PRE_REGISTERED_BASES,
     PROTOCOL_VERSION,
@@ -477,6 +480,123 @@ INPUT_PATHS = frozenset(
 OUTPUT_PATHS = frozenset({"output_dir"})
 
 
+# The sanity gate is NOT the recipe and must never be mistaken for a knob on it. These are
+# module constants rather than flags for the same reason §3.8(b) deleted --epochs: a number the
+# operator can move is a number that will be moved until the check passes. Changing any of them
+# is a code change, reviewed as one.
+SANITY_EXAMPLES = 32
+SANITY_EPOCHS = 30
+SANITY_MIN_ACCURACY = 0.95
+SANITY_MIN_LABELS = 2
+
+
+def _sanity_sample(
+    vitaminc: Sequence[TrainingExample],
+    niah: Sequence[TrainingExample],
+    *,
+    seed: int,
+    size: int = SANITY_EXAMPLES,
+) -> tuple[TrainingExample, ...]:
+    """Draw `size` rows, evenly from both halves when both are present.
+
+    Shuffled rather than taken from the front: consecutive rows share a page, and a sample that
+    is all one label lets a model reach any accuracy by predicting one class, which would make
+    the gate pass on a pipeline that learned nothing. `_run_sanity_gate` refuses such a sample
+    outright; drawing at random makes it rare rather than relying on that refusal.
+    """
+
+    rng = random.Random(seed)
+    halves = [list(part) for part in (vitaminc, niah) if part]
+    for part in halves:
+        rng.shuffle(part)
+    sample: list[TrainingExample] = []
+    per_half = size // len(halves)
+    for part in halves:
+        sample.extend(part[:per_half])
+    # Whatever the split left over, plus anything a short half could not supply.
+    remainder = [row for part in halves for row in part[per_half:]]
+    rng.shuffle(remainder)
+    sample.extend(remainder[: size - len(sample)])
+    return tuple(sample)
+
+
+def _run_sanity_gate(
+    vitaminc: Sequence[TrainingExample],
+    niah: Sequence[TrainingExample],
+    *,
+    arguments: argparse.Namespace,
+    fitter_factory: Callable[..., FoldFitter] | None = None,
+) -> int:
+    """Can this pipeline memorise a handful of its own rows? Minutes, before fifteen fine-tunes.
+
+    R013's officially frozen recipe is 2 epochs over ~375k rows; nothing about it is exercised
+    here. The question is narrower and comes first: if the model cannot overfit thirty-two
+    examples it was just trained on, then the labels, the chain, or the fit are wrong, and every
+    number the full run produces will be wrong in a way no metric displays. This series has
+    already spent seven submissions and six failures learning that its cheap failures are worth
+    finding cheaply.
+
+    A failure here CANNOT be answered by training the real run longer or on a bigger base. That
+    would be treating the alarm as the fault -- the gate exists precisely to be un-passable that
+    way, which is why its epochs are a constant and not a flag.
+
+    Writes no manifest. A run that produced one could later be read as a training run, and a
+    32-row overfit reported as R013 would be worse than no check at all.
+    """
+
+    sample = _sanity_sample(vitaminc, niah, seed=arguments.seed)
+    if not sample:
+        raise ValueError("sanity gate needs a non-empty chain")
+    labels = {row.label for row in sample}
+    if len(labels) < SANITY_MIN_LABELS:
+        raise ValueError(
+            f"sanity sample carries only {len(labels)} distinct label(s): {sorted(labels)}."
+            " A single-label sample is passable by predicting one class, so the gate would"
+            " certify a pipeline that learned nothing."
+        )
+
+    # train == held_out: memorisation is the whole question, so a split would answer a different
+    # one and this is deliberately not a generalisation measurement.
+    fold = Fold(index=0, train=sample, held_out=sample, held_out_indices=tuple(range(len(sample))))
+    factory = fitter_factory if fitter_factory is not None else load_fold_fitter
+    fitter = factory(
+        base_model=arguments.base_model,
+        output_dir=arguments.output_dir / "_sanity",
+        hyperparameters=dataclasses.replace(DEFAULT_HYPERPARAMETERS, epochs=SANITY_EPOCHS),
+    )
+    fit = fitter(fold=fold, seed=arguments.seed, base_model=arguments.base_model)
+
+    correct = sum(
+        1 for row, predicted in zip(sample, fit.predictions, strict=True) if row.label == predicted
+    )
+    accuracy = correct / len(sample)
+    passed = accuracy >= SANITY_MIN_ACCURACY
+    print(
+        json.dumps(
+            {
+                "sanity_gate": "PASS" if passed else "FAIL",
+                "accuracy": accuracy,
+                "correct": correct,
+                "n_examples": len(sample),
+                "n_vitaminc": sum(1 for row in sample if row in set(vitaminc)),
+                "labels_present": sorted(label.value for label in labels),
+                "epochs": SANITY_EPOCHS,
+                "min_accuracy": SANITY_MIN_ACCURACY,
+                "note": "memorisation check on training rows; not a generalisation reading",
+            },
+            sort_keys=True,
+        )
+    )
+    if not passed:
+        print(
+            f"sanity gate FAILED: {accuracy:.3f} < {SANITY_MIN_ACCURACY}."
+            " Fix the labels, the chain or the fit. Do NOT answer this by training the real run"
+            " longer or on a larger base.",
+            file=sys.stderr,
+        )
+    return 0 if passed else 1
+
+
 def _incomplete_niah_flags(arguments: argparse.Namespace) -> str | None:
     """The all-or-nothing check on the six domain-adaptation flags, or None if it passes.
 
@@ -557,6 +677,12 @@ def _parser() -> argparse.ArgumentParser:
         help="stat every input path and stop. Run it on the LOGIN NODE before sbatch: an "
         "absent file is decidable in a second there, and costs a queue wait from inside a job",
     )
+    parser.add_argument(
+        "--sanity-gate-only",
+        action="store_true",
+        help=f"overfit {SANITY_EXAMPLES} rows of this chain and stop. Needs a GPU but takes "
+        "minutes; run it before committing to fifteen full fine-tunes. No manifest is written",
+    )
     parser.add_argument("--niah-manifest", type=Path)
     parser.add_argument("--niah-provenance", type=Path)
     parser.add_argument("--niah-parents", type=Path, help="source_parent sidecar for NIAH train")
@@ -623,6 +749,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     assert_decontaminated(train=vitaminc, dev=vitaminc_examples(dev_pairs))
 
     niah, sealed, dev_queries, excluded_dev_overlap = _load_niah_examples(arguments)
+
+    # After every data-path guard and before any fold planning: the gate's whole value is that
+    # it costs minutes where the thing it protects costs fifteen full fine-tunes.
+    if arguments.sanity_gate_only:
+        return _run_sanity_gate(vitaminc, niah, arguments=arguments)
     chain: tuple[TrainingExample, ...] = (*vitaminc, *niah)
     if arguments.max_examples is not None:
         chain = chain[: arguments.max_examples]

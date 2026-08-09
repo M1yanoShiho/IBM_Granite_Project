@@ -488,3 +488,91 @@ def test_no_path_flag_escapes_the_input_output_split(tmp_path: Path) -> None:
         action.dest for action in train_relations._parser()._actions if action.type is Path
     }
     assert declared == train_relations.INPUT_PATHS | train_relations.OUTPUT_PATHS
+
+
+def _echo_fitter(**_: object) -> FoldFitter:
+    """A pipeline that memorised what it was shown."""
+
+    def fit(*, fold: Fold, seed: int, base_model: str) -> FoldFit:
+        return FoldFit(
+            model_version="fake/echo",
+            label_order=BASE_LABEL_ORDER,
+            predictions=tuple(row.label for row in fold.held_out),
+        )
+
+    return fit
+
+
+def _single_label_pairs(path: Path, pages: list[str]) -> Path:
+    path.write_text(
+        "".join(
+            json.dumps(
+                {
+                    "premise": f"evidence {i}",
+                    "hypothesis": f"claim {i}",
+                    "label": "SUPPORTS",
+                    "group": page,
+                }
+            )
+            + "\n"
+            for i, page in enumerate(pages)
+        ),
+        encoding="utf-8",
+    )
+    return path
+
+
+def test_the_sanity_gate_fails_a_pipeline_that_cannot_memorise(tmp_path: Path) -> None:
+    """The default fake predicts SUPPORTS for everything, so it memorises nothing. Six of this
+    series' seven submissions failed on the data path; a model that cannot fit rows it was just
+    trained on says the same thing, minutes in rather than fifteen fine-tunes later."""
+
+    argv = _argv(_corpus(tmp_path), tmp_path / "run", "--sanity-gate-only")
+    assert train_relations.main(argv) == 1
+
+
+def test_the_sanity_gate_passes_when_the_rows_are_memorised(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(train_relations, "load_fold_fitter", _echo_fitter)
+    argv = _argv(_corpus(tmp_path), tmp_path / "run", "--sanity-gate-only")
+    assert train_relations.main(argv) == 0
+
+
+def test_the_sanity_gate_writes_no_manifest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A 32-row overfit that left a manifest could later be read as R013 itself, which would be
+    worse than never running the check."""
+
+    monkeypatch.setattr(train_relations, "load_fold_fitter", _echo_fitter)
+    output = tmp_path / "run"
+    train_relations.main(_argv(_corpus(tmp_path), output, "--sanity-gate-only"))
+    assert not (output / "manifest.json").exists()
+    assert not (output / "oof_predictions.jsonl").exists()
+
+
+def test_a_single_label_sample_is_refused_rather_than_certified(tmp_path: Path) -> None:
+    """95% on rows that all carry one label is reachable by predicting that label, so the gate
+    would certify a pipeline that learned nothing -- an audit that passes because it cannot see,
+    which is the failure this repo keeps meeting."""
+
+    train = _single_label_pairs(tmp_path / "train.jsonl", [f"p{i}" for i in range(12)])
+    dev = _single_label_pairs(tmp_path / "dev.jsonl", [f"d{i}" for i in range(2)])
+    log = tmp_path / "log.json"
+    log.write_text(
+        json.dumps(
+            {
+                "n_train": 12,
+                "n_dev": 2,
+                "n_test": 99,
+                "removed_train_groups": [],
+                "removed_dev_groups": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    argv = _argv({"train": train, "dev": dev, "log": log}, tmp_path / "run", "--sanity-gate-only")
+
+    with pytest.raises(ValueError, match="single-label sample|distinct label"):
+        train_relations.main(argv)
