@@ -269,7 +269,7 @@ def test_load_reports_missing_or_corrupt_file_path(
 # Golden constants over `corpus()`, recorded 2026-08-09. Two of them, because a reshape of the
 # signature payload breaks two different things and only one is visible from inside the process.
 GOLDEN_INDEX_SIGNATURE = "7868c59e2b3cc305a8b79be655abb0c30c2b57d7718ff4f019321dbd96304fb9"
-GOLDEN_MANIFEST_SHA256 = "9daeaeff89817e4d39dc7b0f05aa4f73684a73129214e6df7fb7018f40671cbc"
+GOLDEN_MANIFEST_SHA256 = "51204c1e9acafb18433fd1d72bf72b788682c2f2f8084cf222f76d467d2877ea"
 
 
 def test_index_identity_is_pinned_so_a_reshape_cannot_pass_silently(tmp_path: Path) -> None:
@@ -296,12 +296,20 @@ def test_index_identity_is_pinned_so_a_reshape_cannot_pass_silently(tmp_path: Pa
     constants below. Note what the bump costs: every index manifest already on disk says
     `bm25-v1`, so bumping makes `load_index` reject all of them. That belongs at a deliberate
     re-index boundary, not inside a refactor.
+
+    The first thing this test caught was not a reshape. `GOLDEN_MANIFEST_SHA256` was first
+    recorded on Windows, where `write_text` had been translating the trailing "\\n" to "\\r\\n" --
+    so the persisted bytes, and therefore `upstream_artifact_hashes`, depended on which machine
+    prepared the index. Green locally, red in CI, and on a mixed-platform team it would have
+    surfaced as yet another uninterpretable hash mismatch. `write_index` now writes bytes; the
+    no-CR assertion below is what keeps that fixed rather than merely fixed once.
     """
 
     snapshot = corpus()
     build_bm25_index(tmp_path, snapshot)
     raw = (tmp_path / "index_manifest.json").read_bytes()
 
+    assert b"\r" not in raw, "persisted artifacts must not carry platform line endings"
     assert read_index_manifest(tmp_path).index_signature == GOLDEN_INDEX_SIGNATURE
     assert sha256(raw).hexdigest() == GOLDEN_MANIFEST_SHA256
 

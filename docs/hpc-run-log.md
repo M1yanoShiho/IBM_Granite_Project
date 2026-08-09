@@ -1312,6 +1312,14 @@ supporting-fact 标签);与 conflict 边(false/missed-conflict)、duplicate 边(
   测试的 docstring 写明红了以后怎么办:要么撤回,要么在同一个 commit 里 bump `implementation_version`
   并重录两个常量 —— 并写明 bump 的代价。真要 bump,应挑一次自然的全量重建索引作边界。
 
+  **它落地当天就抓到一个缺陷,而且不是它被设计来抓的那个。** 常量首次是在 Windows 上录的,而
+  `write_index` 当时用 `write_text` 且未给 `newline=`,文本模式把结尾的 `\n` 译成 `\r\n`
+  ⇒ **同一个索引在 Windows 与 Linux 上持久化出的字节不同**,而 `upstream_artifact_hashes` 记的正是
+  这些字节 —— **平台相关的字节造出一个平台相关的守卫**,与本条目查了一整天的那个失败同族。
+  本地绿、CI 红(`9daeaeff…` vs `51204c1e…`),混合平台的团队里它只会表现为又一个无从解释的哈希不匹配。
+  已改 `write_bytes` 并加一条"持久化字节不得含 `\r`"的断言:**Linux 输出一字未变,集群上已建的索引
+  全部保持原哈希**,变的只有 Windows。模块 docstring 自称 "deterministic",此前那句话是假的。
+
   **命令(登录节点,秒级):**
   ```
   python scripts/verify_legacy_index_identity.py runs/e2-gate-off
