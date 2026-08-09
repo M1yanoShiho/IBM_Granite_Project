@@ -50,6 +50,26 @@ def _resolve_output(config_path: pathlib.Path) -> pathlib.Path:
     return (config_path.parent / raw["output"]["directory"]).resolve()
 
 
+def _varied_sections(config_paths: list[pathlib.Path]) -> set[str]:
+    """Which config sections actually differ across the arms being compared.
+
+    The transfer slopes below only mean anything when the retriever is what varies.
+    R9 swept chunk size instead, and the slopes printed −26.5 and −6.5 — arithmetically
+    fine, causally empty, and looking exactly like findings. Worse, changing the chunker
+    changes how much text reaches the generator, so the downstream metric is not
+    comparable across those arms at all. Reporting which sections vary lets the caller
+    be told that rather than left to remember it.
+    """
+
+    seen: dict[str, set[str]] = {}
+    for path in config_paths:
+        raw = tomllib.loads(path.read_text(encoding="utf-8"))
+        for section in ("retriever", "selector", "generator", "chunker", "run"):
+            rendered = json.dumps(raw.get(section, {}), sort_keys=True)
+            seen.setdefault(section, set()).add(rendered)
+    return {section for section, values in seen.items() if len(values) > 1}
+
+
 def _fmt(value: float | None) -> str:
     return "-" if value is None else f"{value:.4f}"
 
@@ -111,12 +131,29 @@ def main(argv: Sequence[str] | None = None) -> int:
     ]
     paired.sort(key=lambda item: item[1])
 
+    varied = _varied_sections(list(args.configs))
+    # Bound outside the branch below: the saturation check reads them, and a run where
+    # only one arm has finished must still print its table rather than crash.
+    mrrs = [m for _, m, _ in paired]
+    answers = [a for _, _, a in paired]
+
     print()
     if len(paired) >= 2:
-        mrrs = [m for _, m, _ in paired]
-        answers = [a for _, _, a in paired]
         print(f"MRR span    : {min(mrrs):.4f} -> {max(mrrs):.4f}  (spread {max(mrrs) - min(mrrs):+.4f})")
         print(f"answer span : {min(answers):.4f} -> {max(answers):.4f}  (spread {max(answers) - min(answers):+.4f})")
+    if len(paired) < 2:
+        print("transfer    : needs at least two scored arms")
+    elif "chunker" in varied or "run" in varied:
+        # Both change how much text reaches the generator, so answer_match is not
+        # comparable across these arms and a slope against MRR would be meaningless.
+        moving = " and ".join(sorted(varied & {"chunker", "run"}))
+        print(f"transfer    : not reported. These arms vary [{moving}], which changes how")
+        print("              much evidence reaches the generator, so answer_match is not")
+        print("              comparable across them. Compare only at a fixed evidence budget.")
+    elif "retriever" not in varied:
+        print("transfer    : not reported. The retriever is identical across these arms,")
+        print("              so there is no upstream retrieval change to attribute anything to.")
+    else:
         print("transfer, by segment (downstream points per upstream point):")
         # strict=False is deliberate: paired[1:] is one shorter by construction.
         for (low, mrr_low, ans_low), (high, mrr_high, ans_high) in zip(
@@ -130,8 +167,6 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(f"  {segment:<58} {(ans_high - ans_low) / gap:>7.3f}")
         print("  a single whole-span ratio is not reported: R7 found these slopes to differ")
         print("  fourfold, so one number would read as a constant that does not exist.")
-    else:
-        print("transfer    : needs at least two scored arms")
 
     if answers and min(answers) > SATURATION:
         print()
