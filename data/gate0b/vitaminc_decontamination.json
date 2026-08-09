@@ -1,7 +1,7 @@
 {
   "n_dev": 62984,
   "n_test": 55197,
-  "n_train": 369843,
+  "n_train": 369819,
   "removed_dev_groups": [
     "John Frusciante",
     "Linkin Park"
@@ -43,6 +43,7 @@
     "The Punisher -LRB-TV series-RRB-",
     "The Walking Dead -LRB-comic book-RRB-",
     "World War II",
+    "XXx-COLON- Return of Xander Cage",
     "YouTube",
     "Zac Efron"
   ]
