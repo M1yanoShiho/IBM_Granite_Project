@@ -193,6 +193,7 @@ MiniCheck 的 label token id 按文本查表(不报错,只是给两个无关词�
 | **slurm 脚本头部的步骤没有任何东西执行** | `run_r013_train_relations.slurm` 头部的第 0/1/2/3 步全是操作员义务。**五次失败里至少三次是漏做其中一步。** 提交前逐条对一遍 |
 | **FAIL 后先读日志再重交** | `18300333` 的日志里躺着完整根因(连页名都有),没人读,`18318996` 原样再撞一轮才开始定位。守卫的收益 = 拦截 × 日志是否被读;秒级失败的日志只有一屏,读它永远比再排一次队便宜 |
 | **`scontrol` 的 `Command` 字段不含参数** | 它只存脚本路径。用它核对"作业带没带某个 flag",看不见会被误读成"没有"——又一个因看不见而通过的审计。核对提交内容用 `sacct -j <id> --format=SubmitLine%250`,那是提交那一刻的完整命令行,位置参数都在(2026-08-09 实测) |
+| **`git status` 对 `results/` 是瞎的** | `.gitignore` 有 `/results/`,被 ignore 的文件在 status 里**连 `??` 都不显示** —— "working tree clean" 不等于结果已入库(R012b/c/d 的 dump 就这样欠了一周没人发现)。**核对结果是否入库用 `git ls-files results/...` 对比 `ls`,不能用 status**;补交用 `git add -f`,大文件先 `du -h`(GitHub 100MB 硬限) |
 
 ---
 

@@ -2265,6 +2265,138 @@ kappa 与 raw agreement 并列报告,因为 albert 的 UNKNOWN 占 .48,单看 ra
 一个文件。按本文件"只以 `.out` 或散落文件存在的结果不算已记录"的规则,**那几轮的结果包欠着**,
 且本分析所需的 dump 目前只在 bp1 上。**跑本轮时一并 `git add -f` 补交。**
 
+**AFTER(bp1 登录节点,`dump-template.jsonl`,2026-08-09):**
+
+```
+per arm         gold_supports_recall   twin_not_supported
+DeBERTa                    0.7942 (n=1472)        0.8689 (n=2944)
+albert                     0.1916 (n=1472)        0.9980 (n=2944)
+pairwise        n_common 5888 (only-left 0, only-right 0)
+                raw_agreement 0.4969   cohen_kappa 0.2906
+                gold recovered only by albert 6, only by DeBERTa 893  => CROSSING
+union           gold_supports_recall 0.7982   twin_not_supported 0.8689
+```
+
+**读数一(锚点通过):** 两臂 `gold_supports_recall` 逐字复现 sweep 自己发表的 .7942 / .1916,
+且两臂覆盖同一批 5888 对、无单边缺失 ⇒ join 正确,后续统计有意义。
+
+**读数二(RADAR 的问题,部件级答案):** **两臂在半数对上就不一致** ——
+raw agreement **.4969**、Cohen's kappa **.2906**。合并 60.3pp 的率差,
+**"换骨干只带来 minor changes"在部件级被明确证伪**(限定仍如 BEFORE 所述:族更宽、且我们测部件不测端到端)。
+
+**读数三(集成逃生口 —— 关闭,这是本轮最有用的负结果):**
+判定确为 **CROSSING**,但**极不对称:DeBERTa 独捞 893 对,albert 独捞 6 对,比例 149:1** ——
+形式上交叉,实质上近乎嵌套。**union 只把 recall 从 .7942 抬到 .7982(+0.4pp),离 .85 还差 5.2pp,
+且 twin 与 DeBERTa 一字不差(.8689)。**
+⇒ **"用已跑过的零训练模型做并集绕过 Gate 0B"这条路当场关闭,代价是零 GPU。**
+**精确的刻画:两臂分歧极大(κ=.29)但分歧是单向的**(DeBERTa 判 SUPPORTS 处 albert 判 UNKNOWN),
+即它们不是互补的能力,而是**同一条保守度轴上的两点**。这两句话必须并列,否则任一句单独看都误导。
+
+**⚠ 预注册预测被部分证伪,如实记录(BEFORE 由本轮执行者署名写下):**
+
+| 预测 | 实测 | 判定 |
+|---|---|---|
+| H-CROSS 成立 | crossing = True | **命中**(但 149:1 的不对称未被预见,使"命中"在实质上误导) |
+| union recall 落在 .80–.88 | **.7982** | **落在区间外**(低 0.2pp),按字面判 **MISS** |
+| union twin 落在 .45–.60 | **.8689** | **大错,偏离 27pp** |
+
+**错因已定位:** 预测假定 albert 会把相当多 twin 判成 SUPPORTS,实测它 **99.8%** 的 twin 都不判 SUPPORTS
+—— albert 不是"另一种判法",是**几乎不说 SUPPORTS**(全局 unknown_rate .48)。
+**这正是本项目反复记录的那类错误的又一例:我用一个聚合率(.6736 的旧 twin 数)去推断逐对行为,
+而聚合率恰恰是本轮设计出来要绕开的东西。** 教训:**在做逐对分析之前,不要用聚合率做逐对预测。**
+
+#### ⚠ 由本轮牵出的一个指标口径不一致 —— 影响已发表判读的表述,须核实
+
+**我算出的 twin 与台账所记不是同一个指标。** `relations/gate0b.py::task_report` 的门指标是
+`p is not SUPPORTS`(**REFUTES ∪ UNKNOWN 皆算 not-supported**);而 `sweep-full.json` 里的字段叫
+`twin_refutes_accuracy`(.6376 / .6736),是**要求 predicted == REFUTES 的严格版**,
+该字段名在现行代码中**已不存在** —— 它是 A1 之前的产物。
+
+⇒ **在现行(A1/A2)判读下,template rung 上两臂的 twin 都远超 .70 阈值**(.8689 / .9980),
+而台账 R012 行记的是 .638 / .674。**§9.10a 明文要求 R012/R012b 从 dump 重算而非重跑,
+工具亦已存在(`cli/recompute_binary.py`),但重算结果似未全部回写台账。**
+
+**若核实成立,需要改写的表述(结论不变,FAIL 仍是 FAIL —— 门是合取,`gold_supports_recall` 处处不过):**
+
+- R012b 的「**两个指标反向**」与「**六格无一两项同时过**」可能是读**严格 REFUTES 版**造成的伪影;
+- 更强也更简洁的正确表述可能是:**九格全 FAIL 是单一原因 —— 只有 `gold_supports_recall` 在挂;
+  这些模型拒斥孪生没有问题,问题在识别真实支持。** 这个表述对报告更有利,但**必须先核实再用**。
+
+**核实命令(bp1,秒级,用 §9.10a 的官方工具,自带 `--against` 交叉校验):**
+`python -m evidence_rag.cli.recompute_binary --dump results/gate0b/dump-template.jsonl --against results/gate0b/sweep-full.json`
+
+**在核实之前,不得据此改写任何已发表判读。** rung 2 / rung 3 与 MiniCheck 臂需各自的 dump 重算,
+本轮只看了 template。
+
+#### 核实结果:成立。§9.10a 官方工具的输出 [2026-08-09,bp1 登录节点]
+
+`python -m evidence_rag.cli.recompute_binary --dump results/gate0b/dump-template.jsonl --against results/gate0b/sweep-full.json`
+
+| 臂 | `gold_supports_recall` | `twin_not_supported_accuracy` | `unknown_rate` | `failures`(工具自判) |
+|---|---:|---:|---:|---|
+| DeBERTa-v3-large-mnli-… | 0.7942 | **0.8689** | 0.1758 | **`["gold_supports_recall"]`** |
+| albert-xlarge-vitaminc-mnli | 0.1916 | **0.9980** | 0.4823 | **`["gold_supports_recall"]`** |
+
+`--against` 未报错 ⇒ `gold_supports_recall` 逐字复现该 dump 自己 sweep 发表的值,§9.10a 的不变式满足;
+`unknown_rate` 亦与 `sweep-full.json` 一致。**`failures` 是工具自己算的,不是解读:两臂都只挂一项。**
+
+**⇒ 确立(限 template rung、R012 两臂):在现行(A1/A2)门判读下,twin 从不是失败原因。**
+台账 R012 行所记 `.638 / .674` 是 **A1 之前要求 `== REFUTES` 的严格版**,现予以**并列标注而非覆盖**
+(照 R011 的先例:被取代的读数留在原处并注明)。
+
+**Gate 0B 的 FAIL 判定不变** —— 门是合取,`gold_supports_recall` 处处不过。
+**族级断言不变。** 改变的是**刻画**,而且新刻画更简洁也更有力:
+**这些模型拒斥孪生没有问题;它们失败在识别真实支持。**
+
+**一个对 §3.8 直接可用的推论 —— 交换率有余量,这一点此前被旧口径掩盖了:**
+DeBERTa 需要 **+5.6pp** recall(.7942 → .85),而它在 twin 轴上距阈值有 **18.9pp 余量**(.8689 → .70)。
+按 [related-work.md](selector/related-work.md) §5 对 logit adjustment 的量级估计(recall:twin 约 1:0.5–1:1),
+换到 +5.6pp recall 的代价约 2.8–5.6pp twin,落点 **.813–.841,仍远在 .70 之上**。
+**⇒ 以 twin 余量换 recall 是负担得起的**,而按旧口径(.638 对阈值 .70)看,twin 本身就在失败、毫无余量可换。
+**这条改变了训练杠杆的取舍算式,故必须写下。**(仍是量级推演,不是实测;真实交换率须由 §3.8 的训练读数给出。)
+
+**仍未做,且必须做完才能改写"六格/九格"的表述:** rung 2 / rung 3 与 MiniCheck 三臂各自的 dump 重算。
+R012b 的「**两个指标反向**」「**六格无一两项同时过**」与 R012c 的「**九格无一过门**」目前都建立在旧口径上;
+**FAIL 结论不会变,但"因为什么而 FAIL"很可能要改写。** 命令同上,换 `--dump` 与 `--against` 即可。
+
+#### 全格重算完成:九格 + surface 两格,失败轴处处单一 [2026-08-09,bp1 登录节点]
+
+七份 dump 全部过 `recompute_binary`(现行门口径,`not SUPPORTS` = REFUTES∪UNKNOWN):
+
+| rung | albert(gold/twin) | DeBERTa(gold/twin) | MiniCheck(gold/twin) |
+|---|---|---|---|
+| template | .1916 / .9980 | .7942 / .8689 | .5727 / .9463 |
+| qa | .3635 / .9871 | .6651 / .9008 | .5883 / .9446 |
+| qa2d | .5360 / .9586 | .5870 / .9222 | .5360 / .9375 |
+| surface(R012d 对照) | .1984 / .9983 | .7792 / .8635 | — |
+
+**工具自判的 `failures` 在全部 11 格里都是且仅是 `["gold_supports_recall"]`。
+twin 全域最低 .8689,距 .70 阈值 18.9pp;全域最高 .9980。**
+
+**三条表述的改写自此有据(原读数按 R011 先例并列保留):**
+
+1. R012 的「twin .674/.638」→ 严格 REFUTES 口径的历史读数;门口径下 twin 两臂均大幅通过。
+2. R012b 的「**两个指标反向**」「六格无一两项同时过」→ **旧口径伪影确认**。现行口径下
+   albert twin 沿阶梯 .9980→.9871→.9586、DeBERTa .8689→.9008→.9222 —— 方向仍相反但量级仅 4~5pp
+   且全程远离阈值;旧口径下 albert rung 3 的"崩到 .5312"在门口径下不存在(实为 .9586)。
+   **阶梯是一个 recall 现象,不是 twin 现象。**
+3. R012c 的「九格无一过门」→ 保持成立,但**原因单一化:九格全因 `gold_supports_recall` 失败**。
+   MiniCheck 的 twin(.9375–.9463)本就按二分类口径计,不受本次订正影响。
+
+**报告级的正确刻画(取代"两项都难"的旧叙事):**
+**零训练族在拒斥孪生上没有问题 —— 十一格里最差也有 .8689;它们全部失败在识别真实支持。**
+Gate 0B 实际上是单轴问题:把 `gold_supports_recall` 抬 5.6pp,而 twin 轴处处有 ≥18.9pp 的可交换余量。
+
+**顺带的量级观察(与 R012b 阶梯同等的跨作业限定):** 形式阶梯对两臂的交换率悬殊 ——
+albert template→qa2d 用 3.9pp twin 换了 34.4pp recall(约 9:1),DeBERTa 反向用 20.7pp recall
+换了 5.3pp twin(约 4:1)。**qa2d 之下两个通用 NLI 臂收敛到几乎同一点**(.536/.587 recall,
+unknown_rate .35/.37)—— 形式移除后剩下的差距才是族的真实能力差。
+
+**下一个十秒问题(直接决定 §3.8 的杠杆选型):** gold 漏掉的那部分去了哪 —— UNKNOWN 还是 REFUTES?
+若主要落 UNKNOWN ⇒ related-work §5 的训练期 logit adjustment(压 NEI 先验)正中要害;
+若主要落 REFUTES ⇒ 模型在**积极地不相信**真实支持,那是另一个病,logit adjustment 药不对症。
+dump 里有答案,一条循环即可:按 `kind=="needle_gold"` 取行,数 `predicted` 的分布。
+
 ---
 
 ### NIAH split 的可核验性 —— **冻结要求无法核验,须裁决** [2026-08-09,R011b 核验中发现]
