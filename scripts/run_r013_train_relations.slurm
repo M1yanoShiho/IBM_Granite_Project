@@ -162,6 +162,20 @@ set -euo pipefail
 SEED="${1:-13}"
 OUTPUT_DIR="${2:-runs/r013/seed-$SEED}"
 EXTRA="${3:-}"
+# EXTRA is ONE argument holding every extra flag, quoted at the call site, and $4 onwards would
+# be dropped in silence. 18329580 was submitted with the flags left bare: $3 became
+# "--max-examples" with no value and all six --niah-* flags vanished. argparse rejected the
+# valueless flag, which is the only reason it was noticed -- had the quoting caught just
+# "--max-examples 2000", the run would have started, trained on VitaminC alone, and written
+# `niah_domain_adaptation: not run` into a manifest sitting in runs/r013/smoke-niah under a job
+# id the ledger calls the NIAH smoke. Refuse instead of dropping.
+if [ "$#" -gt 3 ]; then
+  echo "ERROR: $# positional args; expected at most 3 (SEED OUTPUT_DIR EXTRA_FLAGS)." >&2
+  echo "       Quote every extra flag as ONE argument:" >&2
+  echo "         sbatch $0 13 runs/r013/smoke-niah \"--max-examples 2000 --niah-manifest ...\"" >&2
+  echo "       Unquoted, everything from the 4th argument on is discarded without a word." >&2
+  exit 2
+fi
 
 module load languages/python/3.12.3
 export HF_HOME=/user/work/$USER/hf_cache HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1
