@@ -137,12 +137,21 @@ def _paired_line(label: str, value: Mapping[str, object], *, include_p: bool) ->
     delta = 100.0 * _number(value.get("delta_mis_minus_top_k"), f"{label} delta")
     low = 100.0 * _number(value.get("ci_low"), f"{label} ci_low")
     high = 100.0 * _number(value.get("ci_high"), f"{label} ci_high")
-    suffix = (
-        f", p={_number(value.get('p_value'), f'{label} p-value'):.4f}"
-        if include_p
-        else ""
-    )
+    suffix = f", p={_number(value.get('p_value'), f'{label} p-value'):.4f}" if include_p else ""
     return f"{label}: Δ(MIS−TopK)={delta:.2f} pp, 95% CI=[{low:.2f}, {high:.2f}]{suffix}."
+
+
+def _markdown_table(header: Sequence[object], rows: Sequence[Sequence[object]]) -> str:
+    def cell(value: object) -> str:
+        return str(value).replace("|", "\\|")
+
+    return "\n".join(
+        (
+            "| " + " | ".join(cell(value) for value in header) + " |",
+            "| " + " | ".join("---" for _ in header) + " |",
+            *("| " + " | ".join(cell(value) for value in row) + " |" for row in rows),
+        )
+    )
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -157,7 +166,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     pool_rows = _pool_rows(sealed_pool, twowiki_pool)
     sealed_rows = _selector_rows(sealed, include_harm=True)
     twowiki_rows = _selector_rows(twowiki, include_harm=False)
-    _write_csv(arguments.output / "pool_quality_table.csv", ("Metric", "sealed600", "2Wiki"), pool_rows)
+    _write_csv(
+        arguments.output / "pool_quality_table.csv", ("Metric", "sealed600", "2Wiki"), pool_rows
+    )
     _write_csv(
         arguments.output / "primary_selector_table.csv",
         ("Metric", "TopK", "Reliability-MIS"),
@@ -172,10 +183,19 @@ def main(argv: Sequence[str] | None = None) -> int:
     sealed_decision = _mapping(sealed.get("decision"), "sealed decision")
     twowiki_decision = _mapping(twowiki.get("decision"), "2Wiki decision")
     sealed_audit = _mapping(sealed_pool.get("audit"), "sealed pool audit")
+    twowiki_audit = _mapping(twowiki_pool.get("audit"), "2Wiki pool audit")
+    sealed_pool_values = _mapping(sealed_pool.get("candidate_pool"), "sealed candidate pool")
+    twowiki_pool_values = _mapping(twowiki_pool.get("candidate_pool"), "2Wiki candidate pool")
     harm_opportunities = int(
         _number(sealed_audit.get("harmful_pool_hit_count"), "harmful_pool_hit_count")
     )
     checks = {
+        "frozen_pool_integrity": (
+            sealed_pool_values.get("exact_top_n_rate") == 1.0
+            and twowiki_pool_values.get("exact_top_n_rate") == 1.0
+            and sealed_audit.get("unresolved_parent_count") == 0
+            and twowiki_audit.get("unresolved_parent_count") == 0
+        ),
         "harm_opportunity_minimum_200": harm_opportunities >= 200,
         "harm_reduction": sealed_decision.get("harm_reduction_pass") is True,
         "sealed_required_recall_noninferiority": (
@@ -204,6 +224,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     harm = _mapping(sealed.get("paired_harm"), "paired_harm")
     sealed_recall = _mapping(sealed.get("paired_required_recall"), "sealed recall")
     twowiki_recall = _mapping(twowiki.get("paired_required_recall"), "2Wiki recall")
+    sealed_top = _mapping(sealed.get("top_k"), "sealed TopK")
+    sealed_mis = _mapping(sealed.get("reliability_mis"), "sealed MIS")
     stability_arms = _mapping(stability.get("arms"), "stability arms")
     stability_mis = _mapping(stability_arms.get("reliability-mis"), "MIS stability")
     report = "\n".join(
@@ -221,12 +243,30 @@ def main(argv: Sequence[str] | None = None) -> int:
             "## Frozen-pool check",
             "",
             f"sealed600 harmful Pool-hit queries: {harm_opportunities}; minimum required: 200.",
-            f"All pool and source-parent checks passed: {checks['harm_opportunity_minimum_200']}.",
+            f"Both pools contain exactly Top-20 with resolved source parents: {checks['frozen_pool_integrity']}.",
+            "",
+            "### Table 1: frozen candidate pools",
+            "",
+            _markdown_table(("Metric", "sealed600", "2Wiki"), pool_rows),
+            "",
+            "### Table 2: sealed600 Selector comparison",
+            "",
+            _markdown_table(("Metric", "TopK", "Reliability-MIS"), sealed_rows),
             "",
             "## Paired results",
             "",
             _paired_line("sealed600 harmful-in-context", harm, include_p=True),
             _paired_line("sealed600 required recall", sealed_recall, include_p=False),
+            (
+                "Unconditional harmful exposure over all sealed600 queries: "
+                f"TopK={_percent(sealed_top.get('harmful_in_context_unconditional'))}%, "
+                f"Reliability-MIS={_percent(sealed_mis.get('harmful_in_context_unconditional'))}%."
+            ),
+            "",
+            "### Table 3: 2Wiki multi-hop guard",
+            "",
+            _markdown_table(("Metric", "TopK", "Reliability-MIS"), twowiki_rows),
+            "",
             _paired_line("2Wiki supporting recall", twowiki_recall, include_p=False),
             "",
             "## Stability",
@@ -245,7 +285,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
     )
     (arguments.output / "FINAL_REPORT.md").write_text(report, encoding="utf-8")
-    print(json.dumps({"final_selector": primary["final_selector"], "checks": checks}, sort_keys=True))
+    print(
+        json.dumps({"final_selector": primary["final_selector"], "checks": checks}, sort_keys=True)
+    )
     return 0
 
 

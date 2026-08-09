@@ -175,6 +175,9 @@ def test_final_tables_put_metrics_in_rows_and_methods_in_columns(tmp_path: Path)
     lines = (output / "primary_selector_table.csv").read_text(encoding="utf-8").splitlines()
     assert lines[0] == "Metric,TopK,Reliability-MIS"
     assert lines[1].startswith("Harmful-in-context (%)")
+    final_report = (output / "FINAL_REPORT.md").read_text(encoding="utf-8")
+    assert "| Metric | TopK | Reliability-MIS |" in final_report
+    assert "Table 3: 2Wiki multi-hop guard" in final_report
     assert json.loads((output / "primary_summary.json").read_text())["final_selector"] == (
         "reliability-mis"
     )
