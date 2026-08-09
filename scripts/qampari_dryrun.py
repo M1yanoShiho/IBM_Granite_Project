@@ -183,6 +183,16 @@ def main() -> int:
                 f", answer tokens max={max(lengths)} (cap 256)" if lengths else ""
             )
             print(f"  {arm}: {ok}/{args.slice} valid result objects{note}", flush=True)
+            # Task 3's real question, answerable only with the real model: does a
+            # many-answer question yield one claim per entity, or one claim
+            # carrying several? Counts only -- no claim text is printed.
+            routings = getattr(generator, "last_routings", None)
+            if routings:
+                print(
+                    f"      last answer: {len(routings)} claims routed, "
+                    f"outcomes={ {o: [r.outcome for r in routings].count(o) for o in {r.outcome for r in routings}} }",
+                    flush=True,
+                )
 
     print("\nplumbing OK -- no metrics computed, no generated output inspected", flush=True)
     return 1 if problems else 0
