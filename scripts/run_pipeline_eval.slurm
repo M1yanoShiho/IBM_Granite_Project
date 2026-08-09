@@ -36,7 +36,11 @@ if [ "$#" -lt 1 ]; then
   exit 2
 fi
 
-module load languages/python/3.11.15
+# 3.12.3, matching run_retriever_eval.slurm — the venv holding sentence-transformers was
+# built under it. This script first copied 3.11.15 from run_retriever_scaling.slurm, which
+# is CPU-only and never imports Granite, so the mismatch stayed invisible until the
+# hybrid arm reached GraniteEmbedder and job 18325274 died there.
+module load languages/python/3.12.3
 export HF_HOME=/user/work/$USER/hf_cache HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1
 export MODEL_CACHE_DIR=/user/work/$USER/hf_cache/hub
 export IR_DATASETS_HOME=/user/work/$USER/ir_datasets PYTHONUNBUFFERED=1
