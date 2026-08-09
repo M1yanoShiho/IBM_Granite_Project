@@ -22,12 +22,12 @@ E1 pool 级组件评估(exact-string 簇,标签零人工=provenance + official g
 - **根因链(CPU 探针,无 GPU):** needle-visibility 审计 → 答案在抽取器读到的段落里 **94.9%**(截断仅 5.1%、chunk-absent 0)→ 非截断/检索。needle probe → visible 失败中 recovered 634 / wrong 439 / none 127;wrong-reclassify → 439 里 **36%(158)是 exact-string 匹配 artifact**(模型对、字符串判错:"Apostle Paul"⊇"paul"、"2009"≡"in 2009"),lenient recovery **.509 → .634**(visible)。8B extractor 三次否掉(visibility / failure-mode / matching)。
 - **定论:瓶颈是 exact-string 答案等价,不是模型能力,也不是可见性。** E2 的 −11.2pp harm 有相当部分非来自有原则的冲突检测;−4.8pp recall 大部分是簇碎裂误杀 gold。
 
-### S3 — 门内 lenient 聚类**显著回收召回、零 harm 代价**(Phase 1 修复,2026-07-23)
+### S3 — 门内 lenient 聚类**显著回收召回,harm 代价上界 +1.2pp**(Phase 1 修复,2026-07-23;措辞修订 2026-08-09)
 
 门内换 lenient 答案等价(representative-anchored 贪心,containment/number/prep;`canonicalize`/injector/数据集全不动)。lenient vs exact gate-on,**同池**,配对。
 
 - **Required recall +1.2pp**(0.820 → 0.832),**p≈0,CI[0.006,0.018]**(n=1848)——**显著**。
-- **Harmful-in-context +0.3pp**(0.569 → 0.572),p=0.55,CI[−0.005,+0.012]——**不显著(无代价)**。
+- **Harmful-in-context +0.3pp**(0.569 → 0.572),p=0.55,CI[−0.005,+0.012]——**不显著**。**但不显著只界定代价,不消除代价:可主张的是上界 +1.2pp**(CI 上端),约为门本身 −11.2pp 的十分之一。(原写"无代价",2026-08-09 随 R001b 统一口径改此。)
 - 修复**显著且安全**,但幅度**适中**:回收 −4.8pp 门召回代价的 ~**25%**(0.012/0.048),仍未闭合 −0.01 守卫(−4.8pp→−3.6pp vs gate-off)。适中因:(a) injector 在本数据集设计掉了大部分 canonicalization 假冲突(10.6% 多别名题被跳);(b) 确定性匹配只吃 containment/number/prep,吃不到同义词/缩写。
 - **未回收的 ~75%(含 39% 孪生 missed-conflict)= 语义等价(Graph 2.0)的残差,已量化。** 全建 NLI 前先跑 Phase 3 低成本探针:针对性"抽被查询属性的值"prompt 能否分开孪生 → 能则拿 Graph 2.0 主收益而不建 NLI,不能则 Graph 2.0 有据。
 

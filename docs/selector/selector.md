@@ -97,7 +97,7 @@ SelectionResult
 
 - **S1 — 门有效,但代价真实且超预算(E2)。** 同池、同 α,唯一变量 = 门。harmful-in-context 0.680 → 0.569(**−11.2pp**,p≈0,CI[−0.130,−0.093],n=1479);Required Recall 0.868 → 0.820(**−4.8pp**),破 −0.01 守卫。结论:真实 Pareto 权衡,不是免费的午餐。
 - **S2 — 代价的根因是"答案等价",不是模型能力也不是可见性(E1 + CPU 探针)。** E1 池级组件评估:`needle_gold_recovery` .509、`missed_conflict` .386、`false_conflict` .594(文本代理,noisy)。可见性审计:答案在抽取器读到的段落里 **94.9%**(截断仅 5.1%,chunk-absent 0)→ 非截断非检索。needle probe:visible 失败里 recovered 634 / wrong 439 / none 127;wrong 重分类:439 里 **36%(158 条)是 exact-string 匹配伪影**("Apostle Paul" ⊇ "paul"、"2009" ≡ "in 2009"),lenient 下 recovery .509 → .634。
-- **S3 — 门内换 lenient 聚类:显著回收召回、零 harm 代价(Phase 1 修复)。** Required Recall 0.820 → **0.832**(+1.2pp,p≈0,CI[.006,.018],n=1848);harm 0.569 → 0.572(+0.3pp,p=0.55,不显著)。回收了 −4.8pp 代价的 ~25%,守卫仍未闭合(−3.6pp)。幅度适中的两个原因:(a) 注入器的资格过滤把大部分别名假冲突**设计掉**了(multi-key skip 10.6%),(b) 确定性匹配吃不到同义词/缩写。
+- **S3 — 门内换 lenient 聚类:显著回收召回,harm 代价上界 +1.2pp(Phase 1 修复)。** Required Recall 0.820 → **0.832**(+1.2pp,p≈0,CI[.006,.018],n=1848);harm 0.569 → 0.572(+0.3pp,p=0.55,不显著,CI[−.005,+.012] ⇒ **代价上界 +1.2pp,非零**)。回收了 −4.8pp 代价的 ~25%,守卫仍未闭合(−3.6pp)。幅度适中的两个原因:(a) 注入器的资格过滤把大部分别名假冲突**设计掉**了(multi-key skip 10.6%),(b) 确定性匹配吃不到同义词/缩写。
 - **S4 — 残差主体是孪生 missed-conflict,当时判"prompt 修不了"(已被 S5 部分推翻)。** 源文档直抽探针(3B,exact 计分):baseline missed .281,verbatim .238(靠抽取变噪的假胜,gold −12.3pp),attribute .254(真但小,cf_replacement +5.8pp)。
 - **S5 — 在孤立探针里,孪生崩塌可被"容量 × 结构"的交互大幅修复(2×2,源文档直抽,lenient 计分,n=500/格;级联性由 S6 否决)。**
 
@@ -149,7 +149,7 @@ SelectionResult
 
 - 机制成立:harm −11.2pp,p≈0(S1)。免校准、孤源结构性安全、失效方向是闭嘴。
 - 代价可归因:不是模型能力、不是检索、不是截断,是答案等价(S2)。
-- 一个确立的修复:lenient 等价,in-pool recall +1.2pp p≈0、零 harm 代价、零推理成本,已在生产路径(S3)。
+- 一个确立的修复:lenient 等价,in-pool recall +1.2pp p≈0、harm 不显著(代价上界 +1.2pp)、零推理成本,已在生产路径(S3)。
 
 ### 5.3 1.0 没解决的三件事(= 2.0 的立项理由)
 

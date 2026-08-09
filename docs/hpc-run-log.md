@@ -811,8 +811,11 @@ R7 与 R8 的差别只有 generator 一项,故两者可直接配对比较,**证�
   gate-off 臂又撞 run_manifest hash 守卫,故改**离线**比:`harm_cli --selected-on <lenient> --selected-off <exact-gate-on>`
   + `paired_metric_cli --metric conditional_document_recall`(commit cffa2e4)。
 - **Required recall +1.2pp**(exact .820 → lenient **.832**),paired **p≈0,CI[.006,.018]**,n=1848 —— **显著**。
-- **Harmful-in-context +0.3pp**(exact .569 → lenient .572),paired p=0.55,CI[−.005,+.012] —— **不显著(无 harm 代价)**。
-- 定论:门内 lenient 聚类**显著回收召回、零 harm 代价**,回收 −4.8pp 门代价的 ~25%;残差(~75%,含 .39 孪生 missed-conflict)= Graph 2.0 语义等价目标,已量化。发现落 `docs/results-summary.md` S3。
+- **Harmful-in-context +0.3pp**(exact .569 → lenient .572),paired p=0.55,CI[−.005,+.012] ——
+  ~~**不显著(无 harm 代价)**~~ **不显著;代价上界 +1.2pp(CI 上端)**。
+  **措辞 2026-08-09 修订,与 R001b 统一口径:不显著只把代价夹在 CI 里,不等于代价为零。**
+  数字一个未动,改的只是能从它主张什么。
+- 定论:门内 lenient 聚类**显著回收召回,harm 代价上界 +1.2pp**,回收 −4.8pp 门代价的 ~25%;残差(~75%,含 .39 孪生 missed-conflict)= Graph 2.0 语义等价目标,已量化。发现落 `docs/results-summary.md` S3。
 - 运维注:teammate retriever 大改(d5f7908)改了 IndexManifest schema → 旧 index cache 全失效,重跑须清 `runs/*/index`;run_manifest hash 守卫会拒重建的 index,离线比 selected dump 最省。
 
 ---
