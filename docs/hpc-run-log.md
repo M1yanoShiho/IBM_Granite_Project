@@ -831,6 +831,81 @@ R7 与 R8 的差别只有 generator 一项,故两者可直接配对比较,**证�
 
 ---
 
+## R8 — 换上真实 generator:排序的传导还在吗,以及模型有多少答案不是从证据来的
+
+**状态:** READY——三件套齐(四个 `configs/experiments/pipe8_2wiki_*.toml` + 现有 pipeline runner
++ 本条目);**跑之前写。** 四个 config 与 R7 的**逐字相同**,唯一差别是
+`[generator] name` 由 `extractive` 改为 `granite`,以及输出目录。
+
+**BEFORE(预注册):**
+
+- **⚠️ 首先声明一件必须先讲清楚的事:R7 与 R8 的 `answer_match` 是同一个指标名,
+  测的却是两件不同的事,绝不可直接相减。**
+  - R7 的 `answer` 字段是 `ExtractiveGenerator` 拼接的**约 900 词证据原文**
+    ⇒ 命中 = **答案串被送到了生成器面前**(证据传递)。
+  - R8 的 `answer` 是 `GraniteGenerator` 生成的**一句话**
+    ⇒ 命中 = **模型真的把答案说出来了**(答案正确性)。
+  分母性质变了,**R8 的绝对值必然远低于 R7,这不是退步**。把两者之差当作"生成损失"是错的。
+- **主问题:R7 测到的排序传导,在链条末端换成真实生成器之后还成立吗?**
+  R7 的干净对照(decompose vs bm25,池子 p=0.38 不可区分、排序崩塌、下游 −15.4pp p=0)
+  在 R8 上应当**同号且显著**。若消失,说明生成器自身的方差淹没了检索差异。
+- **⚠️ 范围界定:本条是 Retriever 组的实验,目的只有一个 —— 守住 R7 得出的检索建议。**
+  R7 的头条("hybrid-rrf 在系统层面也显著更好")目前建立在**玩具 generator** 之上;
+  换真实 generator 看它还成不成立,是在验证**自己的**结论,不是评估生成质量。
+  生成器在本条中是**固定的下游部件**,与 selector 同等地位,不是被研究对象。
+- **预期指标 + 方向:**
+  - `system.core.answer_match` 四臂**绝对值远低于 R7**(见上,分母性质不同),
+    但**臂间序关系保持**(decompose 最低,hybrid-rrf 最高)。
+  - decompose vs bm25 的下游差**仍显著为负**(配对随机化,n=2000)。
+  - **判据只有一条:R7 的检索建议在真实 generator 下是否依然成立。**
+- **诚实的替代结果(全部有价值,不许事后挑):**
+  (a) **排序传导在 R8 上消失/不显著** ⇒ 生成器方差压过检索差异,**R7 的结论只对"证据传递"成立,
+      不能外推到答案质量**。这会直接下调检索优化对最终系统的价值主张,必须照写,
+      并把 R7 与周报里的措辞收紧到"证据传递"为止。
+  (b) **臂间序关系与 R7 相反** ⇒ 存在与检索质量反向相关的生成行为,本条无法解释,
+      须交由 Generator 组查,**Retriever 侧只报现象不作解释**。
+  (c) **⚠️ 地板效应(R7 天花板风险的镜像):** 若四臂 answer_match 全部逼近 0,
+      指标在下端饱和、失去分辨力,本条判为**未能分辨**,须改用更宽松的答案匹配或换带
+      长答案标注的数据集,**不许把"全低"读成"检索无用"**。
+- **⚠️ 与 S2/S4/S5 同族的计分伪影,在本条上更严重且方向已知:** `answer_match` 是 exact-string
+  包含。R7 的"答案"有 900 词,包含容易;**R8 只有一句话,模型换个说法就判负**。
+  故 **R8 的绝对值是答案正确率的下界,且低估幅度大于 R7**。**臂间相对比较仍可信,
+  而本条的判据本来就只用相对比较。**
+- **自检:** 四臂 retriever 指标必须与 R7 一致(检索链完全相同)。CPU 两臂应精确复现
+  `.9434`/`.9580`;GPU 两臂按 R7 的实测偏差(hybrid −0.0002、decompose +0.0031)量级。
+  不一致则先查 harness,下游数字不读。
+- **已知风险(须在提交前知情):**
+  1. **显存。** hybrid 臂需要**同时**持有 Granite embedder 与生成用 LLM,而 R7 中这两个模型
+     **从未同时载入**(分属不同臂)。rtx_2080 只有 8GB,granite-4.1-3b fp16 权重即约 6GB。
+     若报 `CUDA out of memory`,**改钉 `--gres=gpu:rtx_3090:1` 或 a100 并接受排队**,
+     不要为此改小 `max_selected` —— 那会改变与 R7 的可比性。
+  2. **运行时长。** R7 是 1h36m,其中只有 decompose 臂调 LLM。R8 每臂每 query 都要生成一次
+     ⇒ 约 8000 次额外 LLM 调用。故申请 `--time=08:00:00`,不要沿用 4 小时。
+- **本条不测什么(范围红线):** 不评估生成质量本身;不测引用正确性
+  (`citation_validity` 会被记录但**不作判据**);不改 selector(仍为 `top-k` 直通,
+  与 R7 保持唯一变量);不引入 `verify-annotate` generator(那是又一个变量,应另立条目)。
+  **凡属 Generator 模块的度量,本条只在它们恰好被记录时保留数据,不解释、不下结论、不据以提建议。**
+- **顺带可得、但不属本条的数据:** 两轮 query_id 与检索链完全相同,故 R7×R8 逐条配对
+  在技术上可给出一个 2×2(证据里有无答案 × 模型答对与否)。**该分析不在本条范围内,
+  也不作为判据**;若 Generator 组需要,数据在两轮的 per-case raw 里,自取即可。
+- 精确命令:
+  ```
+  mkdir -p logs runs && sbatch --gres=gpu:1 --time=08:00:00 scripts/run_pipeline_eval.slurm \
+    configs/experiments/pipe8_2wiki_bm25.toml \
+    configs/experiments/pipe8_2wiki_strong-bm25.toml \
+    configs/experiments/pipe8_2wiki_hybrid-rrf.toml \
+    configs/experiments/pipe8_2wiki_decompose.toml
+  ```
+  拉 raw 时**同样须剥离 `trace`**(R7 实测 342 MB → 8.0 MB),理由见 R7 的 AFTER。
+- Git commit:待本次改动提交后填;Seed:7;n=2000/臂;
+  与 R7 唯一变量 = `[generator] name`。
+
+**AFTER:** 未运行。<!-- 填:job id、四臂表、retriever 自检、decompose vs bm25 的配对 p、
+臂间序关系是否与 R7 一致、三种替代结果命中哪个、是否触发地板效应、
+R7 的检索建议是否依然成立 -->
+
+---
+
 ## E2 — gate-on/off 配对 selector 对照(spec §12 主对照)
 
 **状态:** READY——三件套齐(configs + slurm + 本条目,commit 3c37d4c)。只差登录节点下 dpr-w100 + granite 后跑。

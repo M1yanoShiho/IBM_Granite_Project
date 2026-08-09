@@ -1,0 +1,21 @@
+# R7 arm. See pipe_2wiki_bm25.toml for the shared design; only [retriever] differs.
+[dataset]
+manifest = "../../runs/twowiki/manifest.json"
+
+[output]
+directory = "../../runs/pipe8-2wiki-strong-bm25"
+
+[retriever]
+name = "strong-bm25"
+parameters = { k1 = 0.9, b = 0.4 }
+
+[selector]
+name = "top-k"
+
+[generator]
+name = "granite"
+
+[run]
+top_k = 50
+max_selected = 5
+seed = 7
