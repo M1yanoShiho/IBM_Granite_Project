@@ -2328,6 +2328,37 @@ raw agreement **.4969**、Cohen's kappa **.2906**。合并 60.3pp 的率差,
 **在核实之前,不得据此改写任何已发表判读。** rung 2 / rung 3 与 MiniCheck 臂需各自的 dump 重算,
 本轮只看了 template。
 
+#### 核实结果:成立。§9.10a 官方工具的输出 [2026-08-09,bp1 登录节点]
+
+`python -m evidence_rag.cli.recompute_binary --dump results/gate0b/dump-template.jsonl --against results/gate0b/sweep-full.json`
+
+| 臂 | `gold_supports_recall` | `twin_not_supported_accuracy` | `unknown_rate` | `failures`(工具自判) |
+|---|---:|---:|---:|---|
+| DeBERTa-v3-large-mnli-… | 0.7942 | **0.8689** | 0.1758 | **`["gold_supports_recall"]`** |
+| albert-xlarge-vitaminc-mnli | 0.1916 | **0.9980** | 0.4823 | **`["gold_supports_recall"]`** |
+
+`--against` 未报错 ⇒ `gold_supports_recall` 逐字复现该 dump 自己 sweep 发表的值,§9.10a 的不变式满足;
+`unknown_rate` 亦与 `sweep-full.json` 一致。**`failures` 是工具自己算的,不是解读:两臂都只挂一项。**
+
+**⇒ 确立(限 template rung、R012 两臂):在现行(A1/A2)门判读下,twin 从不是失败原因。**
+台账 R012 行所记 `.638 / .674` 是 **A1 之前要求 `== REFUTES` 的严格版**,现予以**并列标注而非覆盖**
+(照 R011 的先例:被取代的读数留在原处并注明)。
+
+**Gate 0B 的 FAIL 判定不变** —— 门是合取,`gold_supports_recall` 处处不过。
+**族级断言不变。** 改变的是**刻画**,而且新刻画更简洁也更有力:
+**这些模型拒斥孪生没有问题;它们失败在识别真实支持。**
+
+**一个对 §3.8 直接可用的推论 —— 交换率有余量,这一点此前被旧口径掩盖了:**
+DeBERTa 需要 **+5.6pp** recall(.7942 → .85),而它在 twin 轴上距阈值有 **18.9pp 余量**(.8689 → .70)。
+按 [related-work.md](selector/related-work.md) §5 对 logit adjustment 的量级估计(recall:twin 约 1:0.5–1:1),
+换到 +5.6pp recall 的代价约 2.8–5.6pp twin,落点 **.813–.841,仍远在 .70 之上**。
+**⇒ 以 twin 余量换 recall 是负担得起的**,而按旧口径(.638 对阈值 .70)看,twin 本身就在失败、毫无余量可换。
+**这条改变了训练杠杆的取舍算式,故必须写下。**(仍是量级推演,不是实测;真实交换率须由 §3.8 的训练读数给出。)
+
+**仍未做,且必须做完才能改写"六格/九格"的表述:** rung 2 / rung 3 与 MiniCheck 三臂各自的 dump 重算。
+R012b 的「**两个指标反向**」「**六格无一两项同时过**」与 R012c 的「**九格无一过门**」目前都建立在旧口径上;
+**FAIL 结论不会变,但"因为什么而 FAIL"很可能要改写。** 命令同上,换 `--dump` 与 `--against` 即可。
+
 ---
 
 ### NIAH split 的可核验性 —— **冻结要求无法核验,须裁决** [2026-08-09,R011b 核验中发现]
