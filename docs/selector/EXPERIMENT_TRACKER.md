@@ -8,7 +8,7 @@
 
 **Plan:** [TRAINING_PLAN.md](TRAINING_PLAN.md) + [Graph 2.0 设计](../superpowers/specs/2026-07-30-graph-2.0-relation-layer-design.md) + [Plan 1](../superpowers/plans/2026-07-30-graph-2.0-plan-1-foundation.md)
 
-**Current state:** Plan 1 代码全部落地。已完成：**R011**（VitaminC 去污染）、**R001b(a)**（parent 碰撞率 0.931）、**R001**（G-FC 基线 0.4355，job 18225682）、**R012**（Gate 0B，job 18235972，**判定 FAIL**）。
+**Current state:** Plan 1 代码全部落地。已完成：**R011**（VitaminC 去污染）、**R001b**（(a) parent 碰撞率 0.931；(b) `support_unit=parent` 两轴皆 null，2026-08-09 补录）、**R001**（G-FC 基线 0.4355，job 18225682）、**R012**（Gate 0B，job 18235972，**判定 FAIL**）。
 
 **测量缺陷侧已穷尽（2026-08-04）。** 九项机制全部实测排除或量化：截断、标签序、答案规范化、大小写、premise 质量、premise 长度、hypothesis 形式、argmax 记账、canonical-vs-surface。**DeBERTa 的 `.7942` 自此可作能力读数**，§3.8 在测量这一侧的启动理由已经干净。
 
@@ -34,7 +34,7 @@
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | R000 | M0 | 冻结 protocol/schema/splits（**`g2-proto-4`**，经 A1/A2/A3 三次修订） | 全部 | MUST | RUNNING | ddb5342 | — | — | [M0_PROTOCOL_FREEZE.md](M0_PROTOCOL_FREEZE.md) | hash / leakage audit | 决定全部拍板；状态 DRAFT，等 R001 的 δ 才能转 FROZEN |
 | R001 | M0 | **G-FC 固定分母基线**：带 `--dump` 跑一轮 3B+single E1，再离线 `cluster_rescore_cli` | `runs/niah-injected` | MUST | **DONE** | 10289bc | greedy（无随机源） | BluePebble / 18225682 | `results/r001-gfc-baseline.json` | **fixed_false_conflict 0.4355**（429/985，CI [.405,.467]） | 基线已得；δ 暂定 .05 待 R003 配对 MDE。附带拿到 rerun-stability：exact 三项与历史 E1 复现到 4 位小数 |
-| R001b | M0 | parent 碰撞率 **(a) DONE** + Graph 1.0-lenient 的 `support_unit=parent` 基线臂 **(b) TODO** | `runs/niah-injected` | MUST | **PARTIAL** | d6607b3 / 2b946a0 | 13 | bp1 login (a) | (a) stdout，见 hpc-run-log | (a) **collision_rate 0.931**（1862/2000）；20.0 doc → 16.47 parent；unresolved 0；**needle_parent_inflation 0.328**（415/1264，上界） | (a) 缺陷普遍存在，非边角；(b) **不作方向性主张** —— 原预注册（门 fire 更少 ⇒ harm↑recall↑）只考虑了条件 3，漏了条件 4 使 `own≤cap` 更易满足，已于运行前修正 |
+| R001b | M0 | parent 碰撞率 **(a) DONE** + Graph 1.0-lenient 的 `support_unit=parent` 基线臂 **(b) DONE** | `runs/niah-injected` | MUST | **DONE** | d6607b3 / 2b946a0 | 13 | bp1 login (a)；(b) job `18235971`（**作业 FAILED 于第二臂 prepare，但 ON 臂五小时跑完，读数经离线 dump 比得出**） | (a) stdout，见 hpc-run-log | (a) **collision_rate 0.931**（1862/2000）；20.0 doc → 16.47 parent；unresolved 0；**needle_parent_inflation 0.328**（415/1264，上界）；**(b) 以 `support_unit` 为唯一变量（vs lenient/document）：harm +0.27pp（p=.7522，CI[−.0095,+.0156]，n=1479）、recall −0.18pp（p=.5377，CI[−.0075,+.0040]，n=1848）——两轴皆 null** | (a) 缺陷普遍存在，非边角；(b) **不作方向性主张** —— 原预注册（门 fire 更少 ⇒ harm↑recall↑）只考虑了条件 3，漏了条件 4 使 `own≤cap` 更易满足，已于运行前修正。**读出：`support_unit=parent` 可无条件采用**，代价上界 harm +1.56pp / recall −0.75pp（CI 上端），远低于它保护的 11.2pp / 4.8pp；**预注册的条件推论前件不成立 ⇒ S1 的 −11.2pp 是机制收益而非记账收益**。机会（collision .931、inflation .328）巨大而兑现仅 4 题 —— **虚增统计上普遍、因果上惰性** |
 | R002 | M0 | ~~冻结 NIAH train 500 或 2000~~ | — | — | **N/A** | — | — | — | — | — | 已消解：D1=A + 零训练 ⇒ 无 Selector 训练 |
 | R003 | M0 | paired Monte Carlo 样本量 sensitivity + G-FC 的 MDE | NIAH dev | MUST | TODO | — | frozen in run | — | — | power / MDE | 依赖 R001；δ = max(0.05, MDE) |
 | R010 | M1 | ~~ContractNLI adapter sanity~~ | — | — | **DROPPED** | — | — | — | — | — | 17 假设×607 NDA，与任务无结构相似性；v1 迁移 −0.134。理由见 M0 §3.0 |

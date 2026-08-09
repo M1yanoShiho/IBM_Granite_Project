@@ -1232,7 +1232,80 @@ supporting-fact 标签);与 conflict 边(false/missed-conflict)、duplicate 边(
   sbatch scripts/run_selector_gate.slurm     configs/experiments/niah_e2_gate_on_lenient_parent.toml     configs/experiments/niah_e2_gate_off.toml     runs/niah-injected/provenance.jsonl     runs/niah-injected/source_parent.jsonl
   ```
 - **commit:** 5740d1b(sidecar)/ d6607b3(`support_unit`)/ b4ca71c(碰撞率 CLI)
-- **AFTER:** _待填 —— collision_rate、mean_parents_per_window、harm、conditional_document_recall_
+- **AFTER(2026-08-09 补录,job `18235971`,提交 08-01T00:09,FAILED 1:0,elapsed 05:19:20,bp1-gpu025):**
+
+  **(a) 的两个数此前已填在本条目上方**(2026-07-31),那行"待填"从那时起就是过时的,已改。
+  本次为读 (b) 重跑了一次 `parent_collision`,**四个数逐字复现**(`.931` / `16.4735` / `20.0` /
+  `n_unresolved 0`)—— 白捡一次 rerun-stability,同 R001 的先例。
+
+  **作业本身 FAILED,但 (b) 的数据全在:** 第一臂 `niah_e2_gate_on_lenient_parent`
+  prepare→retriever→selector 三步跑完(产物 00:09 / 01:12 / 05:28),死的是第二臂 gate-off 的
+  **prepare**,`ValueError: upstream artifact hashes mismatch for runs/e2-gate-off/run_manifest.json`。
+  **五小时买到了完整的 ON 臂,零 GPU 秒买到了 OFF 臂的拒绝。**
+
+  **根因 = `d5f7908` 的 schema 重塑,不是索引变了。** 该 commit(07-24 10:54)把 BM25 的 `k1`/`b`
+  从 `IndexManifest` 的平铺字段折进嵌套 `parameters`;`_index_signature` hash 的正是这个 payload,
+  于是同语料同参数算出不同 `index_signature`(`fa117ff6…` → `fba3a1ae…`)。gate-off 建于 07-23(重构前),
+  其 `index/` 于 07-24 22:22 被清后按新 schema 重建(E2-lenient 条目记的 `rm -rf runs/*/index`),而
+  `run_manifest.json.metadata.json` 记的是**被删那个文件**的 sha256,删不掉 ⇒ 守卫永久拒绝。
+  **`prepare()` 写索引(146)→ 校验(153)→ 写 run_manifest(155)** 的顺序加上两边 mtime 证明:
+  07-24 22:22 那次执行也停在 153,**这堵墙 08-01 是第二次撞,第一次没留下条目**。
+
+  **等同性已证,不是论证:** `scripts/verify_legacy_index_identity.py` 按重构前 schema 重建那个已删文件的
+  字节并 hash,得 `947844363ceee…f5b0`,**与 sidecar 记录逐字相同**;`index/corpus_snapshot.json` 两侧
+  sha256 本就相同。⇒ implementation / version / corpus_signature / k1 / b **全部相同,唯一差异是 k1/b 的编码位置**。
+  判别性已验:k1 由 1.5 改 1.2 即 FAIL。**⇒ 两臂可比,(b) 不必重跑;但该目录经 `read_manifest` 的复用仍永久不可行**
+  (它 hash 的文件已不存在),离线比 dump 是唯一路径。
+
+  **(b) 读数(离线配对,seed 13,10000 次随机化):**
+
+  | 对照 | 轴 | ON | OFF | delta | p | 95% CI | n |
+  |---|---|---:|---:|---:|---:|---|---:|
+  | vs gate-off | harm | **.5747** | .6802 | **−10.55pp** | 0.0 | [−.1237, −.0879] | 1479 |
+  | vs gate-off | recall | **.8306** | .8680 | **−3.74pp** | 0.0 | [−.0452, −.0302] | 1848 |
+  | **vs lenient/document(唯一变量 = `support_unit`)** | harm | .5747 | .5720 | **+0.27pp** | **.7522** | [−.0095, +.0156] | 1479 |
+  | **vs lenient/document(唯一变量 = `support_unit`)** | recall | .8306 | .8324 | **−0.18pp** | **.5377** | [−.0075, +.0040] | 1848 |
+
+  两个独立口径核对通过:`pool_hit_rate` **.8425** 与 (a′) 记的 `≈0.842` 一致;`harm_off` 对 gate-off
+  臂读出 `.6801893` 与 S1 记录的 `.680` 同源同分母。
+
+  - **预注册条件推论(本条目"必须一起读的推论")—— 前件不成立。** harm **没有**明显回弹向 `.680`:
+    回弹 0.57pp,占门总效应 11.2pp 的 5%。⇒ **S1 的 −11.2pp 是机制收益,不是"同一篇条目被数多次"的记账收益。**
+    该推论的后件因此不触发,但前件与后件都在此登记。
+  - **事先固定的判读口径(条件 4 通道)—— 触发但不可分辨于零。** recall 经该通道降 0.18pp,**p=.5377,CI 跨零**。
+    "撤掉假保护 vs 门真的误踢"的分开计因此无实质可分,登记为已测、量级在噪声内。
+  - **两轴皆 null,但 null ≠ 零代价。** 可主张的是**代价上界**:harm **+1.56pp**、recall **−0.75pp**
+    (CI 上端),均远低于它们要保护的效应量(11.2pp / 4.8pp)。**不得写成"零代价"。**
+  - **⇒ `support_unit=parent` 可以无条件采用**,Graph 2.0 主对照两侧同单位这个前提以低于噪声的代价买到。
+
+  **本轮最值钱的一句 —— `independent_support` 的虚增在统计上普遍,在因果上惰性:**
+  机会侧 `collision_rate` **.931**、`needle_parent_inflation_rate` **.328**(415/1264);兑现侧 harm
+  **恰好 4 题**(846/1479 → 850/1479,二值可整除)、recall 约 **2.6 题份**(每题均降 .0014 × 1848;
+  recall 是每题分数非 0/1,只能算等效题数)。**(a′) 把 .328 定性为"上界不是实测"是对的,而这个上界松了两个数量级。**
+  93% 的窗口含重复来源,门的决策几乎不靠那些重复票撑着。发现待落 `docs/results-summary.md`。
+
+  **纪律教训(比读数更该记):E2-lenient 条目末尾那条运维注在 07-25 就写下了** —— "d5f7908 改了 IndexManifest
+  schema → 旧 index cache 全失效 → run_manifest hash 守卫会拒重建的 index → 离线比 selected dump 最省"。
+  R001b 的提交命令走的正是它说会被拒的那条路,**六天后原样再撞,代价 5h19m**。
+  这是 R013-smoke 那节「可复用教训二」的教科书实例:**纯文字的义务没有代码执行,迟早被跳过。**
+  ⇒ **新纪律(落 `run_selector_gate.slurm`):多臂作业必须在跑任何一臂之前,把所有臂的 manifest 校验一遍。**
+  它查的东西第 0 秒就完全可判定,成本零 GPU 秒;R013–R015 是十五次全量 fine-tune,这条会立刻回本。
+  与 R013-smoke 那节"五次全部死在训练开始之前,说明守卫的位置是对的"恰成反例——同一原则,位置放反。
+
+  **未做,理由在此:** 不把 `implementation_version` 补 bump 到 `bm25-v2`。盘上每个索引 manifest 都写着
+  `bm25-v1`,bump 会让 `load_index` 对**所有**既有 run 目录失配(E2 三臂 / lenient / lenient-parent /
+  niah-injected 全部要重 prepare),距 9/4 四周不划算;且 bump 是一次性动作、不产生纪律。
+  **`bm25-v1` 现同时指两套 payload schema,这是真实的溯源缺陷,在此登记。**
+  替代防守是对 `_index_signature` 加 golden 常量测试(payload 形状一改 CI 秒级红),零运行时代价、
+  对既有产物零影响、且是测试非行为改动。真要 bump,应挑一次自然的全量重建索引作边界。
+
+  **命令(登录节点,秒级):**
+  ```
+  python scripts/verify_legacy_index_identity.py runs/e2-gate-off
+  PYTHONPATH=src python -m evidence_rag.evaluation.harm_cli --provenance runs/niah-injected/provenance.jsonl --selected-on runs/e2-gate-on-lenient-parent/selected_evidence_sets.jsonl --selected-off runs/e2-gate-on-lenient/selected_evidence_sets.jsonl --dataset-signature eb7760674bf3aace707acd932c67c86694d560510f949e3c73dea1ca7353db87
+  PYTHONPATH=src python -m evidence_rag.evaluation.paired_metric_cli --on-report runs/e2-gate-on-lenient-parent/selector_report.json --off-report runs/e2-gate-on-lenient/selector_report.json --metric selector.core.conditional_document_recall
+  ```
+  `--metric` 必须是完整键名;本条目上方 (b) 的旧记法是简写,`_read_metric` 是精确查表,简写会静默返回全 None。
 
 ### R012 — Gate 0B 零训练 sweep(真实分叉点) [DONE 2026-08-02]
 
@@ -1853,6 +1926,15 @@ print(got); assert got.endswith('@f4f447f5877fc162'), 'checkpoint 与核实时�
 - **AFTER(实测,2026-08-05):**
 
 **Jobs:** `18269630` / `18269631` / `18269632`,均 COMPLETED(00:03:31 / 00:02:25 / 00:01:50)。
+
+**同批另有三个 FAILED 从未进台账(2026-08-09 由 `sacct` 对账查出,补录):**
+`18265521` / `18265522` / `18265523`,08-04 15:59–16:10 十分钟内三连,各 00:00:28 / 00:00:17 / 00:00:32,
+exit 1:0,全在 `bp1-gpu035`;另有 `18264967` / `18264968`(00:01:30,已记)与 `18264969`(提交后即撤,已记)。
+**三份日志(`logs/gate0b-1826552{1,2,3}.out`,各 4254 字节、大小逐字节相同 ⇒ 大概率同因)至今未读,
+故此处只登记存在性,不写原因** —— 按本节相邻的 R013-smoke 纪律「FAIL 后先读日志再重交」,
+写"原因未记录"正是 `18300333` 那次让根因推迟一整个提交周期的做法。读法:
+`tail -40 logs/gate0b-18265521.out`。**GPU 计算量合计 77 秒,不影响 R012c 的任何读数**
+(那三个 rung 的产物全部来自 18269630-32)。
 按提交顺序对应 template / qa / qa2d(精确对应可从各自 `.out` 的 `--task-pairs` 读回)。
 **Raw:** `results/gate0b/sweep-minicheck-{template,qa,qa2d}.json` + 同名 dump。
 读数经 `cli/recompute_binary` 统一到二分类口径后与另两臂并列(旧 sweep 为 pre-A1 字段名)。
