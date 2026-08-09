@@ -82,11 +82,32 @@ def _integer_list(section: Mapping[str, object], name: str) -> tuple[int, ...]:
 
 def _minimum_class_recall(metrics: Mapping[str, object]) -> float:
     value = metrics.get("class_recall")
-    if not isinstance(value, list) or len(value) != 3 or any(
-        not isinstance(item, (int, float)) or isinstance(item, bool) for item in value
+    if (
+        not isinstance(value, list)
+        or len(value) != 3
+        or any(not isinstance(item, (int, float)) or isinstance(item, bool) for item in value)
     ):
         raise ValueError("classification metrics must contain three class recalls")
     return min(float(item) for item in value)
+
+
+def _balanced_class_weights(
+    sources: Sequence[Sequence[BeamTrainingExample]],
+) -> tuple[float, float, float]:
+    """Balance labels after giving every dataset source equal probability mass."""
+
+    if not sources or any(not source for source in sources):
+        raise ValueError("class weighting requires non-empty dataset sources")
+    probabilities = [0.0, 0.0, 0.0]
+    for source in sources:
+        for label in range(3):
+            probabilities[label] += (
+                sum(int(item.label) == label for item in source) / len(source) / len(sources)
+            )
+    if any(probability <= 0.0 for probability in probabilities):
+        raise ValueError("class weighting requires all three Selector labels")
+    weights = [1.0 / (3.0 * probability) for probability in probabilities]
+    return weights[0], weights[1], weights[2]
 
 
 def _json_object(path: Path) -> Mapping[str, object]:
@@ -157,6 +178,7 @@ def _loss_for_batch(
     batch: Sequence[BeamTrainingExample],
     *,
     max_length: int,
+    class_weights: Any,
 ) -> tuple[Any, int, int, tuple[int, ...], tuple[int, ...]]:
     encoded = network.encode(
         questions=[item.question for item in batch],
@@ -168,7 +190,7 @@ def _loss_for_batch(
     targets = network.torch.tensor(
         [int(item.label) for item in batch], device=network.device, dtype=network.torch.long
     )
-    loss = network.torch.nn.functional.cross_entropy(logits, targets)
+    loss = network.torch.nn.functional.cross_entropy(logits, targets, weight=class_weights)
     predicted = tuple(int(value) for value in logits.argmax(dim=-1).detach().cpu().tolist())
     expected = tuple(int(item.label) for item in batch)
     correct = sum(left == right for left, right in zip(predicted, expected, strict=True))
@@ -204,9 +226,7 @@ def _classification_metrics(
         indices = [index for index, expected in enumerate(expected_all) if expected == label]
         if not indices:
             raise ValueError(f"sanity examples contain no class {label}")
-        recalls.append(
-            sum(predicted_all[index] == label for index in indices) / len(indices)
-        )
+        recalls.append(sum(predicted_all[index] == label for index in indices) / len(indices))
     accuracy = sum(
         predicted == expected
         for predicted, expected in zip(predicted_all, expected_all, strict=True)
@@ -291,6 +311,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         raise ValueError(f"seed {arguments.seed} is not frozen in the config")
     if _text(training, "niah_twowiki_ratio") != "1:1":
         raise ValueError("this runner implements only the frozen 1:1 batch-source ratio")
+    if _text(training, "class_weighting") != "inverse-frequency-per-source":
+        raise ValueError("this runner implements only the frozen class weighting policy")
 
     random.seed(arguments.seed)
     os.environ["PYTHONHASHSEED"] = str(arguments.seed)
@@ -313,8 +335,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             for case in sorted(niah_cases, key=lambda item: item.query_id)
             if set(case.required_document_ids)
             <= {candidate.document_id for candidate in case.candidates}
-            and case.harmful_document_id
-            in {candidate.document_id for candidate in case.candidates}
+            and case.harmful_document_id in {candidate.document_id for candidate in case.candidates}
         )
         twowiki_eligible = tuple(
             case
@@ -351,6 +372,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         cache_dir=arguments.cache_dir,
         seed=arguments.seed,
     )
+    class_weight_values = _balanced_class_weights((niah_examples, twowiki_examples))
+    class_weights = network.torch.tensor(
+        class_weight_values, device=network.device, dtype=network.torch.float
+    )
     optimizer = network.torch.optim.AdamW(
         list(network.parameters()), lr=_number(training, "learning_rate")
     )
@@ -377,7 +402,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         for index, batch in enumerate(batches, 1):
             loss, batch_correct, batch_total, predicted, expected = _loss_for_batch(
-                network, batch, max_length=max_length
+                network,
+                batch,
+                max_length=max_length,
+                class_weights=class_weights,
             )
             loss_value = float(loss.detach().cpu().item())
             if not math.isfinite(loss_value):
@@ -391,9 +419,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     list(network.parameters()), 1.0
                 )
                 if not math.isfinite(float(gradient_norm.detach().cpu().item())):
-                    raise RuntimeError(
-                        f"non-finite gradient at epoch {epoch + 1}, batch {index}"
-                    )
+                    raise RuntimeError(f"non-finite gradient at epoch {epoch + 1}, batch {index}")
                 optimizer.step()
                 optimizer.zero_grad(set_to_none=True)
             total_loss += loss_value * batch_total
@@ -491,6 +517,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "selection_accuracy": selection_accuracy,
         "minimum_accuracy": minimum if arguments.sanity else None,
         "deterministic_algorithms": True,
+        "class_weights": list(class_weight_values),
         "history": history,
         "checkpoint": {"path": str(checkpoint), "sha256": sha256_file(checkpoint)},
         "inputs": {

@@ -12,6 +12,7 @@ batch_size = 4
 gradient_accumulation_steps = 4
 niah_twowiki_ratio = "1:1"
 hard_negatives_per_query = 4
+class_weighting = "inverse-frequency-per-source"
 
 [sanity]
 questions_per_dataset = 16
