@@ -906,6 +906,94 @@ R7 的检索建议是否依然成立 -->
 
 ---
 
+## R9 — chunk 粒度扫参:第一次让"切多大"这件事有证据
+
+**状态:** READY——三件套齐(配置化已合入 `0792d22` + 七个
+`configs/experiments/chunk_2wiki_*.toml` + 本条目);**跑之前写。**
+纯 CPU(retriever=strong-bm25,generator=extractive),不需要 GPU、不调 LLM。
+
+**为什么现在做:**
+
+`chunk_size`/`overlap` 自项目开始就固定在 `WordChunker` 的默认值,且**实验配置根本够不着**
+(`experiment.py` 一直是空参数的 `CorpusBuilder()`),所以从未被扫过 —— 而 chunk 是
+**三个模块共用的证据单元**,共享计划 §4.3 也明写它是公共能力、后续要作可替换实现测试。
+R7 给出了具体动机:它量出一段**与检索器无关**的损失 —— gold 文档进了最终 5 条,
+答案串仍约 21–26% 不在其中(`answer/sysRecall` 0.744–0.793,四臂相近)。那是粒度问题。
+
+**⚠️ 一个会制造假结论的混淆,必须先摁住(本条最重要的设计):**
+
+固定 `max_selected=5` 去扫 chunk_size,送到下游的**文本总量**随之改变:
+
+| chunk_size | 60 | 120 | 240 | 480 |
+|---|---|---|---|---|
+| top-5 总词数 | 300 | 600 | 1200 | **2400** |
+
+而 `answer_match` 是**子串包含**。文本量涨 8 倍,命中率**必然机械上升**,与检索质量无关。
+若只跑这一组,几乎注定得到"chunk 越大越好"——**那是体积效应,不是粒度效应**。
+故本条分两组:
+
+- **Set A(粒度,固定选中条数):** chunk_size ∈ {60,120,240,480},overlap = chunk_size/6,
+  `max_selected=5`。**文档级指标(recall / MRR / sysRecall)在此组有效**——它们问的是
+  "找没找到那篇文档",与文本量无关。**`answer_match` 在此组跨点不可比,只作记录。**
+- **Set B(粒度,固定证据预算):** chunk_size × max_selected ≡ **600 词**
+  ——(60,10)、(120,5)、(200,3)、(300,2),overlap 同为 chunk_size/6。
+  **体积被摁住,此组的 `answer_match` 才可跨点比较。**
+
+两组共用 `a-c120o20`(= 当前生产值 120/20/5),它同时是两组的锚点与基线。
+
+**BEFORE(预注册):**
+
+- **主问题:存不存在一个内部最优的 chunk 粒度?** 机制上应有拮抗:
+  chunk 变大 → 答案串更可能落在某个被检回的 chunk 内(利)、但 BM25 词频被稀释、
+  定位变粗(弊);chunk 变小 → 定位精准(利)、但答案可能被切断在 chunk 边界外(弊)。
+  ⇒ **预期 Set B 的 `answer_match` 呈单峰,峰不在两端。**
+- **预期指标 + 方向:**
+  - Set A:`retriever.core.document_recall` 随 chunk_size **上升**(整篇文档更容易被覆盖),
+    `document_mrr` **下降**(词频稀释,定位变粗)。两者反向是本条机制成立的标志。
+  - Set B:`answer_match` **单峰**;若最优点不是 120,则**当前生产值就是选错的**。
+  - `chunk_count` 随 chunk_size 单调下降 ⇒ 按 R5 的 `ms/1k_chunks` 常数,
+    **大 chunk 同时更快**,这是与质量正交的一项收益,须一并记录。
+- **诚实的替代结果(全部有价值,不许事后挑):**
+  (a) **Set B 的 answer_match 基本持平** ⇒ 在固定证据预算下粒度无关紧要,
+      **R7 那 21–26% 的损失不是粒度造成的**,需另找解释(如 answer_match 的 exact-string 伪影本身)。
+      这会直接否掉本条的动机,必须照写。
+  (b) **Set B 单调上升到端点** ⇒ 无内部最优,应继续加大 chunk 直到某个约束(上下文长度)生效;
+      **不许把"最大的最好"读成"不该切分"** —— 480 那点已接近整篇文档,其行为需单独说明。
+  (c) **Set A 的 recall 与 MRR 未出现反向** ⇒ 上述拮抗机制不成立,本条的解释框架需重写。
+  (d) **Set A 的 answer_match 单调上升而 Set B 持平** ⇒ 正是体积效应的指纹,
+      **证实本条的分组设计是必要的**,且任何只跑 Set A 的研究都会得出错误结论。
+- **自检:** `a-c120o20` 必须精确复现 R7 中 strong-bm25 臂的 retriever 指标
+  (`MRR .9580` / `Recall .7678`)—— 它与 R7 唯一的差别是 chunker 现在走配置而非默认值,
+  而 `0792d22` 的测试已证默认路径 corpus_signature 逐位不变。**若不复现,说明配置化改坏了东西,
+  本条全部作废。**
+- **本条不测什么:** 不换 retriever(固定 strong-bm25;粒度 × 检索器的交互**未测**,
+  须另立条目);不换 generator(固定 extractive,故本条测的仍是**证据传递**);
+  不测 token-aware / 结构感知切分(那需要新的 Chunker 实现,是另一件事)。
+- **⚠️ 已知会被质疑的一点:** `overlap = chunk_size/6` 是**约定而非受测变量**。
+  本条把 overlap 与 chunk_size 绑定,故**无法分离二者**。若结果显示粒度重要,
+  下一步才值得单独扫 overlap;现在就做二维扫参是浪费。
+- 精确命令(纯 CPU,`compute` 分区,数据集已物化于 `runs/twowiki`):
+  ```
+  mkdir -p logs runs && sbatch --partition=compute --gres=none --time=04:00:00 \
+    scripts/run_pipeline_eval.slurm \
+    configs/experiments/chunk_2wiki_a-c60o10.toml \
+    configs/experiments/chunk_2wiki_a-c120o20.toml \
+    configs/experiments/chunk_2wiki_a-c240o40.toml \
+    configs/experiments/chunk_2wiki_a-c480o80.toml \
+    configs/experiments/chunk_2wiki_b-c60o10.toml \
+    configs/experiments/chunk_2wiki_b-c200o33.toml \
+    configs/experiments/chunk_2wiki_b-c300o50.toml
+  ```
+  **注意:每点都要重建语料与索引**(corpus_signature 依 chunk 设置而变,`0792d22` 有测试守卫),
+  故 `prepare` 不可跳过;这也是各点不会误共用索引的机制。
+- Git commit:待本次改动提交后填;Seed:7;top_k=50;n=2000/臂;
+  retriever=strong-bm25(k1=0.9/b=0.4)全程不变。
+
+**AFTER:** 未运行。<!-- 填:job id、两组表、a-c120o20 是否复现 R7、Set A 的 recall/MRR 是否反向、
+Set B 是否单峰及峰位、chunk_count 与耗时、四种替代结果命中哪个 -->
+
+---
+
 ## E2 — gate-on/off 配对 selector 对照(spec §12 主对照)
 
 **状态:** READY——三件套齐(configs + slurm + 本条目,commit 3c37d4c)。只差登录节点下 dpr-w100 + granite 后跑。

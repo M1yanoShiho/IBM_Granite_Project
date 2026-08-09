@@ -1,0 +1,28 @@
+# R9 chunking sweep. Identical to the others except [chunker] and max_selected, so
+# any difference is attributable to granularity (set A) or to granularity at a fixed
+# evidence budget (set B). retriever is strong-bm25 throughout: CPU only, no LLM, so
+# the whole sweep is cheap and chunking is not entangled with a retriever's own cost.
+[dataset]
+manifest = "../../runs/twowiki/manifest.json"
+
+[output]
+directory = "../../runs/chunk-2wiki-a-c240o40"
+
+[retriever]
+name = "strong-bm25"
+parameters = { k1 = 0.9, b = 0.4 }
+
+[selector]
+name = "top-k"
+
+[generator]
+name = "extractive"
+
+[chunker]
+chunk_size = 240
+overlap = 40
+
+[run]
+top_k = 50
+max_selected = 5
+seed = 7
