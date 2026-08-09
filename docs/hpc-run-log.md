@@ -3100,6 +3100,87 @@ sealed 检查层被完整执行但不进训练。这正是本冒烟要验的东�
 
 ---
 
+### R013 — §3.8 训练路径,seed 13(**只交一个 seed,见范围披露**)[BEFORE,2026-08-10]
+
+**披露(先写,免得被当成事后补的):本条撰写于 `18330608` 提交之后、任何结果存在之前。**
+提交与撰写相隔约十分钟,作业当时仍 `PENDING`,**未观察到任何读数**,故仍是预注册而非事后叙述。
+时间线如实记于此,与 A1 的处理同例:披露不因合规而取消。
+
+**范围披露 —— 这是对 §5.4 三 seed 条款的一次有意偏离。** 本轮**只提交 seed 13**,42 / 73 暂不交。
+理由不是技术性的:selector 线目前有两条并行路径(本路径与 Beam 三分类),而 15 次全量微调
+(5 折 × 3 seed)与另一条路争同一批 bf16 节点。**在路线未定之前先交一个 seed,把承诺限制在 1/3。**
+⇒ **本轮不构成 R013 的完整执行,不得作为三 seed 结果引用。** 若最终只有此一 seed,
+结论必须写成"单 seed,未做稳定性检验"。
+
+**目的:** Gate 0B 留下的唯一缺口是 **`gold_supports_recall` 最优 .7942(DeBERTa/template)、
+距门限 .85 差 5.6pp**,而九格无一过门 ⇒ 族级断言"任何零训练模型都不够"成立。
+**本轮问的是那个断言的另一半:训练能不能补上这 5.6pp。**
+
+**假设:** 在去污染 VitaminC(369819 行)加 NIAH 域适配对(5284 行,已剔除 151 个 dev 相交 family)
+上按 §3.8(b) 的冻结配方微调,`gold_supports_recall` 可越过 .85。
+
+**预期指标 + 方向:** OOF 预测的 per-class F1(越高越好),重点看 SUPPORTS 类的召回。
+
+**本作业不产生任何 Gate 0B 读数 —— 这一条必须先写死。** OOF 预测跑在**训练数据**上;
+0B-1 是 VitaminC official test、§3.8 规定只跑一次,由 `scripts/run_gate0b.slurm` 执行,
+且须把 manifest 里的 `gate0b_registry_line` 贴进 `cli/gate0b.py::LABEL_ORDER`(§11.10 第 7 项要求
+走注册表而非调用点硬编码)。**把本轮的 OOF 数字当成过门证据,是这条路径上最容易犯的错。**
+
+**失败判据(预注册):**
+1. 训练完成但 OOF 的 SUPPORTS 召回**未显著高于**零训练基线 .7942 ⇒ 训练路径对该缺口无效,
+   §3.8 的预注册应急臂(同族 large 再跑三 seed)才有依据启动;
+2. 五折中任一折未产出 OOF 预测 ⇒ 本轮作废,不得以四折报告;
+3. manifest 的 `niah_domain_adaptation.status` 非 `enforced` ⇒ 域适配半未真正执行,读数无效。
+
+**精确命令(引号是语义的一部分,六 flag 必须整体作为一个 `$3`):**
+
+```
+PYTHONPATH=src python -m evidence_rag.cli.train_relations --check-paths-only \
+  --vitaminc-train data/gate0b/vitaminc_train.jsonl \
+  --vitaminc-dev data/gate0b/vitaminc_dev.jsonl \
+  --decontamination-log data/gate0b/vitaminc_decontamination.json \
+  --seed 13 --output-dir runs/r013/seed-13 \
+  --niah-manifest runs/niah-train-injected/manifest.json \
+  --niah-provenance runs/niah-train-injected/provenance.jsonl \
+  --niah-parents runs/niah-train-injected/source_parent.jsonl \
+  --niah-dev-manifest runs/niah-injected/manifest.json \
+  --sealed-dir runs/niah-sealed600 --niah-twin-label REFUTES
+
+sbatch --gres=gpu:rtx_3090:1 --time=24:00:00 scripts/run_r013_train_relations.slurm \
+  13 runs/r013/seed-13 \
+  "--niah-manifest runs/niah-train-injected/manifest.json \
+   --niah-provenance runs/niah-train-injected/provenance.jsonl \
+   --niah-parents runs/niah-train-injected/source_parent.jsonl \
+   --niah-dev-manifest runs/niah-injected/manifest.json \
+   --sealed-dir runs/niah-sealed600 --niah-twin-label REFUTES"
+```
+
+`--check-paths-only` 已跑,八条输入全在(首次实用)。**未跑 `--sanity-gate-only`** —— 它在提交后才落地,
+本轮属于"该有而未用",如实记录。
+
+| 项 | 值 |
+|---|---|
+| Job | **`18330608`**,提交 2026-08-10,`(Resources)` 排队 |
+| 卡 / 上限 | **rtx_3090(gpu030)** / 24h。bf16 于 `18330466`(smoke-niah)在同一节点实测可用 |
+| bp1 提交时 HEAD | **`3ee61a5`**(其后 `6f54d1d` 提交了 parent sidecar;**执行树以起跑时为准,由日志的 `[tree]` 行自记**) |
+| 预期日志新增 | `[tree] <sha>` 与 `bf16: True | NVIDIA GeForce RTX 3090` —— 本作业是**第一个**带这两行的 |
+
+**资源披露:** 本作业独占 gpu030 至多 24 小时,而并行的 Beam 路线同样需要 bf16 节点
+(gpu030 / gpu035 是仅有的两个)。**已知会另一条线的负责人,不作为既成事实。**
+
+**CONFOUNDERS 八条(逐条,见 `docs/selector/CONFOUNDERS.md`):**
+1. 候选池 —— 不适用,本轮不做检索;2. 基线 —— 对照是 Gate 0B 的零训练 .7942,**非 TopK**;
+3. n —— OOF 覆盖全部 375103 行,单一 n;4. 形式 vs 能力 —— hypothesis 模板与标签空间沿用
+`g2-proto-5`,与 Gate 0B 逐字相同,**这正是本轮可与 .7942 比较的前提**;
+5. 隔离探针外推 —— **本轮不适用,但 0B-2 的读数适用,评分时须复述 S6 纪律**;
+6. 同源重复 —— 分折按 parent page + synthetic family 分组,已在代码强制;
+7. 同次运行 —— 单作业单 seed,无跨运行比较;8. split —— A4 守卫按 query-id 集合比,
+`n_families_excluded_dev_overlap` 已在 smoke 上复现预注册值 151。
+
+**AFTER:** _待填 —— per-class F1、五折 OOF 完整性、`niah_domain_adaptation.status`、执行树 `[tree]`_
+
+---
+
 ## G3 — 基线对照:verified vs 生成时引用(方法头条主张)
 
 **状态:** READY——三件套齐:代码(entity_check 修复 `c75e991` + runner
