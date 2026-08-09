@@ -156,6 +156,7 @@ def audit_candidate_pool(
     *,
     candidate_pool_path: Path,
     dataset_manifest_path: Path,
+    source_parent_path: Path,
     retriever_config_path: Path,
     top_n: int,
     seed: int,
@@ -188,6 +189,7 @@ def audit_candidate_pool(
 
     commit, dirty = _git_state(git_root)
     candidate_sha = sha256_file(candidate_pool_path)
+    dataset_root = dataset_manifest_path.parent
     manifest: dict[str, object] = {
         "schema_version": "1.0",
         "dataset": {
@@ -197,6 +199,17 @@ def audit_candidate_pool(
             "signature": bundle.dataset_signature,
             "manifest_path": str(dataset_manifest_path.resolve()),
             "manifest_sha256": sha256_file(dataset_manifest_path),
+            "artifact_sha256": {
+                bundle.manifest.documents_file: sha256_file(
+                    dataset_root / bundle.manifest.documents_file
+                ),
+                bundle.manifest.queries_file: sha256_file(
+                    dataset_root / bundle.manifest.queries_file
+                ),
+                bundle.manifest.gold_cases_file: sha256_file(
+                    dataset_root / bundle.manifest.gold_cases_file
+                ),
+            },
         },
         "candidate_pool": {
             "path": str(candidate_pool_path.resolve()),
@@ -219,6 +232,10 @@ def audit_candidate_pool(
             "unresolved_parent_count": len(unresolved_ids),
             "unresolved_parent_ids": sorted(unresolved_ids),
         },
+        "source_parent": {
+            "path": str(source_parent_path.resolve()),
+            "sha256": sha256_file(source_parent_path),
+        },
         "retriever": _sole_retriever(candidate_sets),
         "retriever_config": {
             "path": str(retriever_config_path.resolve()),
@@ -240,6 +257,7 @@ def validate_pool_manifest(
     manifest: Mapping[str, object],
     *,
     candidate_pool_path: Path,
+    source_parent_path: Path,
     expected_top_n: int,
 ) -> str:
     pool = manifest.get("candidate_pool")
@@ -256,6 +274,11 @@ def validate_pool_manifest(
     audit = manifest.get("audit")
     if not isinstance(audit, Mapping) or audit.get("unresolved_parent_count") != 0:
         raise ValueError("candidate pool contains unresolved source parents")
+    source_parent = manifest.get("source_parent")
+    if not isinstance(source_parent, Mapping):
+        raise ValueError("candidate pool manifest has no source_parent section")
+    if source_parent.get("sha256") != sha256_file(source_parent_path):
+        raise ValueError("source-parent SHA-256 differs from the frozen manifest")
     return actual_sha
 
 

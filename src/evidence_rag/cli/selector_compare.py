@@ -78,6 +78,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     pool_sha = validate_pool_manifest(
         pool_manifest,
         candidate_pool_path=arguments.candidates,
+        source_parent_path=arguments.source_parent,
         expected_top_n=arguments.top_n,
     )
     bundle = JsonlDatasetAdapter.load(arguments.dataset_manifest)

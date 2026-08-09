@@ -113,9 +113,13 @@ def write_pool(path: Path) -> None:
 def test_pool_audit_binds_sha_recall_harm_and_parents(tmp_path: Path) -> None:
     candidate_path = tmp_path / "candidate_sets.jsonl"
     dataset_path = tmp_path / "manifest.json"
+    source_parent_path = tmp_path / "source_parent.jsonl"
     config_path = tmp_path / "config.toml"
     write_pool(candidate_path)
     dataset_path.write_text("{}\n", encoding="utf-8")
+    source_parent_path.write_text("parents\n", encoding="utf-8")
+    for name in ("documents.jsonl", "queries.jsonl", "gold_cases.jsonl"):
+        (tmp_path / name).write_text("fixture\n", encoding="utf-8")
     config_path.write_text("[retriever]\nname='hybrid'\n", encoding="utf-8")
     parent_index = ParentIndex(
         parent_by_document={item: item for item in ("d1", "d2", "h1", "x1", "x2")}
@@ -127,6 +131,7 @@ def test_pool_audit_binds_sha_recall_harm_and_parents(tmp_path: Path) -> None:
         parent_index,
         candidate_pool_path=candidate_path,
         dataset_manifest_path=dataset_path,
+        source_parent_path=source_parent_path,
         retriever_config_path=config_path,
         top_n=3,
         seed=13,
@@ -143,6 +148,7 @@ def test_pool_audit_binds_sha_recall_harm_and_parents(tmp_path: Path) -> None:
     assert validate_pool_manifest(
         manifest,
         candidate_pool_path=candidate_path,
+        source_parent_path=source_parent_path,
         expected_top_n=3,
     ) == sha256_file(candidate_path)
 

@@ -62,6 +62,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         parents,
         candidate_pool_path=arguments.candidates,
         dataset_manifest_path=arguments.dataset_manifest,
+        source_parent_path=arguments.source_parent,
         retriever_config_path=arguments.retriever_config,
         top_n=arguments.top_n,
         seed=arguments.seed,
