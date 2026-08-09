@@ -163,6 +163,15 @@ source /user/work/$USER/venv/bin/activate
 cd /user/work/$USER/IBM_Granite_Project
 export PYTHONPATH=src
 
+# A queued job runs the working tree as it stands when it STARTS, not when it was submitted.
+# 18322821 was submitted against 3637934 and will start against something else, because the
+# checkout was pulled forward twice in between -- the second time hours after "do not pull while
+# a job is queued" had been written down as a rule. Asking people to hold still did not survive
+# the afternoon it was written, so record the tree instead of trying to freeze it: the .out log
+# then carries what actually ran, and the ledger cites that rather than a rev-parse someone
+# remembered to take at the right moment.
+echo "[tree] $(git rev-parse HEAD 2>/dev/null || echo unknown)$(git diff --quiet 2>/dev/null || echo ' +uncommitted')"
+
 python -c "import torch; print('CUDA:', torch.cuda.is_available(), '| torch', torch.__version__)"
 
 # torch < 2.6 is a project pin, and the whole of A3 rests on it (§11.1): under it transformers
