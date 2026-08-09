@@ -710,12 +710,40 @@ build **多做事**(要额外物化每 chunk 的 `Counter`)。build 只可能变
 - Git commit:待本次改动提交后填;Seed:7;n=2000/臂。
   hybrid-rrf 与 decompose 臂需 GPU(dense 编码 / LLM 拆分),bm25 与 strong-bm25 臂纯 CPU。
 
-**附带发现(不属本条实验,但应在组会提出):`composition.py` 的 `build_generator` 只注册了
-`extractive` 一个**,而 `src/evidence_rag/generator/` 下已有 `granite.py`、`verified.py`
-(G1–G5 的成果)。selector 有 4 个可选实现,generator 只有 1 个玩具级实现。
-⇒ **"三模块可通过配置实时连成完整 pipeline"这条验收,目前只在玩具 generator 上成立过。**
-把真实 generator 接进 `composition.py` 属 Generator 组范围,不在本条内做,
-但**它是 R7 之后能否测"真实答案质量"的前置条件。**
+**⚠️ 提交前的设计变更(2026-08-09,写于**跑之前、读任何数字之前**,与 R1 同类披露):**
+
+- **变更内容:** GPU 请求从 `--gres=gpu:rtx_3090:1` 放宽为 `--gres=gpu:1`(任意型号),
+  四臂仍在**同一个 job、同一个节点**内跑。作业 18324520(限定 3090)已 `scancel`,
+  改提 18325274。
+- **原因(实测,非猜测):** `sinfo -p gpu -o "%n %G %t"` 显示**全集群只有一台 rtx_3090 节点**
+  (`bp1-gpu030`,8 卡),其余为 rtx_2080 / V100 / 单台 a100。限定 3090 等于排单节点资源,
+  `squeue --start` 预计 6+ 小时,且该瓶颈**每次都会重现**。`sinfo -R` 确认无节点排空。
+- **代价:自检强度下降,须如实降级。** 原条目写"四臂 MRR 必须复现已记录矩阵,否则先查 harness"。
+  已记录矩阵跑在 rtx_3090 上,故:
+  - **bm25 / strong-bm25 两臂仍必须精确复现 `.9434` / `.9580`** —— 它们是纯 CPU、与显卡无关,
+    **harness 的正确性由这两臂单独担保**,自检目的不受影响。
+  - **hybrid-rrf / decompose 两臂若偏离 `.9828` / `.5702`,先归因于 GPU 架构,不得直接判为 harness 故障**;
+    偏离幅度须如实记录。风险不对称:hybrid 的 dense 编码只在接近的排序上翻转,量级极小;
+    **decompose 风险大得多——贪心解码对浮点差异是混沌的**,一个 token 翻转就换掉整个子查询。
+    若 decompose 偏离明显,**不得解释为方法差异**,只能记为"换硬件后不可逐位复现"。
+- **为什么这个取舍是对的:** R7 问的是**四臂之间的传导关系**,要的是**臂间可比**——
+  四臂同 job 同节点满足了这一点。与三天前矩阵的逐位一致是**加分项而非前提**,
+  而它在两个 CPU 臂上仍然保留。
+
+**附带发现 —— 已于 2026-08-09 被 Generator 组解决,原文保留以记录时序:**
+
+~~本条预注册时(`b82a4a2`),`composition.py` 的 `build_generator` **只注册了 `extractive` 一个**,
+而 `src/evidence_rag/generator/` 下已有 `granite.py`、`verified.py`。selector 有 4 个可选实现,
+generator 只有 1 个玩具级实现 ⇒ "三模块可通过配置实时连成完整 pipeline"这条验收,
+当时只在玩具 generator 上成立过。~~
+
+**现状(`229388f` 起):`build_generator` 已支持 `extractive` / `granite` / `verify-annotate`**
+(commit 由 Generator 组提交,含 `NLIModel`、`VerifyAnnotateGenerator` 注入)。**前置条件已清除。**
+
+对本条的影响:**本轮仍按预注册跑 `extractive`,配置一字未改,结论范围不变**(测的是证据传递)。
+但"只能测证据传递、测不了答案质量"从**约束**变成了**选择** ⇒ **R8 现在可跑**:同样四个检索臂,
+仅把 `generator` 换成 `granite`,即可回答"检索提升能否变成更好的答案"这一完整问题。
+R7 与 R8 的差别只有 generator 一项,故两者可直接配对比较,**证据传递与答案质量的差值本身就是结果**。
 
 **AFTER:** 未运行。<!-- 填:job id、四臂七项指标表、MRR 复现是否通过、传导比、
 四种替代结果命中哪个、是否触发天花板效应需 max_selected=1 复跑 -->
