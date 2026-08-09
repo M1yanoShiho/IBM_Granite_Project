@@ -120,6 +120,16 @@
 # rows. That is the pre-registered recipe, not a knob. Budget accordingly and run the smoke job
 # first; the walltime below is for ONE seed's five folds.
 #
+# BEFORE EVERY SUBMISSION, on the login node -- same flags, seconds, no GPU, no queue:
+#   PYTHONPATH=src python -m evidence_rag.cli.train_relations --check-paths-only \
+#     --vitaminc-train data/gate0b/vitaminc_train.jsonl \
+#     --vitaminc-dev data/gate0b/vitaminc_dev.jsonl \
+#     --decontamination-log data/gate0b/vitaminc_decontamination.json \
+#     --seed 13 --output-dir runs/r013/seed-13 <the same --niah-* / --sealed-dir flags>
+# It stats every input and names ALL the absent ones at once. Three submissions in this series
+# died because a path on the command line was not on disk (18290519, 18290571, 18322821), the
+# last after seventeen hours in the queue -- for a fact decidable here in a second.
+#
 # Submit from the project root. Positional args, in order:
 #   SEED  OUTPUT_DIR  EXTRA_FLAGS
 #   mkdir -p logs runs
