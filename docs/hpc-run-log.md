@@ -2205,6 +2205,68 @@ bp1 已 fast-forward 到 `02b08a4` 并**逐字核对 `131:#SBATCH --gres=gpu:a10
 
 ---
 
+### R012f — 跨骨干一致性(RADAR 消融的复现)[2026-08-09,BEFORE 已写,登录节点级]
+
+**为什么做:** [related-work.md](selector/related-work.md) §1 记载 RADAR(arXiv 2605.22041)换三个 NLI 骨干
+只见 "minor changes",据此可推断关系模型不是承重墙 —— 若在我们数据上也成立,§3.8 这两周问错了问题。
+**本轮不需要 GPU:R012/R012b/R012c 的 dump 已存在,这是对已有数据的重新提问。**
+
+**第一部分:已可从仓库内 `results/gate0b/sweep-full.json` 读出(R012,job 18235972,template rung,
+同一作业内比较,不跨作业):**
+
+| 骨干 | VitaminC official test macro-F1 | 探针 `gold_supports_recall` | `twin_refutes_accuracy` | `unknown_rate` |
+|---|---:|---:|---:|---:|
+| `tals/albert-xlarge-vitaminc-mnli` | **0.9215** | **0.1916** | 0.6736 | 0.4823 |
+| `MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli` | 0.7582 | **0.7942** | 0.6376 | 0.1758 |
+
+- **换骨干使 `gold_supports_recall` 移动 60.3pp** —— 与 "minor changes" 不相容。
+- **排名反转:** albert 在官方 test 上领先 **16.3** macro-F1 点,在最小编辑探针上落后 **60.3** recall 点。
+  **同作业、同代码、同批对**,故该反转不受跨作业漂移影响(第 4 条纪律)。
+  这与 related-work §3 的 SummEdits 证据同向:**榜单名次不向最小编辑 regime 迁移。**
+- **两个指标的敏感度差一个数量级:** twin 只差 **3.6pp**,gold_supports 差 **60.3pp**。
+  换言之"骨干无关紧要"这个判断在一个指标上近似成立、在另一个上灾难性失败。
+- **诚实的限定,必须与上述数字同时陈述:** (1) RADAR 换的是三个**通用 MNLI 家族**模型
+  (DeBERTa-v3 / BART / ModernBERT),我们换的是**三个不同族**(通用 NLI / VitaminC 专训 / 任务专训),
+  模型多样性更宽;(2) RADAR 测的是**端到端 Acc 与 ASR**,我们测的是**部件级指标**,聚合层可以吸收部件方差。
+  **⇒ 本轮证伪的是"部件级低敏感",不是 RADAR 的流水线级主张。** 后者需要带门的 dev 运行(R031/R032 量级)。
+- 加入 MiniCheck 臂(template rung .5727,R012c)会**跨作业**(18269630-32),故三臂极差只作参考,
+  两臂结论以同作业为准。
+
+**第二部分(待跑):逐对一致性 —— 聚合率答不了的那个问题。**
+两个分类器可以有相同的率而在每一对上都不一致。dump 带 `premise_hash` / `hypothesis_hash`,可精确 join。
+
+**预注册的两个互斥假设(跑之前写死):**
+
+- **H-NEST:** 两臂的 SUPPORTS 集**嵌套**(albert ⊂ DeBERTa),`gold_only_albert ≈ 0`。
+  ⇒ 骨干只是一个保守度旋钮,RADAR 的读法在部件级也成立,60.3pp 只是同一条曲线上的两个点。
+- **H-CROSS:** 两臂**交叉**(各自捞到对方漏掉的 gold 对),`gold_only_albert > 0` 且 `gold_only_deberta > 0`。
+  ⇒ 它们是真正不同的分类器,骨干是承重的;**并且 union-of-SUPPORTS 值得测**——
+  那是绕过 Gate 0B 最廉价的可能路径:零训练、零新 checkpoint。
+
+**预测(署名写下):** 倾向 **H-CROSS**,依据是 albert 的 `unknown_rate` .48 对 DeBERTa 的 .18 ——
+若纯粹是保守度差异,albert 的 UNKNOWN 应当均匀覆盖 DeBERTa 的 SUPPORTS,而 albert 在官方 test 上
+supports_recall 高达 .9508,说明它并非一律保守,而是**在这个任务形式上**塌陷。若 H-CROSS 成立,
+预测 union 的 `gold_supports_recall` 落在 **.80–.88**、`twin_not_supported_accuracy` 落在 **.45–.60**
+—— 即**很可能买到 recall 却买不起 twin**,这正是 related-work §8 记载文献从未测过的交换率。
+
+**⚠ union 若同时过两个阈值也不构成 Gate 0B 通过** —— 它是未预注册的臂,要用须另开修订。本轮是诊断。
+
+**工具(先红后绿,11 个测试):** `relations/backbone_agreement.py`(纯函数:按 hash join、
+拒绝重复键、拒绝无交集、raw agreement + Cohen's kappa、nested/crossing 判定、union 两指标)
++ `scripts/r012f_backbone_agreement.py`(登录节点 CLI)。
+**守卫两条,都是本项目的老病:** 按 hash 而非按位置 join(位置 zip 会从一个无意义的连接产出一个可信的数字);
+两臂无共同对时**拒绝**而不是在交集上算(那多半意味着两次 sweep 之间探针被重建过)。
+kappa 与 raw agreement 并列报告,因为 albert 的 UNKNOWN 占 .48,单看 raw agreement 会被多数类抬高。
+
+**运行(bp1 登录节点,秒级):**
+`export PYTHONPATH=src && python scripts/r012f_backbone_agreement.py results/gate0b/dump-template.jsonl`
+
+**⚠ 前置问题:R012b/R012c/R012d 的结果包与 dump 从未提交** —— 仓库里只有 `results/gate0b/sweep-full.json`
+一个文件。按本文件"只以 `.out` 或散落文件存在的结果不算已记录"的规则,**那几轮的结果包欠着**,
+且本分析所需的 dump 目前只在 bp1 上。**跑本轮时一并 `git add -f` 补交。**
+
+---
+
 ### NIAH split 的可核验性 —— **冻结要求无法核验,须裁决** [2026-08-09,R011b 核验中发现]
 
 **⚠ 本条不是事故报告,是一个在造成损害之前抓到的缺陷。已发表读数无一受影响;
