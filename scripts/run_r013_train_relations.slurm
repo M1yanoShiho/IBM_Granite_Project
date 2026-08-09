@@ -183,7 +183,13 @@ export PYTHONPATH=src
 # remembered to take at the right moment.
 echo "[tree] $(git rev-parse HEAD 2>/dev/null || echo unknown)$(git diff --quiet 2>/dev/null || echo ' +uncommitted')"
 
-python -c "import torch; print('CUDA:', torch.cuda.is_available(), '| torch', torch.__version__)"
+# bf16 and the card's name are printed because §3.8(b) freezes bf16 into the recipe, and until
+# now the only record of which silicon a run got was NodeList in sacct plus someone recalling
+# that gpu035 is the a100 and gpu030 the 3090. Both guarded so the line is also safe on a login
+# node, where there is no device at all and get_device_name would raise. Note this reports what
+# the hardware CLAIMS: on Turing the answer is argued either way, which is why the gres pin --
+# not this print -- is what keeps the job off cards without bf16.
+python -c "import torch; print('CUDA:', torch.cuda.is_available(), '| torch', torch.__version__, '| bf16:', torch.cuda.is_available() and torch.cuda.is_bf16_supported(), '|', torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'no device')"
 
 # torch < 2.6 is a project pin, and the whole of A3 rests on it (§11.1): under it transformers
 # refuses to torch.load a .bin, which is why the pre-registered base could not be used. If this
