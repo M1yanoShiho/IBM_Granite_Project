@@ -3045,7 +3045,42 @@ train_relations.py: error: argument --max-examples: expected one argument
 即 **exit 2 并打印带引号的正确写法**,不再静默丢弃。两个方向都实测过。
 **该守卫不在 `18330465` 的执行树内**(bp1 停在 `1558ee4`),从正式 R013–R015 起生效。
 
-**第三次提交:`18330465`**(2026-08-10,引号正确,六 flag 完整)。
+**第三次提交:COMPLETED —— 域适配半首次在真实数据上走通 [job `18330465`,2026-08-10]**
+
+| 项 | 值 |
+|---|---|
+| State / Exit | **COMPLETED / 0:0** |
+| Elapsed | **00:02:55** |
+| 节点 | **bp1-gpu030(rtx_3090)** |
+| 五折 API | 全部 `CrossEncoderTrainer API`(fold 0–4) |
+
+**预注册读数十一项全过,`151` 与 `5284` 逐字命中。** 两者都是**提交前**在登录节点算好写进上面那张表的,
+不是事后对上的 —— A4 的 dev 重叠剔除逻辑首次接触真实数据即复现预注册值:
+
+```
+niah_domain_adaptation.status                    = enforced
+n_families_excluded_dev_overlap                  = 151      (预注册 151)
+chain.n_niah                                     = 5284     (预注册 5284)
+dev_eval_n_queries                               = 2000
+chain.n_vitaminc                                 = 369819   (与 c901310 重导出后一致)
+sealed_n_parent_pages                            = 2148
+protocol_version / twin_label / seed / is_smoke_run / max_examples / hyperparameters.bf16 —— 全中
+```
+
+**sealed-600 零重叠检查通过**(该守卫是拒绝而非静默过滤,作业未崩即其 PASS)。
+
+**附带结论:bf16 在 rtx_3090 上端到端可用,已实测而非由计算能力推断。**
+`hyperparameters.bf16 = True` + `NodeList = bp1-gpu030` + 五折跑完,三者合起来即为证据。
+⇒ **§3.8 的 15 次全量微调可分布在两个 bf16 节点(gpu035 a100 / gpu030 rtx_3090)**,
+不必在争用的 a100 上串行。台账此前记的「rtx_3090 周转是小时级」曾被 18322821 的 17 小时排队证伪,
+但本轮 18330465 于 00:17:59 起跑(提交后约一小时,backfill),**该结论恢复成立,且 2h TimeLimit 是主因**。
+
+**两个冒烟至此全过**(`18321128` VitaminC 半 / `18330465` 域适配半)⇒ **正式 R013/R014/R015 的前提清空。**
+执行前须在 bp1 `git pull`(冒烟已结束,此时拉取无害),以取得三样本轮新增的守卫:
+`--check-paths-only`、位置参数 `$#` 守卫、`[tree]` 自记录与 bf16/卡名打印。
+
+**待办:** `runs/niah-train-injected/source_parent.jsonl` 是本轮新建产物且 `runs/` 被 gitignore,
+须 `git add -f` 入库,否则它只存在于 bp1。
 
 **预注册读数(提交前在登录节点算好,跑完必须逐字相等):**
 
