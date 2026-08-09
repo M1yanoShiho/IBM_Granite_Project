@@ -1,12 +1,16 @@
 # Counterfactual Injector (Materializer B) — 设计规格
 
+> **历史文档（仅保留数据构造背景）:** 旧 Selector 路线已退役。当前方案见
+> [Beam Selector 实验计划](../../selector/BEAM_SELECTOR_EXPERIMENT_PLAN.md)，旧资料去向见
+> [旧方法记录](../../selector/LEGACY_METHODS.md)。
+
 **日期:** 2026-07-21
 
 **状态:** 设计草稿(brainstorming 已定方向),待用户书面确认后进 writing-plans → TDD。
 
 **模块:** Selector 评估数据构造工具;纯 CPU、确定性、无 GPU、无人工标注、无 LLM 裁判。
 
-**承接:** [DATASET_PROPOSAL](../../selector/DATASET_PROPOSAL.md)(五条不变量配方、NQ 单域、
+**承接:** 旧版 `DATASET_PROPOSAL`（已删除并归档说明于 [旧方法记录](../../selector/LEGACY_METHODS.md)）中的五条不变量配方、NQ 单域、
 provenance 缺口)、gate/A2 spec(消费方 E1/E2/E3)、[benchmarks.py](../../../src/evidence_rag/infrastructure/benchmarks.py)
 (输出格式 pattern)。
 
