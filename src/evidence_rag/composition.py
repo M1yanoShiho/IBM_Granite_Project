@@ -411,6 +411,10 @@ def _selector_parameters(
         )
     if "top_n" in config.parameters:
         parameters["top_n"] = _int_parameter("top_n", config.parameters["top_n"], 1)
+    if "winner_floor" in config.parameters:
+        parameters["winner_floor"] = _int_parameter(
+            "winner_floor", config.parameters["winner_floor"], 0
+        )
     return parameters
 
 
@@ -493,7 +497,17 @@ def build_selector(
     if config.name in {"gated-corroboration", "gated-coverage-corroboration"}:
         parameters = _selector_parameters(
             config,
-            frozenset({"alpha", "margin", "support_cap", "top_n", "equivalence", "support_unit"}),
+            frozenset(
+                {
+                    "alpha",
+                    "margin",
+                    "support_cap",
+                    "winner_floor",
+                    "top_n",
+                    "equivalence",
+                    "support_unit",
+                }
+            ),
         )
         client = llm if llm is not None else GraniteLLMClient()
         selector_class = (
@@ -518,6 +532,9 @@ def build_selector(
             alpha=float(parameters.get("alpha", 0.6)),
             margin=int(parameters.get("margin", 2)),
             support_cap=int(parameters.get("support_cap", 1)),
+            # 0 = the frozen four-condition gate. Any positive value is a different arm and must
+            # be reported as one; it is not a tuning knob for an existing reading.
+            winner_floor=int(parameters.get("winner_floor", 0)),
             top_n=int(parameters.get("top_n", 20)),
             equivalence=equivalence,
             parent_by_document=parent_by_document,

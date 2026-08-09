@@ -43,6 +43,7 @@ class GateDecision:
     has_competitor: bool
     margin_met: bool
     isolation_met: bool
+    winner_floor_met: bool = True
 
 
 def gate_decision(
@@ -53,12 +54,28 @@ def gate_decision(
     *,
     margin: int,
     support_cap: int,
+    winner_floor: int = 0,
 ) -> GateDecision:
     """The frozen four-condition judgement (spec §7), as a pure function.
 
     Module-level so that offline analysis scores the SAME code the production gate runs.
     Re-implementing these conditions for analysis would let the two drift apart silently, which
     is precisely the class of defect this project keeps finding.
+
+    `winner_floor` is a fifth condition, defaulting OFF (0 admits every winner, so the frozen
+    four-condition behaviour and every reading taken under it are unchanged). It requires the
+    majority answer to clear an absolute support level before the gate is allowed to act at all,
+    rather than only to lead by `margin`. The frozen settings already imply a floor of three --
+    `margin` 2 over an `own_support` of at least 1 -- but implicitly, where it cannot be varied
+    or reported; three sources out of a twenty-passage window is not obviously enough certainty
+    to destroy a piece of evidence over.
+
+    What this does NOT do, and the distinction matters: it gives the gate no evidence that the
+    dropped passage is HARMFUL. The gate sees only that a passage is outvoted, and a correct but
+    rare answer is indistinguishable from a counterfactual twin under that view -- which is the
+    mechanism S3 measured as recall loss. Raising the floor makes the gate act less often on thin
+    evidence; it cannot make it act for the right reason. Closing that is what a relation model
+    is for, and is why Gate 0B exists.
     """
     has_valid_answer = is_valid_answer(answer)
     own = cluster_by_member.get(evidence_id)
@@ -72,7 +89,14 @@ def gate_decision(
     difference = winner_support - own_support if has_competitor else 0
     margin_met = has_competitor and difference >= margin
     isolation_met = own_support <= support_cap
-    drop = has_valid_answer and has_competitor and margin_met and isolation_met
+    winner_floor_met = winner_support >= winner_floor
+    drop = (
+        has_valid_answer
+        and has_competitor
+        and margin_met
+        and isolation_met
+        and winner_floor_met
+    )
     return GateDecision(
         evidence_id=evidence_id,
         action="drop" if drop else "keep",
@@ -85,6 +109,7 @@ def gate_decision(
         has_competitor=has_competitor,
         margin_met=margin_met,
         isolation_met=isolation_met,
+        winner_floor_met=winner_floor_met,
     )
 
 
@@ -125,6 +150,7 @@ class GatedCorroborationSelector:
         alpha: float = 0.6,
         margin: int = 2,
         support_cap: int = 1,
+        winner_floor: int = 0,
         top_n: int = 20,
         equivalence: Literal["exact", "lenient"] = "exact",
         parent_by_document: Mapping[str, str] | None = None,
@@ -138,6 +164,8 @@ class GatedCorroborationSelector:
             raise ValueError("margin must be at least 1")
         if support_cap < 0:
             raise ValueError("support_cap must be non-negative")
+        if winner_floor < 0:
+            raise ValueError("winner_floor must be non-negative")
         if top_n <= 0:
             raise ValueError("top_n must be positive")
         if equivalence not in ("exact", "lenient"):
@@ -145,6 +173,7 @@ class GatedCorroborationSelector:
         self.alpha = alpha
         self.margin = margin
         self.support_cap = support_cap
+        self.winner_floor = winner_floor
         self.top_n = top_n
         self.equivalence = equivalence
         self.parent_by_document = parent_by_document
@@ -169,6 +198,7 @@ class GatedCorroborationSelector:
             cluster_by_member,
             margin=self.margin,
             support_cap=self.support_cap,
+            winner_floor=self.winner_floor,
         )
 
     def _gate(self, query: Query, candidates: CandidateSet) -> GateResult:

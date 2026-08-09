@@ -1,3 +1,5 @@
+import pytest
+
 from evidence_rag.contracts.models import (
     CandidateSet,
     EvidenceCandidate,
@@ -366,3 +368,43 @@ def test_parent_unit_stops_the_same_article_from_out_voting_it() -> None:
     )
     result = selector.select(query, candidates, max_selected=3)
     assert "b" in {item.evidence_id for item in result.items}
+
+
+def test_the_frozen_gate_is_unchanged_when_no_floor_is_asked_for() -> None:
+    """winner_floor defaults to 0, so every reading taken under the frozen four conditions --
+    S1's -11.2pp, S3, S8 -- still describes the code that produced it. A conservatism knob that
+    silently moved the default would invalidate the results it was meant to improve on."""
+
+    pool, extractor = three_vs_one_pool()
+    assert "lone" not in selected_ids(
+        GatedCorroborationSelector(extractor, use_parametric=False), pool, 4
+    )
+
+
+def test_a_thinly_corroborated_majority_no_longer_licenses_a_drop() -> None:
+    """The frozen settings imply a floor of three -- margin 2 over an own_support of at least 1
+    -- but implicitly, where it can be neither varied nor reported. Three sources out of twenty
+    is not obvious certainty, and the passage being destroyed may simply be a rare correct
+    answer: the gate sees outvoted, never harmful. Raising the floor spends nothing when the
+    evidence is thin instead of spending recall."""
+
+    pool, extractor = three_vs_one_pool()
+    kept = selected_ids(
+        GatedCorroborationSelector(extractor, use_parametric=False, winner_floor=4), pool, 4
+    )
+    assert "lone" in kept, "a winner with three sources must not clear a floor of four"
+
+
+def test_the_floor_still_lets_a_well_corroborated_majority_act() -> None:
+    """The knob has to be able to say yes, or it is just the gate turned off."""
+
+    pool, extractor = three_vs_one_pool()
+    assert "lone" not in selected_ids(
+        GatedCorroborationSelector(extractor, use_parametric=False, winner_floor=3), pool, 4
+    )
+
+
+def test_a_negative_floor_is_refused() -> None:
+    _, extractor = three_vs_one_pool()
+    with pytest.raises(ValueError, match="winner_floor"):
+        GatedCorroborationSelector(extractor, winner_floor=-1)
