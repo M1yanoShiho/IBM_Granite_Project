@@ -51,7 +51,7 @@ from evidence_rag.relations.models import (
 )
 from evidence_rag.relations.predictor import require_fingerprinted_version
 
-PROTOCOL_VERSION = "g2-proto-4"
+PROTOCOL_VERSION = "g2-proto-5"
 
 # A3 §11.5. The emergency arm is pre-registered too (§3.8, §11.5 裁决): it may be used ONLY
 # after all three seeds have finished with `gold_supports_recall` still under .85, and both

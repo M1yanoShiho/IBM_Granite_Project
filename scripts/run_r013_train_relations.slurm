@@ -66,11 +66,11 @@
 #         --niah-dev-manifest runs/niah-injected/manifest.json \
 #         --sealed-dir runs/niah-sealed600 --niah-twin-label REFUTES"
 #
-#    ⚠ smoke-niah AND the real adaptation half are PAUSED until amendment A4 (M0 §12, DRAFT)
-#    is approved: the 2026-08-09 finding is that the adaptation pool shares 202 of 2000 queries
-#    with the dev evaluation run and no split was ever actually made. The CLI now refuses the
-#    half without --niah-dev-manifest and excludes dev-overlapping families, recording the
-#    count in the manifest. The VitaminC half is unaffected.
+#    A4 (M0 §12) APPROVED 2026-08-09, protocol now g2-proto-5. Background: the adaptation pool
+#    shares 202 of 2000 queries with the dev evaluation run and no split was ever actually
+#    made. The adaptation half therefore REQUIRES --niah-dev-manifest; dev-overlapping
+#    families are excluded, the excluded count lands in the manifest, and the guard compares
+#    query-id sets, never split labels. The five-flag form is refused outright.
 #
 #    §3.8(b) freezes the optimisation recipe -- AdamW, lr 2e-5, linear decay, warmup ratio .06,
 #    batch 32, 2 epochs, max_length 256, weight decay .01, max_grad_norm 1.0, bf16 -- and records

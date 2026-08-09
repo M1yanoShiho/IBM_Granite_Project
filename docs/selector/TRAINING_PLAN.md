@@ -196,6 +196,11 @@ TIME_MISMATCH 与 CONDITION_MISMATCH 不进入本轮主要关系集合，因为 
 - SAME_SOURCE 只由 source_parent_id 确定性生成；
 - 正式 dev/test 建图不得读取 utility_grade、harm_type、gold answer_cluster_id、gold answers、official evidence flag 或 RAMDocs type。
 
+> **A4 指针(2026-08-09,g2-proto-5):** 本文件中一切"NIAH train"字样受 M0 §12 约束——实测该
+> split 从未真正划分(三个运行 manifest 的 `split` 均为构建默认值 `'dev'`,适配池与 dev 评测运行
+> 相交 202/2000 query)。域适配对**剔除**与 dev 评测重合的 family,守卫按 query-ID 集合代码强制、
+> 永不读 `split` 标签;凡与此冲突的旧文以 M0 §12 为准。
+
 NIAH train 按父页面和 synthetic family 做 5-fold OOF。每折的 claim extraction、claim clustering、relation prediction 和 Graph feature generation 都必须只用其余四折拟合；不能只对最后一层 relation score 做 OOF。NIAH dev/test 由冻结后的完整链路直接预测。
 
 ### 3.5 核心 Graph 特征

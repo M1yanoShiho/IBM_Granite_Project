@@ -2290,7 +2290,7 @@ n_records 1472 / n_skipped_records 0`)已于 2026-08-03 重导对上,但**冻结
 对未剔除的相交记录拒绝而非静默过滤;`cli/train_relations.py` 新增必填 `--niah-dev-manifest`
 (域适配 flag 集合五→六,仍全有或全无),manifest 记录 dev 集身份与 `n_families_excluded_dev_overlap`;
 slurm 头部同步。逐字 CI 全树:ruff 干净、mypy 122 文件干净、pytest **1245 passed / 1 xfailed**
-(含并发合入的 G9 代码)。**A4 正式文本已入 M0 §12(DRAFT);暂停解除条件 = §12 批准。**
+(含并发合入的 G9 代码)。**A4 正式文本已入 M0 §12;同日批准,协议升 `g2-proto-5`,域适配半暂停解除。**
 
 ---
 
