@@ -1,6 +1,7 @@
 #!/bin/bash
 # Gate 0B sweep: zero-training relation checkpoints over 0B-1 (VitaminC official test) and
-# 0B-2 (mutation-log task probe). Protocol: docs/selector/M0_PROTOCOL_FREEZE.md §3.1-§3.3.
+# 0B-2 (mutation-log task probe). Historical protocol: restore M0_PROTOCOL_FREEZE.md from the
+# recorded experiment commit; this script belongs to the retired Graph/MIS route.
 #
 # All candidate models run in ONE sweep on purpose. A single arm cannot separate "this
 # checkpoint is insufficient" from "no zero-shot model is sufficient", and that distinction is

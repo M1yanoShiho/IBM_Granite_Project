@@ -1,6 +1,7 @@
 #!/bin/bash
 # R013 / R014 / R015 -- the M0 §3.8 relation-model training path, ONE SEED PER JOB.
-# Protocol: docs/selector/M0_PROTOCOL_FREEZE.md §3.8, base set by A3 (§11.5), seeds by §5.4.
+# Historical protocol: restore M0_PROTOCOL_FREEZE.md from the recorded experiment commit;
+# this script belongs to the retired Graph/MIS route.
 #
 # Three jobs, not one loop inside one job. §5.4's three-seed clause is reinstated for this path
 # and each seed must leave its own manifest, log and checkpoints -- a run that quietly produced
