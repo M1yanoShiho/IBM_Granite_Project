@@ -56,6 +56,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--stats-seed", type=int, default=20260809)
     parser.add_argument("--iterations", type=int, default=10000)
     parser.add_argument("--nli-batch-size", type=int, default=32)
+    parser.add_argument("--min-harmful-pool-hits", type=int, default=0)
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--git-root", type=Path, default=Path.cwd())
     return parser
@@ -81,6 +82,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         source_parent_path=arguments.source_parent,
         expected_top_n=arguments.top_n,
     )
+    audit = pool_manifest.get("audit")
+    if not isinstance(audit, dict):
+        raise ValueError("candidate pool manifest has no audit section")
+    if int(audit.get("harmful_pool_hit_count") or 0) < arguments.min_harmful_pool_hits:
+        raise ValueError(
+            "candidate pool has fewer harmful-hit queries than the frozen minimum"
+        )
     bundle = JsonlDatasetAdapter.load(arguments.dataset_manifest)
     candidates = read_jsonl(arguments.candidates, CandidateSet)
     aligned = list(align_inputs(bundle, candidates))
