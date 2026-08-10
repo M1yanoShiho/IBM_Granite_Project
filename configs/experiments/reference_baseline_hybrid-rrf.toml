@@ -1,0 +1,30 @@
+# Small CI fixture, but with the retriever R2 recommends (Hybrid RRF) instead of plain
+# BM25 — so the full three-module Pipeline is exercised locally, CPU-only, against a
+# fused retriever rather than only the v1 baseline. Both arms are sparse for that reason;
+# the SciFact run (scifact_reference_hybrid-rrf.toml) uses a granite-dense second arm.
+#
+# Not a benchmark: fixture results must never be reported as SciFact numbers.
+[dataset]
+manifest = "../../tests/fixtures/reference_dataset/manifest.json"
+
+[output]
+directory = "../../runs/reference-baseline-hybrid-rrf"
+
+[retriever]
+name = "hybrid"
+
+[retriever.parameters]
+fusion = "rrf"
+k = 60
+retrievers = [ { name = "bm25" }, { name = "strong-bm25" } ]
+
+[selector]
+name = "top-k"
+
+[generator]
+name = "extractive"
+
+[run]
+top_k = 3
+max_selected = 2
+seed = 7
