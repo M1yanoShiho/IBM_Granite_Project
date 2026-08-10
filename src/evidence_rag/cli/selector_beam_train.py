@@ -106,7 +106,7 @@ def _balanced_class_weights(
             )
     if any(probability <= 0.0 for probability in probabilities):
         raise ValueError("class weighting requires all three Selector labels")
-    weights = [1.0 / (3.0 * probability) for probability in probabilities]
+    weights = [1.0 / math.sqrt(3.0 * probability) for probability in probabilities]
     return weights[0], weights[1], weights[2]
 
 
@@ -260,6 +260,39 @@ def _candidate_set(case: BeamSelectorCase) -> CandidateSet:
     )
 
 
+def _sanity_cases(
+    niah_cases: Sequence[BeamSelectorCase],
+    twowiki_cases: Sequence[BeamSelectorCase],
+    *,
+    count: int,
+    max_selected: int,
+) -> tuple[tuple[BeamSelectorCase, ...], tuple[BeamSelectorCase, ...]]:
+    """Choose fully observed sanity cases whose success condition is actually attainable."""
+
+    if count < 1 or max_selected < 1:
+        raise ValueError("sanity count and max_selected must be positive")
+
+    def candidate_documents(case: BeamSelectorCase) -> set[str]:
+        return {candidate.document_id for candidate in case.candidates}
+
+    niah_eligible = tuple(
+        case
+        for case in sorted(niah_cases, key=lambda item: item.query_id)
+        if set(case.required_document_ids) <= candidate_documents(case)
+        and case.harmful_document_id in candidate_documents(case)
+        and len(set(case.required_document_ids)) <= max_selected
+    )
+    twowiki_eligible = tuple(
+        case
+        for case in sorted(twowiki_cases, key=lambda item: item.query_id)
+        if 2 <= len(set(case.required_document_ids)) <= max_selected
+        and set(case.required_document_ids) <= candidate_documents(case)
+    )
+    if len(niah_eligible) < count or len(twowiki_eligible) < count:
+        raise ValueError("not enough fully labeled and selectable Top-20 cases for the sanity run")
+    return niah_eligible[:count], twowiki_eligible[:count]
+
+
 def _selection_accuracy(
     network: TorchBeamNetwork,
     cases: Sequence[BeamSelectorCase],
@@ -267,6 +300,7 @@ def _selection_accuracy(
     max_length: int,
     batch_size: int,
     beam_size: int,
+    max_selected: int,
     required_threshold: float,
     reject_threshold: float,
 ) -> float:
@@ -279,13 +313,19 @@ def _selection_accuracy(
     )
     correct = 0
     for case in cases:
+        if len(set(case.required_document_ids)) > max_selected:
+            raise ValueError(
+                f"sanity case {case.query_id} requires more evidence than max_selected"
+            )
         document_by_evidence = {
             candidate.evidence_id: candidate.document_id for candidate in case.candidates
         }
         selected_ids = {
             item.evidence_id
             for item in selector.select(
-                Query(query_id=case.query_id, text=case.question), _candidate_set(case), 10
+                Query(query_id=case.query_id, text=case.question),
+                _candidate_set(case),
+                max_selected,
             ).items
         }
         selected_documents = {document_by_evidence[evidence_id] for evidence_id in selected_ids}
@@ -311,7 +351,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         raise ValueError(f"seed {arguments.seed} is not frozen in the config")
     if _text(training, "niah_twowiki_ratio") != "1:1":
         raise ValueError("this runner implements only the frozen 1:1 batch-source ratio")
-    if _text(training, "class_weighting") != "inverse-frequency-per-source":
+    if _text(training, "class_weighting") != "inverse-sqrt-frequency-per-source":
         raise ValueError("this runner implements only the frozen class weighting policy")
 
     random.seed(arguments.seed)
@@ -330,24 +370,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     if arguments.sanity:
         count = _integer(sanity, "questions_per_dataset")
-        niah_eligible = tuple(
-            case
-            for case in sorted(niah_cases, key=lambda item: item.query_id)
-            if set(case.required_document_ids)
-            <= {candidate.document_id for candidate in case.candidates}
-            and case.harmful_document_id in {candidate.document_id for candidate in case.candidates}
+        niah_cases, twowiki_cases = _sanity_cases(
+            niah_cases,
+            twowiki_cases,
+            count=count,
+            max_selected=_integer(selection, "max_selected"),
         )
-        twowiki_eligible = tuple(
-            case
-            for case in sorted(twowiki_cases, key=lambda item: item.query_id)
-            if len(case.required_document_ids) >= 2
-            and set(case.required_document_ids)
-            <= {candidate.document_id for candidate in case.candidates}
-        )
-        if len(niah_eligible) < count or len(twowiki_eligible) < count:
-            raise ValueError("not enough fully labeled Top-20 cases for the 32-question sanity run")
-        niah_cases = niah_eligible[:count]
-        twowiki_cases = twowiki_eligible[:count]
         epochs = _integer(sanity, "epochs")
     else:
         epochs = _integer(training, "epochs")
@@ -459,6 +487,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     max_length=max_length,
                     batch_size=batch_size,
                     beam_size=_integer(selection, "beam_size"),
+                    max_selected=_integer(selection, "max_selected"),
                     required_threshold=_number(sanity, "required_threshold"),
                     reject_threshold=_number(sanity, "reject_threshold"),
                 )
@@ -491,6 +520,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             max_length=max_length,
             batch_size=batch_size,
             beam_size=_integer(selection, "beam_size"),
+            max_selected=_integer(selection, "max_selected"),
             required_threshold=_number(sanity, "required_threshold"),
             reject_threshold=_number(sanity, "reject_threshold"),
         )
