@@ -155,7 +155,7 @@ R@10 66% < **R@20 90%**. So the original-query arm reliably drags gold back into
 cannot win rank 1: the signature of one vote diluted among N sub-query votes. Weighting that arm
 rather than adding it at equal weight is the obvious next step.
 
-**Weighting is now implemented but not yet measured (2026-08-05).** Both fusion primitives take
+**Weighting is implemented (2026-08-05) and now measured (2026-08-10).** Both fusion primitives take
 per-arm `weights`, and `DecomposingRetriever` exposes `original_weight` (default `1.0`, so R2's arm
 is reproduced exactly and no recorded result moves). Sweep points are in
 `configs/experiments/retr_{scifact,2wiki}_decompose-orig-w{2,3,5}.toml`; each weight yields a
@@ -171,6 +171,42 @@ information on top of the full-query ranking. A monotone climb that never crosse
 negative: decomposition contributes nothing and the optimal weight is effectively infinite. SciFact
 is the judging ground (decompose .5584 / strong-bm25 .6105 — real headroom); 2Wiki runs only as
 corroboration. Pre-registered in `docs/hpc-run-log.md` under R4.
+
+**Result (SciFact, n=300, 2026-08-10): the second falsifying outcome happened.** The climb is
+monotone and never crosses strong-bm25 on any of the four metrics.
+
+| Arm | MRR | Δ vs strong-bm25 | p | R@10 | Δ vs strong-bm25 | p |
+|---|---|---|---|---|---|---|
+| decompose | 0.5584 | −0.0521 | 0.0018 | 0.7094 | −0.0509 | 0.0132 |
+| decompose-orig (w=1) | 0.5824 | −0.0281 | — | 0.7304 | −0.0300 | — |
+| w=2 | 0.5873 | −0.0232 | 0.1301 | 0.7487 | −0.0117 | 0.5342 |
+| w=3 | 0.5949 | −0.0156 | 0.2905 | 0.7587 | −0.0017 | 0.9600 |
+| w=5 | 0.5986 | −0.0120 | 0.3742 | 0.7694 | +0.0090 | 0.5617 |
+| StrongBM25 | **0.6105** | — | — | **0.7604** | — | — |
+
+Two readings, and they point opposite ways — both were pre-registered, so both are reported.
+
+- **The dilution account survives.** Weighting the original arm is not inert: against `w=1`, `w=3`
+  and `w=5` are significant on MRR (+0.0125 p=0.0027; +0.0161 p=0.0239) and on R@10 (+0.0283
+  p=0.0111; +0.0390 p=0.0008), and the MRR gap to strong-bm25 closes monotonically — 46% recovered
+  at `w=1`, then 55%, 70%, **77%** at `w=5`. Total recall stays flat throughout (`w=5` −0.0042,
+  p=0.6781), so what moves is the ordering, not the candidate pool — exactly what Step 1 diagnosed.
+  The first falsifying outcome (all three weights indistinguishable from `w=1`) did **not** occur.
+- **And it buys nothing that strong-bm25 does not already have.** No finite weight exceeds
+  strong-bm25 significantly on any metric; every point estimate on MRR is still negative, and the
+  two that turn positive (`w=5` R@10 +0.0090, R@20 +0.0153) are nowhere near significance
+  (p=0.5617, p=0.1669). Since `w → ∞` *is* strong-bm25 by construction, the whole climb is
+  interpolation towards the base retriever. **The optimal weight is effectively infinite.**
+
+So the R4 recommendation stands and is now measured on its strongest configuration rather than
+argued: the best weighted arm (0.5986) is statistically indistinguishable from simply using
+strong-bm25 (0.6105) while costing N extra LLM calls and N extra retrievals per query. `w=5` also
+edges past the previous best arm, `decompose-orig-bestrank` (0.5938) — which changes nothing,
+because that one was already indistinguishable from strong-bm25 too (p=0.1523).
+
+Reproduce with `bash scripts/retriever_significance.sh scifact` (the pairs are wired in). The
+2Wiki corroboration arm was still running when this was written; it can only corroborate, since
+strong-bm25 there is already at .9580 and leaves no headroom to exceed.
 
 **Step 3 — a second fix, and the same question asked on a fairer dataset.** Two questions were left
 open, and both were pre-registered before the numbers were read. Does the original-query arm help
@@ -362,7 +398,10 @@ suite asserts the committed signature still reproduces.
 
 ## Next steps
 
-1. **Weight the original-query fusion arm instead of adding it at equal weight** — R4 shows the arm
+1. ~~**Weight the original-query fusion arm instead of adding it at equal weight**~~ — **done and
+   answered 2026-08-10 (see R4)**: monotone climb, 77% of the MRR gap recovered at `w=5`, and no
+   finite weight exceeds strong-bm25 on any metric. The pre-registered negative. Original text kept
+   below for the pre-registration record. R4 shows the arm
    recovers the top-20 but not rank 1, consistent with one vote diluted among N. **Mechanism landed
    2026-08-05, result still pending**: run the `w{2,3,5}` sweep on SciFact (judging ground) with
    2Wiki as corroboration, and pair against the `original_weight=1.0` arm. The pre-registered
