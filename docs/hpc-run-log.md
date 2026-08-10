@@ -3177,7 +3177,66 @@ sbatch --gres=gpu:rtx_3090:1 --time=24:00:00 scripts/run_r013_train_relations.sl
 7. 同次运行 —— 单作业单 seed,无跨运行比较;8. split —— A4 守卫按 query-id 集合比,
 `n_families_excluded_dev_overlap` 已在 smoke 上复现预注册值 151。
 
-**AFTER:** _待填 —— per-class F1、五折 OOF 完整性、`niah_domain_adaptation.status`、执行树 `[tree]`_
+**AFTER(job `18330608`,2026-08-10):§3.8 训练路径首次完整执行**
+
+| 项 | 值 |
+|---|---|
+| State / Exit | **COMPLETED / 0:0** |
+| Elapsed | **03:35:37** |
+| 节点 | bp1-gpu030(rtx_3090) |
+| 日志自记 | `bf16: True | NVIDIA GeForce RTX 3090`;五折全部 `CrossEncoderTrainer API` |
+| 执行树 | **`6f54d1d`**(由登录节点 `rev-parse` 确认,原因见下) |
+
+**三条预注册失败判据逐条核对,全部不触发:**
+1. 见下"判据一写松了"—— 原文的比较不成立,已更正,新表述下不触发;
+2. **五折 OOF 齐全**:75021 / 75021 / 75021 / 75020 / 75020 = **375103 = `chain.n_examples`**;
+3. `niah_domain_adaptation.status = **enforced**`,`is_smoke_run = **False**`。
+
+**读数(OOF per-class,按 source 拆):**
+
+| | macro-F1 | SUPPORTS | REFUTES | UNKNOWN |
+|---|---:|---|---|---|
+| 全部(n=375103) | **.8786** | P .9397 / R .9552 / F1 .9474 | P .9076 / R .8925 / F1 .9000 | P .7950 / R .7821 / F1 **.7885** |
+| `source=niah`(n=5284) | **.9695** | F1 .9700 | F1 .9690 | — |
+| `source=vitaminc`(n=369819) | .8781 | F1 .9471 | F1 .8986 | F1 .7885 |
+
+- **NIAH 半只有两类且完全平衡**(REFUTES / SUPPORTS 各 2642)—— 构造使然:每个 family 出一条 needle 与一条 twin,
+  且 §3.8(a) 把 twin 标为 REFUTES,**UNKNOWN 只由 VitaminC 的 NEI 提供**。
+- **UNKNOWN 是最弱的一类(.7885)**,与 §10.11 记录的"UNKNOWN 概率质量堆积"风险方向一致,应带入 0B 打分时的判读。
+
+**⚠ 这不是 Gate 0B 读数,重复一遍。** OOF 跑在**训练数据**上;NIAH 那 .9695 尤须克制 ——
+那些行出自同一注入器、同一构造,分折虽按 parent page + synthetic family 分组,仍属同分布。
+**它证明"训练学到了东西",不证明"能过门"。**
+
+**判据一写松了(BEFORE 的自我更正):** 原文写「OOF 的 SUPPORTS 召回未显著高于 .7942 ⇒ 训练路径无效」。
+**该比较不成立** —— `.7942` 是 0B-2 探针(mutation-log 任务对,n=5888)上的 `gold_supports_recall`,
+而 OOF 是训练数据上的,两个不同总体。**正确表述:OOF 只能判"训练是否收敛到可用的判别力",
+过门与否必须由 `cli/gate0b.py` 单独打分。** 这正是本条目开头警告过的那个错,而预注册自己踩了半只脚,如实记录。
+
+**打分钥匙(逐字,勿重排):**
+
+```
+    "runs/r013/seed-13": ('REFUTES', 'SUPPORTS', 'UNKNOWN'),
+```
+
+第三种标签序(albert 为 SUPPORTS/REFUTES/UNKNOWN,DeBERTa-large-mnli 为 SUPPORTS/UNKNOWN/REFUTES),
+按位置猜不会报错、只会把每条边重新贴标签而下游数字看着都正常。**必须走注册表,不得在调用点硬编码**(§11.10 第 7 项)。
+
+**成本读数,推翻了本条目 BEFORE 里的资源论证:** 单 seed 五折 **3h36m**,而非 slurm 申请的 24h。
+三 seed 合计约 **11 GPU 小时**,且跑在**不争用的 rtx_3090** 上。
+⇒ **「15 次全量微调与 Beam 路线争 bf16 节点」这条理由基本不成立**,BEFORE 中据此限制到单 seed 的
+范围披露,其**资源依据已被实测削弱**(路线不确定这条依据仍然成立)。
+
+**⚠ `[tree]` 自记录在计算节点上失效 —— 守卫本身有缺陷,不是树脏。**
+日志打印 `[tree] unknown +uncommitted`,两个回退**同时**触发,这是 `git` 不可用的签名。
+登录节点上实测 `git rev-parse HEAD` 正常返回、`git diff --quiet` 干净
+⇒ **代码正确,计算节点没有 git。** 与"本地绿、目标环境红"是同一族(参见索引持久化那次的换行符)。
+执行树因此由登录节点手工确认为 `6f54d1d`。**修法:改为直接解析 `.git/HEAD` 与 `refs/`(纯文本,不需 git 二进制);
+dirty 状态无 git 不可查,应诚实地不报。** 待办。
+
+**下一步不是补交 seed 42/73。** 真正的问题是"训练有没有补上 Gate 0B 的 5.6pp",
+而回答它需要**给这个 checkpoint 打分**,不是再训两个 seed:过了,三 seed 才值得补(§5.4 稳定性);
+没过,补两个 seed 也不改变结论。
 
 ---
 
