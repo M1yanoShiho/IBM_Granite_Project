@@ -101,6 +101,27 @@ class CountingScorer:
         return tuple(ClassProbabilities(0.4, 0.3, 0.3) for _ in candidate_passages)
 
 
+class CountingPathSensitiveScorer(PartiallyStoppingScorer):
+    def __init__(self) -> None:
+        self.calls: list[tuple[int, tuple[str, ...], tuple[str, ...]]] = []
+
+    def score(
+        self,
+        *,
+        question: str,
+        selected_passages: Sequence[str],
+        candidate_passages: Sequence[str],
+        hop: int,
+    ) -> tuple[ClassProbabilities, ...]:
+        self.calls.append((hop, tuple(selected_passages), tuple(candidate_passages)))
+        return super().score(
+            question=question,
+            selected_passages=selected_passages,
+            candidate_passages=candidate_passages,
+            hop=hop,
+        )
+
+
 def test_selector_replaces_confident_harm_with_required_outside_top10() -> None:
     events: list[BeamSelectorEvent] = []
     selector = ThreeClassBeamSelector(
@@ -154,7 +175,7 @@ def test_completed_high_score_path_is_not_discarded_by_an_expandable_path() -> N
     assert events[0].proposed_required_ids == ("e1",)
 
 
-def test_first_hop_cache_reuses_scores_but_never_caches_later_hops() -> None:
+def test_threshold_sweep_cache_reuses_identical_calls_at_every_hop() -> None:
     base = CountingScorer()
     scorer = FirstHopCachingScorer(base)
     first = scorer.score(
@@ -179,7 +200,38 @@ def test_first_hop_cache_reuses_scores_but_never_caches_later_hops() -> None:
             selected_passages=("one",),
             hop=1,
         )
-    assert base.calls == [(0, ()), (1, ("one",)), (1, ("one",))]
+    assert base.calls == [(0, ()), (1, ("one",))]
+
+
+def test_threshold_sweep_cache_preserves_every_selection_while_reducing_calls() -> None:
+    query = Query(query_id="q", text="question")
+    pool = _pool()
+    thresholds = tuple(
+        (required, reject)
+        for required in (0.5, 0.7, 0.85, 0.95)
+        for reject in (0.8, 0.95, 0.995)
+    )
+
+    uncached = CountingPathSensitiveScorer()
+    expected = [
+        ThreeClassBeamSelector(
+            uncached, required_threshold=required, reject_threshold=reject
+        ).select(query, pool, 10)
+        for required, reject in thresholds
+    ]
+
+    base = CountingPathSensitiveScorer()
+    cached = FirstHopCachingScorer(base)
+    observed = [
+        ThreeClassBeamSelector(
+            cached, required_threshold=required, reject_threshold=reject
+        ).select(query, pool, 10)
+        for required, reject in thresholds
+    ]
+
+    assert observed == expected
+    assert len({tuple(item.evidence_id for item in result.items) for result in observed}) > 1
+    assert len(base.calls) < len(uncached.calls) / 2
 
 
 def test_selector_rejects_mismatched_query() -> None:

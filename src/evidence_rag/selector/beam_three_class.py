@@ -57,11 +57,19 @@ class BeamTextScorer(Protocol):
 
 
 class FirstHopCachingScorer:
-    """Reuse threshold-independent first-hop scores during a development sweep."""
+    """Reuse identical model calls during a frozen development-threshold sweep.
+
+    The historical class name is retained for compatibility.  Every cache key contains the full
+    text-only model input and hop, so memoization changes neither probabilities nor selector
+    decisions; it only avoids recomputing a call already made by another threshold configuration.
+    """
 
     def __init__(self, base: BeamTextScorer) -> None:
         self.base = base
-        self._cache: dict[tuple[str, tuple[str, ...]], tuple[ClassProbabilities, ...]] = {}
+        self._cache: dict[
+            tuple[str, tuple[str, ...], tuple[str, ...], int],
+            tuple[ClassProbabilities, ...],
+        ] = {}
 
     def score(
         self,
@@ -71,14 +79,12 @@ class FirstHopCachingScorer:
         candidate_passages: Sequence[str],
         hop: int,
     ) -> tuple[ClassProbabilities, ...]:
-        if hop != 0 or selected_passages:
-            return self.base.score(
-                question=question,
-                selected_passages=selected_passages,
-                candidate_passages=candidate_passages,
-                hop=hop,
-            )
-        key = (question, tuple(candidate_passages))
+        key = (
+            question,
+            tuple(selected_passages),
+            tuple(candidate_passages),
+            hop,
+        )
         cached = self._cache.get(key)
         if cached is None:
             cached = self.base.score(
