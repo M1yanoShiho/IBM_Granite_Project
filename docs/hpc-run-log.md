@@ -1061,6 +1061,87 @@ R7 给出了具体动机:它量出一段**与检索器无关**的损失 —— g
 
 ---
 
+## R10 — 单独扫 overlap:R9 无法分离的那个变量
+
+**状态:** READY——三件套齐(四个 `configs/experiments/ovl_2wiki_c120o*.toml` +
+现有 pipeline runner + 本条目);**跑之前写。** 纯 CPU,不需要 GPU、不调 LLM。
+第五个点(overlap=20)即 R9 的锚点 `chunk_2wiki_a-c120o20`,**已跑,不重复**。
+
+**为什么是 overlap,而不是"继续往更小的 chunk 扫":**
+
+R9 发现固定预算下 answer 单调偏向小 chunk,最优点落在扫描边界(60)上。直觉的后续是往 60 以下扫,
+**但那条路会走进退化区**:固定 600 词预算时 `max_selected = 600 / chunk_size`,
+
+| chunk | 60 | 40 | 30 | 20 |
+|---|---|---|---|---|
+| max_selected | 10 | 15 | 20 | **30** |
+| 占 `top_k=50` | 20% | 30% | 40% | **60%** |
+
+chunk 越小,选中条数越逼近整个候选池,**selector 退化为"几乎全要"**。那时 sysRecall 上升是
+因为几乎没在筛,不是因为粒度合适 —— **与 R9 刚揭穿的体积混淆是同一件事换了副面孔**。
+
+overlap 则是唯一能在**选中条数不变、名义预算不变**的前提下调节"每块携带多少上下文"的旋钮,
+也正是 R9 限制 2 点名的、被绑定为 `chunk_size/6` 而无法分离的那个变量。
+
+**⚠️ overlap 自己的混淆,以及由此确定的推断规则(本条最重要的设计):**
+
+同一文档的相邻块共享 `overlap` 个词。overlap 越大 → 相邻块越相似 → 越容易同时进 top-5
+⇒ **实际送到下游的唯一词数越少**(名义仍是 600)。该混淆**与"overlap 有帮助"的假设方向相反**,
+故推断是不对称的:
+
+| 若实测 | 可否解读 |
+|---|---|
+| **overlap 越大越好** | ✅ **可以** —— 混淆在反方向拖后腿,真实效应只会**更大**,不会更小 |
+| **overlap 越大越差** | ❌ **不可以** —— 分不清是覆盖损失(机制)还是重复稀释(混淆) |
+
+**这条规则在跑之前写死:出现"越大越差"时不得声称已解释,只能报告并说明二者未分离。**
+
+**BEFORE(预注册):**
+
+- 设计:**唯一变量 = overlap ∈ {0, 20, 40, 60, 80}**。`chunk_size=120`、`max_selected=5`、
+  `top_k=50`、retriever=strong-bm25、generator=extractive、seed=7、数据集 `runs/twowiki` 全部固定。
+- **主假设(又一个拮抗):** overlap 越大 → 答案跨块边界被切断的概率越低(利);
+  但相同 50 个候选位覆盖的**不同语料范围**越窄(弊)⇒ **预期 answer 呈单峰,峰不在两端。**
+  ⚠️ 注意:R9 也预期单峰而实测单调,**本条不因"上次错了"就改口,仍按机制预期写单峰。**
+- **预期指标 + 方向:**
+  - `chunk_count` 随 overlap **上升**(step 从 120 降到 40 ⇒ 约 3 倍),这是**成本项**:
+    按 R5 的 `ms/1k_chunks` 近似常数,overlap=80 的每 query 检索开销约为 overlap=0 的 **3 倍**。
+    **质量若无明显提升,该成本足以否掉高 overlap。**
+  - `retriever.core.document_recall`(top-50)在高 overlap 处**下降** —— 50 个候选位覆盖的
+    不同语料变少。这是"弊"侧的直接读数,也是与重复稀释区分开的一个旁证。
+  - `system.core.answer_match` 为主指标,判据见上表的不对称规则。
+- **诚实的替代结果:**
+  (a) **五点基本持平** ⇒ 在此范围内 overlap 无关紧要,**R9 观察到的粒度效应与"边界切断"无关**,
+      应转而解释为覆盖/条数效应。这会缩小 R9 结论的机制解释范围,必须照写。
+  (b) **单调升到 80** ⇒ 边界切断确实重要;因混淆反向,真实效应**至少这么大**。
+      但须同时权衡 3 倍的检索开销,**不得只报质量不报成本**。
+  (c) **单调降** ⇒ 见上表,**不可解读**;只报现象,并说明须测"唯一词数"才能分离。
+  (d) **内部最优** ⇒ 预期形状成立,给出推荐值。
+- **自检:** `overlap=20` 一点直接复用 R9 的 `chunk_2wiki_a-c120o20`,其
+  `MRR .9580` / `Recall .7678` 已两次复现(R7、R9)。新四点的 retriever 指标应落在其邻域,
+  **若某点 MRR 偏离超过 R9 中 60↔480 的整个跨度(0.008),先查 harness。**
+- **本条不测什么:** 不动 chunk_size(固定 120 = 生产值,便于与 R9 直接对照);
+  不换 retriever/generator;**不测"唯一词数"这一混淆量本身** —— 它需要保留 trace 才能算,
+  而 trace 因体积原因不入库(见 R7/R9)。若结果落到 (c),再单独立项测它。
+- 精确命令(纯 CPU,`compute` 分区;overlap=20 那点不重跑):
+  ```
+  mkdir -p logs runs && sbatch --partition=compute --gres=none --time=04:00:00 \
+    scripts/run_pipeline_eval.slurm \
+    configs/experiments/ovl_2wiki_c120o0.toml \
+    configs/experiments/ovl_2wiki_c120o40.toml \
+    configs/experiments/ovl_2wiki_c120o60.toml \
+    configs/experiments/ovl_2wiki_c120o80.toml
+  # 汇总时把 R9 的锚点一并列入(它就是 overlap=20 那一点):
+  #   configs/experiments/chunk_2wiki_a-c120o20.toml
+  ```
+- Git commit:待本次改动提交后填;Seed:7;n=2000/臂。
+
+**AFTER:** 未运行。<!-- 填:job id、五点表(含 R9 锚点)、chunk_count 与开销、
+recall 是否在高 overlap 处下降、answer 形状与峰位、四种替代结果命中哪个、
+若为 (c) 则明确记为不可解读 -->
+
+---
+
 ## E2 — gate-on/off 配对 selector 对照(spec §12 主对照)
 
 **状态:** READY——三件套齐(configs + slurm + 本条目,commit 3c37d4c)。只差登录节点下 dpr-w100 + granite 后跑。
