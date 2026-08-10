@@ -1,4 +1,23 @@
-# G8 — final calibration
+# G8 — calibration (SUPERSEDED by G9)
+
+> **⚠ Superseded. Do not cite any number from this file.**
+>
+> The title said "final" when it was written; it is not. **G9
+> (`18322642`/`18322643`) is the final calibration**, and it is what
+> `frozen-results.md` and `local/report-writing/verified-numbers.md` carry.
+>
+> G9 re-ran after the fix pass, so every figure here was re-measured. They differ
+> for two independent reasons and neither is a correction of the other:
+> the sentence-splitter unification, and cross-job non-determinism — G8 ran at
+> 2.70 s/arm/case while G7 and G9 both ran at ~6, and G8 diverges from both on
+> 11% of answers.
+>
+> Concretely, G8 reads coverage 0.933 / correctness 0.273 / citation precision
+> 0.613 for the baseline where G9 reads 0.925 / 0.266 / 0.597, **with no change
+> to that arm**. Retained as the record of the round that established
+> metrics-neutrality of the review flag and the cross-job finding.
+
+## Original document follows
 
 Jobs `18307720` (generation, 01:31:24) + `18307721` (scoring, 00:16:24), five arms
 in one job, both exit 0. Judge **MiniCheck**; TRUE is the production verifier and

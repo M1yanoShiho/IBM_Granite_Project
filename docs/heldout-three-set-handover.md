@@ -81,6 +81,41 @@ and it burns walltime silently.
 mirror stores `context` **column-wise** (`{"title": [...], "sentences": [[...]]}`)
 rather than as a list of pairs; the loader transposes it back.
 
+## A fourth finding, and a fix you should take
+
+### The claim splitter is a single point of total failure — and its rate is not stable
+
+It sits upstream of every verification arm, so **one malformed LLM response
+removes a query from all of them while the baseline keeps it**. That asymmetry is
+not noise: it moves the coverage comparison.
+
+Measured across two datasets **in the same benchmark family**:
+
+| dataset | splitter failure rate |
+|---|---|
+| ASQA (calibration) | ~0.5% |
+| QAMPARI (held-out) | **4.5%** |
+
+Nine-fold, on a modest distribution shift. Your three sets shift much further, so
+expect worse.
+
+What it cost us: on QAMPARI the baseline answered **17 of the 18** lost queries
+against 0.801 of the rest, so pairing — which correctly drops them from both sides
+— removed exactly the ground the baseline was winning on. The coverage comparison
+became **untestable**, and we reported it as untested rather than passed.
+
+**The fix, already in `main`:** `ClaimSplitter(degrade_on_failure=True)` (the
+default) falls back to sentence-level claims instead of raising. Atomicity is lost
+and the claims are marked `degraded=True`, but the query survives and stays
+comparable across arms. Measured on our recorded drafts, it recovers **17 of 18**;
+the 18th had no draft to split because the baseline abstained.
+
+`scripts/splitter_recovery.py` reproduces that measurement on any recorded run.
+
+**Report the failure rate with your results**, whatever it is. If it is materially
+above ~0.5%, treat coverage comparisons on that dataset as unreliable — that is
+the rule we pre-registered and it fired exactly once, correctly.
+
 ## Two process notes worth inheriting
 
 **No reported comparison may span two jobs.** Measured on this codebase: with a
