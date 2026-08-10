@@ -68,7 +68,7 @@
     }
   },
   "model": {
-    "config_sha256": "000f81e213c5900c23a04bb57a899277272607772bdcb9c48e99377fc47cf00f",
+    "config_sha256": "a9f845a5034008d705d7236b92c9141a3e14a4358327df52df445c94712a7cf6",
     "model_id": "cross-encoder/nli-deberta-v3-base",
     "model_sha256": "d8148c6d49e0a7925134294c56326c71fe0ab1dc390e37355e00c7efbb488afa",
     "revision": "6c749ce3425cd33b46d187e45b92bbf96ee12ec7"
