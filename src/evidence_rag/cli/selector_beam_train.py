@@ -106,7 +106,7 @@ def _balanced_class_weights(
             )
     if any(probability <= 0.0 for probability in probabilities):
         raise ValueError("class weighting requires all three Selector labels")
-    weights = [1.0 / (3.0 * probability) for probability in probabilities]
+    weights = [1.0 / math.sqrt(3.0 * probability) for probability in probabilities]
     return weights[0], weights[1], weights[2]
 
 
@@ -311,7 +311,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         raise ValueError(f"seed {arguments.seed} is not frozen in the config")
     if _text(training, "niah_twowiki_ratio") != "1:1":
         raise ValueError("this runner implements only the frozen 1:1 batch-source ratio")
-    if _text(training, "class_weighting") != "inverse-frequency-per-source":
+    if _text(training, "class_weighting") != "inverse-sqrt-frequency-per-source":
         raise ValueError("this runner implements only the frozen class weighting policy")
 
     random.seed(arguments.seed)

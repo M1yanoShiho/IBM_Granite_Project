@@ -31,9 +31,9 @@ def test_class_weights_respect_equal_dataset_source_mass() -> None:
         _example(EvidenceLabel.REQUIRED, "2wiki"),
     )
     irrelevant, required, harmful = _balanced_class_weights((niah, twowiki))
-    assert irrelevant == pytest.approx(2.0 / 3.0)
+    assert irrelevant == pytest.approx((2.0 / 3.0) ** 0.5)
     assert required == pytest.approx(1.0)
-    assert harmful == pytest.approx(2.0)
+    assert harmful == pytest.approx(2.0**0.5)
 
 
 def test_class_weights_reject_missing_harmful_label() -> None:
