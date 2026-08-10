@@ -61,7 +61,7 @@ class ChunkerConfig(FrozenModel):
     """
 
     schema_version: Literal["1.0"] = "1.0"
-    name: Literal["word"] = "word"
+    name: Literal["word", "prechunked"] = "word"
     chunk_size: PositiveInteger = 120
     overlap: NonNegativeInteger = 20
 
@@ -74,6 +74,20 @@ class ChunkerConfig(FrozenModel):
                 f"chunker overlap must satisfy 0 <= overlap < chunk_size, "
                 f"got overlap={self.overlap} chunk_size={self.chunk_size}"
             )
+        return self
+
+    @model_validator(mode="after")
+    def window_settings_belong_to_word_chunking(self) -> "ChunkerConfig":
+        # "prechunked" emits each document as one chunk, so a chunk_size here would be
+        # silently inert — and two sweep points differing only in an inert number would
+        # look like distinct configurations while producing the identical corpus.
+        if self.name == "prechunked":
+            set_but_unused = sorted({"chunk_size", "overlap"} & self.model_fields_set)
+            if set_but_unused:
+                raise ValueError(
+                    f"chunker name='prechunked' does not split by a fixed window, so "
+                    f"{', '.join(set_but_unused)} must not be set"
+                )
         return self
 
 

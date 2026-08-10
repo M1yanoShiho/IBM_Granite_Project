@@ -90,6 +90,20 @@ class PrechunkedChunker:
         return (_derive_chunk(document, self.version, 0, len(document.text.split()), text),)
 
 
+def build_chunker(name: str, *, chunk_size: int, overlap: int) -> Chunker:
+    """Construct the chunker a config's ``[chunker] name`` selects.
+
+    ``chunk_size``/``overlap`` are ignored by window-less chunkers; ``ChunkerConfig``
+    already refuses to let a config set them there, so they are never silently dropped.
+    """
+
+    if name == "word":
+        return WordChunker(chunk_size=chunk_size, overlap=overlap)
+    if name == "prechunked":
+        return PrechunkedChunker()
+    raise ValueError(f"unknown chunker name: {name}")
+
+
 class FrozenModel(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
 
@@ -99,8 +113,11 @@ class CorpusManifest(FrozenModel):
     dataset_signature: NonEmpty
     chunker_name: NonEmpty
     chunker_version: NonEmpty
-    chunk_size: PositiveInteger
-    overlap: NonNegativeInteger
+    # ``None`` for chunkers that do not split by a fixed window (``PrechunkedChunker``),
+    # where a number here would be an invented one. Word chunking still records both, so
+    # every manifest written before this was optional parses and re-hashes identically.
+    chunk_size: PositiveInteger | None
+    overlap: NonNegativeInteger | None
     document_count: NonNegativeCount
     chunk_count: NonNegativeCount
     corpus_signature: NonEmpty
@@ -123,8 +140,8 @@ def _corpus_signature(value: object) -> str:
 
 
 class CorpusBuilder:
-    def __init__(self, chunker: WordChunker | None = None) -> None:
-        self.chunker = chunker or WordChunker()
+    def __init__(self, chunker: Chunker | None = None) -> None:
+        self.chunker: Chunker = chunker or WordChunker()
 
     def build(
         self,
@@ -142,13 +159,18 @@ class CorpusBuilder:
         self._validate_unique(chunks, lambda chunk: chunk.chunk_id, "chunk")
         self._validate_unique(chunks, lambda chunk: chunk.evidence_id, "evidence")
 
+        # A window-less chunker exposes neither attribute; the keys stay in the hashed
+        # manifest so the word-chunker signature is byte-identical to before.
+        chunk_size: int | None = getattr(self.chunker, "chunk_size", None)
+        overlap: int | None = getattr(self.chunker, "overlap", None)
+
         manifest_data = {
             "schema_version": "1.0",
             "dataset_signature": dataset_signature,
             "chunker_name": type(self.chunker).__name__,
             "chunker_version": self.chunker.version,
-            "chunk_size": self.chunker.chunk_size,
-            "overlap": self.chunker.overlap,
+            "chunk_size": chunk_size,
+            "overlap": overlap,
             "document_count": len(document_tuple),
             "chunk_count": len(chunks),
         }
@@ -177,8 +199,8 @@ class CorpusBuilder:
             dataset_signature=dataset_signature,
             chunker_name=type(self.chunker).__name__,
             chunker_version=self.chunker.version,
-            chunk_size=self.chunker.chunk_size,
-            overlap=self.chunker.overlap,
+            chunk_size=chunk_size,
+            overlap=overlap,
             document_count=len(document_tuple),
             chunk_count=len(chunks),
             corpus_signature=corpus_signature,
