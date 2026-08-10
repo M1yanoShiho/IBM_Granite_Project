@@ -19,7 +19,7 @@ class TopKSelector:
             raise ValueError("max_selected must be positive")
         ranked = sorted(
             candidates.candidates,
-            key=lambda item: (-item.retrieval_score, item.evidence_id),
+            key=lambda item: (item.retrieval_rank, item.evidence_id),
         )
         return SelectionResult(
             query_id=query.query_id,
