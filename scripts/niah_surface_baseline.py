@@ -33,7 +33,6 @@ two drift apart silently, which is the class of defect this repo keeps finding.
 """
 
 import argparse
-import collections
 import json
 import re
 import sys
@@ -151,7 +150,7 @@ def main(argv: list[str] | None = None) -> int:
         "      a large gap means the trained model is doing something the surface cannot."
     )
     if arguments.oof is not None:
-        _ablate(niah, scored, arguments.oof, twin_label=arguments.niah_twin_label)
+        _ablate(niah, scored, arguments.oof, threshold=threshold, high=high, low=low)
     return 0
 
 
@@ -160,18 +159,28 @@ def _ablate(
     scored: Sequence[tuple[str, float]],
     oof_path: Path,
     *,
-    twin_label: str,
+    threshold: float,
+    high: str,
+    low: str,
 ) -> None:
-    """Does the model still separate the pairs where the surface cue is absent or inverted?
+    """Where the surface rule is WRONG, is the model right?
 
-    A gap over the surface baseline shows the model does MORE than overlap. It does not show the
-    model is not ALSO leaning on overlap -- and the surface cue is strong in this data, so a
-    model trained here will use it. On a real pool that cue mostly disappears, which is the shape
-    S6 measured when an isolated-probe result failed to cascade.
+    A gap over the surface baseline shows the model does more than overlap. It does not show the
+    model is not also leaning on overlap, and the cue is strong here, so a model trained on this
+    data will use it. On a real pool the cue largely disappears -- misleading evidence is not
+    generally an entity-swapped copy of anything -- which is the shape S6 measured when an
+    isolated-probe result failed to cascade by 38.3 points.
 
-    Pairs make the split threshold-free. Each synthetic family contributes exactly one needle and
-    one twin, so the cue is INFORMATIVE for a pair when the needle's overlap beats the twin's, and
-    ABSENT OR INVERTED when it does not. No band, no tuned cut-off, nothing to choose.
+    The split is per row against the same swept threshold reported above: a row is cue-consistent
+    when the surface rule already gets it right, cue-inconsistent when the surface rule gets it
+    wrong. The second group is the interesting one, and it needs no grouping structure -- an
+    earlier attempt paired rows by synthetic family and was wrong about the construction, which
+    produces four rows per family (needle and twin passages crossed with both claims), not two.
+
+    Model accuracy on the cue-inconsistent rows is the reading. High means the model corrects the
+    surface rule rather than reproducing it. Near chance means its extra points come from
+    somewhere the surface rule was already right, and the discrimination the selector needs is
+    not demonstrated.
     """
 
     rows = [
@@ -182,12 +191,14 @@ def _ablate(
     niah_rows = [row for row in rows if row.get("source") == "niah"]
 
     # The chain is VitaminC then NIAH and the OOF is written in chain order, so the i-th NIAH row
-    # in the file is niah[i]. That is an assumption about two files agreeing, so it is CHECKED:
-    # a silent misalignment here would produce a perfectly plausible accuracy for the wrong rows.
+    # in the file is niah[i]. That is two files being assumed to agree, so it is CHECKED: a silent
+    # misalignment would produce a perfectly plausible accuracy for the wrong rows.
     if len(niah_rows) != len(niah):
         raise SystemExit(f"OOF has {len(niah_rows)} NIAH rows, the rebuild has {len(niah)}")
     mismatched = sum(
-        1 for row, example in zip(niah_rows, niah, strict=True) if row["gold"] != example.label.value
+        1
+        for row, example in zip(niah_rows, niah, strict=True)
+        if row["gold"] != example.label.value
     )
     if mismatched:
         raise SystemExit(
@@ -195,60 +206,33 @@ def _ablate(
             " rebuilt chain are not aligned and no number from them would mean anything"
         )
 
-    # The family key is the group key shared by exactly two rows: one needle, one twin. Derived
-    # rather than named, then verified -- if the derivation is wrong the pair check fails loudly.
-    counts: collections.Counter[str] = collections.Counter(
-        key for example in niah for key in example.group_keys
-    )
-    families: dict[str, list[int]] = collections.defaultdict(list)
-    for index, example in enumerate(niah):
-        pair_keys = [key for key in example.group_keys if counts[key] == 2]
-        if len(pair_keys) != 1:
-            raise SystemExit(
-                f"row {index} has {len(pair_keys)} group keys occurring exactly twice;"
-                " the needle/twin pairing cannot be derived"
-            )
-        families[pair_keys[0]].append(index)
-    for key, members in families.items():
-        labels = {niah[i].label.value for i in members}
-        if len(members) != 2 or labels != {"SUPPORTS", twin_label}:
-            raise SystemExit(f"family {key!r} is not one needle and one twin: {sorted(labels)}")
+    consistent: list[int] = []
+    inconsistent: list[int] = []
+    for index, (gold, score) in enumerate(scored):
+        surface = high if score >= threshold else low
+        (consistent if surface == gold else inconsistent).append(index)
 
-    informative: list[list[int]] = []
-    uninformative: list[list[int]] = []
-    for members in families.values():
-        needle = next(i for i in members if niah[i].label.value == "SUPPORTS")
-        twin = next(i for i in members if i != needle)
-        (informative if scored[needle][1] > scored[twin][1] else uninformative).append(
-            [needle, twin]
-        )
-
-    print("\n--- ablation: does the model survive without the surface cue? ---")
-    print(f"pairs total            {len(families)}")
-    for title, group in (("cue informative", informative), ("cue absent/inverted", uninformative)):
+    print("\n--- ablation: where the surface rule is wrong, is the model right? ---")
+    print(f"threshold used         {threshold:.4f}   (the swept optimum reported above)")
+    for title, group in (
+        ("surface already right", consistent),
+        ("surface WRONG", inconsistent),
+    ):
         if not group:
-            print(f"{title:<22} 0 pairs")
+            print(f"{title:<22} 0 rows")
             continue
-        indices = [i for pair in group for i in pair]
-        per_row = sum(
-            1 for i in indices if niah_rows[i]["predicted"] == niah[i].label.value
-        ) / len(indices)
-        per_pair = sum(
-            1
-            for pair in group
-            if all(niah_rows[i]["predicted"] == niah[i].label.value for i in pair)
+        accuracy = sum(
+            1 for i in group if niah_rows[i]["predicted"] == niah[i].label.value
         ) / len(group)
-        share = len(group) / len(families)
         print(
-            f"{title:<22} {len(group):>5} pairs ({share:6.1%})   "
-            f"row acc {per_row:.4f}   both-correct {per_pair:.4f}"
+            f"{title:<22} {len(group):>5} rows ({len(group) / len(niah):6.1%})"
+            f"   model acc {accuracy:.4f}"
         )
     print(
-        "READ: if row accuracy holds up where the cue is absent or inverted, the model learned"
-        " something the surface cannot give it.\n"
-        "      if it collapses there, the gap above is a finer surface rule and will not survive"
-        " a real pool.\n"
-        "      check the pair count too: a verdict drawn from a handful of pairs is not one."
+        "READ: high accuracy on the WRONG rows means the model corrects the surface"
+        " rule rather than reproducing it -- signal the overlap cue cannot supply."
+        " Near chance there means its extra points come from where the surface was"
+        " already right, and the discrimination the selector needs is not shown here."
     )
 
 
