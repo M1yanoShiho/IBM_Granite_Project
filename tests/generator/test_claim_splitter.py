@@ -191,7 +191,7 @@ def test_claim_splitter_rejects_malformed_json_output() -> None:
     llm = FakeLLM(["not JSON"])
 
     with pytest.raises(ValueError, match="valid JSON"):
-        ClaimSplitter(llm=llm).split("Revenue rose.")
+        ClaimSplitter(llm=llm, degrade_on_failure=False).split("Revenue rose.")
 
 
 def test_claim_splitter_requires_one_faithfulness_result_per_claim() -> None:
@@ -204,7 +204,7 @@ def test_claim_splitter_requires_one_faithfulness_result_per_claim() -> None:
     )
 
     with pytest.raises(ValueError, match="exactly the split claims"):
-        ClaimSplitter(llm=llm).split("Revenue rose.")
+        ClaimSplitter(llm=llm, degrade_on_failure=False).split("Revenue rose.")
 
 
 def test_claim_splitter_skips_faithfulness_check_when_no_claims_are_found() -> None:
@@ -220,14 +220,14 @@ def test_claim_splitter_rejects_json_without_claims_array() -> None:
     llm = FakeLLM(['{"answer":"Revenue rose."}'])
 
     with pytest.raises(ValueError, match="claims array"):
-        ClaimSplitter(llm=llm).split("Revenue rose.")
+        ClaimSplitter(llm=llm, degrade_on_failure=False).split("Revenue rose.")
 
 
 def test_claim_splitter_rejects_claim_without_required_text_fields() -> None:
     llm = FakeLLM(['{"claims":[{"text":"Revenue rose."}]}'])
 
     with pytest.raises(ValueError, match="source_text and text"):
-        ClaimSplitter(llm=llm).split("Revenue rose.")
+        ClaimSplitter(llm=llm, degrade_on_failure=False).split("Revenue rose.")
 
 
 def test_claim_splitter_drops_meta_narrative_claims() -> None:
@@ -324,4 +324,4 @@ def test_claim_splitter_rejects_faithfulness_output_without_results_array() -> N
     )
 
     with pytest.raises(ValueError, match="results array"):
-        ClaimSplitter(llm=llm).split("Revenue rose.")
+        ClaimSplitter(llm=llm, degrade_on_failure=False).split("Revenue rose.")

@@ -157,12 +157,60 @@ FAITHFULNESS_PROMPT = (
 class ClaimSplitter:
     """Split a draft answer into atomic claims and independently check rewrites."""
 
-    def __init__(self, llm: TextGenerator | None = None) -> None:
+    def __init__(self, llm: TextGenerator | None = None, *, degrade_on_failure: bool = True) -> None:
         self.llm = llm or GraniteLLMClient()
+        self.degrade_on_failure = degrade_on_failure
+        """Fall back to sentence-level claims when structured splitting fails.
+
+        **The defect this addresses is not that parsing fails -- it is that a parse
+        failure was FATAL.** The splitter sits upstream of every verification arm,
+        so one malformed response removed the query from all of them while leaving
+        it scored for the baseline. That asymmetry is what made QAMPARI's coverage
+        comparison untestable: failure ran at 18/400 = 4.5% there against ~0.5% on
+        calibration, and the baseline answered 17 of those 18.
+
+        Hardening the parser further chases a moving target -- malformed LLM output
+        has no fixed shape. A floor does not: the query survives, loses atomicity,
+        and stays comparable across arms.
+
+        **On by default**, because for any future run the floor is what should
+        happen. ``False`` restores the strict behaviour the frozen evaluation ran
+        under, which is what the parser-contract tests assert and what
+        `generator-frozen-g9-qampari-2026-08-10` measured. No reported number
+        changes either way: this path only executes where the old code raised.
+        """
 
     def split(self, answer_text: str) -> tuple[Claim, ...]:
         if not answer_text.strip():
             return ()
+        try:
+            return self._split_structured(answer_text)
+        except (ValueError, KeyError, TypeError):
+            if not self.degrade_on_failure:
+                raise
+            return self._degrade_to_sentences(answer_text)
+
+    def _degrade_to_sentences(self, answer_text: str) -> tuple[Claim, ...]:
+        """One claim per sentence, marked degraded.
+
+        Atomicity is lost -- a sentence carrying two facts needs both supported to
+        verify -- so this is worse than a successful split, and the flag says so
+        rather than letting a degraded query look like a normal one. It is much
+        better than losing the query, which was the previous behaviour.
+        """
+        return tuple(
+            Claim(
+                claim_id=f"claim-{index}",
+                text=answer_text[start:end],
+                span=ClaimSpan(start=start, end=end),
+                faithful_to_answer=True,  # it IS the answer text, verbatim
+                degraded=True,
+            )
+            for index, (start, end) in enumerate(sentence_spans(answer_text), start=1)
+            if answer_text[start:end].strip()
+        )
+
+    def _split_structured(self, answer_text: str) -> tuple[Claim, ...]:
         split_data = self._load_json(
             self.llm.generate(SPLIT_PROMPT.format(answer=answer_text))
         )
