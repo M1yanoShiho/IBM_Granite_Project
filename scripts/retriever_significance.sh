@@ -28,6 +28,23 @@ PAIRS=(
   # The bar that matters: does the best decompose arm beat just using the sparse
   # retriever on its own? Everything above only measures recovery towards it.
   "decompose-orig-bestrank strong-bm25"
+  # R4 weight sweep. The original-query arm recovers R@20 but not rank 1, which is what
+  # one vote diluted among N sub-query votes looks like; weighting it is the test of that
+  # account. Paired against w=1 (decompose-orig), these say whether weight does anything
+  # at all -- all three indistinguishable from w=1 falsifies the dilution account.
+  "decompose-orig-w2 decompose-orig"
+  "decompose-orig-w3 decompose-orig"
+  "decompose-orig-w5 decompose-orig"
+  # ...and the pre-registered question itself. RRF scores w/(k+rank_original) + sum over
+  # sub-arms, so w -> infinity IS strong-bm25: a monotone climb proves nothing, and only
+  # a *finite* weight that significantly EXCEEDS strong-bm25 shows the sub-query arms add
+  # information on top of the full-query ranking. A climb that never crosses it is the
+  # honest negative -- decomposition contributes nothing and the optimal weight is
+  # effectively infinite. SciFact judges (real headroom, .5584 vs .6105); 2Wiki
+  # corroborates only, since there strong-bm25 already sits at .9580.
+  "decompose-orig-w2 strong-bm25"
+  "decompose-orig-w3 strong-bm25"
+  "decompose-orig-w5 strong-bm25"
 )
 # MRR answers "is the top hit right", recall@10/20 and total recall answer "is the gold
 # document anywhere the selector can still reach it" -- and with top_k=50 feeding a

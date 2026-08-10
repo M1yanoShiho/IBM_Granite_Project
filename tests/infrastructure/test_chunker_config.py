@@ -19,7 +19,7 @@ from pydantic import ValidationError
 
 from evidence_rag.contracts.models import Document
 from evidence_rag.infrastructure.config import ChunkerConfig, load_experiment_config
-from evidence_rag.infrastructure.corpus import CorpusBuilder, WordChunker
+from evidence_rag.infrastructure.corpus import CorpusBuilder, WordChunker, build_chunker
 
 DOCUMENTS = (
     Document(
@@ -113,7 +113,77 @@ def test_overlap_at_or_above_chunk_size_is_rejected_at_config_load() -> None:
 
 
 def test_unknown_chunker_name_is_rejected() -> None:
-    # Only WordChunker exists today; a typo like "words" must fail loudly rather than
-    # silently falling back to the default and producing a corpus nobody asked for.
+    # A typo like "words" must fail loudly rather than silently falling back to the
+    # default and producing a corpus nobody asked for.
     with pytest.raises(ValidationError):
         ChunkerConfig(name="words")
+
+
+def test_default_name_still_selects_word_chunking() -> None:
+    # The name became selectable; the default must not have moved with it, or every
+    # config in configs/experiments/ would change corpus underneath its recorded numbers.
+    chunker = build_chunker(ChunkerConfig().name, chunk_size=120, overlap=20)
+    assert isinstance(chunker, WordChunker)
+    assert (chunker.chunk_size, chunker.overlap) == (120, 20)
+
+
+def test_prechunked_is_selectable_from_a_config_and_does_not_re_split(
+    tmp_path: Path,
+) -> None:
+    # The point of the option: structure-aware units produced at ingestion (tables,
+    # cross-page sections) must survive as one chunk each instead of being cut again
+    # by a fixed word window that knows nothing about the structure.
+    config_path = tmp_path / "prechunked.toml"
+    config_path.write_text(
+        '[dataset]\nmanifest = "m.json"\n\n'
+        '[output]\ndirectory = "./out"\n\n'
+        '[retriever]\nname = "bm25"\n\n'
+        '[selector]\nname = "top-k"\n\n'
+        '[generator]\nname = "extractive"\n\n'
+        '[chunker]\nname = "prechunked"\n\n'
+        "[run]\ntop_k = 5\nmax_selected = 2\nseed = 7\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "m.json").write_text("{}", encoding="utf-8")
+
+    config = load_experiment_config(config_path)
+    assert config.chunker.name == "prechunked"
+
+    corpus = CorpusBuilder(
+        build_chunker(
+            config.chunker.name,
+            chunk_size=config.chunker.chunk_size,
+            overlap=config.chunker.overlap,
+        )
+    ).build(DOCUMENTS, "fixture-signature")
+
+    assert len(corpus.chunks) == len(DOCUMENTS)
+    # 500 words at the word chunker's 120/20 would have been eight chunks, not one.
+    assert corpus.manifest.chunker_name == "PrechunkedChunker"
+    assert corpus.manifest.corpus_signature != build(120, 20).manifest.corpus_signature
+
+
+def test_prechunked_records_no_window_rather_than_an_invented_one() -> None:
+    # A number here would be a fiction: nothing splits on it. Recording it would also
+    # let two identical prechunked corpora carry different signatures.
+    corpus = CorpusBuilder(build_chunker("prechunked", chunk_size=120, overlap=20)).build(
+        DOCUMENTS, "fixture-signature"
+    )
+    assert corpus.manifest.chunk_size is None
+    assert corpus.manifest.overlap is None
+
+
+def test_window_settings_are_rejected_on_a_window_less_chunker() -> None:
+    # They would be inert. Two sweep points differing only in an ignored chunk_size
+    # would look distinct in the config and produce the identical corpus.
+    with pytest.raises(ValidationError, match="chunk_size"):
+        ChunkerConfig(name="prechunked", chunk_size=180)
+    with pytest.raises(ValidationError, match="overlap"):
+        ChunkerConfig(name="prechunked", overlap=30)
+    # Not setting them is fine — the defaults are simply unused.
+    assert ChunkerConfig(name="prechunked").name == "prechunked"
+
+
+def test_build_chunker_rejects_a_name_no_chunker_implements() -> None:
+    with pytest.raises(ValueError, match="unknown chunker name"):
+        build_chunker("structure-aware", chunk_size=120, overlap=20)

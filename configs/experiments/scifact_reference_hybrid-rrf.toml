@@ -1,0 +1,36 @@
+# The shared-infrastructure reference Pipeline, run with the retriever the R2 matrix
+# actually recommends instead of the v1 BM25 baseline. Hybrid (RRF) is the strongest and
+# most consistent arm measured (SciFact MRR 0.707 vs BM25 0.608; significant on MRR and
+# Recall@10 on all three datasets), so the end-to-end SciFact number the three groups
+# quote should come from it, not from the baseline kept for the plug's sake.
+#
+# Same dataset, split, chunking and IDs as scifact_reference.toml — only [retriever]
+# differs, so the two runs are directly comparable. The changed retriever changes the
+# index signature, hence the separate output directory: the runner refuses to reuse the
+# baseline's index rather than silently scoring against it.
+#
+# Needs a GPU for the granite-dense arm.
+[dataset]
+manifest = "../../data/benchmarks/scifact/test/manifest.json"
+
+[output]
+directory = "../../runs/scifact-reference-hybrid-rrf"
+
+[retriever]
+name = "hybrid"
+
+[retriever.parameters]
+fusion = "rrf"
+k = 60
+retrievers = [ { name = "strong-bm25" }, { name = "granite-dense" } ]
+
+[selector]
+name = "top-k"
+
+[generator]
+name = "extractive"
+
+[run]
+top_k = 10
+max_selected = 5
+seed = 7

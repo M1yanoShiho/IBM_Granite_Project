@@ -305,6 +305,61 @@ what ultimately trusts (or doesn't) the retrieved caption.
 
 ---
 
+## R6 - Connecting to the shared pipeline with the retriever we actually recommend
+
+The shared infrastructure's acceptance list has been satisfied since 2026-07-15, but the
+reference pipeline it was signed off with runs plain BM25 — the v1 baseline, not the arm R2
+recommends. So the end-to-end SciFact number the three groups quote came from the weakest
+retriever we measured. That is now a config choice rather than a rebuild:
+`configs/experiments/scifact_reference_hybrid-rrf.toml` is the same dataset, split, chunking
+and IDs as `scifact_reference.toml` with only `[retriever]` changed (RRF over
+strong-bm25 + granite-dense). The changed retriever changes the index signature, so it writes
+to its own `runs/` directory and the runner refuses to score it against the baseline's index.
+
+Verified locally, CPU only, on the CI fixture via
+`configs/experiments/reference_baseline_hybrid-rrf.toml` (two sparse arms, no GPU needed):
+`all` produces the full six-stage artifact chain with provenance sidecars and
+`index_implementation = "hybrid"` in the run manifest. So the fused path goes through the
+shared index plugin boundary end to end, not just through the retriever's own tests. The
+SciFact run itself needs a GPU and is a cluster submission.
+
+Worth recording, because it contradicts §4.4 of the shared infrastructure plan: that document
+still scopes the v1 index boundary to BM25 with "FAISS、StrongBM25、SPLADE、Hybrid 后续按实验
+需要增加，不在 v1 范围内", while `composition.py` already routes `strong-bm25`,
+`granite-dense` and `hybrid` through `prepare_retriever_index()`. The code is ahead of the
+plan. That document is the infrastructure owner's to change, not ours — reported, not edited.
+
+## R7 - Chunking is now a choice of chunker, not just of two numbers
+
+`[chunker] chunk_size`/`overlap` were already configurable, but the chunker *type* was pinned
+to `Literal["word"]`, so `PrechunkedChunker` — which exists precisely so structure-aware units
+from ingestion (tables, cross-page sections) survive as one chunk each — was unreachable from
+any experiment config. Passing it would have crashed anyway: `CorpusBuilder` was typed to
+`WordChunker` and read `chunk_size`/`overlap` off it unconditionally.
+
+- `[chunker] name` now accepts `"word"` (default, unchanged) or `"prechunked"`, resolved by
+  `corpus.build_chunker()`.
+- A window-less chunker records `chunk_size`/`overlap` as `null` in the corpus and run
+  manifests rather than an invented number, and the config **rejects** setting either one
+  under `name = "prechunked"`. Both matter for the same reason: an inert `chunk_size` would
+  let two sweep points look distinct in their configs while producing the identical corpus.
+- The word path is unchanged byte for byte. A `reference_baseline.toml` run produces the same
+  `corpus_signature` before and after this change (verified by running it on both trees), so
+  no recorded SciFact/NQ/2Wiki number moves.
+- Full suite, ruff and strict mypy pass.
+
+Structure-aware chunking of *plain-text* corpora (splitting on sections/tables rather than a
+word window) is still not implemented; what landed is the ability to select a chunker at all,
+plus the one alternative implementation we already had.
+
+**Unrelated defect found while verifying the above, not fixed here:** the frozen baseline
+chain committed at `tests/fixtures/reference_baseline_artifacts/` no longer reproduces. Its
+`corpus_signature` is `7de07bd…`; current `main` produces `f359854…` from the same fixture and
+the same 120/20 chunking, and this is true on a clean tree as well as with the change above.
+`dataset_signature`, `chunk_size` and `overlap` all still match, so something in document or
+chunk serialisation moved since that fixture was frozen at `ef90665` and nothing in the test
+suite asserts the committed signature still reproduces.
+
 ## Next steps
 
 1. **Weight the original-query fusion arm instead of adding it at equal weight** — R4 shows the arm
@@ -315,9 +370,26 @@ what ultimately trusts (or doesn't) the retrieved caption.
    finite weight beats plain strong-bm25**. Falsifying outcomes: all three weights
    indistinguishable from `w=1` (the dilution account is wrong), or a monotone climb that never
    crosses strong-bm25 (decomposition adds nothing). Both are publishable negatives.
+   **Analysis side is wired (2026-08-10)**: `scripts/retriever_significance.sh` now carries both
+   pair families — `w{2,3,5}` vs `decompose-orig` (does weight do anything) and `w{2,3,5}` vs
+   `strong-bm25` (the pre-registered bar). Only the cluster runs are outstanding:
+   ```
+   sbatch scripts/run_retriever_eval.slurm \
+     configs/experiments/retr_scifact_decompose-orig-w{2,3,5}.toml
+   sbatch scripts/run_retriever_eval.slurm \
+     configs/experiments/retr_2wiki_decompose-orig-w{2,3,5}.toml
+   scripts/retriever_significance.sh scifact   # then, on the login node
+   ```
 2. **Re-run the NQ arm** — the third dataset the R3 pre-registration promised and did not deliver,
    blocked only on materialising `runs/niah-base`. Generality currently rests on SciFact alone, so a
-   second headroom-bearing dataset is what would actually settle it.
+   second headroom-bearing dataset is what would actually settle it. The blocker is one login-node
+   command (dpr-w100 download, so it cannot run on a compute node):
+   ```
+   python -m evidence_rag.materializer.base_cli --split dev --output runs/niah-base \
+     --corpus-size 100000 --query-limit 2000 --seed 42
+   ```
+   Every `configs/experiments/retr_nq_*.toml` already points at `runs/niah-base/manifest.json`,
+   so the arms need no new configuration once it exists.
 3. **Measure hallucinated-caption rate on real (non-synthetic) documents** — the OCR-smoke PASS
    proves the mechanism works, not that captions are trustworthy at scale; requires the
    cross-module sync with Generator noted above.
@@ -325,7 +397,8 @@ what ultimately trusts (or doesn't) the retrieved caption.
    changes it. Every query still touches every chunk; the constant has been cut as far as it goes.
    A corpus an order of magnitude larger than SciFact is needed alongside it, since the measured
    range tops out at 5183 documents and the extrapolation past that is an assumption.
-5. Configurable chunking, to better support structured documents (tables/sections) instead of
-   fixed-length splits.
+5. ~~Configurable chunking~~ — **selecting a chunker landed 2026-08-10 (R7)**. What remains is a
+   structure-aware chunker for plain-text corpora; `prechunked` only helps corpora whose units
+   were already cut by the loader.
 6. Broaden ingestion format coverage (docx/pptx/html via Docling) and surface OCR quality signals
    instead of letting a poor scan degrade silently.
