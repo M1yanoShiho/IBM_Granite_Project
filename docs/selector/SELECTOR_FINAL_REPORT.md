@@ -75,3 +75,14 @@ MIS 能发现冲突，却不能可靠判断冲突双方哪一方正确，因此�
 - `results/selector-beam-v1/m2/checksums.sha256`：M2 两份报告的完整性校验。
 
 大型模型权重和逐题开发输出保留在教师服务器 scratch，未提交 Git。Git 只保存足以复核决定的小型报告。
+
+## 7. M5 完成验证
+
+- M2 结果归档提交：`64cab11`；
+- TopK cutover 与旧运行代码清理提交：`0c710e2`；
+- Selector 生产目录只保留 `top_k.py`、数据构造仍需的 `answer_norm.py` 和包初始化文件；
+- 全部实验配置的 Selector 均为 `top-k`；
+- 本地完整测试、Ruff、Mypy 全部通过；
+- 教师服务器已同步到 `0c710e2`，服务器完整测试通过；
+- `docs/selector/` 只保留本报告，旧计划与重复总结由 Git 历史保存；
+- 用户自己的 `docs/presentation/` 未纳入提交，也未被修改。
