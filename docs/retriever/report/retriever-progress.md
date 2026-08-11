@@ -363,6 +363,71 @@ super-linearity I inferred was cross-run noise (+5.0% on one node against the be
 
 ---
 
+## R9 - The inverted index, and what it actually buys
+
+R5 ended by saying the remaining cost *is* the linearity — every query touched every chunk —
+and that only an inverted index changes it. It is now built, and the result is more specific
+than that sentence implied.
+
+**Correctness first.** The scan now walks the query's posting lists instead of the corpus.
+That must not move a score, or every recorded SciFact/NQ/2Wiki number stops being reproducible.
+Two things secure it: contributions are accumulated **in query-term order** exactly as the old
+inner loop did (float addition is not associative, so any other order changes the last bits),
+and length normalisation is precomputed with the expression grouped exactly as it was. Checked
+two ways — the bit-for-bit equivalence test against a self-contained transcription of the old
+full scan, and the committed frozen candidate chain, which reproduces **byte for byte**.
+
+The equivalence test's reference implementation was also made self-contained as part of this:
+it used to read the retriever's own cached `tokens` and `term_frequencies`, and a reference
+that shares structure with the thing it checks can only catch a subset of the ways that thing
+can be wrong. It now re-analyses the chunks itself.
+
+**What it buys, measured (synthetic corpora, local, CPU).** Cost moved from O(corpus) to
+O(postings of the query's terms). Whether that is a win therefore depends entirely on how
+selective the query is:
+
+| Corpus | Query terms | Full scan | Inverted | Speed-up |
+|---|---|---|---|---|
+| 2000 chunks | common | 3.07 ms | 2.05 ms | 1.5× |
+| 2000 chunks | rare | 1.81 ms | **0.01 ms** | ~180× |
+| 8000 chunks | common | 13.89 ms | 10.19 ms | 1.4× |
+| 8000 chunks | rare | 6.82 ms | **0.01 ms** | ~680× |
+
+The rare-term row is flat in corpus size — 0.01 ms at both 2000 and 8000 chunks — which is the
+asymptotic change R5 asked for. **The common-term row is still linear**, and that is not a
+shortfall of the implementation but the mechanism: a common term's posting list *is* most of
+the corpus, so "touch only the chunks containing the term" degenerates to "touch nearly
+everything". Cost tracks posting coverage directly — 0.008 ms at df=1 against 4.445 ms at 69.5%
+coverage on the same 8000-chunk corpus.
+
+**So the honest correction to R5:** an inverted index does not remove the linearity. It makes
+the cost proportional to what the query actually asks for, and the linearity survives exactly
+to the extent that the query asks for common terms.
+
+**A consequence worth acting on: the analyzer is now a cost decision, not only a quality one.**
+Stopword filtering removes precisely the highest-coverage terms, so it should benefit far more
+from postings than plain tokenisation. Predicted, then measured on prose-like text (~45%
+stopwords, 8000 chunks, natural-language queries): BM25 **9.12 ms/query**, StrongBM25
+**0.01 ms/query** — roughly **900×**.
+
+That reframes R2's verdict on StrongBM25. R2 found it is not a reliable *quality* win (and the
+NQ re-run above shows it is significantly worse on recall there). With an inverted index it is
+a large *latency* win on natural-language queries, because it never scores the stopword
+postings at all. Those are separate axes and should be recommended separately.
+
+### Limitations
+
+- Synthetic corpora only. The vocabulary is Pareto-distributed and the "prose" is generated,
+  so the numbers size the effect and identify the mechanism; they are not SciFact or NQ
+  figures. The R5 scaling harness on the cluster is where they should be confirmed.
+- Memory is again unmeasured. The postings are a transpose of the per-chunk counters they
+  replace rather than an addition to them, but Python's per-object overhead on
+  `tuple[tuple[int, int], ...]` is real and unquantified — the same gap R5 left open.
+- Nothing here changes index *build* time asymptotics; build was already linear and negligible
+  against query cost (R5: 1.09 s to build against 7.7 s for fifty queries).
+
+---
+
 ## The open question
 
 A still-unresolved risk on the ingestion side: hallucinated image captions are indistinguishable
@@ -575,10 +640,11 @@ consistently carrying a signature no code could produce stayed green for three w
 3. **Measure hallucinated-caption rate on real (non-synthetic) documents** — the OCR-smoke PASS
    proves the mechanism works, not that captions are trustworthy at scale; requires the
    cross-module sync with Generator noted above.
-4. **Build an inverted index** — R5 showed the remaining cost *is* the linearity, and only this
-   changes it. Every query still touches every chunk; the constant has been cut as far as it goes.
-   A corpus an order of magnitude larger than SciFact is needed alongside it, since the measured
-   range tops out at 5183 documents and the extrapolation past that is an assumption.
+4. ~~**Build an inverted index**~~ — **built and measured 2026-08-11 (R9)**, with a correction
+   to the premise: it does not remove the linearity, it makes cost proportional to the query's
+   own postings, and the linearity survives for common terms. What remains is confirming the
+   synthetic numbers on a real corpus an order of magnitude larger than SciFact, which still
+   needs that corpus materialised.
 5. ~~Configurable chunking~~ — **done (R7)**: chunker selection landed 2026-08-10, and the
    structure-aware `section` chunker on 2026-08-11. What remains is not implementation but
    evidence: compare `section` against `word` on a corpus that actually has structure (the
