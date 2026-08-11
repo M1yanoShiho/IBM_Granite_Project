@@ -12,8 +12,8 @@
 |---|---|---|---|---|---|---|---|
 | R001 | M0 | A盘点→B恢复/重建→C实现严格 Hybrid-v2 manifest | NIAH/2Wiki train/dev；sealed 只审计 hash | 完整性、retriever/pool SHA、连通分量 overlap | MUST | PASS | 六池 exact recovery 与 Hybrid-v2 pool freeze PASS；component/crossing 由 R002 封存；未训练 |
 | R002 | M0 | 冻结指标、cluster CI、expected-risk CRC 协议 | toy + simulated losses | document-ID、conditional chain、component representative、`(ΣL+1)/(n+1)` | MUST | PASS | `COMPLETE / SAMPLE-SIZE GO`；四风险 n 均≥99；不代表真实 Selector/策略已通过 CRC |
-| R003 | M0 | 数量基线并冻结等量删除对照生成器 | TopK10/9/8/7；random/bottom-rank 协议 | harm、recall、chain、selected count、seed derivation | MUST | RUNNING | 代码与测试完成，等待正式 artifact freeze/verify；真实等量对照仍须等 Selector trace |
-| R004 | M1 | 标签审计与 200q 资源预检 | train-modelval 子集 | label/mask、truncation、吞吐 | MUST | TODO |  |
+| R003 | M0 | 数量基线并冻结等量删除对照生成器 | TopK10/9/8/7；random/bottom-rank 协议 | harm、recall、chain、selected count、seed derivation | MUST | PASS | `BASELINE-PROTOCOL PASS`；生成/verify-only `5/5`，本地/服务器 `14/14` hash match；固定 TopK9 不满足保守目标；非 Selector PASS |
+| R004 | M1 | 标签审计与 200q 资源预检 | train-modelval 子集 | label/mask、truncation、吞吐 | MUST | TODO | NEXT；只做标签审计与资源预检，不直接开始全量训练 |
 | R005 | M1 | 双头 sanity | 小样本 protect/harm | overfit、held-out safe corner、fallback | MUST | TODO |  |
 | R006 | M2 | 全量训练 seed13，只冻结 checkpoint/候选分位点 | train-fit → train-modelval | dual scores、checkpoint rule | MUST | TODO | 不提前冻结 P0–P6 |
 | R007 | M2 | 方法选择与决定性消融 | grouped OOF/train-modelval | 0–cap1/2/3、`ε_harm`、复杂度序；冻结唯一 family/cap/分位点 | MUST | TODO | 不看 calibration/decision |
@@ -36,7 +36,7 @@
 
 ## Gate 0 — 代码和资产现实
 
-- [x] 实际 commit/branch 已记录：R001 恢复盘点基线为 `refactor/three-module-baseline@74026c0`；R002 正式生成与服务器核验使用 `ffe2d27411e6c4848debcb2887405c045cea0541`，工作树 clean。
+- [x] 实际 commit/branch 已记录：R001 恢复盘点基线为 `refactor/three-module-baseline@74026c0`；R002 正式生成与服务器核验使用 `ffe2d27411e6c4848debcb2887405c045cea0541`；R003 正式生成使用 `c23c4df71ba61c95b1acb72411684e6a62ff3e77`，服务器工作树 clean。
 - [x] 六个历史 Hybrid RRF Top20 pool 已恢复并逐文件匹配历史 SHA-256；决策是 exact recovery/repackage，不是 rebuild。
 - [x] Hybrid RRF Top20 使用独立 `SelectorCandidatePoolManifestV2`；现有 BM25-only pin 未被放宽或误用。
 - [x] retriever name/version/params hash、`top_n=20`、query/data signature 和逐题 pool hash 已冻结。
@@ -75,21 +75,25 @@
 - [x] paired 比较拒绝 query-set 不一致；共享 parent/family 时使用 paired cluster bootstrap/sign-flip。
 - [x] 2Wiki 的 cluster 单位来自 official supporting/gold parent；跨官方 split overlap 另作敏感性分层，不通过重分 heldout 消除。
 - [x] p-value 使用 plus-one；不出现 `p=0.0`。
-- [ ] Top20 pool-conditional、TopK10 baseline-exposed、unconditional 三种 harm 分母均保存。
-- [ ] TopK10/9/8/7 可复算；count-matched 生成器、100 repeats 和 seed derivation 已冻结。
+- [x] Top20 pool-conditional、TopK10 baseline-exposed、unconditional 三种 harm 分母均保存。
+- [x] TopK10/9/8/7 可复算；count-matched 生成器、100 repeats 和 seed derivation 已冻结；真实对照结果按协议等待实际 Selector trace，不伪造。
 - [x] chain loss 只在 TopK10 chain-eligible query 上计算，分母没有被全部 query 稀释。
 - [x] CRC 对每个风险使用 `（ΣL+1）/(n+1)≤0.01`，P0–P6 selected sets 嵌套且 loss 单调，四风险最终取最保守策略。
 - [x] 四项必需风险各自有效 component `n≥99`，才允许进入 R004/scorer 训练；否则 Gate 1 标记 `BLOCKED/CUT`，先扩充 calibration 或提交事前论证的 amendment。
 - [x] calibration 与未来 component 的可交换性假设和分布审计已记录；无法支持时未声称 CRC 理论保证。
 - [x] CRC toy/simulation 在无安全策略时选择 P0；bootstrap 95% CI 没有被写成 CRC 保证。
 
-**状态：** RUNNING（R002 协议与样本量门 PASS；等待 R003 冻结 TopK 数量基线、三种 harm 分母和 count-matched 生成协议）
+**状态：** PASS（R002 的指标/CRC 样本量协议与 R003 的 TopK 数量基线、三种 harm 分母、count-matched 生成协议均已冻结并独立复验；下一步 R004）
 
 **证据：**
 
 - R002 协议报告与机器可读验证同 Gate 0 链接；指标/CRC 实现提交：`ffe2d27411e6c4848debcb2887405c045cea0541`。
 - 四项 calibration representative component 数分别为 NIAH recall `523`、NIAH conditional chain `402`、2Wiki recall `866`、2Wiki conditional chain `468`，均满足 `n≥99`。
 - R002 判定只为 `SAMPLE-SIZE GO`：当前没有 scorer 或真实策略 loss，不能写成 Selector、阈值或非零策略 CRC PASS。
+- R003 零基础报告：[`R003_PROTOCOL_REPORT.md`](../results/selector-adaptive-risk-v1/R003/R003_PROTOCOL_REPORT.md)；机器可读验证：[`R003_VALIDATION_REPORT.json`](../results/selector-adaptive-risk-v1/R003/R003_VALIDATION_REPORT.json)；run-level 依赖与缺失状态：[`selector_experiment_manifest.json`](../results/selector-adaptive-risk-v1/R003/selector_experiment_manifest.json)。
+- R003 正式生成与独立 verify-only 均为 `5/5 PASS`，本地/服务器 14 个原始文件 `14/14 SHA-256 MATCH`，服务器上游输入 pin 直接重算 `54/54 MATCH`；独立复算 `30,008` 行 trace 的嵌套/删除/R002 绑定异常均为 `0`；服务器相关 `60 passed`，本地全仓 `1268 passed`，Ruff/mypy PASS。
+- NIAH dev 固定 TopK9 相对 TopK10 的 Top20 pool-conditional harmful reduction 约 `+2.04 pp`，但 recall loss 约 `1.90 pp`、conditional chain loss 约 `4.47 pp`；因此数量缩减本身不是可接受 Selector，后续必须允许逐题 0 删除。
+- count-matched random/bottom-rank 目前只有冻结协议，数值结果明确为 `DEFERRED_UNTIL_REAL_SELECTOR_TRACE`；R003 PASS 不是 Selector 或策略 PASS。
 
 ## Gate 2 — Scorer 可行性
 
@@ -213,3 +217,6 @@ count-matched 对照 seed/100 repeats/输出路径:
 | 2026-08-11 | 2Wiki component 只用 official supporting/gold parent，不用所有 Top20 candidate parent | distractor parent 不是正确证据关系，会制造伪相关 component | R001C/R002/R004 |
 | 2026-08-11 | 2Wiki 跨官方 split supporting-parent overlap 如实报告，不为追求0而重分 heldout | 官方 split 必须保持；overlap 是敏感性变量，不是可删掉的数据 | R002/R013/R015 |
 | 2026-08-11 | R002 判定为 `COMPLETE / SAMPLE-SIZE GO`，不判 Selector 或非零策略 PASS | 四项代表 component n 均≥99，只证明当前 α=1% 路线具备继续实验的样本量；尚无真实策略 loss | Gate 0 PASS；Gate 1 继续 R003 |
+| 2026-08-12 | R003 判定为 `COMPLETE / BASELINE-PROTOCOL PASS`，Gate 1 PASS | TopK10/9/8/7 与三种 harm 分母已复算；固定 TopK9 虽改善约2.04 pp harmful，却损失约1.90 pp recall、4.47 pp 完整链，不能替代自适应 Selector | R004 NEXT；后续策略必须允许逐题删0条 |
+| 2026-08-12 | count-matched 只冻结生成器与100个重复，结果延后到真实 Selector trace | 公平对照必须逐题复制实际删除数；R003 没有 Selector trace，提前填结果属于伪造 | R009/R012/R014/R015 生成真实对照；R003 manifest 标记 `DEFERRED` |
+| 2026-08-12 | run-level artifact contract 显式区分 `NOT_APPLICABLE` 与 `DEFERRED` | 基线/协议阶段没有 learned scores 或 Selector trace；伪造空占位文件比明确状态更易误读 | R003 起每阶段 manifest 声明适用性；进入 scorer/Selector 阶段后仍必须产出当阶段必需文件 |

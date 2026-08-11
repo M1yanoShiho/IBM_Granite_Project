@@ -1,0 +1,108 @@
+{
+  "candidate_pool_manifest_verified": true,
+  "candidate_pool_status": "VERIFIED_SELECTOR_POOL_V2",
+  "counts": {
+    "components": 2324,
+    "dataset_queries": 3000,
+    "eligible_input_queries": 3000,
+    "trace_rows": 12000
+  },
+  "dataset_id": "2wiki/multihop",
+  "dataset_kind": "2wiki",
+  "dataset_signature": "036385693999c5bdf6932cd96a32019be6053fc2ac85f8ad3d458d1de1485f86",
+  "dataset_version": "train-subsample-3000",
+  "inputs": {
+    "candidate_pool": {
+      "bytes": 38645090,
+      "sha256": "0ab0fc92f95add1c5d514f531e7b567c4e67d1e5430c401f37ec6f719dbc8887"
+    },
+    "dataset_documents": {
+      "bytes": 8374164,
+      "sha256": "18cae1bbdb104b35004eb9efb27975928fd5d2a5d4f6e854ec38a1788ac1d192"
+    },
+    "dataset_gold_cases": {
+      "bytes": 475045,
+      "sha256": "b62cc139f390067322b0337431dc962d4befca77026667f1f347e1f09380165b"
+    },
+    "dataset_manifest": {
+      "bytes": 244,
+      "sha256": "a16f3e76e8072cc68a8df350fa1e7928d88f3df0a3b21415d4bbad8dffd9fe0e"
+    },
+    "dataset_queries": {
+      "bytes": 461239,
+      "sha256": "bb64fcca8fdcb0063e5fde103ec74531a4ce74333fd057c3fdebd13e5db5b7cf"
+    },
+    "selector_candidate_pool_manifest_v2": {
+      "bytes": 494293,
+      "sha256": "067cad9e9b46cfb901d78ead6c55d80d0815a2f3afade0653011b337c547326d"
+    },
+    "selector_components": {
+      "chain_representatives.jsonl": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "component_map.jsonl": {
+        "bytes": 1691898,
+        "sha256": "394fb41123322b08c618ce3d94ec3dc6bb1f4666bceb1f32e1e7019e241fe298"
+      },
+      "recall_representatives.jsonl": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "role_assignments.jsonl": {
+        "bytes": 723243,
+        "sha256": "d435d526fc40ca5f463110ab95eb006736354f3fe343a37eba247f745e7d47fd"
+      },
+      "selector_components_manifest.json": {
+        "bytes": 4676,
+        "sha256": "48c849d52e22e1f66f3d8006a93c7e3e3542c181d2b9a883f2a5c938e7e2febd"
+      },
+      "selector_components_report.json": {
+        "bytes": 3461,
+        "sha256": "3272ce61973c6428782ec1e128cef8b5ac0679fedcb10c7d6fa8d53b57f5677b"
+      }
+    },
+    "source_parent": {
+      "bytes": 1302335,
+      "sha256": "1af322fb6bf749ce5f7897ced3674758b100dfd2c5f7ab80b7021d07a5b7d76e"
+    }
+  },
+  "outputs": {
+    "topk_controls.jsonl": {
+      "bytes": 13556758,
+      "records": 12000,
+      "sha256": "c19a3773a78312c4d17a5b984383070dc0d99498a85b2a97382b0005ae79354b"
+    },
+    "topk_controls_report.json": {
+      "bytes": 21448,
+      "sha256": "63aa23434fc70ed4686f94f0ff501ba8e42173cb612a42b07e6281f78db26b25"
+    }
+  },
+  "protocol_version": "selector-topk-controls-v1",
+  "r002_manifest_file": "selector_components_manifest.json",
+  "rules": {
+    "anchor": "TopK10 S0",
+    "chain_denominator": "queries whose TopK10 contains every official gold document",
+    "niah_query_universe": "frozen assignment subset",
+    "paired_alignment": "strict identical query keys and identical metric masks",
+    "paired_bootstrap_and_sign_flip_iterations": 10000,
+    "paired_bootstrap_and_sign_flip_seed": 13,
+    "paired_ci": "95% percentile paired component-cluster bootstrap",
+    "paired_p_value": "two-sided Monte Carlo sign-flip with plus-one correction",
+    "paired_resampling_unit": "frozen R002 component_id",
+    "paired_scopes": "overall and each frozen R002 derived role separately",
+    "pool": "same frozen Hybrid Top20 for every system",
+    "recall_unit": "document_id",
+    "smaller_systems": "literal S0 prefix; ranks 11-20 never replace a deletion",
+    "systems": [
+      "topk10",
+      "topk9",
+      "topk8",
+      "topk7"
+    ],
+    "twowiki_harmful_metrics": "not defined and not emitted",
+    "twowiki_query_universe": "all source-split queries"
+  },
+  "schema_version": "1.0",
+  "source_split": "train"
+}

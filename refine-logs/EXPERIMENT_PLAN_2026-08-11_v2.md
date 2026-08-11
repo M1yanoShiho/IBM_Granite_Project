@@ -68,15 +68,16 @@ R007 必须输出唯一的 `policy_family`、最终 cap 和 P0–P6 构造规则
 
 `ABSTAIN_KEEP` 不能一边被保留，一边被写成“已经处理 harmful”。未来的隔离查证不属于本轮核心实验。
 
-### 0.4 当前进度：R001/R002 已完成，下一步只做 R003，不训练模型
+### 0.4 当前进度：R001–R003 已完成，下一步只做 R004 标签与资源预检
 
-R001 与 R002 已通过各自的前置门；当前只允许完成 R003 的数量基线与对照协议，仍不开始 scorer 训练。已经完成的顺序为：
+R001–R003 已通过各自的前置门；当前只允许进入 R004 的标签审计与 200-query 资源预检，仍不开始全量 scorer 训练。已经完成的顺序为：
 
 1. **R001A — inventory（COMPLETE）：** candidate pool、gold、provenance、ParentIndex、run/index manifest 和模型资产的本地/原 HPC 路径、存在性、schema、bytes 与 SHA-256 已记录；
 2. **R001B — recover-or-rebuild decision（COMPLETE）：** 六个历史 Hybrid pool 均按原 hash 精确恢复，决策为 `EXACT_RECOVERY / REPACKAGE`；
 3. **R001C — pool code integrity（COMPLETE）：** 独立 Hybrid-v2 pool manifest 已实现，六个真实池的 retriever、Top20、query/document/corpus 对齐和逐题 hash 均通过 freeze + verify-only；
 4. **R002 — metric/component/CRC protocol（COMPLETE / SAMPLE-SIZE GO）：** component map、派生角色 crossing、CRC representatives、指标符号和 expected-risk 规则已冻结；四项风险代表数均 `n≥99`；
-5. **Gate 0：PASS；Gate 1：RUNNING。** R002 的 GO 只代表协议和样本量足以继续，不代表任何真实删除策略已通过；R003 完成前不进入 scorer 训练。
+5. **R003 — TopK/count controls（COMPLETE / BASELINE-PROTOCOL PASS）：** TopK10/9/8/7 数量基线和 count-matched random/bottom-rank 生成协议已冻结并复验；固定 TopK9 在 NIAH dev 虽改善约 `2.04 pp` harmful，却损失约 `1.90 pp` recall 和 `4.47 pp` 完整链，因此不能作为保守方案；
+6. **Gate 0：PASS；Gate 1：PASS；R004：NEXT/TODO。** R003 的 PASS 只表示基线与协议完整，不代表 Selector 或非零删除策略成功；真实 count-matched 结果必须等未来 Selector trace 决定逐题删除数后生成。
 
 ---
 
@@ -644,7 +645,7 @@ paired bootstrap CI 主要反映“换一批相似 query”带来的抽样不确
 
 核心训练上限仍为 3 个完整 seed。绝对 GPU 小时在 R004 用实际吞吐测量后写入 tracker；当前历史报告没有可信 wall-time，不虚构小时数。
 
-所有新产物统一写入 `results/selector-adaptive-risk-v1/<run_id>/`。每个目录至少包含 config、独立且升版的 `selector_experiment_manifest.json`、逐 candidate scores、decision trace、selected sets、聚合指标、paired CI、日志和 checksums；缺任一必需产物的 Run 不得标记 PASS。
+所有新产物统一写入 `results/selector-adaptive-risk-v1/<run_id>/`。每个目录至少包含 config、独立且升版的 `selector_experiment_manifest.json`、日志和 checksums；逐 candidate scores、decision trace、selected sets、聚合指标与 paired CI 按当前阶段是否适用生成。阶段上不适用的产物必须在 manifest 中显式写成 `NOT_APPLICABLE`，依赖未来真实 trace 的产物必须写成 `DEFERRED`，不能伪造占位结果；一旦进入 scorer/Selector 运行阶段，缺少当阶段必需产物的 Run 不得标记 PASS。
 
 现有严格 `RunManifest` 没有 scorer checkpoint、CRC artifact、source sidecar、label/data/pool 等全部字段，不能假装已经覆盖。v2 新 manifest 必须显式保存这些内容 hash 和 schema version，并由独立实验 runner 同时写出 `(SelectionResult, SelectorDecisionTrace)` 或等价的两个 sidecar；生产 `Selector.select(...) -> SelectionResult` protocol 保持不变。
 
@@ -671,13 +672,16 @@ paired bootstrap CI 主要反映“换一批相似 query”带来的抽样不确
 - **证据：** `results/selector-adaptive-risk-v1/R002/R002_PROTOCOL_REPORT.md` 与 `R002_VALIDATION_REPORT.json`。
 - **解释边界：** 当前没有 scorer、真实策略 loss 或非零 CRC 通过结果；`SAMPLE-SIZE GO` 只允许继续 R003。
 
-### R003 — topk-and-count-controls — RUNNING
+### R003 — topk-and-count-controls — COMPLETE / BASELINE-PROTOCOL PASS
 
-- 运行 TopK10/9/8/7；
-- 冻结逐题 count-matched random/bottom-rank 生成协议与 100 个重复的 seed 派生规则；此时没有实际 Selector trace，不提前伪造对照结果；
-- 冻结 TopK10 主锚点。
+- 已在 NIAH/2Wiki train/dev 的冻结 Hybrid Top20 池上运行并复验 TopK10/9/8/7；四个任务加一个 protocol 任务正式生成 `5/5 PASS`、独立 verify-only `5/5 PASS`，本地/服务器原始文件 `14/14 SHA-256 MATCH`；
+- 已冻结 TopK10 主锚点、三种 NIAH harmful 分母、document-ID recall、TopK10-chain-eligible 条件分母与 component-cluster paired CI；
+- 已冻结逐题 count-matched random/bottom-rank 生成协议、master seed `20260811` 和 100 个重复的派生 seed；因为没有真实 Selector trace，数值结果按协议保持 `DEFERRED`；
+- **关键结果：** NIAH dev 的固定 TopK9 相对 TopK10，pool-conditional harmful reduction 约 `+2.04 pp`，但 required recall loss 约 `1.90 pp`、conditional chain loss 约 `4.47 pp`，不满足保守目标；
+- **证据：** `results/selector-adaptive-risk-v1/R003/R003_PROTOCOL_REPORT.md`、`R003_VALIDATION_REPORT.json`、`selector_experiment_manifest.json` 与 `CHECKSUMS.sha256`；
+- **解释边界：** R003 PASS 仅证明基线/协议完整且可复算，不表示 Selector、阈值或非零删除策略通过。
 
-### R004 — label-audit-and-200q-preflight
+### R004 — label-audit-and-200q-preflight — NEXT / TODO
 
 - 审计 protect/harm/mask 标签；确保 provenance 不进入输入；
 - 200-query 前向、截断、显存和吞吐测试；

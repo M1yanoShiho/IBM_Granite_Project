@@ -1,0 +1,25 @@
+{
+  "golden_vectors": {
+    "random_priority": {
+      "candidate_pool_file_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "dataset_id": "golden-dataset",
+      "dataset_signature": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "evidence_id": "golden-evidence",
+      "priority_sha256": "e942586160b9b9f619719eaa23163f63447641e6afd9597ee634a2fc166e669b",
+      "query_id": "golden-query",
+      "repeat_index": 0
+    },
+    "repeat_0_seed_sha256": "2a1bf681ff4a25881dafb3008a682541b7124a4ed58772ae3da19e8fa4a14ec6",
+    "repeat_99_seed_sha256": "e43e3c63caf51d9d55c9fbe3c8cceb53e1965e9b55550584c9243ed71b07c611"
+  },
+  "inputs": {},
+  "outputs": {
+    "count_matched_protocol.json": {
+      "bytes": 18409,
+      "sha256": "09743e8cd08b574ed93467b8c4afbc94a57d92aeb20031b70429ea4f98551d74"
+    }
+  },
+  "protocol_version": "selector-count-matched-v1",
+  "schema_version": "1.0",
+  "status": "GENERATOR_PROTOCOL_ONLY_NO_SELECTOR_TRACE"
+}
