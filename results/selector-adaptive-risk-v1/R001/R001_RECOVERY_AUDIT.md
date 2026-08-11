@@ -33,18 +33,18 @@ EXACT_RECOVERY / REPACKAGE
 - 检查 dataset/gold/provenance/source-parent 的存在性与冻结身份；
 - 没有重新运行 retrieval，没有改写或复制远端正式文件；
 - sealed600 与 2Wiki heldout 只检查身份与结构，没有运行或查看新 Selector 效果；
-- 远端文件 mtime 未纳入本次冻结记录，不能从本报告推断 mtime。
+- 记录远端文件系统显示的 mtime；远端审计没有单独记录时区，因此 mtime 只作为运维线索，不参与冻结身份判定。
 
 ## 3. 六个 candidate pool
 
-| 角色 | 原 HPC 路径 | Windows | Bytes | 重新计算的 SHA-256 | 冻结记录 | 判定 |
+| 角色 | 原 HPC 路径 | Windows | Bytes | mtime（远端显示） | 重新计算的 SHA-256 | 判定 |
 |---|---|---:|---:|---|---|---|
-| NIAH dev | `/home/fl25387/projects/IBM_Granite_Project_latest/runs/selector-beam-v1/pools/niah-dev/candidate_sets.jsonl` | 2,000 | 36,265,904 | `89ede8249e0682568ea0a85d00eac4881323c992d8d16362016810bd8cb96ee3` | 同值 | EXACT |
-| NIAH train | `/home/fl25387/projects/IBM_Granite_Project_latest/runs/selector-beam-v1/pools/niah-train/candidate_sets.jsonl` | 2,000 | 36,283,237 | `09e8c9b4972f48a67661c8b06dcf220f178528156699da671a16dd8d08fb908f` | 同值 | EXACT |
-| NIAH sealed600 | `/home/fl25387/projects/IBM_Granite_Project_latest/runs/selector-reliability-mis/sealed600/pool/candidate_sets.jsonl` | 600 | 10,889,278 | `777391fac4854448a47a7cdc9543cd77710b17f4e960084a26f4640f340ae590` | 同值 | EXACT |
-| 2Wiki dev | `/home/fl25387/projects/IBM_Granite_Project_latest/runs/selector-reliability-mis/2wiki/pool/candidate_sets.jsonl` | 2,000 | 27,222,255 | `26442003e230c93e53fe71f4b9a16d269fc5b02674ba6137f6cfceabb721607f` | 同值 | EXACT |
-| 2Wiki train | `/home/fl25387/projects/IBM_Granite_Project_latest/runs/selector-beam-v1/pools/2wiki-train/candidate_sets.jsonl` | 3,000 | 38,645,090 | `0ab0fc92f95add1c5d514f531e7b567c4e67d1e5430c401f37ec6f719dbc8887` | 同值 | EXACT |
-| 2Wiki heldout | `/home/fl25387/projects/IBM_Granite_Project_latest/runs/selector-beam-v1/pools/2wiki-heldout/candidate_sets.jsonl` | 2,000 | 27,249,204 | `fcca691ed0867bfdc8c6491452d82b4a5701218c8bac7ead0bb486a8469ee219` | 同值 | EXACT |
+| NIAH dev | `/home/fl25387/projects/IBM_Granite_Project_latest/runs/selector-beam-v1/pools/niah-dev/candidate_sets.jsonl` | 2,000 | 36,265,904 | `2026-08-09 23:50:02` | `89ede8249e0682568ea0a85d00eac4881323c992d8d16362016810bd8cb96ee3` | EXACT |
+| NIAH train | `/home/fl25387/projects/IBM_Granite_Project_latest/runs/selector-beam-v1/pools/niah-train/candidate_sets.jsonl` | 2,000 | 36,283,237 | `2026-08-09 23:54:11` | `09e8c9b4972f48a67661c8b06dcf220f178528156699da671a16dd8d08fb908f` | EXACT |
+| NIAH sealed600 | `/home/fl25387/projects/IBM_Granite_Project_latest/runs/selector-reliability-mis/sealed600/pool/candidate_sets.jsonl` | 600 | 10,889,278 | `2026-08-09 18:08:08` | `777391fac4854448a47a7cdc9543cd77710b17f4e960084a26f4640f340ae590` | EXACT |
+| 2Wiki dev | `/home/fl25387/projects/IBM_Granite_Project_latest/runs/selector-reliability-mis/2wiki/pool/candidate_sets.jsonl` | 2,000 | 27,222,255 | `2026-08-09 17:28:37` | `26442003e230c93e53fe71f4b9a16d269fc5b02674ba6137f6cfceabb721607f` | EXACT |
+| 2Wiki train | `/home/fl25387/projects/IBM_Granite_Project_latest/runs/selector-beam-v1/pools/2wiki-train/candidate_sets.jsonl` | 3,000 | 38,645,090 | `2026-08-09 23:03:31` | `0ab0fc92f95add1c5d514f531e7b567c4e67d1e5430c401f37ec6f719dbc8887` | EXACT |
+| 2Wiki heldout | `/home/fl25387/projects/IBM_Granite_Project_latest/runs/selector-beam-v1/pools/2wiki-heldout/candidate_sets.jsonl` | 2,000 | 27,249,204 | `2026-08-09 22:47:27` | `fcca691ed0867bfdc8c6491452d82b4a5701218c8bac7ead0bb486a8469ee219` | EXACT |
 
 ### 3.1 Retriever 身份与窗口结构
 
@@ -112,6 +112,7 @@ EXACT_RECOVERY / REPACKAGE
 
 - 路径：`/scratch/fl25387/IBM_Granite_Project_latest/runs/selector-beam-v1/models/seed-13/model.pt`
 - 大小：735,412,418 bytes
+- mtime（远端显示）：`2026-08-10 18:35:16`
 - 重新计算 SHA-256：`d882b90fd98c1c11ebf1251f0fc9b1830a320a60f25bef200e41219a7950e755`
 - 与 `M2_TRAIN_REPORT.json` 和 `M2_EVALUATION_REPORT.json` 一致。
 

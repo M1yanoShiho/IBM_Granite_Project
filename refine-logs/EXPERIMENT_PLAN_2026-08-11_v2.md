@@ -68,14 +68,15 @@ R007 必须输出唯一的 `policy_family`、最终 cap 和 P0–P6 构造规则
 
 `ABSTAIN_KEEP` 不能一边被保留，一边被写成“已经处理 harmful”。未来的隔离查证不属于本轮核心实验。
 
-### 0.4 现在的下一步：只做 R001，不训练模型
+### 0.4 当前进度：R001/R002 已完成，下一步只做 R003，不训练模型
 
-R001 没通过前，不开始 scorer 训练。执行顺序固定为：
+R001 与 R002 已通过各自的前置门；当前只允许完成 R003 的数量基线与对照协议，仍不开始 scorer 训练。已经完成的顺序为：
 
 1. **R001A — inventory（COMPLETE）：** candidate pool、gold、provenance、ParentIndex、run/index manifest 和模型资产的本地/原 HPC 路径、存在性、schema、bytes 与 SHA-256 已记录；
 2. **R001B — recover-or-rebuild decision（COMPLETE）：** 六个历史 Hybrid pool 均按原 hash 精确恢复，决策为 `EXACT_RECOVERY / REPACKAGE`；
-3. **R001C — pool code integrity（COMPLETE）：** 独立 Hybrid-v2 pool manifest 已实现，六个真实池的 retriever、Top20、query/document/corpus 对齐和逐题 hash 均通过 freeze + verify-only；component map、派生角色 crossing 与 CRC representative artifact 继续由 R002 完成；
-4. **Gate 0 evidence：** 把上述证据写入 tracker。只有 Gate 0 PASS 才进入 R002，不能因为“模型代码已经能写”而跳过。
+3. **R001C — pool code integrity（COMPLETE）：** 独立 Hybrid-v2 pool manifest 已实现，六个真实池的 retriever、Top20、query/document/corpus 对齐和逐题 hash 均通过 freeze + verify-only；
+4. **R002 — metric/component/CRC protocol（COMPLETE / SAMPLE-SIZE GO）：** component map、派生角色 crossing、CRC representatives、指标符号和 expected-risk 规则已冻结；四项风险代表数均 `n≥99`；
+5. **Gate 0：PASS；Gate 1：RUNNING。** R002 的 GO 只代表协议和样本量足以继续，不代表任何真实删除策略已通过；R003 完成前不进入 scorer 训练。
 
 ---
 
@@ -656,18 +657,21 @@ paired bootstrap CI 主要反映“换一批相似 query”带来的抽样不确
 - **R001A inventory — COMPLETE：** 已盘点本地/远端 candidate pools、gold、provenance、source-parent、run/index manifest 和 checkpoint，并记录路径、存在性、schema、bytes 与 SHA-256；
 - **R001B recover/rebuild — COMPLETE：** 六个 Hybrid RRF Top20 pool 均与历史 SHA-256 精确匹配，决策冻结为 `EXACT_RECOVERY / REPACKAGE`，不重跑 retrieval；
 - **R001C pool code integrity — COMPLETE：** 六个恢复池均已生成并通过独立 `SelectorCandidatePoolManifestV2` 的二次验证；只接受冻结的 Hybrid 名称、版本、参数 hash、Top20 和 query/data signatures；BM25-only pin 未修改或复用；
-- 冻结实际 Git commit、model revision、数据角色、连通分量和 CRC 代表 query 选择规则；
-- 提交 Gate 0 evidence；不读取 sealed/heldout 效果，不训练 scorer。
+- **R002 联合收尾 — COMPLETE：** 数据角色、连通分量和 CRC 代表 query 选择规则已经冻结；NIAH/2Wiki train/dev 的派生角色 query/component crossing 均为 `0`；
+- **Gate 0 — PASS：** 已提交完整证据；没有读取 sealed/heldout 的 Selector 效果，也没有训练 scorer。
 
-### R002 — metric-and-crc-unit-protocol
+### R002 — metric-and-crc-unit-protocol — COMPLETE / SAMPLE-SIZE GO
 
 - 修复 strict paired query alignment、paired cluster bootstrap/sign-flip 与 plus-one p-value；
 - 新增 `harm_reduction`、relative recall loss、conditional chain loss、deletion precision；
 - 用手工 toy cases 和 simulated bounded losses 验证文档 ID 口径、chain-eligible 分母、每 component 一个预冻结代表、CRC 修正式 `（ΣL+1）/(n+1)`、集合嵌套、四风险取最保守策略和 P0 fallback；
 - 计算四项风险各自有效 component `n`；任一 `n<99` 时当前 `α=1%` 路线在训练前 CUT/BLOCKED，不进入 R004；
 - 冻结符号，并明确 CRC expected-risk 与 bootstrap CI 是两个不同关卡。
+- **实际结果：** NIAH recall `n=523`、NIAH conditional chain `n=402`、2Wiki recall `n=866`、2Wiki conditional chain `n=468`，全部满足 `n≥99`；四套 artifact 的独立 verify-only 为 `4/4 PASS`，本地/服务器 24 文件 hash 为 `24/24 MATCH`，预注册 projection 为 `10/10 MATCH`。
+- **证据：** `results/selector-adaptive-risk-v1/R002/R002_PROTOCOL_REPORT.md` 与 `R002_VALIDATION_REPORT.json`。
+- **解释边界：** 当前没有 scorer、真实策略 loss 或非零 CRC 通过结果；`SAMPLE-SIZE GO` 只允许继续 R003。
 
-### R003 — topk-and-count-controls
+### R003 — topk-and-count-controls — RUNNING
 
 - 运行 TopK10/9/8/7；
 - 冻结逐题 count-matched random/bottom-rank 生成协议与 100 个重复的 seed 派生规则；此时没有实际 Selector trace，不提前伪造对照结果；
