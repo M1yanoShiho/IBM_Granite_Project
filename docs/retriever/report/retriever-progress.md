@@ -366,7 +366,29 @@ and IDs as `scifact_reference.toml` with only `[retriever]` changed (RRF over
 strong-bm25 + granite-dense). The changed retriever changes the index signature, so it writes
 to its own `runs/` directory and the runner refuses to score it against the baseline's index.
 
-Verified locally, CPU only, on the CI fixture via
+**Result (job `18387618`, full `beir/scifact/test`, 5183 documents / 300 queries).** Measured
+against the BM25 baseline the shared infrastructure was signed off with (recorded in
+`docs/SHARED_RAG_INFRASTRUCTURE_PLAN.md` §8, 2026-07-15):
+
+| Metric | BM25 baseline | Hybrid (RRF) | Δ |
+|---|---|---|---|
+| retriever document recall | 0.7562 | **0.8711** | +0.1149 |
+| system final document recall | 0.6962 | **0.8051** | +0.1089 |
+| citation validity | 1.0 | 1.0 | — |
+| answer match | unscored | unscored | SciFact has no answer text |
+
+Supporting numbers from the same run: retriever MRR 0.7047 (R2 measured 0.707 for this arm on a
+separate `top_k=50` run — an independent reproduction to three decimals), R@5 0.8051, selector
+conditional document recall 0.9201, cited document precision 0.2647.
+
+The point worth drawing out is the second row rather than the first. **Essentially all of the
++0.1149 retrieval gain survives to the system output (+0.1089)** — the selector does not eat it.
+A retriever improvement that dies downstream would show up here as a large first row and a flat
+second one; that is not what happened, so switching the reference pipeline's retriever is a real
+end-to-end gain rather than a local one. Answer match stays unscored on both arms, so this says
+nothing about generation quality — only about whether the right evidence reaches the generator.
+
+Verified beforehand locally, CPU only, on the CI fixture via
 `configs/experiments/reference_baseline_hybrid-rrf.toml` (two sparse arms, no GPU needed):
 `all` produces the full six-stage artifact chain with provenance sidecars and
 `index_implementation = "hybrid"` in the run manifest. So the fused path goes through the
