@@ -68,6 +68,29 @@ output; SciFact table shown in full, NQ/2Wiki summarized (full tables in the lin
 recommended default when latency budget allows running two arms. Decompose should not be used on
 multi-hop-style corpora (see R4 for why, and for how far a fix gets).**
 
+**Independent reproduction of the NQ arm, and one correction to conclusion 1 (2026-08-11,
+job `18421897`, partial).** The NQ dataset R2 used was never committed, so it was re-materialised
+from scratch (`base_cli --split dev --corpus-size 100000 --query-limit 2000 --seed 42`) and the
+sparse arms re-run. `strong-bm25 vs bm25` comes out at MRR Δ **−0.0004, p=0.9181** against R2's
+recorded Δ −0.0004, p=0.92 — the materializer is deterministic and rebuilt the same dataset, so
+R2's NQ numbers are reproduced rather than merely trusted. This is the first time any R2 number
+has been independently reproduced from a rebuilt dataset.
+
+It also sharpens conclusion 1, which only ever cited MRR. On NQ StrongBM25 is not simply "no
+better" than BM25 — it is **significantly worse on every recall metric**:
+
+| Metric | StrongBM25 | BM25 | Δ | p |
+|---|---|---|---|---|
+| MRR | 0.8153 | 0.8157 | −0.0004 | 0.9181 |
+| R@10 | 0.7476 | 0.7598 | **−0.0122** | 0.0024 |
+| R@20 | 0.8391 | 0.8508 | **−0.0117** | 0.0006 |
+| Recall | 0.9098 | 0.9166 | **−0.0068** | 0.0292 |
+
+So "StrongBM25 vs BM25 is not a reliable win" understates it: on NQ the tuned parameters and
+stopword filtering cost recall at every depth, and only the top-rank metric breaks even. The
+dense and hybrid NQ arms were still running when this was written; they change nothing above,
+since this pair is complete on its own.
+
 ---
 
 ## R3 - RAG PDF / Image ingestion pipeline
