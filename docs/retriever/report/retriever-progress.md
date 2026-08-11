@@ -424,13 +424,42 @@ Structure-aware chunking of *plain-text* corpora (splitting on sections/tables r
 word window) is still not implemented; what landed is the ability to select a chunker at all,
 plus the one alternative implementation we already had.
 
-**Unrelated defect found while verifying the above, not fixed here:** the frozen baseline
-chain committed at `tests/fixtures/reference_baseline_artifacts/` no longer reproduces. Its
-`corpus_signature` is `7de07bd…`; current `main` produces `f359854…` from the same fixture and
-the same 120/20 chunking, and this is true on a clean tree as well as with the change above.
-`dataset_signature`, `chunk_size` and `overlap` all still match, so something in document or
-chunk serialisation moved since that fixture was frozen at `ef90665` and nothing in the test
-suite asserts the committed signature still reproduces.
+## R8 - The committed frozen baseline had stopped reproducing, and nothing noticed
+
+Found while verifying R7, and worth its own entry because it is a cross-module defect: the
+frozen chain committed at `tests/fixtures/reference_baseline_artifacts/` could no longer be
+rebuilt by the code in the tree. Its `corpus_signature` was `7de07bd…`; current code produces
+`f359854…` from the same fixture with the same 120/20 chunking. §4.5 of the shared
+infrastructure plan makes that chain the frozen baseline the Selector and Generator groups
+read, so a chain claiming a corpus nobody can rebuild is a chain nobody can verify.
+
+**Cause, by bisect: `1a38f52` (multimodal loaders, 2026-07-16) — and it is an accident, not a
+schema decision.** That commit explicitly set out to keep signatures byte-stable and added
+`_omit_absent_metadata` so `Document`/`EvidenceCandidate` drop a `None` `metadata` on
+serialisation. It works — for those two. But `corpus_signature` also hashes the *chunks*, and
+`CorpusBuilder` hand-builds those dicts, unconditionally writing `"metadata": null`. `Chunk` is
+a dataclass, not a Pydantic model, so the serializer could never have covered it. **The
+guarantee held over exactly half of the hash it was written to protect.**
+
+Note the provenance trap that made this hard to see: the chain's `run_manifest.json` records
+`git_commit: ef9066…` with `git_dirty: True`. That commit predates the infrastructure layer
+entirely — the fixture was generated from an uncommitted tree, so the recorded commit says
+nothing about the code that produced it. The chain was committed later, in `224164e`.
+
+**Fix: re-frozen at current code, not reverted.** Restoring byte-stability would change
+`corpus_signature` for every current run — invalidating every persisted index on the cluster
+and every signature recorded since 2026-07-16, including all of R2–R5. And including chunk
+metadata in the corpus signature is *correct* on its own terms: two corpora differing only in
+chunk metadata should not share a signature. The defect was the silence, not the value.
+
+Re-freezing surfaced a second staleness nobody had reported: `candidate_sets.jsonl` gained a
+whole `retriever` provenance block (implementation, version, parameter hash) at some point
+after the freeze. The Selector group's frozen candidates were missing it.
+
+A regression test now pins the property that was missing — `test_frozen_reference_artifacts.py`
+asserts the committed chain *rebuilds*, not merely that it agrees with itself. Every other
+assertion in that file compares the frozen artifacts against each other, which is why a chain
+consistently carrying a signature no code could produce stayed green for three weeks.
 
 ## Next steps
 
