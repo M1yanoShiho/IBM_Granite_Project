@@ -10,8 +10,8 @@
 
 | Run | Milestone | 目的 | 系统/数据 | 决定性指标 | 优先级 | 状态 | 结果路径/备注 |
 |---|---|---|---|---|---|---|---|
-| R001 | M0 | A盘点→B恢复/重建→C实现严格 Hybrid-v2 manifest | NIAH/2Wiki train/dev；sealed 只审计 hash | 完整性、retriever/pool SHA、连通分量 overlap | MUST | RUNNING | R001A/B PASS：六池 `EXACT_RECOVERY`；R001C manifest/tests 进行中；不训练 |
-| R002 | M0 | 冻结指标、cluster CI、expected-risk CRC 协议 | toy + simulated losses | document-ID、conditional chain、component representative、`(ΣL+1)/(n+1)` | MUST | TODO | CRC 与 95% CI 分开 |
+| R001 | M0 | A盘点→B恢复/重建→C实现严格 Hybrid-v2 manifest | NIAH/2Wiki train/dev；sealed 只审计 hash | 完整性、retriever/pool SHA、连通分量 overlap | MUST | RUNNING | R001A/B 与 R001C pool freeze PASS；component/crossing artifact 随 R002 完成；不训练 |
+| R002 | M0 | 冻结指标、cluster CI、expected-risk CRC 协议 | toy + simulated losses | document-ID、conditional chain、component representative、`(ΣL+1)/(n+1)` | MUST | RUNNING | CRC 与 95% CI 分开；同时封存 component/crossing artifact |
 | R003 | M0 | 数量基线并冻结等量删除对照生成器 | TopK10/9/8/7；random/bottom-rank 协议 | harm、recall、chain、selected count、seed derivation | MUST | TODO | 实际对照等 Selector trace 产生后生成 |
 | R004 | M1 | 标签审计与 200q 资源预检 | train-modelval 子集 | label/mask、truncation、吞吐 | MUST | TODO |  |
 | R005 | M1 | 双头 sanity | 小样本 protect/harm | overfit、held-out safe corner、fallback | MUST | TODO |  |
@@ -32,15 +32,15 @@
 |---|---|---|---|
 | R001A inventory | PASS | 本地与原 HPC 的 pool、dataset/gold/provenance/source-parent、run/index manifest、Beam 模型资产已盘点 | [`R001_RECOVERY_AUDIT.md`](../results/selector-adaptive-risk-v1/R001/R001_RECOVERY_AUDIT.md) |
 | R001B recover-or-rebuild | PASS | 六个历史 Hybrid RRF Top20 pool 的字节级 SHA-256 全部命中；决策为 `EXACT_RECOVERY / REPACKAGE`，不重新检索 | 同上 |
-| R001C Hybrid-v2 integrity | RUNNING | 旧 v1 pool 可作为输入，但尚未取得 v2 逐 query hash/对齐验证与测试 PASS | 完成独立 manifest、CLI 和测试；不得修改 BM25-only pin |
+| R001C Hybrid-v2 pool integrity | PASS | 六个真实 pool 均完成 write-once freeze 与独立 verify-only；逐 query hash、run/index/metadata、query/corpus 对齐全部通过 | [`R001C_GATE_EVIDENCE.md`](../results/selector-adaptive-risk-v1/R001/R001C_GATE_EVIDENCE.md)；BM25-only pin 未修改 |
 
 ## Gate 0 — 代码和资产现实
 
 - [x] 实际 commit/branch 已记录：本地与原 HPC 均为 `refactor/three-module-baseline@74026c0`，远端工作树核验时 clean。
 - [x] 六个历史 Hybrid RRF Top20 pool 已恢复并逐文件匹配历史 SHA-256；决策是 exact recovery/repackage，不是 rebuild。
-- [ ] Hybrid RRF Top20 使用独立 `SelectorCandidatePoolManifestV2`；现有 BM25-only pin 未被放宽或误用。
-- [ ] retriever name/version/params hash、`top_n=20`、query/data signature 和逐题 pool hash 已冻结。
-- [ ] candidate/gold/provenance/source-parent 的 query 和 document 映射严格一致。
+- [x] Hybrid RRF Top20 使用独立 `SelectorCandidatePoolManifestV2`；现有 BM25-only pin 未被放宽或误用。
+- [x] retriever name/version/params hash、`top_n=20`、query/data signature 和逐题 pool hash 已冻结。
+- [x] candidate/gold/provenance/source-parent 的 query 和 document 映射严格一致；candidate 另已逐字段匹配 signed corpus chunk。
 - [ ] NIAH query/gold-parent/family component 与同一 source split 内的整组分配已完成，并通过预注册 fingerprint 审计。
 - [ ] 2Wiki component 只使用 query 与 official supporting/gold document-title parent；没有把所有 Top20 candidate parent 当作关系边。
 - [x] R001A 已只读量化 2Wiki official-support component 与跨官方 split overlap；query overlap 三对均为0，supporting-parent overlap 明确非0。
@@ -49,20 +49,21 @@
 - [ ] 每项 CRC 风险的 component representative 选择规则/seed/hash 已冻结；每 component 最多一个代表 query。
 - [x] R001A inventory 有本地/远端只读证据。
 - [x] R001B 已冻结六池 `EXACT_RECOVERY / REPACKAGE` 决策。
-- [ ] R001C manifest/tests 有完整 PASS 证据；Gate 0 前未训练 scorer。
+- [x] R001C manifest/tests 有完整 PASS 证据；Gate 0 前未训练 scorer。
 - [x] sealed/heldout 只做存在性、hash 与结构核验，未用于 Selector 效果检查或调参。
 - [x] 当前 `top-k` 默认行为未改变。
 
-**状态：** RUNNING（R001A/B PASS；R001C 未完成）
+**状态：** RUNNING（R001A/B 与 R001C pool freeze PASS；component/crossing/CRC representative artifact 等待 R002）
 
 **证据：**
 
 - 恢复审计：[`results/selector-adaptive-risk-v1/R001/R001_RECOVERY_AUDIT.md`](../results/selector-adaptive-risk-v1/R001/R001_RECOVERY_AUDIT.md)。
+- R001C 机器可读报告：[`results/selector-adaptive-risk-v1/R001/R001C_VALIDATION_REPORT.json`](../results/selector-adaptive-risk-v1/R001/R001C_VALIDATION_REPORT.json)；六份逐 query v2 manifest 位于同目录 `manifests/`。
 - 六池均为 `hybrid/hybrid-v1`、RRF `k=60`、`strong-bm25(k1=0.9,b=0.4)+granite-dense`、直接运行 `top_k=20`，且每题 20 条/rank `1..20` 完整。
 - 2Wiki official-support components：train `2,324`（max `20`）、dev `1,732`（max `8`）、heldout `1,692`（max `13`）；误用全部 Top20 candidate parent 时每个 split 都塌成单一 component。
 - 2Wiki 跨官方 split：query overlap 三对均 `0`；supporting-parent overlap train–dev `449`、train–heldout `422`、dev–heldout `434`。
 - 远端 Beam seed-13 checkpoint 与 DeBERTa base snapshot 均命中历史 SHA-256。
-- 未完成项集中在 R001C：独立 v2 manifest、逐 query canonical hash、严格内容对齐及测试。
+- R001C 已在提交 `f05060a` 完成；本地最新远端合并后 `1179 passed`，服务器新增测试 `21 passed`，六池 freeze 与 verify-only 均为 `6/6 PASS`。
 
 ## Gate 1 — 指标与基线
 
@@ -202,5 +203,6 @@ count-matched 对照 seed/100 repeats/输出路径:
 | 2026-08-11 | seeds 42/73 复用 family/cap/分位点级别，但从各自 modelval 分数映射绝对 threshold | 分数尺度可随 seed 变化，同时不允许重新选方法 | R010/R011 |
 | 2026-08-11 | 四项必需风险有效 component 均须 `n≥99` 才进入训练 | α=1% 的 CRC 修正项给出的数学前置条件 | Gate 1/R002 |
 | 2026-08-11 | 六个历史 Hybrid RRF Top20 pool 采用 `EXACT_RECOVERY / REPACKAGE` | 原 HPC 文件的 bytes、整文件 hash、run/index manifest 与历史 M0 全部匹配 | R001A/B PASS；R001C 继续 |
+| 2026-08-11 | 六池独立 Hybrid-v2 manifest 已 write-once freeze 并二次 verify | 逐题 canonical hash、角色锁、run/index/metadata/query/corpus 联合验证全部通过 | R001C pool integrity PASS；R002 继续 component/CRC |
 | 2026-08-11 | 2Wiki component 只用 official supporting/gold parent，不用所有 Top20 candidate parent | distractor parent 不是正确证据关系，会制造伪相关 component | R001C/R002/R004 |
 | 2026-08-11 | 2Wiki 跨官方 split supporting-parent overlap 如实报告，不为追求0而重分 heldout | 官方 split 必须保持；overlap 是敏感性变量，不是可删掉的数据 | R002/R013/R015 |

@@ -74,7 +74,7 @@ R001 没通过前，不开始 scorer 训练。执行顺序固定为：
 
 1. **R001A — inventory（COMPLETE）：** candidate pool、gold、provenance、ParentIndex、run/index manifest 和模型资产的本地/原 HPC 路径、存在性、schema、bytes 与 SHA-256 已记录；
 2. **R001B — recover-or-rebuild decision（COMPLETE）：** 六个历史 Hybrid pool 均按原 hash 精确恢复，决策为 `EXACT_RECOVERY / REPACKAGE`；
-3. **R001C — code integrity（IN PROGRESS）：** 实现独立 Hybrid-v2 pool manifest，并通过 retriever、Top20、query/document 对齐、连通分量防泄漏和 sealed fingerprint 测试；
+3. **R001C — pool code integrity（COMPLETE）：** 独立 Hybrid-v2 pool manifest 已实现，六个真实池的 retriever、Top20、query/document/corpus 对齐和逐题 hash 均通过 freeze + verify-only；component map、派生角色 crossing 与 CRC representative artifact 继续由 R002 完成；
 4. **Gate 0 evidence：** 把上述证据写入 tracker。只有 Gate 0 PASS 才进入 R002，不能因为“模型代码已经能写”而跳过。
 
 ---
@@ -181,7 +181,7 @@ retrieval_score, retrieval_rank, metadata?
 
 1. 六个旧 pool 作为字节级恢复的输入，不重新运行 retrieval，也不把新生成池伪装成旧池；
 2. 历史 v1 manifest 只能证明整文件身份，不能代替 v2 所需的逐 query hash、严格对齐和 component 规则；
-3. R001C 必须在恢复文件上重新验证并生成独立 `SelectorCandidatePoolManifestV2`；在 R001C PASS 前仍不得训练 scorer；
+3. R001C 已在六个恢复文件上生成并重新验证独立 `SelectorCandidatePoolManifestV2`；完整证据见 [`R001C_GATE_EVIDENCE.md`](../results/selector-adaptive-risk-v1/R001/R001C_GATE_EVIDENCE.md)；
 4. sealed600 与 2Wiki heldout 在最终阶段前只允许做存在性、内容 hash、schema/结构完整性核验，不得查看 Selector 效果或用于选模型、阈值和策略上限；
 5. Beam seed-13 checkpoint 的精确恢复可支持历史诊断，但不是新 dual-head scorer 的训练依赖。
 
@@ -655,7 +655,7 @@ paired bootstrap CI 主要反映“换一批相似 query”带来的抽样不确
 
 - **R001A inventory — COMPLETE：** 已盘点本地/远端 candidate pools、gold、provenance、source-parent、run/index manifest 和 checkpoint，并记录路径、存在性、schema、bytes 与 SHA-256；
 - **R001B recover/rebuild — COMPLETE：** 六个 Hybrid RRF Top20 pool 均与历史 SHA-256 精确匹配，决策冻结为 `EXACT_RECOVERY / REPACKAGE`，不重跑 retrieval；
-- **R001C code integrity — IN PROGRESS：** 在恢复池上实现并测试独立 `SelectorCandidatePoolManifestV2`，只接受冻结的 Hybrid 名称、版本、参数 hash、Top20 和 query/data signatures；不得修改或复用 BM25-only pin；
+- **R001C pool code integrity — COMPLETE：** 六个恢复池均已生成并通过独立 `SelectorCandidatePoolManifestV2` 的二次验证；只接受冻结的 Hybrid 名称、版本、参数 hash、Top20 和 query/data signatures；BM25-only pin 未修改或复用；
 - 冻结实际 Git commit、model revision、数据角色、连通分量和 CRC 代表 query 选择规则；
 - 提交 Gate 0 evidence；不读取 sealed/heldout 效果，不训练 scorer。
 

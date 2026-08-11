@@ -5,12 +5,13 @@
 | 文件 | 用途 | 状态 |
 |---|---|---|
 | [`EXPERIMENT_PLAN.md`](EXPERIMENT_PLAN.md) | v2 最新计划固定副本；已记录六池 exact recovery 与 2Wiki official-support component 规则 | active-v2 |
-| [`EXPERIMENT_PLAN_2026-08-11_v2.md`](EXPERIMENT_PLAN_2026-08-11_v2.md) | 自适应 0–cap（cap≤3）、component-aware CRC、Hybrid-v2 冻结；R001A/B 已完成 | frozen-v2-active |
+| [`EXPERIMENT_PLAN_2026-08-11_v2.md`](EXPERIMENT_PLAN_2026-08-11_v2.md) | 自适应 0–cap（cap≤3）、component-aware CRC、Hybrid-v2 冻结；R001A/B/C pool freeze 已完成 | frozen-v2-active |
 | [`EXPERIMENT_PLAN_2026-08-11.md`](EXPERIMENT_PLAN_2026-08-11.md) | 初版风险控制双头 Selector 计划 | archived-v1 |
-| [`EXPERIMENT_TRACKER.md`](EXPERIMENT_TRACKER.md) | v2 最新 tracker 固定副本；R001A/B PASS、R001C RUNNING | active-v2 |
+| [`EXPERIMENT_TRACKER.md`](EXPERIMENT_TRACKER.md) | v2 最新 tracker 固定副本；R001A/B/C pool freeze PASS、R002 RUNNING | active-v2 |
 | [`EXPERIMENT_TRACKER_2026-08-11_v2.md`](EXPERIMENT_TRACKER_2026-08-11_v2.md) | v2 的 R001–R015、实现前 Gate、CRC/CI 与恢复决策日志 | frozen-v2-active |
 | [`EXPERIMENT_TRACKER_2026-08-11.md`](EXPERIMENT_TRACKER_2026-08-11.md) | 初版 tracker | archived-v1 |
 | [`R001_RECOVERY_AUDIT.md`](../results/selector-adaptive-risk-v1/R001/R001_RECOVERY_AUDIT.md) | 六个 Hybrid RRF Top20 pool、数据 sidecar 与模型资产的本地/原 HPC 只读恢复审计 | R001A/B-pass-evidence |
+| [`R001C_GATE_EVIDENCE.md`](../results/selector-adaptive-risk-v1/R001/R001C_GATE_EVIDENCE.md) | 六池 write-once v2 freeze、独立 verify-only、测试与机器可读 manifest 索引 | R001C-pool-pass-evidence |
 
 ## 更新规则
 
