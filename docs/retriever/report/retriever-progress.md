@@ -204,9 +204,23 @@ strong-bm25 (0.6105) while costing N extra LLM calls and N extra retrievals per 
 edges past the previous best arm, `decompose-orig-bestrank` (0.5938) — which changes nothing,
 because that one was already indistinguishable from strong-bm25 too (p=0.1523).
 
-Reproduce with `bash scripts/retriever_significance.sh scifact` (the pairs are wired in). The
-2Wiki corroboration arm was still running when this was written; it can only corroborate, since
-strong-bm25 there is already at .9580 and leaves no headroom to exceed.
+Reproduce with `bash scripts/retriever_significance.sh scifact` (the pairs are wired in).
+
+**2Wiki corroborates, and more sharply (n=2000, job `18380681`).** Same shape, stronger verdict:
+
+| Arm | MRR | Δ vs strong-bm25 | p |
+|---|---|---|---|
+| decompose-orig (w=1) | 0.7155 | −0.2425 | — |
+| w=2 | 0.7912 | −0.1668 | 0.0000 |
+| w=3 | 0.8186 | −0.1394 | 0.0000 |
+| w=5 | 0.8538 | −0.1042 | 0.0000 |
+| StrongBM25 | **0.9580** | — | — |
+
+The climb is again monotone and again never crosses — but here every weight is **significantly
+worse** (p=0.0000 throughout), where SciFact's shortfall was merely non-significant. Two datasets,
+same direction, and on the one with the most headroom to lose the negative is unambiguous. Note
+also that on 2Wiki `decompose-orig-bestrank` (0.9100) beats the best weight (0.8538), consistent
+with Step 3: best-rank fusion pays off exactly where the full-query ranking is already strong.
 
 **Step 3 — a second fix, and the same question asked on a fairer dataset.** Two questions were left
 open, and both were pre-registered before the numbers were read. Does the original-query arm help
