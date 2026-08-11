@@ -1,4 +1,5 @@
 import json
+import re
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from hashlib import sha256
@@ -90,6 +91,195 @@ class PrechunkedChunker:
         return (_derive_chunk(document, self.version, 0, len(document.text.split()), text),)
 
 
+_HEADING = re.compile(r"^#{1,6}\s+\S")
+_TABLE_ROW = re.compile(r"^\s*\|")
+
+
+@dataclass(frozen=True)
+class _Block:
+    """One structural unit of a document, with its span in word indices."""
+
+    kind: str  # "heading" | "table" | "paragraph"
+    text: str
+    start: int
+    end: int
+
+
+def _parse_blocks(text: str) -> tuple[_Block, ...]:
+    """Split text into headings, tables and paragraphs, keeping word offsets.
+
+    The offsets are indices into ``text.split()`` — the same coordinate system
+    ``WordChunker`` hashes into chunk ids, so ids stay comparable across chunkers.
+    """
+
+    blocks: list[_Block] = []
+    buffered: list[str] = []
+    buffered_kind = "paragraph"
+    buffered_start = 0
+    consumed = 0
+
+    def flush(end: int) -> None:
+        nonlocal buffered, buffered_kind
+        body = "\n".join(buffered).strip()
+        if body:
+            blocks.append(_Block(buffered_kind, body, buffered_start, end))
+        buffered = []
+        buffered_kind = "paragraph"
+
+    for line in text.splitlines():
+        words_here = len(line.split())
+        if _HEADING.match(line):
+            flush(consumed)
+            blocks.append(_Block("heading", line.strip(), consumed, consumed + words_here))
+            consumed += words_here
+            buffered_start = consumed
+            continue
+
+        kind = "table" if _TABLE_ROW.match(line) else "paragraph"
+        if not line.strip():
+            # A blank line ends whatever was accumulating; it belongs to no block.
+            flush(consumed)
+            buffered_start = consumed
+            continue
+        if buffered and kind != buffered_kind:
+            # A table starting mid-paragraph (or prose resuming after one) is a boundary:
+            # a table row swept into a prose chunk is exactly what this chunker exists to
+            # prevent.
+            flush(consumed)
+            buffered_start = consumed
+        if not buffered:
+            buffered_start = consumed
+        buffered_kind = kind
+        buffered.append(line)
+        consumed += words_here
+
+    flush(consumed)
+    return tuple(blocks)
+
+
+class SectionChunker:
+    """Structure-aware chunking for text corpora: cut at structure, not at a word count.
+
+    ``WordChunker`` slices every ``chunk_size`` words regardless of what it cuts through,
+    which splits tables down the middle and severs a heading from the section it titles.
+    Both hurt retrieval directly — half a table is not evidence, and a section whose title
+    landed in the previous chunk cannot be matched on its own subject.
+
+    The rules, in order:
+
+    - A heading starts a new chunk and stays *with* the section it introduces, so every
+      chunk carries its own title.
+    - A table is never split, even when it alone exceeds ``chunk_size``. An oversized
+      table becomes one oversized chunk; that is a deliberate trade (see limitations).
+    - Otherwise blocks accumulate until adding the next would exceed ``chunk_size``.
+    - A single prose paragraph longer than ``chunk_size`` falls back to ``WordChunker``'s
+      sliding window, with ``overlap``, since nothing structural is left to cut on.
+
+    On a corpus with no markup at all (SciFact, 2Wiki) there are no headings or tables, so
+    this degrades to paragraph-aware windowing: still never cutting mid-paragraph unless a
+    paragraph is itself too long. That is a real behavioural difference from ``WordChunker``
+    and therefore a different ``corpus_signature`` — the two cannot silently share an index.
+
+    ### Limitations
+
+    - Markdown only (ATX ``#`` headings, ``|`` table rows). reStructuredText, HTML tables
+      and setext headings are not detected and simply read as prose.
+    - An oversized table yields an oversized chunk. Splitting it would produce rows with no
+      header, which is worse than a long chunk; a table-aware splitter that repeats the
+      header row on each piece would be the fix, and is not implemented.
+    - ``overlap`` applies only inside the oversized-paragraph fallback. Structural chunks do
+      not overlap, so a fact spanning a section boundary is not duplicated into both.
+    """
+
+    version = "section-v1"
+
+    def __init__(self, chunk_size: int = 120, overlap: int = 20) -> None:
+        if chunk_size <= 0:
+            raise ValueError("chunk_size must be positive")
+        if overlap < 0 or overlap >= chunk_size:
+            raise ValueError("overlap must satisfy 0 <= overlap < chunk_size")
+        self.chunk_size = chunk_size
+        self.overlap = overlap
+
+    def chunk(self, document: Document) -> tuple[Chunk, ...]:
+        blocks = _parse_blocks(document.text)
+        if not blocks:
+            return ()
+
+        chunks: list[Chunk] = []
+        pending: list[_Block] = []
+
+        def emit() -> None:
+            if not pending:
+                return
+            text = "\n\n".join(block.text for block in pending)
+            chunks.append(
+                _derive_chunk(document, self.version, pending[0].start, pending[-1].end, text)
+            )
+            pending.clear()
+
+        for block in blocks:
+            length = block.end - block.start
+            pending_length = (pending[-1].end - pending[0].start) if pending else 0
+
+            if block.kind == "heading":
+                emit()
+                pending.append(block)
+                continue
+
+            # A chunk that is nothing but a heading is worthless on its own and leaves the
+            # section it titles anonymous, so a pending heading never triggers a split —
+            # it rides along even when that overflows chunk_size.
+            titles_only = all(held.kind == "heading" for held in pending)
+
+            if length > self.chunk_size and block.kind == "paragraph":
+                # Nothing structural left to cut on; fall back to the sliding window,
+                # carrying any pending heading into the first piece.
+                prefix = list(pending) if titles_only else []
+                if not titles_only:
+                    emit()
+                pending.clear()
+                chunks.extend(self._window(document, block, prefix))
+                continue
+
+            if pending and not titles_only and pending_length + length > self.chunk_size:
+                emit()
+            pending.append(block)
+
+        emit()
+        return tuple(chunks)
+
+    def _window(
+        self,
+        document: Document,
+        block: _Block,
+        prefix: list[_Block],
+    ) -> list[Chunk]:
+        words = block.text.split()
+        step = self.chunk_size - self.overlap
+        heading = "\n\n".join(held.text for held in prefix)
+        start_of_span = prefix[0].start if prefix else block.start
+        pieces: list[Chunk] = []
+        for offset in range(0, len(words), step):
+            end = min(offset + self.chunk_size, len(words))
+            body = " ".join(words[offset:end])
+            # Only the first piece carries the heading; repeating it on every piece would
+            # inflate every chunk's term counts with the same words.
+            text = f"{heading}\n\n{body}" if heading and offset == 0 else body
+            pieces.append(
+                _derive_chunk(
+                    document,
+                    self.version,
+                    start_of_span if offset == 0 else block.start + offset,
+                    block.start + end,
+                    text,
+                )
+            )
+            if end == len(words):
+                break
+        return pieces
+
+
 def build_chunker(name: str, *, chunk_size: int, overlap: int) -> Chunker:
     """Construct the chunker a config's ``[chunker] name`` selects.
 
@@ -101,6 +291,8 @@ def build_chunker(name: str, *, chunk_size: int, overlap: int) -> Chunker:
         return WordChunker(chunk_size=chunk_size, overlap=overlap)
     if name == "prechunked":
         return PrechunkedChunker()
+    if name == "section":
+        return SectionChunker(chunk_size=chunk_size, overlap=overlap)
     raise ValueError(f"unknown chunker name: {name}")
 
 

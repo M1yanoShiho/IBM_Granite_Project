@@ -420,9 +420,42 @@ any experiment config. Passing it would have crashed anyway: `CorpusBuilder` was
   no recorded SciFact/NQ/2Wiki number moves.
 - Full suite, ruff and strict mypy pass.
 
-Structure-aware chunking of *plain-text* corpora (splitting on sections/tables rather than a
-word window) is still not implemented; what landed is the ability to select a chunker at all,
-plus the one alternative implementation we already had.
+**Structure-aware chunking landed too (2026-08-11), as `name = "section"`.** `WordChunker`
+cuts every `chunk_size` words regardless of what is at that offset, and two of the things it
+cuts through matter for retrieval rather than tidiness: **half a table is not evidence** (the
+rows that keep the header answer the question, the rows that lose it cannot be read at all),
+and a section whose **heading landed in the previous chunk** cannot be matched on its own
+subject. `SectionChunker` cuts on structure instead:
+
+- a heading starts a chunk and stays *with* the section it titles;
+- a table is never split, even when it alone exceeds `chunk_size` — an oversized table
+  becomes one oversized chunk, deliberately, because header-less rows are worse;
+- otherwise blocks accumulate up to `chunk_size`;
+- a single paragraph longer than `chunk_size` falls back to the sliding window, carrying any
+  pending heading into its first piece only.
+
+On corpora with no markup (SciFact, 2Wiki) it degrades to paragraph-aware windowing — still
+never cutting mid-paragraph unless the paragraph itself is too long. That is a real
+behavioural difference, so it produces a different `corpus_signature` and cannot silently
+share a word-chunked index. Verified end to end: `all` on the CI fixture records
+`chunker_version = "section-v1"` with its own signature.
+
+The first implementation emitted a **bare heading chunk** when the following table
+overflowed — precisely the failure the class exists to prevent, caught by its own test before
+commit. A pending heading now never triggers a split. There is a test asserting no chunk is
+ever a lone heading, at five different `chunk_size`s, and one asserting `WordChunker` really
+does split the same table, so the justification is measured rather than assumed.
+
+Limitations, stated because they bound where this helps: Markdown only (ATX `#` headings,
+`|` table rows — reStructuredText, HTML tables and setext headings read as prose); an
+oversized table stays oversized (repeating the header row on each piece would be the fix, not
+implemented); and structural chunks do not overlap, so a fact spanning a section boundary is
+not duplicated into both.
+
+**Not yet measured.** Whether this improves retrieval is an open question, not a claim — it
+needs a corpus with real structure to show anything, and SciFact/2Wiki have none. The PDF
+ingestion path (`pdf_mode = "pages"`, which emits Markdown) is where it should first be
+compared against `word` on equal footing.
 
 ## R8 - The committed frozen baseline had stopped reproducing, and nothing noticed
 
@@ -501,8 +534,9 @@ consistently carrying a signature no code could produce stayed green for three w
    changes it. Every query still touches every chunk; the constant has been cut as far as it goes.
    A corpus an order of magnitude larger than SciFact is needed alongside it, since the measured
    range tops out at 5183 documents and the extrapolation past that is an assumption.
-5. ~~Configurable chunking~~ — **selecting a chunker landed 2026-08-10 (R7)**. What remains is a
-   structure-aware chunker for plain-text corpora; `prechunked` only helps corpora whose units
-   were already cut by the loader.
+5. ~~Configurable chunking~~ — **done (R7)**: chunker selection landed 2026-08-10, and the
+   structure-aware `section` chunker on 2026-08-11. What remains is not implementation but
+   evidence: compare `section` against `word` on a corpus that actually has structure (the
+   Markdown-emitting PDF path), since neither SciFact nor 2Wiki can show a difference.
 6. Broaden ingestion format coverage (docx/pptx/html via Docling) and surface OCR quality signals
    instead of letting a poor scan degrade silently.

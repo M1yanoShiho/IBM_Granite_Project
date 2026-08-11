@@ -61,7 +61,7 @@ class ChunkerConfig(FrozenModel):
     """
 
     schema_version: Literal["1.0"] = "1.0"
-    name: Literal["word", "prechunked"] = "word"
+    name: Literal["word", "prechunked", "section"] = "word"
     chunk_size: PositiveInteger = 120
     overlap: NonNegativeInteger = 20
 
