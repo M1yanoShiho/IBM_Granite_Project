@@ -10,9 +10,9 @@
 
 | Run | Milestone | 目的 | 系统/数据 | 决定性指标 | 优先级 | 状态 | 结果路径/备注 |
 |---|---|---|---|---|---|---|---|
-| R001 | M0 | A盘点→B恢复/重建→C实现严格 Hybrid-v2 manifest | NIAH/2Wiki train/dev；sealed 只审计 hash | 完整性、retriever/pool SHA、连通分量 overlap | MUST | RUNNING | R001A/B 与 R001C pool freeze PASS；component/crossing artifact 随 R002 完成；不训练 |
-| R002 | M0 | 冻结指标、cluster CI、expected-risk CRC 协议 | toy + simulated losses | document-ID、conditional chain、component representative、`(ΣL+1)/(n+1)` | MUST | RUNNING | CRC 与 95% CI 分开；同时封存 component/crossing artifact |
-| R003 | M0 | 数量基线并冻结等量删除对照生成器 | TopK10/9/8/7；random/bottom-rank 协议 | harm、recall、chain、selected count、seed derivation | MUST | TODO | 实际对照等 Selector trace 产生后生成 |
+| R001 | M0 | A盘点→B恢复/重建→C实现严格 Hybrid-v2 manifest | NIAH/2Wiki train/dev；sealed 只审计 hash | 完整性、retriever/pool SHA、连通分量 overlap | MUST | PASS | 六池 exact recovery 与 Hybrid-v2 pool freeze PASS；component/crossing 由 R002 封存；未训练 |
+| R002 | M0 | 冻结指标、cluster CI、expected-risk CRC 协议 | toy + simulated losses | document-ID、conditional chain、component representative、`(ΣL+1)/(n+1)` | MUST | PASS | `COMPLETE / SAMPLE-SIZE GO`；四风险 n 均≥99；不代表真实 Selector/策略已通过 CRC |
+| R003 | M0 | 数量基线并冻结等量删除对照生成器 | TopK10/9/8/7；random/bottom-rank 协议 | harm、recall、chain、selected count、seed derivation | MUST | RUNNING | 代码与测试完成，等待正式 artifact freeze/verify；真实等量对照仍须等 Selector trace |
 | R004 | M1 | 标签审计与 200q 资源预检 | train-modelval 子集 | label/mask、truncation、吞吐 | MUST | TODO |  |
 | R005 | M1 | 双头 sanity | 小样本 protect/harm | overfit、held-out safe corner、fallback | MUST | TODO |  |
 | R006 | M2 | 全量训练 seed13，只冻结 checkpoint/候选分位点 | train-fit → train-modelval | dual scores、checkpoint rule | MUST | TODO | 不提前冻结 P0–P6 |
@@ -36,29 +36,31 @@
 
 ## Gate 0 — 代码和资产现实
 
-- [x] 实际 commit/branch 已记录：本地与原 HPC 均为 `refactor/three-module-baseline@74026c0`，远端工作树核验时 clean。
+- [x] 实际 commit/branch 已记录：R001 恢复盘点基线为 `refactor/three-module-baseline@74026c0`；R002 正式生成与服务器核验使用 `ffe2d27411e6c4848debcb2887405c045cea0541`，工作树 clean。
 - [x] 六个历史 Hybrid RRF Top20 pool 已恢复并逐文件匹配历史 SHA-256；决策是 exact recovery/repackage，不是 rebuild。
 - [x] Hybrid RRF Top20 使用独立 `SelectorCandidatePoolManifestV2`；现有 BM25-only pin 未被放宽或误用。
 - [x] retriever name/version/params hash、`top_n=20`、query/data signature 和逐题 pool hash 已冻结。
 - [x] candidate/gold/provenance/source-parent 的 query 和 document 映射严格一致；candidate 另已逐字段匹配 signed corpus chunk。
-- [ ] NIAH query/gold-parent/family component 与同一 source split 内的整组分配已完成，并通过预注册 fingerprint 审计。
-- [ ] 2Wiki component 只使用 query 与 official supporting/gold document-title parent；没有把所有 Top20 candidate parent 当作关系边。
+- [x] NIAH query/assignment-required-source-parent/family component 与同一 source split 内的整组分配已完成，并通过预注册 fingerprint 审计。
+- [x] 2Wiki component 只使用 query 与 official supporting/gold document-title parent；没有把所有 Top20 candidate parent 当作关系边。
 - [x] R001A 已只读量化 2Wiki official-support component 与跨官方 split overlap；query overlap 三对均为0，supporting-parent overlap 明确非0。
-- [ ] R001C/R002 正式 artifact 已复算并冻结上述计数；同一 source split 内的派生角色 query/component crossing=0。
-- [ ] 2Wiki heldout 成员保持官方 split 不变；正式 cluster bootstrap 与 parent-seen/unseen 敏感性协议已冻结。
-- [ ] 每项 CRC 风险的 component representative 选择规则/seed/hash 已冻结；每 component 最多一个代表 query。
+- [x] R001C/R002 正式 artifact 已复算并冻结上述计数；同一 source split 内的派生角色 query/component crossing=0。
+- [x] 2Wiki heldout 成员保持官方 split 不变；正式 cluster bootstrap 与 parent-seen/unseen 敏感性协议已冻结。
+- [x] 每项 CRC 风险的 component representative 选择规则/seed/hash 已冻结；每 component 最多一个代表 query。
 - [x] R001A inventory 有本地/远端只读证据。
 - [x] R001B 已冻结六池 `EXACT_RECOVERY / REPACKAGE` 决策。
 - [x] R001C manifest/tests 有完整 PASS 证据；Gate 0 前未训练 scorer。
 - [x] sealed/heldout 只做存在性、hash 与结构核验，未用于 Selector 效果检查或调参。
 - [x] 当前 `top-k` 默认行为未改变。
 
-**状态：** RUNNING（R001A/B 与 R001C pool freeze PASS；component/crossing/CRC representative artifact 等待 R002）
+**状态：** PASS（R001 六池与 R002 component/role/representative artifact 均已冻结并独立复验；未训练 scorer，未读取 sealed/heldout Selector 效果）
 
 **证据：**
 
 - 恢复审计：[`results/selector-adaptive-risk-v1/R001/R001_RECOVERY_AUDIT.md`](../results/selector-adaptive-risk-v1/R001/R001_RECOVERY_AUDIT.md)。
 - R001C 机器可读报告：[`results/selector-adaptive-risk-v1/R001/R001C_VALIDATION_REPORT.json`](../results/selector-adaptive-risk-v1/R001/R001C_VALIDATION_REPORT.json)；六份逐 query v2 manifest 位于同目录 `manifests/`。
+- R002 人类可读报告：[`results/selector-adaptive-risk-v1/R002/R002_PROTOCOL_REPORT.md`](../results/selector-adaptive-risk-v1/R002/R002_PROTOCOL_REPORT.md)；机器可读验证：[`R002_VALIDATION_REPORT.json`](../results/selector-adaptive-risk-v1/R002/R002_VALIDATION_REPORT.json)。
+- 四套 R002 artifact 独立 `--verify-only` 为 `4/4 PASS`；本地/服务器 24 文件 `24/24 MATCH`；10 项 canonical projection fingerprint `10/10 MATCH`；全部派生角色 query/component crossing=`0`。
 - 六池均为 `hybrid/hybrid-v1`、RRF `k=60`、`strong-bm25(k1=0.9,b=0.4)+granite-dense`、直接运行 `top_k=20`，且每题 20 条/rank `1..20` 完整。
 - 2Wiki official-support components：train `2,324`（max `20`）、dev `1,732`（max `8`）、heldout `1,692`（max `13`）；误用全部 Top20 candidate parent 时每个 split 都塌成单一 component。
 - 2Wiki 跨官方 split：query overlap 三对均 `0`；supporting-parent overlap train–dev `449`、train–heldout `422`、dev–heldout `434`。
@@ -67,23 +69,27 @@
 
 ## Gate 1 — 指标与基线
 
-- [ ] `harm_reduction = TopK−Selector`，正数为好。
-- [ ] `recall_loss = TopK−Selector`，正数为坏。
-- [ ] recall 和 complete-chain 只比较 `document_id` 集合，不混用 evidence ID/Candidate。
-- [ ] paired 比较拒绝 query-set 不一致；共享 parent/family 时使用 paired cluster bootstrap/sign-flip。
-- [ ] 2Wiki 的 cluster 单位来自 official supporting/gold parent；跨官方 split overlap 另作敏感性分层，不通过重分 heldout 消除。
-- [ ] p-value 使用 plus-one；不出现 `p=0.0`。
+- [x] `harm_reduction = TopK−Selector`，正数为好。
+- [x] `recall_loss = TopK−Selector`，正数为坏。
+- [x] recall 和 complete-chain 只比较 `document_id` 集合，不混用 evidence ID/Candidate。
+- [x] paired 比较拒绝 query-set 不一致；共享 parent/family 时使用 paired cluster bootstrap/sign-flip。
+- [x] 2Wiki 的 cluster 单位来自 official supporting/gold parent；跨官方 split overlap 另作敏感性分层，不通过重分 heldout 消除。
+- [x] p-value 使用 plus-one；不出现 `p=0.0`。
 - [ ] Top20 pool-conditional、TopK10 baseline-exposed、unconditional 三种 harm 分母均保存。
 - [ ] TopK10/9/8/7 可复算；count-matched 生成器、100 repeats 和 seed derivation 已冻结。
-- [ ] chain loss 只在 TopK10 chain-eligible query 上计算，分母没有被全部 query 稀释。
-- [ ] CRC 对每个风险使用 `（ΣL+1）/(n+1)≤0.01`，P0–P6 selected sets 嵌套且 loss 单调，四风险最终取最保守策略。
-- [ ] 四项必需风险各自有效 component `n≥99`，才允许进入 R004/scorer 训练；否则 Gate 1 标记 `BLOCKED/CUT`，先扩充 calibration 或提交事前论证的 amendment。
-- [ ] calibration 与未来 component 的可交换性假设和分布审计已记录；无法支持时未声称 CRC 理论保证。
-- [ ] CRC toy/simulation 在无安全策略时选择 P0；bootstrap 95% CI 没有被写成 CRC 保证。
+- [x] chain loss 只在 TopK10 chain-eligible query 上计算，分母没有被全部 query 稀释。
+- [x] CRC 对每个风险使用 `（ΣL+1）/(n+1)≤0.01`，P0–P6 selected sets 嵌套且 loss 单调，四风险最终取最保守策略。
+- [x] 四项必需风险各自有效 component `n≥99`，才允许进入 R004/scorer 训练；否则 Gate 1 标记 `BLOCKED/CUT`，先扩充 calibration 或提交事前论证的 amendment。
+- [x] calibration 与未来 component 的可交换性假设和分布审计已记录；无法支持时未声称 CRC 理论保证。
+- [x] CRC toy/simulation 在无安全策略时选择 P0；bootstrap 95% CI 没有被写成 CRC 保证。
 
-**状态：** TODO
+**状态：** RUNNING（R002 协议与样本量门 PASS；等待 R003 冻结 TopK 数量基线、三种 harm 分母和 count-matched 生成协议）
 
 **证据：**
+
+- R002 协议报告与机器可读验证同 Gate 0 链接；指标/CRC 实现提交：`ffe2d27411e6c4848debcb2887405c045cea0541`。
+- 四项 calibration representative component 数分别为 NIAH recall `523`、NIAH conditional chain `402`、2Wiki recall `866`、2Wiki conditional chain `468`，均满足 `n≥99`。
+- R002 判定只为 `SAMPLE-SIZE GO`：当前没有 scorer 或真实策略 loss，不能写成 Selector、阈值或非零策略 CRC PASS。
 
 ## Gate 2 — Scorer 可行性
 
@@ -206,3 +212,4 @@ count-matched 对照 seed/100 repeats/输出路径:
 | 2026-08-11 | 六池独立 Hybrid-v2 manifest 已 write-once freeze 并二次 verify | 逐题 canonical hash、角色锁、run/index/metadata/query/corpus 联合验证全部通过 | R001C pool integrity PASS；R002 继续 component/CRC |
 | 2026-08-11 | 2Wiki component 只用 official supporting/gold parent，不用所有 Top20 candidate parent | distractor parent 不是正确证据关系，会制造伪相关 component | R001C/R002/R004 |
 | 2026-08-11 | 2Wiki 跨官方 split supporting-parent overlap 如实报告，不为追求0而重分 heldout | 官方 split 必须保持；overlap 是敏感性变量，不是可删掉的数据 | R002/R013/R015 |
+| 2026-08-11 | R002 判定为 `COMPLETE / SAMPLE-SIZE GO`，不判 Selector 或非零策略 PASS | 四项代表 component n 均≥99，只证明当前 α=1% 路线具备继续实验的样本量；尚无真实策略 loss | Gate 0 PASS；Gate 1 继续 R003 |

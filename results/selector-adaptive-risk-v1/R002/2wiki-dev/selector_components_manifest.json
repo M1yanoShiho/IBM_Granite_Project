@@ -1,0 +1,143 @@
+{
+  "candidate_pool_manifest_verified": true,
+  "candidate_pool_status": "VERIFIED_SELECTOR_POOL_V2",
+  "canonical_projection_fingerprints": {
+    "chain_representative_rows": {
+      "bytes": 105300,
+      "records": 468,
+      "sha256": "196589489648940ae4bbbfe38a6405aeea7f7468e6112c9e5e7a1fa643ff9163"
+    },
+    "component_rows": {
+      "bytes": 320000,
+      "records": 2000,
+      "sha256": "2655617cffffb2c935e079fbc17efecb35f35a897737a3efd2f549f79b88fa45"
+    },
+    "recall_representative_rows": {
+      "bytes": 194850,
+      "records": 866,
+      "sha256": "31b748d5aa313053392ef61dad464a9cb314f9da00bff2df2f99cc8a30950dec"
+    },
+    "role_rows": {
+      "bytes": 367000,
+      "records": 2000,
+      "sha256": "7e1c73a5b32ae440d21a29d5fd86879f2079a7bd920fc579490e7efe7c820bf9"
+    },
+    "role_rows_by_role": {
+      "crc-calibration": {
+        "bytes": 185000,
+        "records": 1000,
+        "sha256": "a8e4b5b42e0da1bdc088f4da58d1d4722d403190d9a13d445a106516e6b752cf"
+      },
+      "decision-dev": {
+        "bytes": 182000,
+        "records": 1000,
+        "sha256": "28baeefb0d1c257da3a61045258da2fce5ea066462d2e6ef033617615db634ce"
+      }
+    }
+  },
+  "counts": {
+    "candidate_windows": 2000,
+    "chain_eligible_components": 916,
+    "chain_eligible_queries": 933,
+    "components": 1732,
+    "dataset_queries": 2000,
+    "eligible_input_queries": 2000,
+    "gold_cases": 2000,
+    "max_component_queries": 8,
+    "niah_assignments": 0
+  },
+  "crossing": {
+    "components_across_folds": 0,
+    "components_across_roles": 0
+  },
+  "dataset_id": "2wiki/multihop",
+  "dataset_kind": "2wiki",
+  "dataset_signature": "69dce7a2d909808ddf6c509005181a4741f22c471551ecf117b399eddef38afc",
+  "dataset_version": "dev-subsample-2000",
+  "declared_dataset_split": "dev",
+  "inputs": {
+    "candidate_pool": {
+      "bytes": 27222255,
+      "sha256": "26442003e230c93e53fe71f4b9a16d269fc5b02674ba6137f6cfceabb721607f"
+    },
+    "dataset_documents": {
+      "bytes": 6839538,
+      "sha256": "bc96f5a7c512045bd68fd24e3392ca2387c7a2c6d4cc5152243409518bd10e7b"
+    },
+    "dataset_gold_cases": {
+      "bytes": 335401,
+      "sha256": "fba533ebfd77e5c35dee179efab2fb84c6be7ce8c7202d19210d5dc291a5b7c9"
+    },
+    "dataset_manifest": {
+      "bytes": 240,
+      "sha256": "0ee9905bcc3be8fe81bc6b8bb76a70881dbc40cf60f84c09f937400d425e0fd1"
+    },
+    "dataset_queries": {
+      "bytes": 300047,
+      "sha256": "f5f3309fe3b4f33944bdb5fd64feccedd52a39b98ac1b0dd8ed5aa955bdf7201"
+    },
+    "selector_candidate_pool_manifest_v2": {
+      "bytes": 330287,
+      "sha256": "fd63e3e620da2b034a56e451f0b85a78ce336f177f853b28b8f8d31c10f9202c"
+    },
+    "source_parent": {
+      "bytes": 1001726,
+      "sha256": "482ccd4c28fc8312282cb551898beb12bd4b26efbbf210c4ec5fbe5f5510ee34"
+    }
+  },
+  "outputs": {
+    "chain_representatives.jsonl": {
+      "bytes": 223704,
+      "records": 468,
+      "sha256": "7eea51a3e263347c36c7be350ad86d4af0a73335158a894ed235ae7715c0d387"
+    },
+    "component_map.jsonl": {
+      "bytes": 1150141,
+      "records": 2000,
+      "sha256": "89b5af6d4dfd02fe93c4b3d0283ac21330c164a4e2d8f34a545eeaec21c780ea"
+    },
+    "recall_representatives.jsonl": {
+      "bytes": 413948,
+      "records": 866,
+      "sha256": "da63898cdf4aa0b497a7bafbe421209eb6640a997fce18a428501c63c9b1dabb"
+    },
+    "role_assignments.jsonl": {
+      "bytes": 490067,
+      "records": 2000,
+      "sha256": "2befaafcd9b6babb35c51771c70908eb4dfd4f0013abb4ddff15aa4a4091456d"
+    },
+    "selector_components_report.json": {
+      "bytes": 3465,
+      "sha256": "7ad5b6c1e2e4e30f8b5c558ce17ec7e67f81f744b5218bd1ca75aee5dea05ec7"
+    }
+  },
+  "protocol_version": "selector-components-v1",
+  "rules": {
+    "allowed_key_prefixes": [
+      "query:",
+      "parent:"
+    ],
+    "component_id": "sha256(''.join(query_id + '\\n' for sorted members))",
+    "component_order": [
+      "-n_queries",
+      "component_root",
+      "component_id"
+    ],
+    "component_root": "min(all complete allowed-key strings)",
+    "fold_assignment": "least current query count; ties use smaller fold",
+    "fold_roles": {
+      "0": "crc-calibration",
+      "1": "decision-dev"
+    },
+    "n_folds": 2,
+    "representative_binding": "each dataset/risk/query maps to exactly one explicit component_id",
+    "representative_digest": "evidence_rag.evaluation.selector_risk.representative_digest",
+    "representative_seed": 20260811,
+    "representative_selector": "evidence_rag.evaluation.selector_risk.select_component_representatives",
+    "top_k_chain_eligibility": 10,
+    "train_crc_representatives": false,
+    "twowiki_parent_scope": "official-gold-only"
+  },
+  "schema_version": "1.0",
+  "source_split": "dev"
+}
