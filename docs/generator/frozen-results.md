@@ -29,25 +29,80 @@ no figure below is carried over from `18307720`.
 
 ---
 
-## 1. Verifier selection — six arms
+## 1. Verifier selection
 
-TRUE was selected as the production verifier and **never judges its own output**;
-MiniCheck scores everything downstream, which is why the two are different models.
+**Recomputed from the raw scores** (`results/verifier-triage/scores.jsonl`, 1189
+rows) by `scripts/g1_verifier_metrics.py`, with every definition stated. Nothing
+below is carried over from the earlier triage tables. Full per-slice output:
+`local/report-writing/g1-verifier-metrics.md`.
 
-| verifier | role | outcome |
+**Definitions.** A verifier *fires* when `p_entail ≥ 0.50`.
+`recall = TP / (gold-entailment rows)`; `FP rate = FP / (gold-neutral rows)`;
+`precision = TP / (TP + FP)`, so precision is only defined on a slice carrying
+both polarities. Of the seven cells, **only `asqa` does** — the `2wiki-*` cells
+are entailment-only apart from `2wiki-neutral`, and `counterfactual` is
+neutral-only.
+
+### `asqa` — n = 300 (150 gold-entailment, 150 gold-neutral)
+
+| backend | recall | FP rate | precision | TP | FP |
+|---|---|---|---|---|---|
+| **TRUE** (`t5_xxl_true_nli_mixture`) | **0.7467** | **0.0067** | **0.9912** | 112 | 1 |
+| Granite-3B self-check | 0.7667 | 0.0667 | 0.9200 | 115 | 10 |
+| Granite-8B self-check | 0.9000 | 0.2400 | 0.7895 | 135 | 36 |
+
+### `counterfactual` — n = 109, all gold-neutral (entity-substituted)
+
+Rejection rate = 1 − FP rate.
+
+| backend | rejection | FP |
 |---|---|---|
-| `t5_xxl_true_nli_mixture` (TRUE) | selected | best calibrated recall on the human-labelled slice; 0.747 recall at threshold 0.50 |
-| Granite self-check | rejected | the generator judging itself is not independent evidence |
-| DeBERTa NLI cross-encoder | rejected | weaker on the counterfactual slice |
-| MiniCheck | reserved as **judge** | kept out of production precisely so it can score without circularity |
+| **TRUE** | **0.9633** | 4 |
+| Granite-3B | 0.9450 | 6 |
+| Granite-8B | 0.8716 | 14 |
+
+### Two corrections this recomputation forces
+
+**The published derived citation precision of 0.966 does not reproduce.** On the
+`asqa` slice the formula gives **0.9912**; on `asqa + 2wiki-neutral` it is also
+0.9912; across all cells, 0.9874. No principled slice yields 0.966. **0.9912 on
+`asqa` is the figure to use**, with its slice and formula named.
+
+**TRUE's 0.747 recall is ASQA-specific, not global.** On the 2WikiMultihop
+entailment cells (n = 540) its recall is **0.5204**, and across all
+gold-entailment rows (n = 690) it is **0.5696**. The 0.747 figure should always
+carry its slice.
+
+### Why TRUE, and why MiniCheck is not in production
+
+TRUE is selected on the **precision/FP** axis, not on recall: Granite-8B has
+higher recall (0.9000) but a 0.2400 false-positive rate, so it would attach
+citations that do not hold. Granite self-check is additionally rejected on
+principle — the generator grading its own output is not independent evidence.
+MiniCheck is deliberately reserved as the downstream **judge**, so the production
+verifier never scores its own decisions.
 
 The operating point (0.50) is frozen and was never tuned against a reported
-metric. TRUE's 0.747 recall is the origin of the whole redesign: under a delete
-policy, one supported claim in four is destroyed, which is what
+metric. TRUE's 0.7467 ASQA recall is the origin of the redesign: under a delete
+policy, roughly one supported claim in four is destroyed, which is what
 verify-and-annotate exists to stop.
 
-**Entity layer, adversarial slice:** 0.963 verifier-alone → **1.000** with the
-layer engaged. This is the layer's one demonstrated benefit and it is real.
+### The entity layer
+
+The entity check targets a real and documented attack surface: **evidence that
+supports a claim in wording while the entity has been substituted**, to which a
+general-purpose entailment model is blind.
+
+Two independent blind adjudications put its false-veto rate on natural data at
+**70%**, so it was removed from the citation decision. Removing it cost **nothing
+on either citation axis** (precision −0.0046, p = 0.698; recall +0.0043,
+p = 0.720) and recovered **12.7 points of coverage and 4.4 points of correctness**
+(G9, nogate vs open). It is retained in **observe-only** mode.
+
+Its only positive measurement comes from a synthetic slice constructed in its
+favour, using a component version later shown to be inaccurate, and **cannot be
+reproduced from the surviving artefacts** — the raw file carries the three NLI
+backends only, with no entity-layer column. **It is therefore not relied upon.**
 
 ---
 

@@ -443,6 +443,10 @@ once convenient:
   baseline**, which has no per-sentence record. The baseline is therefore scored
   under the more generous convention.
 - **The entity layer's benign-data cost is measured; its adversarial benefit is
-  measured on one slice only** (G1 counterfactual, 0.963 → 1.000).
+  not.** The one positive measurement came from a synthetic slice constructed in
+  the layer's favour, using a component version later shown to be inaccurate, and
+  **cannot be reproduced from the surviving artefacts**. It is not relied upon.
+  (Recorded here as it stood at pre-registration time: the figure then cited was
+  0.963 → 1.000. Only the verifier-alone half survives recomputation.)
 - **Human adjudication covered the entity-conflict path only**, 40 items across
   two blind rounds. No blind audit exists for the annotate path.

@@ -172,20 +172,29 @@ the same reason.
 (74 annotated claims reach an answer, against 76 in the control and 15 under the
 cap).
 
-## The entity layer is threat-model dependent, not failed
+## The entity layer
 
-Both numbers belong in the report:
+> **Revised after the G1 recomputation.** The original text here presented
+> "0.963 → 1.000 with the layer engaged" as a demonstrated benefit. That
+> with-layer figure cannot be reproduced from the surviving artefact, so it is no
+> longer relied upon. See `frozen-results.md` §1.
 
-- **G1 adversarial entity-substitution slice: 0.963 verifier-alone → 1.000 with
-  the layer engaged.** It does what it was built for.
-- **Benign data: 0.850 wrong destruction** (human, two blind rounds), and the
-  cohort it targets carries 0.678 citation precision against 0.888 elsewhere
-  (automatic, this run).
+The entity check targets a real and documented attack surface: **evidence that
+supports a claim in wording while the entity has been substituted**, to which a
+general-purpose entailment model is blind.
 
-"A defence against adversarial entity substitution that is expensive on benign
-data" is a trade-off result. The gate is retained in the code behind
-`entity_gate=True` and runs observe-only by default, so the setting is where the
-threat model is declared rather than something that has to be rebuilt.
+Two independent blind adjudications put its false-veto rate on natural data at
+**70%**, so it was removed from the citation decision. Removing it cost **nothing
+on either citation axis** and recovered **12.7 points of coverage and 4.4 points
+of correctness**. It is retained in **observe-only** mode.
+
+Its only positive measurement comes from a synthetic slice constructed in its
+favour, using a component version later shown to be inaccurate, and cannot be
+reproduced from the surviving artefacts. **It is therefore not relied upon.**
+
+On this run, the cohort the layer flags carries 0.678 citation precision against
+0.888 elsewhere — a screening signal, and one that did not transfer to held-out
+(1.28× against 2.86× on calibration).
 
 ## A contract defect this run exposed
 
