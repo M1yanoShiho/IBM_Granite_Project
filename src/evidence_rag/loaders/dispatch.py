@@ -34,6 +34,13 @@ from evidence_rag.loaders.image_loader import (
     caption_image_paths,
     extract_ocr_text_from_image,
 )
+from evidence_rag.loaders.office_loader import (
+    OFFICE_EXTENSIONS,
+    OFFICE_LOADER_VERSION,
+    OfficeMode,
+    build_office_converter,
+    load_office,
+)
 from evidence_rag.loaders.pdf_loader import (
     PDF_LOADER_VERSION,
     PdfMode,
@@ -80,6 +87,8 @@ def load_directory(
     vision_model_id: str | None = None,
     vision_device: str | None = None,
     pdf_mode: PdfMode = "chunks",
+    office_mode: OfficeMode = "markdown",
+    office_converter: Any | None = None,
     caption_pdf_pictures: bool = False,
     image_ocr: bool = True,
     on_error: OnError = "skip",
@@ -124,6 +133,7 @@ def load_directory(
             else []
         )
     )
+    office_fingerprint = "|".join(["office", OFFICE_LOADER_VERSION, f"mode={office_mode}"])
     image_fingerprint = "|".join(
         [
             "image",
@@ -183,6 +193,25 @@ def load_directory(
                 parse_failures.append(path)
                 continue
             pdf_jobs.append(job)
+        elif suffix in OFFICE_EXTENSIONS:
+            ordered_files.append(path)
+            cached = cache.get(path, office_fingerprint) if cache else None
+            if cached is not None:
+                results[path] = cached
+                continue
+            if office_converter is None:
+                office_converter = build_office_converter()
+            try:
+                loaded = load_office(path, office_converter, mode=office_mode)
+            except Exception:
+                if on_error == "raise":
+                    raise
+                logger.warning("Failed to parse %s; skipping", path, exc_info=True)
+                parse_failures.append(path)
+                continue
+            results[path] = loaded
+            if cache:
+                cache.put(path, office_fingerprint, loaded)
         elif suffix in IMAGE_EXTENSIONS:
             ordered_files.append(path)
             cached = cache.get(path, image_fingerprint) if cache else None
@@ -343,6 +372,7 @@ def load_directory_from_config(
     """
     kwargs: dict[str, Any] = {
         "pdf_mode": config.pdf_mode,
+        "office_mode": config.office_mode,
         "caption_pdf_pictures": config.caption_pdf_pictures,
         "image_ocr": config.image_ocr,
         "on_error": config.on_error,

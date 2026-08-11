@@ -141,6 +141,10 @@ class IngestionConfig(FrozenModel):
 
     schema_version: Literal["1.0"] = "1.0"
     pdf_mode: Literal["chunks", "pages"] = "chunks"
+    # "markdown" hands DOCX/PPTX/HTML to the corpus chunker as one Markdown document, so
+    # `[chunker] name = "section"` can cut on the structure Docling recovered; "chunks"
+    # lets Docling's own HybridChunker split them (pair with `name = "prechunked"`).
+    office_mode: Literal["markdown", "chunks"] = "markdown"
     caption_pdf_pictures: bool = False
     image_ocr: bool = True
     caption_prompt: NonEmpty | None = None

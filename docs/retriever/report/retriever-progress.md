@@ -98,6 +98,28 @@ without crashing.
 | Scanned PDFs depend entirely on OCR quality | Can degrade silently on low-quality scans or non-Latin scripts |
 | ~~Non-recursive directory scan; failed files skipped silently~~ | **Fixed** — see below |
 
+**Format coverage: DOCX, PPTX and HTML (2026-08-11).** `src/evidence_rag/loaders/office_loader.py`,
+routed from the same directory dispatcher, so a mixed folder of txt/pdf/image/docx/pptx/html
+goes through one entry point. Verified end to end on a mixed recursive directory: relative ids
+(`sub/deck.pptx`), one `source_type` per real format rather than everything labelled `pdf`, and
+no invented `page_number` — DOCX and HTML have no pages, and a PPTX slide is a section, not a
+page.
+
+The reason to do this *now* rather than as generic format coverage: these formats are where
+document structure actually lives, and **the tree contained no structured corpus at all** —
+SciFact and 2Wiki are plain prose, and the only PDF is a synthetic OCR smoke file. R7's
+`section` chunker therefore could not be shown to help or hurt on anything. Hence the default
+`office_mode = "markdown"`: export the whole file as one Markdown `Document` and leave the
+splitting to the corpus chunker, so `name = "section"` and `name = "word"` can be compared on
+the same documents. `office_mode = "chunks"` uses Docling's own HybridChunker instead (pair
+with `name = "prechunked"`), matching the PDF loader's contract.
+
+Two behaviours worth recording because they are deliberate rather than accidental: chunk ids
+keep the source position, so a dropped empty chunk leaves a gap (`::c1`, `::c3`) rather than
+being renumbered into something that was never the second chunk — same as the PDF loader; and
+`.htm`/`.html` collapse to one `source_type`, so provenance does not depend on which spelling
+a file used.
+
 **Ingestion robustness fix (2026-08-05).** The scan now recurses by default
 (`recursive=False` opts out), every skip and failure is logged at warning level with a
 per-run summary of how many files were ingested, and `on_error` finally governs *parsing*
@@ -538,5 +560,11 @@ consistently carrying a signature no code could produce stayed green for three w
    structure-aware `section` chunker on 2026-08-11. What remains is not implementation but
    evidence: compare `section` against `word` on a corpus that actually has structure (the
    Markdown-emitting PDF path), since neither SciFact nor 2Wiki can show a difference.
-6. Broaden ingestion format coverage (docx/pptx/html via Docling) and surface OCR quality signals
-   instead of letting a poor scan degrade silently.
+6. ~~Broaden ingestion format coverage (docx/pptx/html via Docling)~~ — **done 2026-08-11
+   (see R3)**. What remains of this item is surfacing OCR quality signals instead of letting a
+   poor scan degrade silently, which is untouched.
+7. **Measure `section` against `word` on a genuinely structured corpus.** Now unblocked by the
+   two items above — the chunker exists and there is finally a loader that can produce a corpus
+   with headings and tables in it. Neither SciFact nor 2Wiki can show anything here, so this
+   needs a real DOCX/HTML corpus materialised first. Until then R7 is a mechanism with a
+   rationale, not a measured improvement, and should be described that way.
