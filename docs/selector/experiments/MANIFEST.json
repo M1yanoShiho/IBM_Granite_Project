@@ -4,7 +4,7 @@
   "archive_root": "docs/selector/experiments",
   "unit_of_archive": "independent_method_or_experiment_route",
   "current_experiment_id": "08_r005ab_repair_current_2026-08-12",
-  "current_authorization_state": "A000_WAITING_EXPLICIT_APPROVAL",
+  "current_authorization_state": "V3_LEAN_FROZEN_L000_PASS_L001_NEXT",
   "production_default": "TopK10",
   "policies": {
     "historical_snapshots_are_execution_entrypoints": false,
@@ -95,12 +95,12 @@
       "ordinal": 8,
       "experiment_id": "08_r005ab_repair_current_2026-08-12",
       "directory": "08_r005ab_repair_current_2026-08-12",
-      "status": "DRAFT / WAITING A000 EXPLICIT APPROVAL / NOT IMPLEMENTED / NOT RUN",
-      "execution_state": "NOT_RUN",
-      "route_state": "CURRENT_DRAFT_WAITING_APPROVAL",
-      "gate_outcome": "NOT_RUN",
-      "unrun_scope": ["A001", "A002", "R005A", "R005B"],
-      "conclusion": "Current recovery proposal; execution remains unauthorized."
+      "status": "V3 LEAN FROZEN / L000 PASS / L001 NEXT / NOT RUN / FINAL UNOPENED",
+      "execution_state": "L000_COMPLETE_L001_NOT_RUN",
+      "route_state": "CURRENT_V3_LEAN_IMPLEMENTATION_NEXT",
+      "gate_outcome": "L000_PASS",
+      "unrun_scope": ["L001", "L002", "L003"],
+      "conclusion": "Lean v3 is frozen; minimal implementation is next. v1/v2 were never run, final remains unopened, and TopK10 remains the default."
     }
   ]
 }

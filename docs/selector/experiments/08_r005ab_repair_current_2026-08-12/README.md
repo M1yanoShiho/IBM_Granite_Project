@@ -1,25 +1,22 @@
-# 08 — 当前 R005A/R005B recovery v2
+# 08 — 当前 Selector Lean v3
 
 **时间：** 2026-08-12 起
 
-**状态：** `DRAFT / WAITING A000 EXPLICIT APPROVAL / NOT IMPLEMENTED / NOT RUN`
+**状态：** `V3 LEAN FROZEN / L000 PASS / L001 NEXT / NOT RUN / FINAL UNOPENED`
 
-## 这次到底改了方法，还是只改了执行
+## 这次要验证什么
 
-必须指定比较对象：
+固定输入仍是默认 `TopK10`。Selector 不重新检索，也不补入 TopK11–20，只判断 TopK10 中哪些证据是“高 harmful、低 protect”，然后保守地删除 0 条、最多 1 或 2 条；不确定或分数冲突时保留。
 
-1. **amendment v1 草案 → document revision v2：只改执行与审计协议。** 四项修正是 terminal 顺序、五份输入清单的精确路径/schema、B 对 A→B 授权 SHA 的绑定，以及 A001 旧回归的禁读边界。V0/V1/V2、pair loss、样本角色、门槛和预算都没有改变。
-2. **正式失败的旧 R005 → 整个 R005A/R005B recovery：既有方法层变化，也有实验设计变化。** 方法层包括恢复预训练 NLI pooler/classifier 路径和 V2 pairwise loss；实验设计层包括 fresh component-disjoint 数据、fit/screen/confirm 隔离、首个最简通过者和两 seed one-shot confirm。
+旧 R005 的失败保留不变：它用 raw CLS 加随机双头，无法形成可靠的绝对删除边界。Lean v3 只替换这部分评分器，恢复预训练 NLI 信息；`NLI-pair` 仅在基础版本开发失败时启用。R001–R004 已验证的数据、TopK10、动作规则和指标继续复用。
 
-所以，“v2 修订只改执行层”是对的；“当前 recovery 相对旧 R005 也完全没改方法”是不对的。
+## 当前边界
 
-## 当前许可边界
-
-- amendment v1 从未获批、从未实现、从未运行；
-- v2 已完成设计复审，但审计 PASS 不等于模型一定通过；
-- A001、A002、formal fit、A-screen、B-confirm 全部 `NOT RUN`；
-- 当前唯一合法下一步仍是用户明确批准 A000；
-- TopK10 保持唯一生产默认。
+- L000 文档冻结已通过，最终独立复核为 `P0=0 / P1=0`；
+- 下一步是 L001 最小实现，尚未训练；
+- development 只用于选择方法和阈值，`decision-dev` 最终盲测仍未打开；
+- v1/v2 都从未运行，现作为被 v3 取代的历史完整保留；
+- TopK10 仍是唯一默认，除非最终实验通过才讨论变更。
 
 ## 文件入口
 

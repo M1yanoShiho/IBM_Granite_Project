@@ -2,7 +2,7 @@
   "schema_version": "selector-experiment-source-manifest-v1",
   "experiment_id": "08_r005ab_repair_current_2026-08-12",
   "archive_date": "2026-08-12",
-  "archive_status": "DRAFT / WAITING A000 EXPLICIT APPROVAL / NOT IMPLEMENTED / NOT RUN",
+  "archive_status": "V3 LEAN FROZEN / L000 PASS / L001 NEXT / NOT RUN / FINAL UNOPENED",
   "archive_policy": {
     "snapshots_are_exact_source_copies": true,
     "snapshots_are_execution_entrypoints": false,
@@ -12,7 +12,40 @@
   },
   "entries": [
     {
-      "role": "canonical_v2_plan",
+      "role": "canonical_v3_lean_plan",
+      "source_kind": "git_blob",
+      "source_commit": "42b13a088b96b941b59f9ca1df7d99f7cf80bc80",
+      "source_path": "refine-logs/EXPERIMENT_PLAN_AMENDMENT_2026-08-12_R005AB_v3_LEAN.md",
+      "current_worktree_path_exists": true,
+      "source_blob": "0c300f3322f01846b48c17ccdb363e089c02e9e9",
+      "snapshot_path": "snapshots/EXPERIMENT_PLAN_AMENDMENT_R005AB_v3_LEAN.md",
+      "snapshot_blob": "0c300f3322f01846b48c17ccdb363e089c02e9e9",
+      "integrity": "MATCH"
+    },
+    {
+      "role": "canonical_v3_lean_machine_contract",
+      "source_kind": "git_blob",
+      "source_commit": "42b13a088b96b941b59f9ca1df7d99f7cf80bc80",
+      "source_path": "refine-logs/EXPERIMENT_PLAN_AMENDMENT_2026-08-12_R005AB_v3_LEAN.json",
+      "current_worktree_path_exists": true,
+      "source_blob": "9680e3bd453d8a2ef4f9e2d967a1e634edb19dd6",
+      "snapshot_path": "snapshots/EXPERIMENT_PLAN_AMENDMENT_R005AB_v3_LEAN.json",
+      "snapshot_blob": "9680e3bd453d8a2ef4f9e2d967a1e634edb19dd6",
+      "integrity": "MATCH"
+    },
+    {
+      "role": "canonical_v3_lean_tracker",
+      "source_kind": "git_blob",
+      "source_commit": "42b13a088b96b941b59f9ca1df7d99f7cf80bc80",
+      "source_path": "refine-logs/EXPERIMENT_TRACKER_AMENDMENT_2026-08-12_R005AB_v3_LEAN.md",
+      "current_worktree_path_exists": true,
+      "source_blob": "e9789a53d26c883e9ce5b1fd224ddee22d43aa1b",
+      "snapshot_path": "snapshots/EXPERIMENT_TRACKER_AMENDMENT_R005AB_v3_LEAN.md",
+      "snapshot_blob": "e9789a53d26c883e9ce5b1fd224ddee22d43aa1b",
+      "integrity": "MATCH"
+    },
+    {
+      "role": "superseded_v2_plan_never_run",
       "source_kind": "git_blob",
       "source_commit": "99b9e0c71abf085ae04837b3f870d305a492625a",
       "source_path": "refine-logs/EXPERIMENT_PLAN_AMENDMENT_2026-08-12_R005AB_v2.md",
@@ -23,7 +56,7 @@
       "integrity": "MATCH"
     },
     {
-      "role": "canonical_v2_machine_contract",
+      "role": "superseded_v2_machine_contract_never_run",
       "source_kind": "git_blob",
       "source_commit": "99b9e0c71abf085ae04837b3f870d305a492625a",
       "source_path": "refine-logs/EXPERIMENT_PLAN_AMENDMENT_2026-08-12_R005AB_v2.json",
@@ -34,7 +67,7 @@
       "integrity": "MATCH"
     },
     {
-      "role": "canonical_v2_tracker",
+      "role": "superseded_v2_tracker_never_run",
       "source_kind": "git_blob",
       "source_commit": "99b9e0c71abf085ae04837b3f870d305a492625a",
       "source_path": "refine-logs/EXPERIMENT_TRACKER_AMENDMENT_2026-08-12_R005AB_v2.md",
@@ -45,7 +78,7 @@
       "integrity": "MATCH"
     },
     {
-      "role": "a001_implementation_map",
+      "role": "historical_superseded_v2_a001_implementation_map",
       "source_kind": "git_blob",
       "source_commit": "99b9e0c71abf085ae04837b3f870d305a492625a",
       "source_path": "refine-logs/R005AB_A001_IMPLEMENTATION_MAP_2026-08-12.md",
@@ -56,7 +89,7 @@
       "integrity": "MATCH"
     },
     {
-      "role": "a001_machine_map",
+      "role": "historical_superseded_v2_a001_machine_map",
       "source_kind": "git_blob",
       "source_commit": "99b9e0c71abf085ae04837b3f870d305a492625a",
       "source_path": "refine-logs/R005AB_A001_IMPLEMENTATION_MAP_2026-08-12.json",
@@ -67,7 +100,7 @@
       "integrity": "MATCH"
     },
     {
-      "role": "corrective_reaudit",
+      "role": "historical_v2_corrective_reaudit",
       "source_kind": "git_blob",
       "source_commit": "99b9e0c71abf085ae04837b3f870d305a492625a",
       "source_path": "refine-logs/R005AB_CORRECTIVE_REAUDIT_2026-08-12.md",
@@ -78,7 +111,7 @@
       "integrity": "MATCH"
     },
     {
-      "role": "corrective_reaudit_machine",
+      "role": "historical_v2_corrective_reaudit_machine",
       "source_kind": "git_blob",
       "source_commit": "99b9e0c71abf085ae04837b3f870d305a492625a",
       "source_path": "refine-logs/R005AB_CORRECTIVE_REAUDIT_2026-08-12.json",

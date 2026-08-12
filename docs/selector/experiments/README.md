@@ -15,14 +15,14 @@
 | 05 | [Reliability-MIS](05_reliability_mis_2026-08-08/README.md) | `COMPLETE / FAIL / RETIRED` | 能删 harmful，但 required recall 下降 37.17pp、2Wiki supporting recall 下降 11.19pp |
 | 06 | [三分类 Beam Selector](06_beam_selector_2026-08-09/README.md) | `COMPLETE / M2 FAIL / RETIRED` | M0/M1 PASS；M2 的 16 组阈值全部超过 recall 损失上限，M3/M4 取消 |
 | 07 | [Adaptive Conservative R001–R005](07_adaptive_conservative_r001_r005_2026-08-11/README.md) | `R001–R004 PASS / R005 TRAINING-GATE FAIL / R006–R015 CUT` | 新的风险控制路线完成基础设施和基线，但双头 scorer 未通过训练资格门 |
-| 08 | [R005A/R005B recovery v2](08_r005ab_repair_current_2026-08-12/README.md) | `DRAFT / WAITING A000 EXPLICIT APPROVAL / NOT IMPLEMENTED / NOT RUN` | 当前方案；相对 amendment v1 只修执行协议，相对旧 R005 同时包含方法层升级 |
+| 08 | [Selector Lean v3](08_r005ab_repair_current_2026-08-12/README.md) | `V3 LEAN FROZEN / L000 PASS / L001 NEXT / NOT RUN / FINAL UNOPENED` | TopK10 内做 NLI-aware 保守删除；文档已冻结，下一步只做最小实现，TopK10 仍是默认 |
 
 ## 怎样理解“八次”
 
 这里按独立研究问题和方法路线划分，不按 commit、seed 或 run ID 计数。例如：
 
 - R001–R005 是第 07 路线中的阶段，不是五个彼此无关的计划；
-- R005A/B amendment v1 与 document revision v2 属于同一第 08 路线，v1 从未运行；
+- R005A/B v1、v2 与 Lean v3 属于同一第 08 路线；v1/v2 从未运行，v3 是当前冻结版本；
 - Graph 2.0 的 A1–A4、R012b–f 是同一路线内的协议修订与诊断；
 - class-weight 修正、服务器复验或文档纠错也不算新实验。
 
