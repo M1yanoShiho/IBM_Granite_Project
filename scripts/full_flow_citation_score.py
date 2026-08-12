@@ -317,12 +317,19 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.device != "cpu":
         _tokenizer, model = judge._ensure_loaded()
         judge._model = model.to(args.device)
+    entailment_cache: dict[tuple[str, str], bool] = {}
 
     def entails(premise: str, hypothesis: str) -> bool:
-        return judge.classify(premise=premise, hypothesis=hypothesis) == "entailment"
+        key = (premise, hypothesis)
+        if key not in entailment_cache:
+            entailment_cache[key] = (
+                judge.classify(premise=premise, hypothesis=hypothesis) == "entailment"
+            )
+        return entailment_cache[key]
 
     summary, per_case = score_rows(rows, entails)
     summary["judge_device"] = args.device
+    summary["unique_judge_calls"] = len(entailment_cache)
     _write_json(args.output_json, summary)
     _write_jsonl(args.output_rows, per_case)
     args.output_report.parent.mkdir(parents=True, exist_ok=True)
