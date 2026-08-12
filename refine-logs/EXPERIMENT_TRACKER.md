@@ -14,17 +14,17 @@
 | R002 | M0 | 冻结指标、cluster CI、expected-risk CRC 协议 | toy + simulated losses | document-ID、conditional chain、component representative、`(ΣL+1)/(n+1)` | MUST | PASS | `COMPLETE / SAMPLE-SIZE GO`；四风险 n 均≥99；不代表真实 Selector/策略已通过 CRC |
 | R003 | M0 | 数量基线并冻结等量删除对照生成器 | TopK10/9/8/7；random/bottom-rank 协议 | harm、recall、chain、selected count、seed derivation | MUST | PASS | `BASELINE-PROTOCOL PASS`；生成/verify-only `5/5`，本地/服务器 `14/14` hash match；固定 TopK9 不满足保守目标；非 Selector PASS |
 | R004 | M1 | 标签审计与 200q 资源预检 | source-train 全量标签；train-modelval 固定 200q | label/mask、truncation、吞吐 | MUST | PASS | `RESOURCE-PREFLIGHT PASS`；80,460 条标签零语义违规；4,000 pair 前向 145.431 pair/s；无截断/OOM/NaN；未写 checkpoint、未执行删除 |
-| R005 | M1 | 双头 sanity | 固定 train-fit 16+16 小样本；全部 403q train-modelval | 分头/分类准确率、配对方向、safe corner、等量随机对照、fallback | MUST | RUNNING | 实现、完整本地回归与运行前独立审计已通过（P0/P1=0）；等待固定 commit 的服务器 formal，尚无实验结果 |
-| R006 | M2 | 全量训练 seed13，只冻结 checkpoint/候选分位点 | train-fit → train-modelval | dual scores、checkpoint rule | MUST | TODO | 不提前冻结 P0–P6 |
-| R007 | M2 | 方法选择与决定性消融 | grouped OOF/train-modelval | 0–cap1/2/3、`ε_harm`、复杂度序；冻结唯一 family/cap/分位点 | MUST | TODO | 不看 calibration/decision |
-| R008 | M2 | CRC calibration seed13 | CRC-calibration | P0–P6、recall/chain risk bound | MUST | TODO | 非零策略全未通过、只能结构回退 P0 则 CUT |
-| R009 | M3 | 单种子主结果 | decision-dev | harm CI lower>0；recall target/hard gate；等量删除对照 | MUST | TODO | 一次性 decision；对照来自真实 trace |
-| R010 | M4 | 训练并校准 seed42 | train-fit → modelval → calibration | 同 R006/R008 | MUST if R009 PASS | TODO |  |
-| R011 | M4 | 训练并校准 seed73 | train-fit → modelval → calibration | 同 R006/R008 | MUST if R009 PASS | TODO |  |
-| R012 | M4 | 三种子 decision-dev | decision-dev | 均值、每 seed、CI、最差 recall、各 seed 等量对照 | MUST | TODO |  |
-| R013 | M5 | 正式冻结 | model/config/CRC/source/data | manifest 完整性 | MUST | TODO |  |
-| R014 | M5 | NIAH sealed600 | sealed600 | harm CI、required recall、chain、正式 trace 对照 | MUST | TODO | 一次正式批次 |
-| R015 | M5 | 2Wiki heldout | heldout | supporting recall、chain、正式 trace 对照 | MUST | TODO | 与 R014 间不得调参 |
+| R005 | M1 | 双头 sanity | 固定 train-fit 16+16 小样本；全部 403q train-modelval | 分头/分类准确率、配对方向、safe corner、等量随机对照、fallback | MUST | FAIL | 30/30 epochs 与 16/16 配对方向通过；逐类准确率门失败，modelval/safe-corner 正确短路；[正式报告](R005_EXECUTION_REPORT_2026-08-12.md) |
+| R006 | M2 | 全量训练 seed13，只冻结 checkpoint/候选分位点 | train-fit → train-modelval | dual scores、checkpoint rule | MUST | CUT | 未运行；R005 training gate FAIL，当前 v2 路线停止 |
+| R007 | M2 | 方法选择与决定性消融 | grouped OOF/train-modelval | 0–cap1/2/3、`ε_harm`、复杂度序；冻结唯一 family/cap/分位点 | MUST | CUT | 未运行；依赖 R006 |
+| R008 | M2 | CRC calibration seed13 | CRC-calibration | P0–P6、recall/chain risk bound | MUST | CUT | 未运行；依赖 R006–R007 |
+| R009 | M3 | 单种子主结果 | decision-dev | harm CI lower>0；recall target/hard gate；等量删除对照 | MUST | CUT | 未运行；未获得可进入 decision-dev 的非零策略 |
+| R010 | M4 | 训练并校准 seed42 | train-fit → modelval → calibration | 同 R006/R008 | MUST if R009 PASS | CUT | 未运行；R009 前置条件未成立 |
+| R011 | M4 | 训练并校准 seed73 | train-fit → modelval → calibration | 同 R006/R008 | MUST if R009 PASS | CUT | 未运行；R009 前置条件未成立 |
+| R012 | M4 | 三种子 decision-dev | decision-dev | 均值、每 seed、CI、最差 recall、各 seed 等量对照 | MUST | CUT | 未运行；依赖 R010–R011 |
+| R013 | M5 | 正式冻结 | model/config/CRC/source/data | manifest 完整性 | MUST | CUT | 未运行；没有通过的模型/策略可冻结 |
+| R014 | M5 | NIAH sealed600 | sealed600 | harm CI、required recall、chain、正式 trace 对照 | MUST | CUT | 未运行；sealed600 效果未读取 |
+| R015 | M5 | 2Wiki heldout | heldout | supporting recall、chain、正式 trace 对照 | MUST | CUT | 未运行；heldout 效果未读取 |
 
 ### R001 分阶段状态
 
@@ -83,7 +83,7 @@
 - [x] calibration 与未来 component 的可交换性假设和分布审计已记录；无法支持时未声称 CRC 理论保证。
 - [x] CRC toy/simulation 在无安全策略时选择 P0；bootstrap 95% CI 没有被写成 CRC 保证。
 
-**状态：** PASS（R002 的指标/CRC 样本量协议与 R003 的 TopK 数量基线、三种 harm 分母、count-matched 生成协议均已冻结并独立复验；R004 资源前置检查也已通过，下一步 R005）
+**状态：** PASS（R002 的指标/CRC 样本量协议与 R003 的 TopK 数量基线、三种 harm 分母、count-matched 生成协议均已冻结并独立复验；R004 资源前置检查也已通过。随后 R005 的 scorer 训练门 FAIL 不会反向改变本 Gate 的证据。）
 
 **证据：**
 
@@ -104,7 +104,7 @@
 - [ ] modelval 至少有一个非零策略 harm point 改善、两数据 recall loss ≤3 pp。
 - [ ] deletion precision 优于逐题 count-matched random。
 
-**状态：** RUNNING（R004 `RESOURCE-PREFLIGHT PASS`；前四项结构/标签/输入条件已证实；最后两项必须由 R005 及其后续真实 Selector trace 回答）
+**状态：** FAIL / STOP（R004 `RESOURCE-PREFLIGHT PASS`；R005 完整执行但逐类准确率门 FAIL，因而没有进入 modelval/删除策略阶段。最后两项不是“已失败的效果比较”，而是 `NOT_EVALUATED`；当前 v2 路线不得进入 R006。）
 
 **证据：**
 
@@ -112,6 +112,9 @@
 - 标签审计：NIAH `20,460` 条、2Wiki `60,000` 条；候选文本语义违规 `0`，未判断 2Wiki 候选没有被伪造为 negative。
 - 资源预检：[`resource_preflight_report.json`](../results/selector-adaptive-risk-v1/R004/preflight/resource_preflight_report.json)；固定 `100+100` query 共 `4,000` pair 前向为 `145.431 pair/s`，全部 `8,060` pair 最大 token 长度 `298<512`、截断 `0`，12 个临时训练 micro-batch 无 OOM/NaN。
 - seed-13 全量训练估计为 `0.2142 GPU-hour`，p95 保守估计 `0.2818 GPU-hour`；这只是资源可行性，不是效果 PASS。R004 没有 checkpoint、策略、删除 trace、count-matched 结果或 sealed/heldout 效果。
+- R005 正式结果：固定 NIAH/2Wiki `16+16` train-fit query，30/30 epochs、360 optimizer steps，无 OOM/NaN；class coverage、execution、16/16 NIAH 三方向配对均 PASS。逐类准确率为 2Wiki protect-positive `32/32`、NIAH protect-negative `16/16`、NIAH protect-positive `71/79`、NIAH harm-negative `12/16`、NIAH harm-positive `14/16`；后三类低于 `0.95`，唯一 failed check 为 `per-source-head-class-accuracy`。
+- R005 training gate FAIL 后正确短路：640 条 candidate score 只覆盖固定 32 个 train-fit query 的 Top20；train-modelval 为 0 条，阈值未推导，decision/selection/count-matched 文件为空，`safe_corner=NOT_EVALUATED`。完整报告见 [`R005_EXECUTION_REPORT_2026-08-12.md`](R005_EXECUTION_REPORT_2026-08-12.md)。
+- 正式服务器 bundle：`/scratch/fl25387/IBM_Granite_Project_latest/runs/selector-adaptive-risk-v1/R005`；生成 commit `33c95a84c4edeb6d9ec85a3fa74cbf9d62fc0e3b`；runner 与 finalizer verify-only 均独立 PASS，post-run audit `P0=0, P1=0`；manifest SHA `3d5707358cd4a02f96b094c71ae5910b2c769ca90311583127a88c13ac203a5a`，CHECKSUMS SHA `384e54dac8e3871e41c58ef55638243df6454cb990ccabe5a0fddad0f8522567`。
 
 ## Gate 3 — Seed 13 主结果
 
@@ -124,7 +127,7 @@
 - [ ] 至少有部分 query 实际 `DROP_HARM`。
 - [ ] decision-dev 后没有修改阈值或策略梯子。
 
-**状态：** TODO
+**状态：** CUT / NOT RUN（R005 training-gate FAIL 在上游短路；没有进入 decision-dev。）
 
 **证据：**
 
@@ -141,7 +144,7 @@
 - [ ] 任一 seed recall loss point 均未超过3 pp。
 - [ ] source grouping 无独立作用时已降级，不强留复杂组件。
 
-**状态：** TODO
+**状态：** CUT / NOT RUN（R005 training-gate FAIL 在上游短路；没有运行方法消融或多种子实验。）
 
 **证据：**
 
@@ -155,7 +158,7 @@
 - [ ] 失败时 `top-k` 仍是唯一生产默认。
 - [ ] 通过后才创建 production registration 提案。
 
-**状态：** TODO
+**状态：** CUT / NOT RUN（没有通过的模型/策略可正式冻结；sealed600/heldout 效果未评估。）
 
 **证据：**
 
@@ -238,3 +241,6 @@ count-matched 对照 seed/100 repeats/输出路径:
 | 2026-08-12 | R005 将 source dataset/gold/candidate 超集投影到 R004 精确标注 universe，并要求所有标注 query 必须存在 | 第二次 formal 在训练前发现 NIAH 源池有 2,000 题而冻结标签/assignment 合法 universe 为 1,023 题；原实现错误要求两者全集相等 | 977 个未标注源题既不训练也不评估；固定样本仍只从原先冻结的 label roles 哈希抽取，未创建 staging、未读取模型结果 |
 | 2026-08-12 | R005 的 runner class-weight 交叉计算改用与权威 core 完全相同的 `Σ√n_c` 浮点运算路径 | 第三次 formal 在训练前发现数学等价的 `n/√n` 与 `√n` 路径仅有约 `1e-16` 舍入差，但原代码错误用不同结合顺序后再逐位比较 | 权威 core 权重、样本、公式和阈值均不改变；保留严格逐键相等检查，该次未创建 staging、未读取模型结果 |
 | 2026-08-12 | R005 strict tuple 模型从 JSON 证据读取时使用 `model_validate_json`，不把合法 JSON arrays 当成 Python tuple 类型错误 | commit `26fa422` 的运行完成并写出训练门 FAIL，但独立 runner verify-only 因自身反序列化错误未通过，故该 staging 不发布为正式 R005 | 保留原 staging 作为 `UNVERIFIED` 技术记录；不改样本/训练/阈值/判据，在修复后的同一 clean commit 下完整重跑并要求生成与复验 commit 相同 |
+| 2026-08-12 | R005 正式判定为 `COMPLETE / TRAINING-GATE FAIL`；当前 v2 路线在 R006 前停止 | 30 epochs、execution 和 16/16 配对方向通过，但 NIAH protect-positive `71/79`、harm-negative `12/16`、harm-positive `14/16` 均低于逐类 `0.95`；唯一失败项为 `per-source-head-class-accuracy` | 不推导阈值、不对 modelval 作模型评分或效果评估、不执行删除；safe corner 为 `NOT_EVALUATED`，R006–R015 标为 CUT，TopK10 保持默认 |
+| 2026-08-12 | R005 的排序信号作为负结果保留，但不把它事后改写成 PASS | 16/16 clean/counterfactual 的 protect、harm、safe 相对方向正确，说明可能存在排序信号；绝对判别失败可能涉及校准、目标或小样本难度，但原因尚未由独立实验区分 | 如继续，须先新增事前 amendment/新 Run ID；不得降低本次门槛、复用 R005 checkpoint/阈值或查看未运行的 modelval 效果后调参 |
+| 2026-08-12 | 正式 R005 FAIL bundle 保存在服务器，GitHub 只同步代码、报告与内容哈希 | checkpoint 为 `735,356,896` bytes，超过普通 GitHub 单文件限制；服务器 bundle 已由 runner/finalizer 双重 verify-only 与三方 post-run 审计确认 | 正式路径 `/scratch/fl25387/IBM_Granite_Project_latest/runs/selector-adaptive-risk-v1/R005`；manifest SHA `3d570735...a5a`，CHECKSUMS SHA `384e54da...567`；checkpoint 不推入普通 Git |

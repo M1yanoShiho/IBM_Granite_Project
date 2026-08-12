@@ -10,7 +10,7 @@
 
 **代码快照：** branch `refactor/three-module-baseline`，检查时 HEAD `74026c0`；R001 执行时必须重新记录实际 commit。
 
-**所有新实验状态：** `TODO`。本文只定义实验，不预填结果。
+**冻结时状态：** 2026-08-11 冻结计划时所有新实验均为 `TODO`、不预填结果；之后的实际状态、哈希与停止决定只通过带日期的执行记录追加，原预注册规则不因结果改写。
 
 ---
 
@@ -68,9 +68,9 @@ R007 必须输出唯一的 `policy_family`、最终 cap 和 P0–P6 构造规则
 
 `ABSTAIN_KEEP` 不能一边被保留，一边被写成“已经处理 harmful”。未来的隔离查证不属于本轮核心实验。
 
-### 0.4 当前进度：R001–R004 已完成，下一步只做 R005 双头 sanity
+### 0.4 当前进度：R001–R005 已完成；R005 正式 FAIL，当前路线停止在 R006 之前
 
-R001–R004 已通过各自的前置门；当前只允许进入 R005 的小样本双头 sanity，仍不开始 R006 全量 scorer 训练。已经完成的顺序为：
+R001–R004 已通过各自的前置门；R005 已按冻结协议正式运行并完成双重 verify-only，但没有通过训练门。因此当前 v2 路线不允许进入 R006 全量 scorer 训练。已经完成的顺序为：
 
 1. **R001A — inventory（COMPLETE）：** candidate pool、gold、provenance、ParentIndex、run/index manifest 和模型资产的本地/原 HPC 路径、存在性、schema、bytes 与 SHA-256 已记录；
 2. **R001B — recover-or-rebuild decision（COMPLETE）：** 六个历史 Hybrid pool 均按原 hash 精确恢复，决策为 `EXACT_RECOVERY / REPACKAGE`；
@@ -78,7 +78,8 @@ R001–R004 已通过各自的前置门；当前只允许进入 R005 的小样�
 4. **R002 — metric/component/CRC protocol（COMPLETE / SAMPLE-SIZE GO）：** component map、派生角色 crossing、CRC representatives、指标符号和 expected-risk 规则已冻结；四项风险代表数均 `n≥99`；
 5. **R003 — TopK/count controls（COMPLETE / BASELINE-PROTOCOL PASS）：** TopK10/9/8/7 数量基线和 count-matched random/bottom-rank 生成协议已冻结并复验；固定 TopK9 在 NIAH dev 虽改善约 `2.04 pp` harmful，却损失约 `1.90 pp` recall 和 `4.47 pp` 完整链，因此不能作为保守方案；
 6. **R004 — label/resource preflight（COMPLETE / RESOURCE-PREFLIGHT PASS）：** 两数据源全量 active-mask 标签、固定 200-query GPU 前向与短训练资源探针均通过，且没有读取 sealed/heldout 效果、保存 checkpoint 或执行删除；
-7. **Gate 0：PASS；Gate 1：PASS；Gate 2：RUNNING；R005：RUNNING（实现与运行前审计通过，formal 尚未运行）。** R004 只证明严格标签和双头 scorer 的资源路线可行，不代表 Selector 或非零删除策略成功；真实 count-matched 结果仍必须等 R005 formal 的真实 Selector trace 决定逐题删除数后生成。
+7. **R005 — dual-head sanity（COMPLETE / TRAINING-GATE FAIL）：** 固定 `16+16` 个 train-fit query 完成 30 epochs；sample coverage、训练执行和 `16/16` NIAH 配对方向均通过，但 NIAH protect-positive、harm-negative、harm-positive 三类的绝对分类准确率低于预注册的 `0.95`，唯一失败项为 `per-source-head-class-accuracy`；
+8. **Gate 0：PASS；Gate 1：PASS；Gate 2：FAIL / STOP；R006–R015：NOT RUN。** R005 在阈值和 modelval 之前按规则短路，没有产生删除决策、safe-corner 或 count-matched 效果，因此不能声称 Selector 优于 TopK10，也不能声称已经测试并否定了所有安全删除角落。默认 TopK10 保持不变；如要继续，必须另写事前 amendment/新 Run，不能事后降低本次门槛。
 
 ---
 
@@ -712,9 +713,16 @@ paired bootstrap CI 主要反映“换一批相似 query”带来的抽样不确
 - **safe-corner Go：** 至少一个事前分位点有真实非零 `DROP_HARM`，NIAH Top20 pool-conditional harmful reduction point `>0`；NIAH recall、NIAH conditional chain、2Wiki recall、2Wiki conditional chain 四项损失必须分别 `≤3 pp`，禁止跨数据或跨指标平均抵消；NIAH deletion precision 必须严格高于 100 次逐题等量随机删除 precision 的均值，并同时报告这 100 次的分布，而不是要求高于任意一次或全部 100 次；否则 CUT，不进入 R006；
 - 检查显式 P0 的 0 删除严格等于 TopK10；高 harm/高 protect 冲突、达到 cap/min-keep、缺分数或依赖不完整时使用 `ABSTAIN_KEEP`，它仍是保留且不得记作 harmful 改善；候选少于 7 条整题 fallback，`max_selected!=10` fail fast，不从 rank 11–20 补位；
 - **解释边界：** R005 只问“链路能否学会、是否存在值得继续的安全角落”，不要求 harmful 95% CI 下界大于 0，也不冻结正式方法；R009 才进行未参与选择的单种子可信效果检验。
+- **正式执行状态：`COMPLETE / FAIL`。** clean Git `33c95a84c4edeb6d9ec85a3fa74cbf9d62fc0e3b` 在服务器固定 RTX A4000 环境完成 30/30 epochs、360 optimizer steps，无 OOM/NaN；sample/coverage、execution、双头独立性、mask 梯度隔离和 checkpoint strict reload 均通过；
+- **通过的学习信号：** NIAH 16 个 verified clean/counterfactual 配对中，`protect(clean)>protect(cf)`、`harm(cf)>harm(clean)`、`safe(cf)>safe(clean)` 均为 `16/16=1.0`；NIAH protect/harm 与 2Wiki protect 的 active loss 均从初始化下降，两个 head 参数均发生变化；
+- **失败的预注册门：** 2Wiki protect-positive 为 `32/32=1.0`、NIAH protect-negative 为 `16/16=1.0`；但 NIAH protect-positive 为 `71/79=0.8987`、harm-negative 为 `12/16=0.75`、harm-positive 为 `14/16=0.875`，后三类没有达到逐类 `≥0.95`。唯一 failed check 为 `per-source-head-class-accuracy`，不能用配对排序或总体平均覆盖该失败；
+- **正确短路：** 运行前完整性阶段加载并核验了包含 train-modelval 的冻结输入，但 training gate FAIL 后没有推导分位点阈值、没有对 403 个 train-modelval query 作模型评分或效果评估、没有执行删除，也没有生成 decision/selection/count-matched 结果；modelval outcome 未用于调参，`safe_corner=NOT_EVALUATED`。因此准确结论是“当前训练配方未获准测试安全删除角落”，不是“安全角落已被证明不存在”；
+- **封存与复验：** 正式目录为服务器 `/scratch/fl25387/IBM_Granite_Project_latest/runs/selector-adaptive-risk-v1/R005`；完整 runner `--verify-only` 与 finalizer `--verify-only` 均独立 PASS，post-run 审计 `P0=0, P1=0`。顶层 manifest SHA-256 为 `3d5707358cd4a02f96b094c71ae5910b2c769ca90311583127a88c13ac203a5a`，`CHECKSUMS.sha256` 的 SHA-256 为 `384e54dac8e3871e41c58ef55638243df6454cb990ccabe5a0fddad0f8522567`；checkpoint 文件为 `735,356,896` bytes、SHA-256 `2b3493285d170885d5ff2c6f5364e4c9bc1f8176bcdf6eda4c081d0ec1010fb7`，加载后 state fingerprint 为 `6ec87f8f07cb0275b28d7fbf126ea14d5992683988b28ddae52f300dcfe8d0bd`；
+- **停止决定：** 按第 12 节条件 7，R006 及其后续当前全部不运行。R001–R004 的数据、标签、指标、风险控制与基线证据仍保留；R005 也保留为“相对排序已学到，但绝对逐类判别尚不足”的正式负结果。完整零基础解释和执行链见 [`R005_EXECUTION_REPORT_2026-08-12.md`](R005_EXECUTION_REPORT_2026-08-12.md)。
 
 ### R006 — train-seed13
 
+- **当前状态：`NOT RUN / CUT BY R005 TRAINING-GATE FAIL`。** 以下内容保留为原预注册路线定义；除非先提交并批准新的事前 amendment，否则不得执行。
 - 全量 train-fit 训练双头；
 - train-modelval 按预注册 checkpoint rule 冻结 checkpoint，只保存分数分布和候选分位点，不冻结 P0–P6；
 - 保存逐 candidate 双头分数和模型 hash。
