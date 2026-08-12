@@ -174,7 +174,7 @@ def test_model_loader_separates_local_load_path_from_canonical_identity(
         return torch if name == "torch" else transformers
 
     monkeypatch.setattr(module, "_optional_module", optional_module)
-    model = load_dual_head_model(
+    model = module.load_dual_head_model(
         "local/snapshot",
         revision="frozen-revision",
         identity_model_id="cross-encoder/nli-deberta-v3-base",
