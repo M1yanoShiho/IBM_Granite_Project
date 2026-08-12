@@ -791,7 +791,8 @@ M0/M1 计划新增：
   - v2 experiment manifest schema 与 scorer/CRC/source/label/data/pool hashes；
 - `src/evidence_rag/cli/calibrate_selector_crc.py`；
 - `src/evidence_rag/cli/run_selector_risk_experiment.py`；
-- `configs/selector/adaptive_risk_v1.toml`。
+- `configs/selector/adaptive_risk_v1.toml`（R004 已封存配置，不得原位修改）；
+- `configs/selector/adaptive_risk_r005_sanity.toml`（R005 独立冻结配置）。
 
 测试至少新增：
 

@@ -1,3 +1,4 @@
+import hashlib
 import math
 from pathlib import Path
 
@@ -28,7 +29,7 @@ from evidence_rag.evaluation.selector_sanity import (
 
 
 def _config_path() -> Path:
-    return Path(__file__).resolve().parents[2] / "configs/selector/adaptive_risk_v1.toml"
+    return Path(__file__).resolve().parents[2] / "configs/selector/adaptive_risk_r005_sanity.toml"
 
 
 def test_tracked_r005_config_matches_the_runner_contract() -> None:
@@ -37,6 +38,16 @@ def test_tracked_r005_config_matches_the_runner_contract() -> None:
     assert sanity.batch_size == 4
     assert sanity.accumulation == 4
     assert sanity.learning_rate == pytest.approx(2e-5)
+
+
+def test_r005_config_does_not_mutate_the_r004_pinned_config() -> None:
+    r004_config = Path(__file__).resolve().parents[2] / "configs/selector/adaptive_risk_v1.toml"
+
+    assert r004_config != _config_path()
+    assert len(r004_config.read_bytes()) == 3921
+    assert hashlib.sha256(r004_config.read_bytes()).hexdigest() == (
+        "b5545848202964af77821af9ef92c360b2981c1aa6bdccc1b9d8d143218810ed"
+    )
 
 
 def test_policy_contract_probes_cover_every_frozen_fallback() -> None:
