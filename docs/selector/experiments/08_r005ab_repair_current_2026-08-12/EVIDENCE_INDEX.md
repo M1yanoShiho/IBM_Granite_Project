@@ -3,6 +3,11 @@
 ## 当前 Lean v3 canonical 与快照
 
 - [L001 最小实现报告](L001_IMPLEMENTATION_REPORT.md)
+- [L002 训练与开发选择报告](L002_DEVELOPMENT_REPORT.md)
+- [L002 development 机器结果](artifacts/L002_DEVELOPMENT_RESULTS.json)
+- [L002 冻结策略](artifacts/L002_FROZEN_POLICY.json)
+- [L002 seed13 训练摘要](artifacts/L002_SEED13_TRAINING_SUMMARY.json)
+- [L002 seed42 训练摘要](artifacts/L002_SEED42_TRAINING_SUMMARY.json)
 - [Lean v3 计划](../../../../refine-logs/EXPERIMENT_PLAN_AMENDMENT_2026-08-12_R005AB_v3_LEAN.md)
 - [Lean v3 机器合同](../../../../refine-logs/EXPERIMENT_PLAN_AMENDMENT_2026-08-12_R005AB_v3_LEAN.json)
 - [Lean v3 tracker](../../../../refine-logs/EXPERIMENT_TRACKER_AMENDMENT_2026-08-12_R005AB_v3_LEAN.md)

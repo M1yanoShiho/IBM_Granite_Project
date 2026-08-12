@@ -2,7 +2,7 @@
 
 **对应计划：** `EXPERIMENT_PLAN_AMENDMENT_2026-08-12_R005AB_v3_LEAN.md`
 
-**状态：** `LEAN SCOPE APPROVED / L001 PASS / READY FOR L002 / FINAL UNOPENED`
+**状态：** `L002 PASS / NLI-BASE POLICY FROZEN / READY FOR L003 / FINAL UNOPENED`
 
 **状态词：** `NOT RUN / RUNNING / PASS / FAIL / BLOCKED / CUT`
 
@@ -16,7 +16,7 @@
 |---|---|---|---|---|---|
 | L000 | 冻结 Lean v3 计划、JSON 合同与 tracker | 不读取效果数据 | 一致文档；独立复核 P0=0/P1=0 | PASS | 进入 L001 |
 | L001 | 实现 NLI scorer、pair loss、lean evaluator/CLI 与必要测试 | synthetic + 已暴露旧 R005/train smoke | clean commit；本地测试；服务器真实模型 smoke | PASS | 进入 L002 |
-| L002 | 两 seed 训练并只在 development 选择 variant/quantile/cap | train-fit + crc-calibration | 两 checkpoint、唯一冻结策略、开发报告 | NOT RUN | PASS 才能打开 final |
+| L002 | 两 seed 训练并只在 development 选择 variant/quantile/cap | train-fit + crc-calibration | 两 checkpoint、唯一冻结策略、开发报告 | PASS | 允许一次 L003 final |
 | L003 | 一次性 final：先证据门，再答案指标 | R002 `decision-dev`（NIAH 739q；2Wiki 1000q） | decisions、metrics、CI、最终报告 | NOT RUN | PASS 才能提出后续确认；FAIL 保持 TopK10 |
 
 ## L000 — 文档冻结
@@ -50,17 +50,17 @@ Git commit/push 只记在项目历史与本次交付说明中，不再为它增�
 
 ## L002 — 训练与开发选择
 
-- [ ] `NLI-base` seed13、42 使用完全相同配方训练。
-- [ ] 每 seed 从自己的 train-fit safe-score 生成固定四分位点。
-- [ ] 每 seed 只使用一只全局阈值；固定池为全部 train-fit TopK10 分数按 NIAH→2Wiki 拼接，禁止 dataset-specific threshold。
-- [ ] nearest-rank=`ceil(pN)`、float32 score、`safe>=threshold` 与重复 threshold identity 均按合同实现。
-- [ ] development 只比较 `4 quantiles × cap{1,2} + P0`。
-- [ ] 先按两 seed NIAH harmful reduction算术平均找全局最大，`≤0.5pp`等价集内再按高分位点→小cap→少删除选择。
-- [ ] 两 seed 都有正 harmful reduction；seed13 recall/chain 各≤1pp；seed42 各≤3pp。
-- [ ] Selector 的 NIAH deletion precision/harmful reduction 优于等量 random 和 bottom-rank。
-- [ ] 若 NLI-base 失败，才运行 NLI-pair 两 seed；不得增加第三个 variant。
-- [ ] 冻结唯一 variant、两个 checkpoint、quantile、cap、代码、最终原始输入 pins、development projection hash，以及 Granite revision/weights/prompt/greedy config；L003 另记 final projection hash。
-- [ ] development FAIL 时 L003 保持未打开，TopK10 保持默认。
+- [x] `NLI-base` seed13、42 使用完全相同配方训练。
+- [x] 每 seed 从自己的 train-fit safe-score 生成固定四分位点。
+- [x] 每 seed 只使用一只全局阈值；固定池为全部 train-fit TopK10 分数按 NIAH→2Wiki 拼接，禁止 dataset-specific threshold。
+- [x] nearest-rank=`ceil(pN)`、float32 score、`safe>=threshold` 与重复 threshold identity 均按合同实现。
+- [x] development 只比较 `4 quantiles × cap{1,2} + P0`。
+- [x] 先按两 seed NIAH harmful reduction算术平均找全局最大，`≤0.5pp`等价集内再按高分位点→小cap→少删除选择。
+- [x] 两 seed 都有正 harmful reduction；seed13 recall/chain 各≤1pp；seed42 各≤3pp。
+- [x] Selector 的 NIAH deletion precision/harmful reduction 优于等量 random 和 bottom-rank。
+- [x] `NLI-base` 已通过，因此按计划不运行 `NLI-pair`，也不增加第三个 variant。
+- [x] 冻结 `NLI-base`、两个 checkpoint、q=.99、cap=2、commit `4fb68fa`、最终输入、development projection 与 Granite 配置。
+- [x] development PASS；允许且只允许一次 L003 final，TopK10 仍是当前生产默认。
 
 ## L003 — 最终盲测
 
@@ -89,6 +89,7 @@ Git commit/push 只记在项目历史与本次交付说明中，不再为它增�
 | 2026-08-12 | 只保留 NLI-base 和条件触发的 NLI-pair | 直接针对丢失 NLI 表示与配对 margin 两个已知问题，避免多路线并跑 |
 | 2026-08-12 | 每题允许删0条，cap只在1/2中选择 | 比固定最多1条灵活，同时至少保留8条，符合保守目标 |
 | 2026-08-12 | L001 PASS，进入 L002 | 本地相关回归、格式、类型检查通过；服务器真实 NLI forward、单步训练、checkpoint reload 与 38 项测试通过 |
+| 2026-08-12 | L002 PASS，冻结 NLI-base q=.99/cap2 | 两 seed harmful reduction 10.77%/10.47%，保护损失受控，优于等量删除对照；final 尚未打开 |
 | 2026-08-12 | 不再声称 CRC guarantee | 只保留开发/最终隔离和paired CI；方法名称改为经验验证的保守 Selector |
 | 2026-08-12 | 最终答案主指标固定为 macro `system.core.answer_match` | 直接回答是否比 TopK10 有哪怕小幅下游提升，避免结果后挑指标 |
 | 2026-08-12 | train-modelval 不读取；decision-dev 成为本轮唯一 final | 保持真正的 train-fit→development→final 三角色，并直接复用 R002 已冻结 component map |
