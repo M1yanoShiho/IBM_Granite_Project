@@ -25,7 +25,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import Any, Literal, TypeVar, cast
 
 from pydantic import ValidationError
 
@@ -122,6 +122,7 @@ DIAGNOSTIC_QUANTILES = (0.99, 0.975, 0.95, 0.90)
 DIAGNOSTIC_CAP: Literal[1] = 1
 MAX_HELDOUT_LOSS = 0.03
 DATASET_KINDS: tuple[DatasetKind, DatasetKind] = ("niah", "2wiki")
+QueryValue = TypeVar("QueryValue")
 
 CONFIG_FILE = "config.toml"
 CHECKPOINT_DIRECTORY = "checkpoint"
@@ -503,6 +504,17 @@ def _read_assignments(path: Path) -> dict[str, NiahSelectorAssignment]:
     return values
 
 
+def _project_query_universe(
+    values: Mapping[str, QueryValue], expected_keys: set[str], *, label: str
+) -> dict[str, QueryValue]:
+    """Project a pinned source superset onto the exact R004 labelled-query universe."""
+
+    missing = sorted(expected_keys - set(values))
+    if missing:
+        raise ValueError(f"{label} omits R004 labelled queries: {missing[:5]}")
+    return {query_id: values[query_id] for query_id in sorted(expected_keys)}
+
+
 def _load_dataset(
     arguments: _DatasetArguments,
     *,
@@ -512,19 +524,21 @@ def _load_dataset(
     artifacts = _label_artifacts(arguments)
     prepared = _prepare_dataset(arguments, artifacts, expected_counts)
     bundle = JsonlDatasetAdapter.load(arguments.dataset_manifest)
-    query_by_id = {query.query_id: query for query in bundle.queries}
-    candidate_by_query = _read_candidate_sets(arguments.candidate_pool / CANDIDATE_FILE)
-    gold_by_query = {
+    all_query_by_id = {query.query_id: query for query in bundle.queries}
+    all_candidate_by_query = _read_candidate_sets(arguments.candidate_pool / CANDIDATE_FILE)
+    all_gold_by_query = {
         case.query_id: tuple(case.relevant_document_ids or ()) for case in bundle.gold_cases
     }
     expected_keys = set(prepared.query_role)
-    for label, values in (
-        ("query", query_by_id),
-        ("candidate", candidate_by_query),
-        ("gold", gold_by_query),
-    ):
-        if set(values) != expected_keys:
-            raise ValueError(f"{arguments.kind} {label}/R004 label query keys differ")
+    query_by_id = _project_query_universe(
+        all_query_by_id, expected_keys, label=f"{arguments.kind} source queries"
+    )
+    candidate_by_query = _project_query_universe(
+        all_candidate_by_query, expected_keys, label=f"{arguments.kind} candidate pool"
+    )
+    gold_by_query = _project_query_universe(
+        all_gold_by_query, expected_keys, label=f"{arguments.kind} gold cases"
+    )
     assignment_by_query: Mapping[str, NiahSelectorAssignment] = {}
     if arguments.assignment is not None:
         assignment_by_query = _read_assignments(arguments.assignment)

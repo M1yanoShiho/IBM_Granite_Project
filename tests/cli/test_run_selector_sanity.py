@@ -12,6 +12,7 @@ from evidence_rag.cli.run_selector_sanity import (
     _NonFiniteTrainingError,
     _policy_contract_probes,
     _prepare_output_root,
+    _project_query_universe,
     _quantile_policies,
     _require_empty_artifacts,
     _run_epoch_boundaries,
@@ -48,6 +49,18 @@ def test_r005_config_does_not_mutate_the_r004_pinned_config() -> None:
     assert hashlib.sha256(r004_config.read_bytes()).hexdigest() == (
         "b5545848202964af77821af9ef92c360b2981c1aa6bdccc1b9d8d143218810ed"
     )
+
+
+def test_source_superset_is_projected_to_the_r004_labelled_query_universe() -> None:
+    projected = _project_query_universe(
+        {"unlabelled": 0, "q2": 2, "q1": 1},
+        {"q1", "q2"},
+        label="fixture source",
+    )
+
+    assert projected == {"q1": 1, "q2": 2}
+    with pytest.raises(ValueError, match="omits R004 labelled queries"):
+        _project_query_universe({"q1": 1}, {"q1", "q2"}, label="fixture source")
 
 
 def test_policy_contract_probes_cover_every_frozen_fallback() -> None:
