@@ -1,0 +1,11 @@
+{
+  "current_audit": "R005_EXPERIMENT_INTEGRITY_AUDIT_2026-08-12.json",
+  "overall_verdict": "WARN",
+  "formal_r005_conclusion_supported": true,
+  "formal_r005_status": "COMPLETE_FAIL",
+  "p0_count": 0,
+  "p1_count": 1,
+  "historical_attestation_remediation": "COMPLETE_FOR_CURRENT_AND_FUTURE_RUNS_HISTORICAL_EVENTS_NOT_RETROACTIVELY_PROVEN",
+  "current_verification_attestation": "R005_VERIFICATION_ATTESTATION_2026-08-12.json",
+  "next_action": "retain WARN history boundary and require immutable attestations for future runs"
+}

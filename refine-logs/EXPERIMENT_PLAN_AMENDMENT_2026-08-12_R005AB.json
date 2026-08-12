@@ -1,0 +1,566 @@
+{
+  "schema_version": "1.0",
+  "protocol_version": "selector-r005-amendment-v1",
+  "document_status": "DRAFT_WAITING_FOR_USER_APPROVAL",
+  "implemented": false,
+  "executed": false,
+  "original_r005_status_unchanged": "COMPLETE_FAIL",
+  "original_r006_r015_status_unchanged": "CUT_NOT_RUN",
+  "production_default": "top-k-10",
+  "sample_seed": 20260812,
+  "forbidden_effect_roles": [
+    "train-modelval",
+    "decision-dev",
+    "crc-calibration",
+    "sealed600",
+    "heldout"
+  ],
+  "eligibility": {
+    "exclude_entire_components_containing_original_r005_queries": true,
+    "niah": {
+      "id": "niah-strict-clean-cf-both-topk10-v1",
+      "eligible_queries": 778,
+      "eligible_components": 719
+    },
+    "2wiki": {
+      "id": "2wiki-at-least-one-official-support-topk10-v1",
+      "eligible_queries": 2677,
+      "eligible_components": 2078
+    }
+  },
+  "roles_per_dataset": {
+    "R005A-fit": 64,
+    "R005A-screen": 96,
+    "R005B-fit": 64,
+    "R005B-confirm": 128
+  },
+  "combined_partition_hashes": {
+    "R005A-fit": {
+      "assignment": "342d90e4cf324c96a541cee6fce962be770b57ca52ab4c1b93f330c3c8af7491",
+      "top20": "301e910f67b78ec8c898049d89fd8841eb72b9bb8de3c9e3ae8400fb512ebde4",
+      "top10": "b9dcf6a3cabd1c69fdef4d9e42d699cd4ea9ba693b0b4ec3478138e386fcb759"
+    },
+    "R005A-screen": {
+      "assignment": "a992f1b76abfac727981a79cdaf20d034aa7f8641d8e5d4a7713c9ecfa5bd15c",
+      "top20": "e3ca8cbb3b5842516af7e5c3ca2c7d31858c85a810ad93a8480b7a9ce7e0228c",
+      "top10": "908880c6a31d58c5902e01a20b08eb770aec58d6cbcbe3146ea4494c5cd1ef5e"
+    },
+    "R005B-fit": {
+      "assignment": "d571a85eb91c3a3a9128124c0c627f6de27d604b5eb4a49510edf0a6fb573111",
+      "top20": "e46276b5e4a700cd313c81bff23470eaade78d5d17e82f866f29ebf39b1b1c55",
+      "top10": "efc358a08b1814337d60fa56d0f7c3757ccb5b9fc4d539708ba97fb9d38052fa"
+    },
+    "R005B-confirm": {
+      "assignment": "676cdb6cfb51626b98959a53ea7d81774b042cc64be0e4e6a09ba3046016832a",
+      "top20": "bb33ac9268a3405149cc2e428aa552323e0dc7be976a8f3164ead5e8ffc5fb60",
+      "top10": "3259c1bbe613d04f7f6023138451e725c1d5fbe12561e45ef57f4d44abb2a0fa"
+    }
+  },
+  "all_assignment_sha256": "8b5551e8265ed67c76fd43cd8cf8886892d5a22e143af86411dc98ed64a19fb5",
+  "variants": [
+    {
+      "id": "V0",
+      "architecture": "auto-model-raw-cls-two-random-linear-heads",
+      "objective": "masked-weighted-bce",
+      "pair_loss_weight": 0.0
+    },
+    {
+      "id": "V1",
+      "architecture": "pretrained-deberta-context-pooler-two-independent-three-logit-nli-classifier-copies",
+      "protect_logit": "z_entailment-logsumexp(z_contradiction,z_neutral)",
+      "harm_logit": "z_contradiction-logsumexp(z_entailment,z_neutral)",
+      "objective": "masked-weighted-bce",
+      "pair_loss_weight": 0.0
+    },
+    {
+      "id": "V2",
+      "architecture": "same-as-v1",
+      "objective": "masked-weighted-bce-plus-pairwise-logistic",
+      "pair_loss_weight": 0.5
+    }
+  ],
+  "variant_complexity_order": [
+    "V0",
+    "V1",
+    "V2"
+  ],
+  "training": {
+    "epochs": 30,
+    "batch_size": 4,
+    "gradient_accumulation_steps": 4,
+    "learning_rate": 0.00002,
+    "optimizer": "AdamW",
+    "weight_decay": 0.01,
+    "source_ratio": "1:1",
+    "checkpoint_rule": "final-completed-epoch-only",
+    "pair_preserving_batch_manifest_shared_across_variants": true,
+    "maximum_jobs": 5,
+    "maximum_aggregate_epochs": 150,
+    "maximum_gpu_hours": 2.0
+  },
+  "seeds": {
+    "R005A": [13],
+    "R005B": [42, 73]
+  },
+  "thresholds": {
+    "source_role": "corresponding-fit-only",
+    "count_per_checkpoint": 2,
+    "heads": [
+      "protect",
+      "harm"
+    ],
+    "positive_rule": "score-greater-than-or-equal-to-threshold",
+    "screen_or_confirm_may_change_threshold": false,
+    "reused_by_r006a_or_r007": false,
+    "enumeration_dtype": "IEEE-754-binary64-from-exact-serialized-float32-score",
+    "midpoint": "left+(right-left)/2-in-binary64",
+    "boundary": "nextafter-min-toward-negative-infinity-and-max-toward-positive-infinity"
+  },
+  "primary_endpoints": [
+    "niah-query-composite-success",
+    "2wiki-query-all-topk10-official-support-protected"
+  ],
+  "gates": {
+    "fit": {
+      "n_per_dataset": 64,
+      "minimum_successes": 61,
+      "minimum_observed_rate": 0.95,
+      "confidence_bound_required": false,
+      "A_technical_or_execution_failure": "STOP_WHOLE_AMENDMENT",
+      "repairable_structural_error_boundary": "A001-A002-or-before-formal-fit-FIT_STARTED-with-zero-optimizer-step-checkpoint-fit-score-or-gate",
+      "formal_fit_start_marker": "write-once-fsynced-FIT_STARTED-before-model-forward-or-optimizer-initialization",
+      "any_error_after_formal_fit_started": "STOP_WHOLE_AMENDMENT_NO_FORMAL_FIT_RETRY",
+      "A_single_variant_classification_below_gate": "MARK_VARIANT_INELIGIBLE_AND_CONTINUE_OTHER_PRE_FROZEN_VARIANTS",
+      "A_all_variants_classification_below_gate": "STOP_WITHOUT_READING_SCREEN",
+      "B_any_seed_below_any_fit_gate": "STOP_WITHOUT_READING_CONFIRM"
+    },
+    "screen": {
+      "n_per_dataset": 96,
+      "minimum_successes": 92,
+      "minimum_observed_rate": 0.95,
+      "one_sided_exact_confidence": 0.95,
+      "minimum_lower_bound": 0.9,
+      "selection": "first-passing-in-v0-v1-v2-order"
+    },
+    "confirm": {
+      "n_per_dataset": 128,
+      "minimum_successes": 122,
+      "minimum_observed_rate": 0.95,
+      "one_sided_exact_confidence": 0.95,
+      "minimum_lower_bound": 0.9,
+      "all_seed_dataset_cells_must_pass": true,
+      "seed_cells_may_be_pooled": false,
+      "one_shot_after_both_seed_checkpoints_and_thresholds_frozen": true
+    }
+  },
+  "maximum_training_jobs": [
+    "R005A-V0-S13",
+    "R005A-V1-S13",
+    "R005A-V2-S13",
+    "R005B-VSTAR-S42",
+    "R005B-VSTAR-S73"
+  ],
+  "full_fit_loss_gate": {
+    "mode": "eval-dropout-off",
+    "same_fit_rows_masks_class_weights_for_initial_and_final": true,
+    "strictly_decreasing_finite_losses": [
+      "niah.protect",
+      "niah.harm",
+      "2wiki.protect"
+    ]
+  },
+  "pre_result_execution_order": [
+    "A000-user-approval",
+    "A001-implement-test-clean-commit-and-push-using-only-old-r005-train-fit-and-synthetic-fixtures",
+    "A002-run-sealed-materializer-from-a001-commit-materialize-fit-only-and-output-heldout-aggregate-hashes-only",
+    "R005A-fit-train-and-freeze-all-three-variants",
+    "R005A-screen-durable-reveal",
+    "R005B-fit-train-and-freeze-both-seeds",
+    "R005B-confirm-durable-reveal"
+  ],
+  "heldout_pre_started_policy": {
+    "allowed_process": "frozen-A002-sealed-preflight-only",
+    "allowed_output": "aggregate-count-hash-isolation-pass-fail-only",
+    "may_write_raw_heldout_rows_or_token_cache": false,
+    "all_other_human_agent_or_command_access_to_assignment-query-text-label-token": "INVALIDATE_SPLIT_AND_STOP",
+    "heldout_rows_and_tokens_materialized": "inside-private-staging-only-after-matching-durable-STARTED"
+  },
+  "formal_fit_registry": {
+    "registry_path": "/scratch/fl25387/IBM_Granite_Project_latest/audit/selector-r005-amendment-v1/formal-fits/FORMAL_FIT_REGISTRY.json",
+    "claim_root": "/scratch/fl25387/IBM_Granite_Project_latest/audit/selector-r005-amendment-v1/formal-fits/claims",
+    "job_audit_root": "/scratch/fl25387/IBM_Granite_Project_latest/audit/selector-r005-amendment-v1/formal-fits/jobs",
+    "run_root": "/scratch/fl25387/IBM_Granite_Project_latest/runs/selector-r005-amendment-v1/formal-fits",
+    "overrides_alternate_roots_or_duplicate_jobs_allowed": false,
+    "maximum_claims": 5,
+    "maximum_aggregate_epochs": 150,
+    "maximum_gpu_hours": 2.0,
+    "jobs": [
+      {
+        "ordinal": 1,
+        "job_id": "R005A-V0-S13",
+        "seed": 13,
+        "variant": "V0",
+        "run_root": "/scratch/fl25387/IBM_Granite_Project_latest/runs/selector-r005-amendment-v1/formal-fits/R005A-V0-S13",
+        "claim": "/scratch/fl25387/IBM_Granite_Project_latest/audit/selector-r005-amendment-v1/formal-fits/claims/01-R005A-V0-S13.json",
+        "job_anchor": "/scratch/fl25387/IBM_Granite_Project_latest/audit/selector-r005-amendment-v1/formal-fits/jobs/R005A-V0-S13/FIT_JOB_ANCHOR.json",
+        "fit_started": "/scratch/fl25387/IBM_Granite_Project_latest/audit/selector-r005-amendment-v1/formal-fits/jobs/R005A-V0-S13/FIT_STARTED.json",
+        "fit_terminal": "/scratch/fl25387/IBM_Granite_Project_latest/audit/selector-r005-amendment-v1/formal-fits/jobs/R005A-V0-S13/FIT_TERMINAL.json",
+        "owner_lock": "/scratch/fl25387/IBM_Granite_Project_latest/audit/selector-r005-amendment-v1/formal-fits/jobs/R005A-V0-S13/OWNER_LOCK"
+      },
+      {
+        "ordinal": 2,
+        "job_id": "R005A-V1-S13",
+        "seed": 13,
+        "variant": "V1",
+        "run_root": "/scratch/fl25387/IBM_Granite_Project_latest/runs/selector-r005-amendment-v1/formal-fits/R005A-V1-S13",
+        "claim": "/scratch/fl25387/IBM_Granite_Project_latest/audit/selector-r005-amendment-v1/formal-fits/claims/02-R005A-V1-S13.json",
+        "job_anchor": "/scratch/fl25387/IBM_Granite_Project_latest/audit/selector-r005-amendment-v1/formal-fits/jobs/R005A-V1-S13/FIT_JOB_ANCHOR.json",
+        "fit_started": "/scratch/fl25387/IBM_Granite_Project_latest/audit/selector-r005-amendment-v1/formal-fits/jobs/R005A-V1-S13/FIT_STARTED.json",
+        "fit_terminal": "/scratch/fl25387/IBM_Granite_Project_latest/audit/selector-r005-amendment-v1/formal-fits/jobs/R005A-V1-S13/FIT_TERMINAL.json",
+        "owner_lock": "/scratch/fl25387/IBM_Granite_Project_latest/audit/selector-r005-amendment-v1/formal-fits/jobs/R005A-V1-S13/OWNER_LOCK"
+      },
+      {
+        "ordinal": 3,
+        "job_id": "R005A-V2-S13",
+        "seed": 13,
+        "variant": "V2",
+        "run_root": "/scratch/fl25387/IBM_Granite_Project_latest/runs/selector-r005-amendment-v1/formal-fits/R005A-V2-S13",
+        "claim": "/scratch/fl25387/IBM_Granite_Project_latest/audit/selector-r005-amendment-v1/formal-fits/claims/03-R005A-V2-S13.json",
+        "job_anchor": "/scratch/fl25387/IBM_Granite_Project_latest/audit/selector-r005-amendment-v1/formal-fits/jobs/R005A-V2-S13/FIT_JOB_ANCHOR.json",
+        "fit_started": "/scratch/fl25387/IBM_Granite_Project_latest/audit/selector-r005-amendment-v1/formal-fits/jobs/R005A-V2-S13/FIT_STARTED.json",
+        "fit_terminal": "/scratch/fl25387/IBM_Granite_Project_latest/audit/selector-r005-amendment-v1/formal-fits/jobs/R005A-V2-S13/FIT_TERMINAL.json",
+        "owner_lock": "/scratch/fl25387/IBM_Granite_Project_latest/audit/selector-r005-amendment-v1/formal-fits/jobs/R005A-V2-S13/OWNER_LOCK"
+      },
+      {
+        "ordinal": 4,
+        "job_id": "R005B-VSTAR-S42",
+        "seed": 42,
+        "variant": "bind-unique-valid-R005A-VSTAR-at-start",
+        "run_root": "/scratch/fl25387/IBM_Granite_Project_latest/runs/selector-r005-amendment-v1/formal-fits/R005B-VSTAR-S42",
+        "claim": "/scratch/fl25387/IBM_Granite_Project_latest/audit/selector-r005-amendment-v1/formal-fits/claims/04-R005B-VSTAR-S42.json",
+        "job_anchor": "/scratch/fl25387/IBM_Granite_Project_latest/audit/selector-r005-amendment-v1/formal-fits/jobs/R005B-VSTAR-S42/FIT_JOB_ANCHOR.json",
+        "fit_started": "/scratch/fl25387/IBM_Granite_Project_latest/audit/selector-r005-amendment-v1/formal-fits/jobs/R005B-VSTAR-S42/FIT_STARTED.json",
+        "fit_terminal": "/scratch/fl25387/IBM_Granite_Project_latest/audit/selector-r005-amendment-v1/formal-fits/jobs/R005B-VSTAR-S42/FIT_TERMINAL.json",
+        "owner_lock": "/scratch/fl25387/IBM_Granite_Project_latest/audit/selector-r005-amendment-v1/formal-fits/jobs/R005B-VSTAR-S42/OWNER_LOCK"
+      },
+      {
+        "ordinal": 5,
+        "job_id": "R005B-VSTAR-S73",
+        "seed": 73,
+        "variant": "bind-same-unique-valid-R005A-VSTAR-at-start",
+        "run_root": "/scratch/fl25387/IBM_Granite_Project_latest/runs/selector-r005-amendment-v1/formal-fits/R005B-VSTAR-S73",
+        "claim": "/scratch/fl25387/IBM_Granite_Project_latest/audit/selector-r005-amendment-v1/formal-fits/claims/05-R005B-VSTAR-S73.json",
+        "job_anchor": "/scratch/fl25387/IBM_Granite_Project_latest/audit/selector-r005-amendment-v1/formal-fits/jobs/R005B-VSTAR-S73/FIT_JOB_ANCHOR.json",
+        "fit_started": "/scratch/fl25387/IBM_Granite_Project_latest/audit/selector-r005-amendment-v1/formal-fits/jobs/R005B-VSTAR-S73/FIT_STARTED.json",
+        "fit_terminal": "/scratch/fl25387/IBM_Granite_Project_latest/audit/selector-r005-amendment-v1/formal-fits/jobs/R005B-VSTAR-S73/FIT_TERMINAL.json",
+        "owner_lock": "/scratch/fl25387/IBM_Granite_Project_latest/audit/selector-r005-amendment-v1/formal-fits/jobs/R005B-VSTAR-S73/OWNER_LOCK"
+      }
+    ],
+    "start_order": "exclusive-job-lock-then-anchor-then-no-replace-budget-claim-then-FIT_STARTED-before-forward-or-optimizer-init",
+    "claim_binds": [
+      "registry-sha256",
+      "job-anchor-sha256",
+      "attempt-id"
+    ],
+    "fit_started_binds_claim_sha256": true,
+    "fit_terminal_outcomes": [
+      "COMPLETE",
+      "FAIL"
+    ],
+    "fit_terminal_install": "canonical-unique-temp-close-writer-chmod-read-only-file-fsync-atomic-no-replace-hard-link-to-single-FIT_TERMINAL-path-parent-fsync",
+    "fit_terminal_mutual_exclusion": "COMPLETE-or-FAIL-exactly-one-never-overwrite-delete-or-repair",
+    "complete_terminal_binds": [
+      "registry",
+      "job-anchor",
+      "budget-claim",
+      "FIT_STARTED",
+      "checkpoint",
+      "fit-score",
+      "threshold-and-gate"
+    ],
+    "valid_complete_terminal_requires": "matching-registry-anchor-claim-FIT_STARTED-checkpoint-fit-score-threshold-gate-hashes-and-canonical-terminal-payload-sha256",
+    "terminal_without_matching_started_or_partial_invalid_eexist_or_hash_conflict": "STOP_WHOLE_AMENDMENT_INSTALL_FAIL_ONLY_IF-SAME-TERMINAL-PATH-STILL-EMPTY-NEVER-REVIVE",
+    "second_process_without_job_lock": "ZERO_TRAINING_ZERO_MUTATION_EXIT",
+    "started_without_valid_terminal_recovery": "WRITE_FAIL_TERMINAL_AND_STOP_WHOLE_AMENDMENT_NEVER_RESUME",
+    "any_duplicate_alternate_unregistered_or_conflicting_artifact": "STOP_WHOLE_AMENDMENT",
+    "any_claim_or_started_forbids": "new-A001-commit-A002-rerun-or-budget-reregistration",
+    "closed_world_verifier": "at-most-five-claims-zero-or-one-per-job-max-150-epochs-max-2.0-gpu-hours-no-second-checkpoint-or-run-root"
+  },
+  "authorization_events": {
+    "R005A_to_R005B": "/scratch/fl25387/IBM_Granite_Project_latest/audit-journal/selector-r005-amendment-v1/authorizations/R005A_TO_R005B.json",
+    "R005B_to_R006A_protocol_proposal_only": "/scratch/fl25387/IBM_Granite_Project_latest/audit-journal/selector-r005-amendment-v1/authorizations/R005B_TO_R006A_PROTOCOL_PROPOSAL_ONLY.json",
+    "schema_binds": [
+      "authorization-type",
+      "source-split-session-attempt",
+      "five-valid-complete-artifact-sha256-values",
+      "no-veto-reverification"
+    ],
+    "installed_and_fsynced_while_source_owner_lock_held": true,
+    "outside_session_events_directory": true,
+    "session_event_directory_still_has_exactly_two_events": true,
+    "R005B_event_is_gpu_run_authorization": false
+  },
+  "reveal_failure_policy": {
+    "intermediate_results_visible": false,
+    "same_split_retry_allowed": false,
+    "any_unauthorized_heldout_access_or_started_without_valid_complete": "INSTALL_SPLIT_VETO_QUARANTINE_AND_STOP",
+    "canonical_namespace": {
+      "overrides_allowed": false,
+      "symlinks_allowed": false,
+      "namespace_anchor": "/scratch/fl25387/IBM_Granite_Project_latest",
+      "run_root": "/scratch/fl25387/IBM_Granite_Project_latest/runs/selector-r005-amendment-v1",
+      "audit_root": "/scratch/fl25387/IBM_Granite_Project_latest/audit/selector-r005-amendment-v1",
+      "external_audit_root": "/scratch/fl25387/IBM_Granite_Project_latest/audit-journal/selector-r005-amendment-v1",
+      "sessions": {
+        "A-screen": {
+          "split_id": "R005A-screen",
+          "assignment_sha256": "a992f1b76abfac727981a79cdaf20d034aa7f8641d8e5d4a7713c9ecfa5bd15c",
+          "session_id": "selector-r005-amendment-v1--R005A-screen--a992f1b76abfac727981a79cdaf20d034aa7f8641d8e5d4a7713c9ecfa5bd15c",
+          "split_anchor": "/scratch/fl25387/IBM_Granite_Project_latest/audit/selector-r005-amendment-v1/splits/R005A-screen/SPLIT_ANCHOR.json",
+          "owner_lock": "/scratch/fl25387/IBM_Granite_Project_latest/audit/selector-r005-amendment-v1/splits/R005A-screen/OWNER_LOCK",
+          "split_veto": "/scratch/fl25387/IBM_Granite_Project_latest/audit/selector-r005-amendment-v1/splits/R005A-screen/REVEAL_INVALIDATED.json",
+          "started": "/scratch/fl25387/IBM_Granite_Project_latest/audit/selector-r005-amendment-v1/sessions/selector-r005-amendment-v1--R005A-screen--a992f1b76abfac727981a79cdaf20d034aa7f8641d8e5d4a7713c9ecfa5bd15c/REVEAL_STARTED.json",
+          "terminal": "/scratch/fl25387/IBM_Granite_Project_latest/audit/selector-r005-amendment-v1/sessions/selector-r005-amendment-v1--R005A-screen--a992f1b76abfac727981a79cdaf20d034aa7f8641d8e5d4a7713c9ecfa5bd15c/REVEAL_TERMINAL.json",
+          "started_event": "/scratch/fl25387/IBM_Granite_Project_latest/audit-journal/selector-r005-amendment-v1/sessions/selector-r005-amendment-v1--R005A-screen--a992f1b76abfac727981a79cdaf20d034aa7f8641d8e5d4a7713c9ecfa5bd15c/events/0001-STARTED.json",
+          "complete_intent_event": "/scratch/fl25387/IBM_Granite_Project_latest/audit-journal/selector-r005-amendment-v1/sessions/selector-r005-amendment-v1--R005A-screen--a992f1b76abfac727981a79cdaf20d034aa7f8641d8e5d4a7713c9ecfa5bd15c/events/0002-COMPLETE_INTENT.json",
+          "final_bundle": "/scratch/fl25387/IBM_Granite_Project_latest/runs/selector-r005-amendment-v1/R005A/SCREEN_SESSION_BUNDLE"
+        },
+        "B-confirm": {
+          "split_id": "R005B-confirm",
+          "assignment_sha256": "676cdb6cfb51626b98959a53ea7d81774b042cc64be0e4e6a09ba3046016832a",
+          "session_id": "selector-r005-amendment-v1--R005B-confirm--676cdb6cfb51626b98959a53ea7d81774b042cc64be0e4e6a09ba3046016832a",
+          "split_anchor": "/scratch/fl25387/IBM_Granite_Project_latest/audit/selector-r005-amendment-v1/splits/R005B-confirm/SPLIT_ANCHOR.json",
+          "owner_lock": "/scratch/fl25387/IBM_Granite_Project_latest/audit/selector-r005-amendment-v1/splits/R005B-confirm/OWNER_LOCK",
+          "split_veto": "/scratch/fl25387/IBM_Granite_Project_latest/audit/selector-r005-amendment-v1/splits/R005B-confirm/REVEAL_INVALIDATED.json",
+          "started": "/scratch/fl25387/IBM_Granite_Project_latest/audit/selector-r005-amendment-v1/sessions/selector-r005-amendment-v1--R005B-confirm--676cdb6cfb51626b98959a53ea7d81774b042cc64be0e4e6a09ba3046016832a/REVEAL_STARTED.json",
+          "terminal": "/scratch/fl25387/IBM_Granite_Project_latest/audit/selector-r005-amendment-v1/sessions/selector-r005-amendment-v1--R005B-confirm--676cdb6cfb51626b98959a53ea7d81774b042cc64be0e4e6a09ba3046016832a/REVEAL_TERMINAL.json",
+          "started_event": "/scratch/fl25387/IBM_Granite_Project_latest/audit-journal/selector-r005-amendment-v1/sessions/selector-r005-amendment-v1--R005B-confirm--676cdb6cfb51626b98959a53ea7d81774b042cc64be0e4e6a09ba3046016832a/events/0001-STARTED.json",
+          "complete_intent_event": "/scratch/fl25387/IBM_Granite_Project_latest/audit-journal/selector-r005-amendment-v1/sessions/selector-r005-amendment-v1--R005B-confirm--676cdb6cfb51626b98959a53ea7d81774b042cc64be0e4e6a09ba3046016832a/events/0002-COMPLETE_INTENT.json",
+          "final_bundle": "/scratch/fl25387/IBM_Granite_Project_latest/runs/selector-r005-amendment-v1/R005B/CONFIRM_SESSION_BUNDLE"
+        }
+      }
+    },
+    "directory_durability": {
+      "precreate_before_reveal": true,
+      "fsync_each_new_directory_and_each_parent_to_namespace_anchor": true,
+      "record_and_reverify_realpath_and_st_dev": true,
+      "empty_canonical_directories_may_be_reused": true,
+      "any_nonempty_orphan_without_matching_started": "INSTALL_SPLIT_VETO_AND_STOP"
+    },
+    "split_registry_and_veto": {
+      "split_anchor_binds": [
+        "literal-roots-and-paths",
+        "unique-session-id",
+        "split-id",
+        "assignment-sha256",
+        "protocol-and-code-sha",
+        "root-realpath-and-st_dev",
+        "owner-lock-inode-and-st_dev"
+      ],
+      "alternate_root_session_or_final_path": "INVALIDATE_AND_STOP",
+      "veto_is_write_once_split_level": true,
+      "valid_complete_requires_veto_absent_forever": true,
+      "invalid_complete_can_never_be_revived_by_later_files": true
+    },
+    "owner_lock_protocol": {
+      "lock": "nonblocking-exclusive-flock-on-canonical-precreated-OWNER_LOCK",
+      "held_for": "all-state-reads-marker-event-veto-terminal-installs-heldout-access-publish-valid-complete-check-and-downstream-authorization-event",
+      "verify_inode_and_st_dev_against_split_anchor": true,
+      "lock_acquisition_failure": "ZERO_HELDOUT_ACCESS_ZERO_MUTATION_EXIT",
+      "late_veto_by_nonowner_allowed": false,
+      "recovery_may_invalidate_started_without_valid_terminal": "only-after-successfully-acquiring-owner-lock",
+      "release_after": "valid-complete-reverified-and-current-authorization-event-fsynced-or-stop-state-persisted",
+      "every_downstream_authorization_reacquires_lock_and_reverifies": true,
+      "unavailable_or_mismatched_lock": "NO_REVEAL_OR_AUTHORIZATION"
+    },
+    "canonical_json": "ensure_ascii=false-sort_keys=true-separators-comma-colon-utf8-no-bom-one-final-lf",
+    "ordered_reveal_members": {
+      "A-screen": [
+        "V0",
+        "V1",
+        "V2"
+      ],
+      "B-confirm": [
+        "seed42",
+        "seed73"
+      ],
+      "entry_fields": [
+        "ordinal",
+        "member_id",
+        "fit_registry_sha256",
+        "fit_job_anchor_sha256",
+        "fit_budget_claim_sha256",
+        "fit_started_sha256",
+        "fit_terminal_sha256",
+        "config_sha256",
+        "checkpoint_file_sha256",
+        "checkpoint_state_fingerprint",
+        "fit_gate_manifest_sha256",
+        "fit_score_sha256",
+        "protect_threshold_binary64_hex",
+        "harm_threshold_binary64_hex",
+        "threshold_candidate_table_sha256",
+        "threshold_trace_sha256",
+        "pair_batch_manifest_sha256",
+        "sample_assignment_sha256",
+        "tokenizer_manifest_sha256",
+        "protocol_sha256",
+        "code_commit"
+      ],
+      "binary64_hex": "IEEE-754-big-endian-lowercase-16-hex",
+      "projection_manifests": [
+        "ordered-config-set",
+        "ordered-checkpoint-set",
+        "ordered-fit-gate-set",
+        "ordered-threshold-set"
+      ],
+      "directory_enumeration_allowed": false,
+      "missing_duplicate_extra_or_reordered_member": "INVALIDATE_AND_STOP"
+    },
+    "start_ownership": {
+      "install_method": "canonical-temp-close-writer-chmod-read-only-file-fsync-atomic-no-replace-hard-link-parent-fsync",
+      "started_event_binds_actual_started_marker_sha256": true,
+      "started_and_matching_started_event_before_any_nonsealed_heldout_access": true,
+      "any_eexist_or_owner_attempt_mismatch_by-lock-holder": "INSTALL_VETO_COMPETE_FOR_BURNED_AND_STOP",
+      "second_process_without-owner-lock": "ZERO_HELDOUT_ACCESS_ZERO_MUTATION_EXIT",
+      "started_event_install_failure": "INSTALL_VETO_COMPETE_FOR_BURNED_AND_STOP",
+      "attach_or_resume_existing_attempt_allowed": false
+    },
+    "recovery": {
+      "closed_world_namespace_enumeration_before_heldout_access": true,
+      "started_without_terminal": "AFTER-OWNER-LOCK-ACQUIRED-INSTALL-VETO-AND-BURNED-NEVER-RESCORE",
+      "terminal_without_started": "INSTALL_VETO_AND_STOP",
+      "no_started_with_any_temp_event_terminal_staging_bundle_or_other_orphan": "INSTALL_VETO_QUARANTINE_AND_STOP",
+      "burned_terminal_or_existing_veto": "PERMANENT_STOP",
+      "invalid_or_incomplete_complete": "INSTALL_VETO_QUARANTINE_AND_STOP_NO_LATER_REVIVAL"
+    },
+    "publish": {
+      "screen_granularity": "once-after-first-fit-qualified-pass-or-all-fit-qualified-fail-never-per-variant",
+      "confirm_granularity": "once-after-joint-two-seed-four-cell-gate",
+      "private_staging_only_before_publish": true,
+      "sequence": [
+        "closed-world-verify-staging",
+        "fsync-all-staging-files-and-directories",
+        "close-writers-and-set-read-only",
+        "require-final-path-absent",
+        "renameat2-RENAME_NOREPLACE-same-filesystem",
+        "fsync-destination-parent",
+        "full-verify-from-final-path",
+        "write-and-fsync-matching-external-COMPLETE_INTENT",
+        "owner-lock-holder-no-replace-installs-COMPLETE-terminal",
+        "reverify-valid-complete-predicate"
+      ],
+      "existing_target_or_rename_verify_failure": "INSTALL_VETO_BURN_AND_STOP"
+    },
+    "closed_world_bundle": {
+      "exact_files": [
+        "protocol.json",
+        "reveal_input_manifest.json",
+        "candidate_scores.jsonl",
+        "query_composites.jsonl",
+        "cell_outcomes.jsonl",
+        "gate_summary.json",
+        "bundle_manifest.json",
+        "CHECKSUMS.sha256"
+      ],
+      "payload_files": [
+        "protocol.json",
+        "reveal_input_manifest.json",
+        "candidate_scores.jsonl",
+        "query_composites.jsonl",
+        "cell_outcomes.jsonl",
+        "gate_summary.json"
+      ],
+      "bundle_manifest_fields": [
+        "schema_version",
+        "session_id",
+        "split_id",
+        "attempt_id",
+        "reveal_input_manifest_sha256",
+        "payload-path-schema-byte-size-row-count-sha256-array"
+      ],
+      "published_bundle_manifest_sha256": "sha256-of-canonical-bundle_manifest.json-bytes-only",
+      "bundle_manifest_excludes": [
+        "its-own-sha256",
+        "CHECKSUMS.sha256",
+        "markers",
+        "events",
+        "audit-state"
+      ],
+      "checksums_exactly_lists": "six-payload-files-plus-bundle_manifest-excluding-itself",
+      "A_candidate_rows_per_scored_variant": 3840,
+      "A_composite_rows_per_scored_variant": 192,
+      "A_cell_rows_per_scored_variant": 2,
+      "A_scored_members": "fit-qualified-order-prefix-ending-at-first-pass-or-all-fit-qualified-members",
+      "B_candidate_rows": 10240,
+      "B_composite_rows": 512,
+      "B_cell_rows": 4,
+      "exact_row_field_schemas_and_verifier_file_sha_frozen_in_A001_before_new_role_generation": true,
+      "missing_extra_duplicate_or_illegal_prefix_cell_query_schema_row_or_hash": "INVALIDATE_AND_STOP"
+    },
+    "semantic_recomputation": {
+      "bundle_result_source_of_truth": "candidate_scores.jsonl",
+      "raw_scores_independently_recomputed_from": [
+        "sealed-role-source",
+        "frozen-tokenizer",
+        "strict-reloaded-checkpoint",
+        "ordered-reveal-member-manifest"
+      ],
+      "raw_score_match": "candidate-identity-rank-mask-label-and-protect-harm-float32-IEEE754-bit-pattern-exact",
+      "fit_recompute": "fit-scores-plus-candidate-table-plus-tie-break-trace-to-binary64-thresholds-and-classification-qualification",
+      "derived_recompute_order": [
+        "verified-raw-candidate-scores",
+        "query-composites-from-scores-labels-masks-thresholds",
+        "dataset-member-or-seed-cell-success-counts-and-observed-rates",
+        "exact-one-sided-Clopper-Pearson-lower-bounds",
+        "A-fit-qualified-legal-prefix-and-first-pass-or-B-four-cell-all-must-pass",
+        "gate-summary"
+      ],
+      "derived_files_rebuilt_and_canonical_bytes_must_match": [
+        "query_composites.jsonl",
+        "cell_outcomes.jsonl",
+        "gate_summary.json"
+      ],
+      "summary-only-self-reported-or-nonreconstructable-result": "INVALIDATE_AND_STOP"
+    },
+    "terminal_and_acceptance": {
+      "terminal_path_shared_by_outcomes": true,
+      "terminal_outcomes": [
+        "COMPLETE",
+        "BURNED"
+      ],
+      "complete_terminal_fields": [
+        "outcome=COMPLETE",
+        "started_marker_sha256",
+        "session_id",
+        "split_id",
+        "attempt_id",
+        "published_bundle_manifest_sha256"
+      ],
+      "complete_intent_binds_complete_terminal_payload_sha256": true,
+      "valid_complete_requires": [
+        "canonical-exclusive-owner-lock-held-through-check-and-authorization",
+        "actual-STARTED-marker",
+        "unique-matching-fsynced-STARTED-event-binding-actual-marker-sha256",
+        "closed-world-published-bundle-full-verification-pass",
+        "unique-matching-fsynced-COMPLETE_INTENT",
+        "unique-matching-COMPLETE-terminal",
+        "all-five-session-split-attempt-and-hashes-consistent",
+        "exactly-two-expected-external-events-and-no-conflict-invalid-or-burn-event",
+        "split-level-veto-absent"
+      ],
+      "invalid_complete_action": "INSTALL_SPLIT_VETO_QUARANTINE_STOP_AND_NEVER_REVIVE",
+      "burned_wins_action": "QUARANTINE_ANY_PUBLISHED_BUNDLE_AND_STOP"
+    },
+    "reveal_allowed_if_any_required_atomicity_or_durability_is_unavailable": false
+  },
+  "r005ab_pass_authorizes": "propose-and-freeze-r006a-protocol-only-not-automatic-gpu-run",
+  "r005ab_pass_does_not_establish": [
+    "selector-better-than-topk10",
+    "positive-harmful-reduction",
+    "recall-or-chain-safety",
+    "crc-pass",
+    "sealed-or-heldout-pass",
+    "real-world-misinformation-detection"
+  ]
+}

@@ -4,7 +4,7 @@
 
 **正式状态：** `COMPLETE / FAIL`
 
-**实验完整性：** `PASS`（runner 与 finalizer 双重 verify-only；独立审计 `P0=0, P1=0`）
+**实验完整性：** 正式 bundle 当前 runner/finalizer 复验 `PASS`；独立审计 `WARN（P0=0, P1=1）`。唯一 P1 整改项是旧的历史复验次数没有单独保存原始 attestation；另有“确定性合成代理标签”和“policy/safe-corner 路径未执行”的范围 WARN。它们都不改变 R005 `FAIL`
 
 **路线决定：** 当前 v2 计划停止在 R006 之前；默认 TopK10 不变
 
@@ -152,7 +152,7 @@ R005 在第一道训练门就失败，因此程序正确地短路：
 
 checkpoint 文件为 `735,356,896 bytes`，不进入普通 GitHub Git 历史；完整 bundle 保存在服务器，GitHub 同步执行代码、本报告、配置与上述内容哈希。文件 SHA 与加载后模型状态 fingerprint 含义不同，二者已分别记录。
 
-完整 runner `--verify-only` 会重新加载 checkpoint、重建固定样本和标签并重算 640 条分数；finalizer `--verify-only` 会复核文件集合、manifest、输入 pin 与 checksums。两种复验都已在同一 pinned server 环境独立通过，三次 post-run 只读审计均为 `P0=0, P1=0`。
+完整 runner `--verify-only` 会重新加载 checkpoint、重建固定样本和标签并重算 640 条分数；finalizer `--verify-only` 会复核文件集合、manifest、输入 pin 与 checksums。二者已于 2026-08-12 在同一 pinned server 环境重新执行并退出 `0`，命令、commit、输出、退出码与复验后哈希已保存到 [`R005_VERIFICATION_ATTESTATION_2026-08-12.md`](R005_VERIFICATION_ATTESTATION_2026-08-12.md)。新的独立审计见 [`R005_EXPERIMENT_INTEGRITY_AUDIT_2026-08-12.md`](R005_EXPERIMENT_INTEGRITY_AUDIT_2026-08-12.md)：它支持 formal `COMPLETE / FAIL` 与停止决定，`P0=0`；同时把此前只在工作记录中写到、但没有保存原始 reviewer/verifier 输出的历史次数标为 `P1/WARN`。因此不再把那些历史次数写成已被本 bundle 独立证明。
 
 ### 6.2 未发布的技术运行
 
@@ -166,7 +166,7 @@ commit `26fa422` 的一次运行完成训练并得到同样的逐类 FAIL，但�
 - R002：PASS
 - R003：PASS
 - R004：PASS
-- R005：FAIL（证据完整性 PASS）
+- R005：FAIL（正式 bundle 当前双重复验 PASS；独立审计 WARN，P0=0、历史 attestation 留存 P1=1）
 - R006–R015：当前 v2 路线 `CUT / NOT RUN`
 - 生产默认：仍为 TopK10；没有注册或上线新的 Selector
 
@@ -176,7 +176,7 @@ commit `26fa422` 的一次运行完成训练并得到同样的逐类 FAIL，但�
 
 不能直接运行 R006，也不建议只把 95% 或 0.5 改松后重跑。更合适的是先提交一个新的事前 amendment，并给新实验独立 Run ID。建议把下一阶段拆成两步：
 
-1. **只读诊断，不产生成功声明。** 用已经公开的 R005 train-fit 分数做错误类型与分布检查，区分“少量离群正确证据”“harm 两类在 0.5 附近重叠”和“整体尺度偏移”；这些分析已经是 post-hoc，只能帮助设计新实验，不能把 R005 改判 PASS。
-2. **新的、未看结果的数据门。** 保留 R001–R004 和双头/mask 结构，事前比较“masked BCE 基线”与“masked BCE + clean/counterfactual pairwise margin 辅助目标”，并把 protect-first、abstention 和 calibration 放在独立 development/calibration 数据上。新门仍需逐类报告，不能用总体平均掩盖；只有新 scorer 先通过 sanity，才恢复 `0–cap`、safe-corner、等量删除对照和后续 CRC 路线。
+1. **只读诊断，不产生成功声明。** 已用公开的 R005 train-fit 分数完成错误、分布、配对 margin 与阈值可行性检查；详见 [`R005_POSTHOC_DIAGNOSIS_2026-08-12.md`](R005_POSTHOC_DIAGNOSIS_2026-08-12.md)。它确认任何单一阈值都不能满足原门，并发现当前实现没有使用 snapshot 已有的 NLI pooler/classifier 路径；这些仍只用于提出新假设，不能把 R005 改判 PASS。
+2. **新的、未看结果的数据门。** 新 amendment 应先保留现实现作对照，再单独测试“恢复预训练 NLI pooling/初始化”，只有这两者都失败才加入一个预冻结的 clean/counterfactual pairwise objective。训练、阈值拟合、方法筛选与独立确认使用 component-disjoint 角色；新门继续逐类报告，不能用总体平均掩盖。只有新 scorer 先通过独立 sanity confirmation，才允许另行恢复 `0–cap`、safe-corner、等量删除对照和后续 CRC 路线。
 
 这样做利用了本次最有价值的信号——相对配对方向已经完全正确——同时不把“可能是校准问题”提前当成事实。任何新的 epoch、loss、阈值或样本规则都必须在看到新结果前冻结，并且不得用本次 sanity checkpoint 初始化 R006。
