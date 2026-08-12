@@ -1,5 +1,7 @@
 {
   "schema": "selector-r005ab-server-readiness-audit-v1",
+  "protocol_snapshot_status": "V1_PLAN_SUPERSEDED_ENVIRONMENT_FACTS_ONLY",
+  "current_v2_recheck_required_before_a001": true,
   "date": "2026-08-12",
   "mode": "independent-read-only",
   "verdict": "WARN",

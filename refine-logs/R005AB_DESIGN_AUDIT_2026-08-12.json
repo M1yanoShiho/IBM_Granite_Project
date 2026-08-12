@@ -1,4 +1,7 @@
 {
+  "audit_snapshot_status": "SUPERSEDED_V1_FALSE_NEGATIVE_NEVER_APPROVED_NEVER_RUN",
+  "superseded_by": "refine-logs/R005AB_CORRECTIVE_REAUDIT_2026-08-12.json",
+  "later_discovered_gap_count": 4,
   "audit_date": "2026-08-12",
   "scope": [
     "sample-partition-and-leakage",
@@ -43,7 +46,7 @@
     "machine_json": "d52e76c4be5814b74bb77834915a40eb26e9b8e1",
     "tracker_md": "f97f89598d5e1e650b33c86831953eebe7b1af58"
   },
-  "ready_for": "A001_IMPLEMENTATION_AND_FAULT_INJECTION_TESTS_AFTER_USER_APPROVAL",
+  "ready_for": "NO_LONGER_AUTHORIZING_ANY_ACTION_REFER_TO_CORRECTIVE_REAUDIT_V2",
   "experiment_status": "NOT_APPROVED_NOT_IMPLEMENTED_NOT_RUN",
   "verified_counts": {
     "niah_eligible_queries": 778,
@@ -67,6 +70,6 @@
     "exact_one_vs_rest_initialization_feasible": true,
     "pair_preserving_batching_required": true
   },
-  "conclusion": "DESIGN_FEASIBLE_AFTER_INCORPORATED_REQUIREMENTS",
+  "conclusion": "HISTORICAL_V1_AUDIT_SUPERSEDED_FALSE_NEGATIVE",
   "does_not_predict_experiment_pass": true
 }

@@ -10,11 +10,14 @@
 | [`EXPERIMENT_TRACKER.md`](EXPERIMENT_TRACKER.md) | 原 v2 tracker 固定副本；R001–R004 PASS、R005 FAIL、后续 CUT | frozen-v2-stopped |
 | [`EXPERIMENT_TRACKER_2026-08-11_v2.md`](EXPERIMENT_TRACKER_2026-08-11_v2.md) | 原 v2 带日期 tracker；保留全部决定日志 | frozen-v2-stopped |
 | [`EXPERIMENT_TRACKER_2026-08-11.md`](EXPERIMENT_TRACKER_2026-08-11.md) | 初版 tracker | archived-v1 |
-| [`EXPERIMENT_PLAN_AMENDMENT.md`](EXPERIMENT_PLAN_AMENDMENT.md) | 当前修订固定入口 | draft-waiting-approval |
-| [`EXPERIMENT_PLAN_AMENDMENT_2026-08-12_R005AB.md`](EXPERIMENT_PLAN_AMENDMENT_2026-08-12_R005AB.md) | fresh component-disjoint R005A/R005B、V0/V1/V2、two-seed one-shot confirm 完整计划 | draft-waiting-approval |
-| [`EXPERIMENT_PLAN_AMENDMENT_2026-08-12_R005AB.json`](EXPERIMENT_PLAN_AMENDMENT_2026-08-12_R005AB.json) | 修订协议、样本 hash、variants、预算和门槛的机器可读冻结草案 | draft-machine-contract |
-| [`EXPERIMENT_TRACKER_AMENDMENT.md`](EXPERIMENT_TRACKER_AMENDMENT.md) | 当前修订 tracker 固定入口 | draft-waiting-approval |
-| [`EXPERIMENT_TRACKER_AMENDMENT_2026-08-12_R005AB.md`](EXPERIMENT_TRACKER_AMENDMENT_2026-08-12_R005AB.md) | 批准、样本、实现、R005A/B 和 R006A 条件队列 | draft-waiting-approval |
+| [`EXPERIMENT_PLAN_AMENDMENT.md`](EXPERIMENT_PLAN_AMENDMENT.md) | 当前修订固定入口；只指向 R005A/R005B v2 | draft-waiting-approval |
+| [`EXPERIMENT_PLAN_AMENDMENT_2026-08-12_R005AB_v2.md`](EXPERIMENT_PLAN_AMENDMENT_2026-08-12_R005AB_v2.md) | 已纠正终态顺序、五类投影 manifest、B 授权绑定和 A001 无读取边界的当前计划 | audited-draft-waiting-explicit-approval-not-run |
+| [`EXPERIMENT_PLAN_AMENDMENT_2026-08-12_R005AB_v2.json`](EXPERIMENT_PLAN_AMENDMENT_2026-08-12_R005AB_v2.json) | 当前 v2 协议、状态机、样本身份和门槛的机器可读合同 | audited-draft-waiting-explicit-approval-not-run |
+| [`EXPERIMENT_TRACKER_AMENDMENT.md`](EXPERIMENT_TRACKER_AMENDMENT.md) | 当前修订 tracker 固定入口；只指向 v2 tracker | draft-waiting-approval |
+| [`EXPERIMENT_TRACKER_AMENDMENT_2026-08-12_R005AB_v2.md`](EXPERIMENT_TRACKER_AMENDMENT_2026-08-12_R005AB_v2.md) | v2 的 A000 批准、A001 实现、A002 样本以及 R005A/B 条件队列 | audited-draft-waiting-explicit-approval-not-run |
+| [`EXPERIMENT_PLAN_AMENDMENT_2026-08-12_R005AB.md`](EXPERIMENT_PLAN_AMENDMENT_2026-08-12_R005AB.md) | 被 v2 取代的 R005A/R005B v1 草案；仅作历史记录 | superseded-v1-draft-never-approved-never-run |
+| [`EXPERIMENT_PLAN_AMENDMENT_2026-08-12_R005AB.json`](EXPERIMENT_PLAN_AMENDMENT_2026-08-12_R005AB.json) | 被 v2 取代的 v1 机器合同；仅作历史记录 | superseded-v1-draft-never-approved-never-run |
+| [`EXPERIMENT_TRACKER_AMENDMENT_2026-08-12_R005AB.md`](EXPERIMENT_TRACKER_AMENDMENT_2026-08-12_R005AB.md) | 被 v2 取代的 v1 tracker；仅作历史记录 | superseded-v1-draft-never-approved-never-run |
 | [`R005_EXECUTION_REPORT_2026-08-12.md`](R005_EXECUTION_REPORT_2026-08-12.md) | 正式 R005 TRAINING-GATE FAIL、短路与零基础解释 | R005-formal-fail-report |
 | [`R005_VERIFICATION_ATTESTATION_2026-08-12.md`](R005_VERIFICATION_ATTESTATION_2026-08-12.md) | 当前 runner/finalizer 命令、commit、退出码、输出与复验后 hash | R005-current-verification-pass |
 | [`R005_VERIFICATION_ATTESTATION_2026-08-12.json`](R005_VERIFICATION_ATTESTATION_2026-08-12.json) | 当前 R005 双重复验机器凭据 | R005-current-verification-pass |
@@ -23,17 +26,23 @@
 | [`EXPERIMENT_AUDIT.md`](EXPERIMENT_AUDIT.md) / [`EXPERIMENT_AUDIT.json`](EXPERIMENT_AUDIT.json) | 最新实验完整性审计固定入口 | current-audit-entry |
 | [`R005_POSTHOC_DIAGNOSIS_2026-08-12.md`](R005_POSTHOC_DIAGNOSIS_2026-08-12.md) | 只用 train-fit 分数的阈值不可行性、margin、AUC 与架构事实诊断 | posthoc-design-evidence-only |
 | [`R005_POSTHOC_DIAGNOSIS_2026-08-12.json`](R005_POSTHOC_DIAGNOSIS_2026-08-12.json) | R005 失败诊断机器摘要 | posthoc-design-evidence-only |
-| [`R005AB_DESIGN_AUDIT_2026-08-12.md`](R005AB_DESIGN_AUDIT_2026-08-12.md) | 三个领域设计审计 + 两个稳定快照批准前终审 | plan-audited-P0-0-P1-0-P2-0-not-run |
-| [`R005AB_DESIGN_AUDIT_2026-08-12.json`](R005AB_DESIGN_AUDIT_2026-08-12.json) | R005A/B 设计与终审机器摘要 | ready-for-A001-after-approval-not-run |
-| [`R005AB_SERVER_READINESS_AUDIT_2026-08-12.md`](R005AB_SERVER_READINESS_AUDIT_2026-08-12.md) | Git 对齐、canonical namespace 与服务器状态机能力的只读就绪性核验 | WARN-P0-0-P1-1-server-behind-awaiting-approval |
-| [`R005AB_SERVER_READINESS_AUDIT_2026-08-12.json`](R005AB_SERVER_READINESS_AUDIT_2026-08-12.json) | 服务器就绪性机器摘要；明确接口存在不等于 A001 行为测试通过 | awaiting-A000-explicit-approval |
+| [`R005AB_DESIGN_AUDIT_2026-08-12.md`](R005AB_DESIGN_AUDIT_2026-08-12.md) | v1 历史审计；后续复查发现四项漏报，不能作为执行授权 | historical-v1-false-negative-superseded |
+| [`R005AB_DESIGN_AUDIT_2026-08-12.json`](R005AB_DESIGN_AUDIT_2026-08-12.json) | v1 历史审计机器摘要；已被纠错复审取代 | historical-v1-false-negative-superseded |
+| [`R005AB_CORRECTIVE_REAUDIT_2026-08-12.md`](R005AB_CORRECTIVE_REAUDIT_2026-08-12.md) | 四项 v1 审计漏报、v2 修复以及两次独立零问题复审的纠错记录 | current-v2-reaudit-P0-0-P1-0-P2-0-waiting-approval |
+| [`R005AB_CORRECTIVE_REAUDIT_2026-08-12.json`](R005AB_CORRECTIVE_REAUDIT_2026-08-12.json) | v2 纠错复审机器摘要与稳定文件哈希 | current-v2-reaudit-P0-0-P1-0-P2-0-waiting-approval |
+| [`R005AB_A001_IMPLEMENTATION_MAP_2026-08-12.md`](R005AB_A001_IMPLEMENTATION_MAP_2026-08-12.md) | v2 获批后 A001 的模块、字段、执行顺序、测试和退出条件映射 | preapproval-map-not-implemented-not-run |
+| [`R005AB_A001_IMPLEMENTATION_MAP_2026-08-12.json`](R005AB_A001_IMPLEMENTATION_MAP_2026-08-12.json) | A001 实现映射的机器可读摘要及旧核心文件冻结哈希 | preapproval-map-not-implemented-not-run |
+| [`R005AB_SERVER_READINESS_AUDIT_2026-08-12.md`](R005AB_SERVER_READINESS_AUDIT_2026-08-12.md) | 针对 v1 快照的服务器环境只读核验；能力事实可复用，但 v2 必须在 A001 前重查 | historical-v1-snapshot-environment-capability-only |
+| [`R005AB_SERVER_READINESS_AUDIT_2026-08-12.json`](R005AB_SERVER_READINESS_AUDIT_2026-08-12.json) | v1 快照服务器环境机器摘要；不代表 v2 行为测试或执行就绪 | historical-v1-snapshot-environment-capability-only |
 | [`.aris/traces/experiment-audit/2026-08-12_run01`](../.aris/traces/experiment-audit/2026-08-12_run01/) | R005 正式完整性审计 request、reviewer output 与 metadata | persisted-reviewer-trace |
 | [`.aris/traces/experiment-audit/2026-08-12_r005ab_sample`](../.aris/traces/experiment-audit/2026-08-12_r005ab_sample/) | R005A/B 样本与隔离审计 trace | persisted-reviewer-trace |
 | [`.aris/traces/experiment-audit/2026-08-12_r005ab_stats`](../.aris/traces/experiment-audit/2026-08-12_r005ab_stats/) | R005A/B 统计门与揭示顺序审计 trace | persisted-reviewer-trace |
 | [`.aris/traces/experiment-audit/2026-08-12_r005ab_code`](../.aris/traces/experiment-audit/2026-08-12_r005ab_code/) | R005A/B 模型、loss 与 batch 审计 trace | persisted-reviewer-trace |
-| [`.aris/traces/experiment-audit/2026-08-12_r005ab_final_state_machine`](../.aris/traces/experiment-audit/2026-08-12_r005ab_final_state_machine/) | 最终稳定快照的防泄漏、formal-fit、崩溃恢复与语义重算对抗审计 | PASS-P0-0-P1-0-P2-0 |
-| [`.aris/traces/experiment-audit/2026-08-12_r005ab_final_consistency`](../.aris/traces/experiment-audit/2026-08-12_r005ab_final_consistency/) | 最终稳定快照的 MD/JSON/tracker 一致性终审 | PASS-P0-0-P1-0-P2-0 |
-| [`.aris/traces/experiment-audit/2026-08-12_r005ab_server_readiness`](../.aris/traces/experiment-audit/2026-08-12_r005ab_server_readiness/) | amendment 目标服务器的独立只读实施就绪性审计 | WARN-P0-0-P1-1-P2-0 |
+| [`.aris/traces/experiment-audit/2026-08-12_r005ab_final_state_machine`](../.aris/traces/experiment-audit/2026-08-12_r005ab_final_state_machine/) | v1 状态机历史审计；后续发现漏报，不能作为当前 PASS 或授权 | historical-v1-audit-superseded-false-negative |
+| [`.aris/traces/experiment-audit/2026-08-12_r005ab_final_consistency`](../.aris/traces/experiment-audit/2026-08-12_r005ab_final_consistency/) | v1 一致性历史审计；后续发现漏报，不能作为当前 PASS 或授权 | historical-v1-audit-superseded-false-negative |
+| [`.aris/traces/experiment-audit/2026-08-12_r005ab_v2_state_machine`](../.aris/traces/experiment-audit/2026-08-12_r005ab_v2_state_machine/) | v2 防泄漏、终态顺序、恢复与授权绑定的独立复审 | PASS-P0-0-P1-0-P2-0-not-authorization |
+| [`.aris/traces/experiment-audit/2026-08-12_r005ab_v2_consistency`](../.aris/traces/experiment-audit/2026-08-12_r005ab_v2_consistency/) | v2 MD/JSON/tracker、实现映射与状态的一致性独立复审 | PASS-P0-0-P1-0-P2-0-not-authorization |
+| [`.aris/traces/experiment-audit/2026-08-12_r005ab_server_readiness`](../.aris/traces/experiment-audit/2026-08-12_r005ab_server_readiness/) | v1 amendment 目标服务器的历史只读环境审计 | historical-v1-snapshot-WARN-P0-0-P1-1-P2-0 |
 | [`R001_RECOVERY_AUDIT.md`](../results/selector-adaptive-risk-v1/R001/R001_RECOVERY_AUDIT.md) | 六个 Hybrid RRF Top20 pool、数据 sidecar 与模型资产的本地/原 HPC 只读恢复审计 | R001A/B-pass-evidence |
 | [`R001C_GATE_EVIDENCE.md`](../results/selector-adaptive-risk-v1/R001/R001C_GATE_EVIDENCE.md) | 六池 write-once v2 freeze、独立 verify-only、测试与机器可读 manifest 索引 | R001C-pool-pass-evidence |
 | [`R002_PROTOCOL_REPORT.md`](../results/selector-adaptive-risk-v1/R002/R002_PROTOCOL_REPORT.md) | 指标、component/role、CRC 样本量门及其零基础解释 | R002-sample-size-go-evidence |
