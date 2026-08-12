@@ -2831,6 +2831,15 @@ def _score_row_from_typed(row: SanityCandidateScoreRow) -> _ScoreRow:
     )
 
 
+def _training_trace_from_json_object(value: object) -> SanityTrainingTrace:
+    """Validate a decoded JSON object without rejecting JSON arrays for tuple fields."""
+
+    mapping = _mapping(value, label="stored training trace")
+    return SanityTrainingTrace.model_validate_json(
+        json.dumps(mapping, ensure_ascii=True, allow_nan=False, separators=(",", ":"))
+    )
+
+
 def _validate_stored_epoch_rows(
     *,
     training_summary: Mapping[str, object],
@@ -2995,9 +3004,7 @@ def _verify_existing_run(
     if training_summary.get("row_type") != "training-summary":
         raise ValueError("R005 training trace first row is not the summary")
     epoch_rows = training_rows[1:]
-    stored_training_trace = SanityTrainingTrace.model_validate(
-        _mapping(training_summary.get("training_trace"), label="stored training trace")
-    )
+    stored_training_trace = _training_trace_from_json_object(training_summary.get("training_trace"))
     _validate_stored_epoch_rows(
         training_summary=training_summary,
         epoch_rows=epoch_rows,

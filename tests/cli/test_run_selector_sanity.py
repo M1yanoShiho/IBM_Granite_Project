@@ -20,6 +20,7 @@ from evidence_rag.cli.run_selector_sanity import (
     _run_epoch_boundaries,
     _sample_rows,
     _ScoreRow,
+    _training_trace_from_json_object,
     _validate_stored_epoch_rows,
     _validate_training_runtime_log,
     _weighted_bce_from_scores,
@@ -649,6 +650,27 @@ def _completed_trace() -> SanityTrainingTrace:
         oom_encountered=False,
         nonfinite_encountered=False,
     )
+
+
+def test_training_trace_roundtrips_through_decoded_json_arrays() -> None:
+    expected = _completed_trace()
+    decoded = expected.model_dump(mode="json")
+
+    assert isinstance(decoded["epoch_mean_losses"], list)
+    assert isinstance(decoded["active_source_head_loss_trends"], list)
+    with pytest.raises(ValueError, match="valid tuple"):
+        SanityTrainingTrace.model_validate(decoded)
+    assert _training_trace_from_json_object(decoded) == expected
+
+    decoded["epoch_mean_losses"].pop()
+    with pytest.raises(ValueError):
+        _training_trace_from_json_object(decoded)
+
+
+def test_early_training_trace_roundtrips_through_decoded_json_arrays() -> None:
+    expected = _early_trace()
+
+    assert _training_trace_from_json_object(expected.model_dump(mode="json")) == expected
 
 
 def test_runtime_log_requires_exact_pass_cut_threshold_modelval_order() -> None:
