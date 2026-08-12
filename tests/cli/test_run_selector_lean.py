@@ -321,6 +321,17 @@ def test_development_results_are_bound_to_the_scoring_checkpoints(tmp_path: Path
         )
 
 
+def test_development_result_writer_reader_roundtrip_uses_seed_object() -> None:
+    result = _development_result(
+        quantile=0.99,
+        cap=2,
+        thresholds=((13, 0.9), (42, 0.8)),
+    )
+    row = lean_cli._development_result_row(result)
+    assert row["thresholds_by_seed"] == {13: 0.9, 42: 0.8}
+    assert lean_cli._development_result(row) == result
+
+
 def test_nli_pair_requires_a_matching_base_stop_before_calibration(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

@@ -1448,7 +1448,7 @@ def evaluate_development_selector_lean(
             }
             for kind in _DATASET_KINDS
         },
-        "results": [asdict(result) for result in results],
+        "results": [_development_result_row(result) for result in results],
     }
     _write_new(output_results_path, _json_bytes(payload))
     return payload
@@ -1519,6 +1519,13 @@ def _development_result(value: object) -> DevelopmentCandidateResult:
             label="seed13_precision_beats_bottom",
         ),
     )
+
+
+def _development_result_row(result: DevelopmentCandidateResult) -> Mapping[str, object]:
+    return {
+        **asdict(result),
+        "thresholds_by_seed": dict(result.thresholds_by_seed),
+    }
 
 
 def _read_development_results(
