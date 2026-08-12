@@ -14,6 +14,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import random
 import struct
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
@@ -23,6 +24,7 @@ from typing import Literal, cast
 from pydantic import ValidationError
 
 from evidence_rag.contracts.models import CandidateSet, EvidenceCandidate, Query
+from evidence_rag.evaluation.paired_metric import compare_paired
 from evidence_rag.evaluation.selector_components import (
     ROLE_ASSIGNMENTS_FILE,
     DatasetKind,
@@ -605,6 +607,18 @@ class SeedPolicyMetrics:
 
 
 @dataclass(frozen=True, slots=True)
+class PolicyQueryResult:
+    dataset_kind: DatasetKind
+    query_id: str
+    component_id: str
+    selected_evidence_ids: tuple[str, ...]
+    dropped_evidence_ids: tuple[str, ...]
+    recall_loss: float
+    chain_loss: float | None
+    harmful_reduction: float | None
+
+
+@dataclass(frozen=True, slots=True)
 class _NiahControlAccumulator:
     harmful_sum: float = 0.0
     harmful_count: int = 0
@@ -658,22 +672,17 @@ def _mean(values: Sequence[float], *, label: str) -> float:
     return sum(values) / len(values)
 
 
-def evaluate_seed_policy(
+def apply_seed_policy(
     *,
-    seed: int,
     projections: Mapping[DatasetKind, EvaluationProjection],
     scores_by_dataset: Mapping[
         DatasetKind, Mapping[str, Mapping[str, CandidateRiskScore]]
     ],
     threshold: float,
     cap: int,
-    include_controls: bool,
-    random_repeats: int = 100,
-) -> SeedPolicyMetrics:
-    """Apply the real delete-only policy and aggregate the pre-registered dev metrics."""
+) -> tuple[PolicyQueryResult, ...]:
+    """Return one delete-only decision and its paired evidence losses per query."""
 
-    if seed not in LEAN_SEEDS:
-        raise ValueError(f"seed must be one of {LEAN_SEEDS}")
     safe_threshold = _probability(threshold, label="threshold")
     if type(cap) is not int or cap not in LEAN_CAPS:
         raise ValueError(f"cap must be one of {LEAN_CAPS}")
@@ -681,17 +690,7 @@ def evaluate_seed_policy(
         _DATASET_KINDS
     ):
         raise ValueError("policy evaluation requires NIAH and 2Wiki projections/scores")
-    if type(include_controls) is not bool:
-        raise TypeError("include_controls must be bool")
-    if include_controls and (type(random_repeats) is not int or random_repeats <= 0):
-        raise ValueError("random_repeats must be a positive integer")
-
-    deletion_counts: list[float] = []
-    recall_losses: dict[DatasetKind, list[float]] = {"niah": [], "2wiki": []}
-    chain_losses: dict[DatasetKind, list[float]] = {"niah": [], "2wiki": []}
-    selector_control = _NiahControlAccumulator()
-    niah_dropped_by_query: dict[str, tuple[str, ...]] = {}
-
+    output: list[PolicyQueryResult] = []
     for dataset_kind in _DATASET_KINDS:
         projection = projections[dataset_kind]
         score_table = scores_by_dataset[dataset_kind]
@@ -714,12 +713,10 @@ def evaluate_seed_policy(
             selected_documents = tuple(
                 candidate_by_id[item.evidence_id].document_id for item in result.items
             )
-            recall_losses[dataset_kind].append(
-                relative_recall_loss(
-                    baseline_document_ids=baseline_documents,
-                    selector_document_ids=selected_documents,
-                    gold_document_ids=row.required_document_ids,
-                )
+            recall = relative_recall_loss(
+                baseline_document_ids=baseline_documents,
+                selector_document_ids=selected_documents,
+                gold_document_ids=row.required_document_ids,
             )
             chain = conditional_chain_loss(
                 baseline_document_ids=baseline_documents,
@@ -728,15 +725,80 @@ def evaluate_seed_policy(
             )
             if (chain is not None) != row.chain_eligible_topk10:
                 raise ValueError(f"chain eligibility differs from R002 for {row.query_id}")
-            if chain is not None:
-                chain_losses[dataset_kind].append(chain)
-            deletion_counts.append(float(len(trace.dropped_evidence_ids)))
-            if dataset_kind == "niah":
-                niah_dropped_by_query[row.query_id] = trace.dropped_evidence_ids
-                selector_control = selector_control.add(
-                    row=row,
-                    dropped_evidence_ids=trace.dropped_evidence_ids,
+            harmful: float | None = None
+            if row.harmful_in_top20_pool:
+                if row.harmful_document_id is None:
+                    raise ValueError("pool-conditional NIAH row has no harmful document")
+                harmful = float(row.harmful_document_id in baseline_documents) - float(
+                    row.harmful_document_id in selected_documents
                 )
+            output.append(
+                PolicyQueryResult(
+                    dataset_kind=dataset_kind,
+                    query_id=row.query_id,
+                    component_id=row.component_id,
+                    selected_evidence_ids=tuple(item.evidence_id for item in result.items),
+                    dropped_evidence_ids=trace.dropped_evidence_ids,
+                    recall_loss=recall,
+                    chain_loss=chain,
+                    harmful_reduction=harmful,
+                )
+            )
+    return tuple(output)
+
+
+def evaluate_seed_policy(
+    *,
+    seed: int,
+    projections: Mapping[DatasetKind, EvaluationProjection],
+    scores_by_dataset: Mapping[
+        DatasetKind, Mapping[str, Mapping[str, CandidateRiskScore]]
+    ],
+    threshold: float,
+    cap: int,
+    include_controls: bool,
+    random_repeats: int = 100,
+) -> SeedPolicyMetrics:
+    """Apply the real delete-only policy and aggregate the pre-registered dev metrics."""
+
+    if seed not in LEAN_SEEDS:
+        raise ValueError(f"seed must be one of {LEAN_SEEDS}")
+    safe_threshold = _probability(threshold, label="threshold")
+    if type(cap) is not int or cap not in LEAN_CAPS:
+        raise ValueError(f"cap must be one of {LEAN_CAPS}")
+    if type(include_controls) is not bool:
+        raise TypeError("include_controls must be bool")
+    if include_controls and (type(random_repeats) is not int or random_repeats <= 0):
+        raise ValueError("random_repeats must be a positive integer")
+
+    deletion_counts: list[float] = []
+    recall_losses: dict[DatasetKind, list[float]] = {"niah": [], "2wiki": []}
+    chain_losses: dict[DatasetKind, list[float]] = {"niah": [], "2wiki": []}
+    selector_control = _NiahControlAccumulator()
+    niah_dropped_by_query: dict[str, tuple[str, ...]] = {}
+
+    query_by_key = {
+        (kind, row.query_id): row for kind, projection in projections.items() for row in projection.rows
+    }
+    decisions = apply_seed_policy(
+        projections=projections,
+        scores_by_dataset=scores_by_dataset,
+        threshold=safe_threshold,
+        cap=cap,
+    )
+    for decision in decisions:
+        dataset_kind = decision.dataset_kind
+        recall_losses[dataset_kind].append(decision.recall_loss)
+        if decision.chain_loss is not None:
+            chain_losses[dataset_kind].append(decision.chain_loss)
+        deletion_counts.append(float(len(decision.dropped_evidence_ids)))
+        if dataset_kind == "niah":
+            row = query_by_key[(dataset_kind, decision.query_id)]
+            niah_dropped_by_query[row.query_id] = decision.dropped_evidence_ids
+            selector_control = selector_control.add(
+                row=row,
+                dropped_evidence_ids=decision.dropped_evidence_ids,
+            )
 
     random_harm: float | None = None
     random_precision: float | None = None
@@ -844,6 +906,204 @@ def combine_development_metrics(
         seed13_precision_beats_random=seed13.niah_deletion_precision > random_precision,
         seed13_precision_beats_bottom=seed13.niah_deletion_precision > bottom_precision,
     )
+
+
+def _harm_reduction_for_drops(
+    row: EvaluationQuery,
+    dropped_evidence_ids: Sequence[str],
+) -> float:
+    candidate_by_id = {candidate.evidence_id: candidate for candidate in row.topk10}
+    baseline_documents = {candidate.document_id for candidate in row.topk10}
+    dropped_documents = {
+        candidate_by_id[evidence_id].document_id for evidence_id in dropped_evidence_ids
+    }
+    selected_documents = baseline_documents - dropped_documents
+    return float(row.harmful_document_id in baseline_documents) - float(
+        row.harmful_document_id in selected_documents
+    )
+
+
+def evidence_inference(
+    *,
+    decisions: Sequence[PolicyQueryResult],
+    projections: Mapping[DatasetKind, EvaluationProjection],
+    include_controls: bool,
+    random_repeats: int = 100,
+) -> Mapping[str, object]:
+    """Paired component-bootstrap evidence report for one already-fixed policy."""
+
+    decision_by_key = {(row.dataset_kind, row.query_id): row for row in decisions}
+    expected = {
+        (kind, row.query_id) for kind, projection in projections.items() for row in projection.rows
+    }
+    if set(decision_by_key) != expected or len(decision_by_key) != len(decisions):
+        raise ValueError("decision rows do not align one-to-one with the projections")
+
+    report: dict[str, object] = {}
+    for kind in _DATASET_KINDS:
+        projection = projections[kind]
+        component_ids = {row.query_id: row.component_id for row in projection.rows}
+        zeros = {row.query_id: 0.0 for row in projection.rows}
+        recall = {
+            row.query_id: decision_by_key[(kind, row.query_id)].recall_loss
+            for row in projection.rows
+        }
+        chain = {
+            row.query_id: decision_by_key[(kind, row.query_id)].chain_loss
+            for row in projection.rows
+        }
+        chain_zero = {
+            query_id: None if value is None else 0.0 for query_id, value in chain.items()
+        }
+        report[kind] = {
+            "recall_loss": asdict(
+                compare_paired(
+                    recall,
+                    zeros,
+                    component_ids=component_ids,
+                    seed=13,
+                    iterations=10000,
+                )
+            ),
+            "chain_loss": asdict(
+                compare_paired(
+                    chain,
+                    chain_zero,
+                    component_ids=component_ids,
+                    seed=13,
+                    iterations=10000,
+                )
+            ),
+        }
+
+    niah = projections["niah"]
+    eligible = tuple(row for row in niah.rows if row.harmful_in_top20_pool)
+    components = {row.query_id: row.component_id for row in eligible}
+    selector_harm = {
+        row.query_id: cast(float, decision_by_key[("niah", row.query_id)].harmful_reduction)
+        for row in eligible
+    }
+    zeros = {row.query_id: 0.0 for row in eligible}
+    harm_report: dict[str, object] = {
+        "selector_vs_topk10": asdict(
+            compare_paired(
+                selector_harm,
+                zeros,
+                component_ids=components,
+                seed=13,
+                iterations=10000,
+            )
+        )
+    }
+    if include_controls:
+        random_by_query: dict[str, float] = {}
+        bottom_by_query: dict[str, float] = {}
+        for row in eligible:
+            decision = decision_by_key[("niah", row.query_id)]
+            random_values: list[float] = []
+            bottom_value: float | None = None
+            for repeat_index in range(random_repeats):
+                drops = generate_count_matched_drops(
+                    row.topk10,
+                    deletion_count=len(decision.dropped_evidence_ids),
+                    repeat_index=repeat_index,
+                    dataset_id=row.dataset_id,
+                    dataset_signature=row.dataset_signature,
+                    pool_sha256=row.pool_sha256,
+                    query_id=row.query_id,
+                )
+
+                random_values.append(
+                    _harm_reduction_for_drops(row, drops.random_dropped_evidence_ids)
+                )
+                if repeat_index == 0:
+                    bottom_value = _harm_reduction_for_drops(
+                        row, drops.bottom_rank_dropped_evidence_ids
+                    )
+            random_by_query[row.query_id] = _mean(
+                random_values, label="random per-query harmful reduction"
+            )
+            assert bottom_value is not None
+            bottom_by_query[row.query_id] = bottom_value
+        harm_report["selector_vs_random_mean"] = asdict(
+            compare_paired(
+                selector_harm,
+                random_by_query,
+                component_ids=components,
+                seed=13,
+                iterations=10000,
+            )
+        )
+        harm_report["selector_vs_bottom_rank"] = asdict(
+            compare_paired(
+                selector_harm,
+                bottom_by_query,
+                component_ids=components,
+                seed=13,
+                iterations=10000,
+            )
+        )
+    report["niah_harmful_reduction"] = harm_report
+    return report
+
+
+def macro_answer_inference(
+    *,
+    selector_by_dataset: Mapping[DatasetKind, Mapping[str, float]],
+    topk10_by_dataset: Mapping[DatasetKind, Mapping[str, float]],
+    components_by_dataset: Mapping[DatasetKind, Mapping[str, str]],
+    iterations: int = 10000,
+    seed: int = 13,
+) -> Mapping[str, object]:
+    """Equal-dataset answer delta with independent component resampling per dataset."""
+
+    if type(iterations) is not int or iterations <= 0:
+        raise ValueError("iterations must be positive")
+    cluster_values: dict[DatasetKind, dict[str, tuple[float, ...]]] = {}
+    dataset_points: dict[DatasetKind, float] = {}
+    for kind in _DATASET_KINDS:
+        selector = selector_by_dataset[kind]
+        baseline = topk10_by_dataset[kind]
+        components = components_by_dataset[kind]
+        if set(selector) != set(baseline) or set(selector) != set(components) or not selector:
+            raise ValueError(f"{kind} answer rows/components are not aligned")
+        grouped: dict[str, list[float]] = {}
+        diffs: list[float] = []
+        for query_id in sorted(selector):
+            selector_value = _probability(selector[query_id], label="selector answer")
+            baseline_value = _probability(baseline[query_id], label="TopK10 answer")
+            component_id = _nonblank(components[query_id], label="answer component")
+            diff = selector_value - baseline_value
+            diffs.append(diff)
+            grouped.setdefault(component_id, []).append(diff)
+        cluster_values[kind] = {
+            component_id: tuple(values) for component_id, values in grouped.items()
+        }
+        dataset_points[kind] = _mean(diffs, label=f"{kind} answer delta")
+
+    rng = random.Random(seed)
+    boot: list[float] = []
+    for _ in range(iterations):
+        dataset_draws: list[float] = []
+        for kind in _DATASET_KINDS:
+            sampled_groups = cluster_values[kind]
+            clusters = tuple(sorted(sampled_groups))
+            sampled = tuple(clusters[rng.randrange(len(clusters))] for _ in clusters)
+            values = [
+                value for component_id in sampled for value in sampled_groups[component_id]
+            ]
+            dataset_draws.append(_mean(values, label=f"{kind} bootstrap answer"))
+        boot.append(0.5 * sum(dataset_draws))
+    boot.sort()
+    return {
+        "dataset_delta": dict(dataset_points),
+        "macro_delta": 0.5 * sum(dataset_points.values()),
+        "ci_low": boot[int(0.025 * iterations)],
+        "ci_high": boot[min(iterations - 1, int(0.975 * iterations))],
+        "iterations": iterations,
+        "seed": seed,
+        "dataset_weight": "equal-0.5-0.5",
+    }
 
 
 def combine_projection_sha256(

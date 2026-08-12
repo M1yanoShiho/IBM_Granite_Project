@@ -14,12 +14,15 @@ from evidence_rag.evaluation.selector_lean import (
     DevelopmentCandidateResult,
     FrozenPolicy,
     PolicyCandidate,
+    apply_seed_policy,
     build_evaluation_projection,
     build_policy_candidates,
     combine_development_metrics,
     combine_projection_sha256,
     evaluate_seed_policy,
+    evidence_inference,
     freeze_policy,
+    macro_answer_inference,
     nearest_rank_float32,
     require_frozen_final_policy,
     select_development_policy,
@@ -203,6 +206,40 @@ def test_real_policy_metrics_reward_harmful_drop_without_losing_required_evidenc
     assert seed13.niah_recall_loss_pp == 0.0
     assert seed13.twowiki_recall_loss_pp == 0.0
     assert result.passes_gate is True
+
+    decisions = apply_seed_policy(
+        projections=projections,  # type: ignore[arg-type]
+        scores_by_dataset=scores,  # type: ignore[arg-type]
+        threshold=0.8,
+        cap=1,
+    )
+    inference = evidence_inference(
+        decisions=decisions,
+        projections=projections,  # type: ignore[arg-type]
+        include_controls=True,
+        random_repeats=10,
+    )
+    harm = inference["niah_harmful_reduction"]
+    assert isinstance(harm, dict)
+    selector_vs_topk = harm["selector_vs_topk10"]
+    assert isinstance(selector_vs_topk, dict)
+    assert selector_vs_topk["delta"] == 1.0
+    assert selector_vs_topk["ci_low"] == 1.0
+
+
+def test_macro_answer_inference_weights_datasets_equally() -> None:
+    result = macro_answer_inference(
+        selector_by_dataset={"niah": {"n1": 1.0, "n2": 0.0}, "2wiki": {"w1": 1.0}},
+        topk10_by_dataset={"niah": {"n1": 0.0, "n2": 0.0}, "2wiki": {"w1": 1.0}},
+        components_by_dataset={
+            "niah": {"n1": "nc1", "n2": "nc2"},
+            "2wiki": {"w1": "wc1"},
+        },
+        iterations=100,
+        seed=13,
+    )
+    assert result["dataset_delta"] == {"niah": 0.5, "2wiki": 0.0}
+    assert result["macro_delta"] == 0.25
 
 
 def _grid() -> tuple[

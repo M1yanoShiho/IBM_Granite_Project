@@ -22,7 +22,8 @@ from typing import Any, Literal, cast
 from pydantic import ValidationError
 
 from evidence_rag.cli.finalize_selector_r004 import finalize_selector_r004
-from evidence_rag.contracts.models import CandidateSet, Query
+from evidence_rag.contracts.models import CandidateSet, Query, QueryChecklist, SelectedEvidenceSet
+from evidence_rag.evaluation.scoring import answer_match
 from evidence_rag.evaluation.selector_artifacts import (
     SelectorRunStatus,
     verify_file_pin,
@@ -31,17 +32,22 @@ from evidence_rag.evaluation.selector_lean import (
     DevelopmentCandidateResult,
     EvaluationProjection,
     FrozenPolicy,
+    PolicyQueryResult,
+    apply_seed_policy,
     build_evaluation_projection,
     build_policy_candidates,
     combine_development_metrics,
     combine_projection_sha256,
     evaluate_seed_policy,
+    evidence_inference,
     freeze_policy,
+    macro_answer_inference,
     require_frozen_final_policy,
     select_development_policy,
     thresholds_from_train_scores,
 )
 from evidence_rag.evaluation.selector_sanity import compute_class_weights
+from evidence_rag.generator.granite import CITATION_RAG_PROMPT, GraniteGenerator
 from evidence_rag.infrastructure.datasets import DatasetManifest
 from evidence_rag.materializer.selector_labels import (
     SelectorLabelRow,
@@ -73,6 +79,13 @@ _DATASET_KINDS: tuple[DatasetKind, DatasetKind] = ("niah", "2wiki")
 _MODEL_ID = "cross-encoder/nli-deberta-v3-base"
 _MODEL_REVISION = "6c749ce3425cd33b46d187e45b92bbf96ee12ec7"
 _MODEL_WEIGHTS_SHA256 = "d8148c6d49e0a7925134294c56326c71fe0ab1dc390e37355e00c7efbb488afa"
+_GENERATOR_ID = "ibm-granite/granite-4.1-3b"
+_GENERATOR_REVISION = "c0650403e44e78ec0262dab1c90914c65b196c4e"
+_GENERATOR_WEIGHT_SHA256 = {
+    "895bf5f2d7c8b06ca902499567d3c3d9ed30061e4c5ad94bf8216286ca67e2fd",
+    "de8c9efdaa6f669d595bda8b949213cba92ea69689fd2a27fbceed3d1ebeb2f7",
+}
+_GENERATOR_PROMPT_SHA256 = "691fb659d6f81a5df84c89e205de56858de4926ffc6aed9af3f24d7c5670b45f"
 _TRAIN_SCORE_FILE = "train_scores.jsonl"
 _CHECKPOINT_FILE = "model.safetensors"
 _SIDECAR_FILE = "checkpoint_sidecar.json"
@@ -174,6 +187,8 @@ def _load_lean_config(path: Path) -> _LeanConfig:
     expected = _table(training.get("expected"), label="[training.expected]")
     pair = _table(raw.get("pair_objective"), label="[pair_objective]")
     selection = _table(raw.get("selection"), label="[selection]")
+    generator = _table(raw.get("generator"), label="[generator]")
+    generator_weights = generator.get("weight_shard_sha256")
 
     exact = {
         "schema_version": raw.get("schema_version") == "1.0",
@@ -212,6 +227,15 @@ def _load_lean_config(path: Path) -> _LeanConfig:
         "quantiles": selection.get("quantiles") == [0.995, 0.99, 0.975, 0.95],
         "caps": selection.get("candidate_caps") == [1, 2],
         "safe_score": selection.get("safe_score") == "min(harm_score,1-protect_score)",
+        "generator_id": generator.get("model_id") == _GENERATOR_ID,
+        "generator_revision": generator.get("revision") == _GENERATOR_REVISION,
+        "generator_weights": isinstance(generator_weights, list)
+        and set(cast(list[str], generator_weights)) == _GENERATOR_WEIGHT_SHA256,
+        "generator_prompt": generator.get("prompt_utf8_sha256") == _GENERATOR_PROMPT_SHA256,
+        "generator_tokens": generator.get("max_new_tokens") == 32,
+        "generator_temperature": generator.get("temperature") == 0.0,
+        "generator_top_p": generator.get("top_p") == 1.0,
+        "generator_sample": generator.get("do_sample") is False,
     }
     failed = sorted(name for name, passed in exact.items() if not passed)
     if failed:
@@ -505,6 +529,42 @@ def final_input_sha256(
             for label, path in sorted(paths.items())
         }
     )
+
+
+def _audit_generator_snapshot(path: Path, config: _LeanConfig) -> str:
+    root = Path(path).resolve()
+    generator = _table(config.raw.get("generator"), label="[generator]")
+    frozen_files = _table(
+        generator.get("snapshot_files"), label="[generator.snapshot_files]"
+    )
+    observed: dict[str, str] = {}
+    for filename, expected in frozen_files.items():
+        source = root / filename
+        if not source.is_file() or not isinstance(expected, str):
+            raise ValueError(f"pinned Generator snapshot file is missing: {filename}")
+        digest = _sha256_file(source)
+        if digest != expected:
+            raise ValueError(f"Generator snapshot digest mismatch: {filename}")
+        observed[filename] = digest
+    weights = {
+        _sha256_file(source): source.name for source in root.glob("*.safetensors") if source.is_file()
+    }
+    if set(weights) != _GENERATOR_WEIGHT_SHA256:
+        raise ValueError("Generator weight shards differ from the frozen pair")
+    observed.update({filename: digest for digest, filename in weights.items()})
+    identity = {
+        "model_id": _GENERATOR_ID,
+        "revision": _GENERATOR_REVISION,
+        "prompt_sha256": _GENERATOR_PROMPT_SHA256,
+        "max_new_tokens": 32,
+        "temperature": 0.0,
+        "top_p": 1.0,
+        "do_sample": False,
+        "files": dict(sorted(observed.items())),
+    }
+    return hashlib.sha256(
+        json.dumps(identity, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    ).hexdigest()
 
 
 def _audit_model_snapshot(path: Path, config: _LeanConfig) -> str:
@@ -1594,15 +1654,161 @@ def _read_frozen_policy(path: Path) -> FrozenPolicy:
     return FrozenPolicy.from_dict(_read_json_object(path, label="frozen policy"))
 
 
+class _PinnedGraniteTextGenerator:
+    def __init__(self, *, snapshot: Path, device: str) -> None:
+        transformers = importlib.import_module("transformers")
+        self._torch = importlib.import_module("torch")
+        root = str(Path(snapshot).resolve())
+        load = {"local_files_only": True, "trust_remote_code": False}
+        self._tokenizer = transformers.AutoTokenizer.from_pretrained(root, **load)
+        self._model = transformers.AutoModelForCausalLM.from_pretrained(
+            root,
+            use_safetensors=True,
+            dtype="auto",
+            **load,
+        ).to(device)
+        self._model.eval()
+
+    def generate(self, prompt: str) -> str:
+        tokenizer = self._tokenizer
+        if getattr(tokenizer, "chat_template", None):
+            encoded = tokenizer.apply_chat_template(
+                [{"role": "user", "content": prompt}],
+                add_generation_prompt=True,
+                return_tensors="pt",
+                return_dict=True,
+            )
+        else:
+            encoded = tokenizer(prompt, return_tensors="pt")
+        model_inputs = {
+            name: value.to(self._model.device) if hasattr(value, "to") else value
+            for name, value in encoded.items()
+        }
+        with self._torch.inference_mode():
+            output = self._model.generate(
+                **model_inputs,
+                max_new_tokens=32,
+                do_sample=False,
+            )
+        input_length = int(model_inputs["input_ids"].shape[-1])
+        return str(
+            tokenizer.decode(output[0][input_length:], skip_special_tokens=True)
+        ).strip()
+
+
+def _decision_rows(
+    *,
+    seed: int,
+    decisions: Sequence[PolicyQueryResult],
+    projections: Mapping[DatasetKind, EvaluationProjection],
+    scores: Mapping[DatasetKind, Mapping[str, Mapping[str, CandidateRiskScore]]],
+) -> tuple[Mapping[str, object], ...]:
+    query_by_key = {
+        (kind, row.query_id): row for kind, projection in projections.items() for row in projection.rows
+    }
+    output: list[Mapping[str, object]] = []
+    for decision in decisions:
+        row = query_by_key[(decision.dataset_kind, decision.query_id)]
+        dropped = set(decision.dropped_evidence_ids)
+        output.append(
+            {
+                "schema_version": "selector-lean-final-decision-v1",
+                "seed": seed,
+                "dataset_kind": decision.dataset_kind,
+                "query_id": decision.query_id,
+                "component_id": decision.component_id,
+                "selected_evidence_ids": list(decision.selected_evidence_ids),
+                "dropped_evidence_ids": list(decision.dropped_evidence_ids),
+                "recall_loss": decision.recall_loss,
+                "chain_loss": decision.chain_loss,
+                "harmful_reduction": decision.harmful_reduction,
+                "candidates": [
+                    {
+                        "evidence_id": candidate.evidence_id,
+                        "retrieval_rank": candidate.retrieval_rank,
+                        "protect_score": scores[decision.dataset_kind][row.query_id][
+                            candidate.evidence_id
+                        ].protect_score,
+                        "harm_score": scores[decision.dataset_kind][row.query_id][
+                            candidate.evidence_id
+                        ].harm_score,
+                        "safe_score": scores[decision.dataset_kind][row.query_id][
+                            candidate.evidence_id
+                        ].safe_score(),
+                        "action": "DROP_HARM"
+                        if candidate.evidence_id in dropped
+                        else "KEEP",
+                    }
+                    for candidate in row.topk10
+                ],
+            }
+        )
+    return tuple(output)
+
+
+def _evidence_gate(
+    *,
+    seed13_metrics: Any,
+    seed42_metrics: Any,
+    seed13_inference: Mapping[str, object],
+) -> tuple[bool, Mapping[str, bool]]:
+    niah_inference = cast(Mapping[str, object], seed13_inference["niah"])
+    twowiki_inference = cast(Mapping[str, object], seed13_inference["2wiki"])
+    harm_inference = cast(
+        Mapping[str, object], seed13_inference["niah_harmful_reduction"]
+    )
+    harm_vs_topk = cast(Mapping[str, object], harm_inference["selector_vs_topk10"])
+
+    def ci_high(dataset: Mapping[str, object], metric: str) -> float:
+        return _finite_number(
+            cast(Mapping[str, object], dataset[metric])["ci_high"],
+            label=f"{metric} ci_high",
+        )
+
+    conditions = {
+        "seed13_harm_ci_lower_gt_zero": _finite_number(
+            harm_vs_topk["ci_low"], label="harm ci_low"
+        )
+        > 0.0,
+        "seed42_harm_point_gt_zero": seed42_metrics.niah_harmful_reduction > 0.0,
+        "seed13_niah_recall_point_le_1pp": seed13_metrics.niah_recall_loss_pp <= 1.0,
+        "seed13_2wiki_recall_point_le_1pp": seed13_metrics.twowiki_recall_loss_pp <= 1.0,
+        "seed13_niah_chain_point_le_1pp": seed13_metrics.niah_chain_loss_pp <= 1.0,
+        "seed13_2wiki_chain_point_le_1pp": seed13_metrics.twowiki_chain_loss_pp <= 1.0,
+        "seed13_niah_recall_ci_upper_le_3pp": ci_high(niah_inference, "recall_loss")
+        <= 0.03,
+        "seed13_2wiki_recall_ci_upper_le_3pp": ci_high(twowiki_inference, "recall_loss")
+        <= 0.03,
+        "seed13_niah_chain_ci_upper_le_3pp": ci_high(niah_inference, "chain_loss")
+        <= 0.03,
+        "seed13_2wiki_chain_ci_upper_le_3pp": ci_high(twowiki_inference, "chain_loss")
+        <= 0.03,
+        "seed42_niah_recall_point_le_3pp": seed42_metrics.niah_recall_loss_pp <= 3.0,
+        "seed42_2wiki_recall_point_le_3pp": seed42_metrics.twowiki_recall_loss_pp <= 3.0,
+        "seed42_niah_chain_point_le_3pp": seed42_metrics.niah_chain_loss_pp <= 3.0,
+        "seed42_2wiki_chain_point_le_3pp": seed42_metrics.twowiki_chain_loss_pp <= 3.0,
+        "seed13_harm_beats_random": seed13_metrics.niah_harmful_reduction
+        > cast(float, seed13_metrics.random_harmful_reduction),
+        "seed13_harm_beats_bottom": seed13_metrics.niah_harmful_reduction
+        > cast(float, seed13_metrics.bottom_harmful_reduction),
+        "seed13_precision_beats_random": seed13_metrics.niah_deletion_precision
+        > cast(float, seed13_metrics.random_deletion_precision),
+        "seed13_precision_beats_bottom": seed13_metrics.niah_deletion_precision
+        > cast(float, seed13_metrics.bottom_deletion_precision),
+    }
+    return all(conditions.values()), conditions
+
+
 def final_evaluate_selector_lean(
     *,
     config_path: Path,
     frozen_policy_path: Path,
+    model_snapshot: Path,
+    generator_snapshot: Path,
     seed13_fit_directory: Path,
     seed42_fit_directory: Path,
     code_commit: str,
     development_projection_sha256: str,
-    generator_sha256: str,
     niah_dataset_manifest: Path,
     niah_source_parent: Path,
     niah_candidate_pool: Path,
@@ -1613,11 +1819,18 @@ def final_evaluate_selector_lean(
     twowiki_source_parent: Path,
     twowiki_candidate_pool: Path,
     twowiki_components_directory: Path,
-    output_metadata_path: Path,
+    output_directory: Path,
+    device: str = "cuda:0",
+    evaluation_batch_size: int = 32,
+    generator_device: str = "cuda:0",
 ) -> Mapping[str, object]:
-    """Open only the frozen decision-dev projection; effect scoring is added in L003."""
+    """Run the once-only fixed-policy final evidence gate, then paired Granite answers."""
 
-    _load_lean_config(config_path)
+    config = _load_lean_config(config_path)
+    root = Path(output_directory).resolve()
+    if root.exists() and (not root.is_dir() or any(root.iterdir())):
+        raise ValueError(f"final output directory must be absent or empty: {root}")
+    generator_sha256 = _audit_generator_snapshot(generator_snapshot, config)
     policy = _read_frozen_policy(frozen_policy_path)
     bundles = {
         seed: _read_fit_bundle(
@@ -1653,38 +1866,188 @@ def final_evaluate_selector_lean(
         ),
         generator_sha256=_require_digest(generator_sha256, label="generator_sha256"),
     )
-    niah = build_evaluation_projection(
-        dataset_kind="niah",
+    projections = _evaluation_projections(
         role="decision-dev",
-        dataset_manifest_path=niah_dataset_manifest,
-        source_parent_path=niah_source_parent,
-        candidate_pool_path=niah_candidate_pool,
-        component_directory=niah_components_directory,
-        assignment_path=niah_assignment,
-        provenance_path=niah_provenance,
+        niah_dataset_manifest=niah_dataset_manifest,
+        niah_source_parent=niah_source_parent,
+        niah_candidate_pool=niah_candidate_pool,
+        niah_components_directory=niah_components_directory,
+        niah_assignment=niah_assignment,
+        niah_provenance=niah_provenance,
+        twowiki_dataset_manifest=twowiki_dataset_manifest,
+        twowiki_source_parent=twowiki_source_parent,
+        twowiki_candidate_pool=twowiki_candidate_pool,
+        twowiki_components_directory=twowiki_components_directory,
     )
-    twowiki = build_evaluation_projection(
-        dataset_kind="2wiki",
-        role="decision-dev",
-        dataset_manifest_path=twowiki_dataset_manifest,
-        source_parent_path=twowiki_source_parent,
-        candidate_pool_path=twowiki_candidate_pool,
-        component_directory=twowiki_components_directory,
+    decision_projection_sha256 = combine_projection_sha256(projections)
+    thresholds = dict(policy.thresholds_by_seed)
+    scores_by_seed = {
+        seed: _score_evaluation_projections(
+            config=config,
+            model_snapshot=model_snapshot,
+            checkpoint_path=(seed13_fit_directory if seed == 13 else seed42_fit_directory)
+            / _CHECKPOINT_FILE,
+            projections=projections,
+            device=device,
+            batch_size=evaluation_batch_size,
+        )
+        for seed in _SEEDS
+    }
+    decisions = {
+        seed: apply_seed_policy(
+            projections=projections,
+            scores_by_dataset=scores_by_seed[seed],
+            threshold=thresholds[seed],
+            cap=policy.cap,
+        )
+        for seed in _SEEDS
+    }
+    metrics = {
+        seed: evaluate_seed_policy(
+            seed=seed,
+            projections=projections,
+            scores_by_dataset=scores_by_seed[seed],
+            threshold=thresholds[seed],
+            cap=policy.cap,
+            include_controls=seed == 13,
+        )
+        for seed in _SEEDS
+    }
+    inference = {
+        seed: evidence_inference(
+            decisions=decisions[seed],
+            projections=projections,
+            include_controls=seed == 13,
+        )
+        for seed in _SEEDS
+    }
+    evidence_pass, evidence_conditions = _evidence_gate(
+        seed13_metrics=metrics[13],
+        seed42_metrics=metrics[42],
+        seed13_inference=inference[13],
     )
-    decision_projection_sha256 = combine_projection_sha256({"niah": niah, "2wiki": twowiki})
-    metadata: dict[str, object] = {
-        "schema_version": "selector-lean-final-projection-v1",
-        "action": "final-projection-ready",
+    answer_rows: list[Mapping[str, object]] = []
+    answer_inference: Mapping[str, object] | None = None
+    answer_pass = False
+    if evidence_pass:
+        torch = importlib.import_module("torch")
+        if hasattr(torch, "cuda") and torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        generator = GraniteGenerator(
+            llm=_PinnedGraniteTextGenerator(
+                snapshot=generator_snapshot,
+                device=generator_device,
+            ),
+            prompt_template=CITATION_RAG_PROMPT,
+        )
+        decision13 = {(row.dataset_kind, row.query_id): row for row in decisions[13]}
+        selector_answers: dict[DatasetKind, dict[str, float]] = {"niah": {}, "2wiki": {}}
+        topk_answers: dict[DatasetKind, dict[str, float]] = {"niah": {}, "2wiki": {}}
+        components: dict[DatasetKind, dict[str, str]] = {"niah": {}, "2wiki": {}}
+        for kind in _DATASET_KINDS:
+            for row in projections[kind].rows:
+                query = Query(query_id=row.query_id, text=row.question)
+                checklist = QueryChecklist(
+                    query_id=row.query_id,
+                    focus=row.question,
+                    required_facts=(),
+                )
+                baseline = SelectedEvidenceSet(query_id=row.query_id, evidence=row.topk10)
+                baseline_generation = generator.generate(query, checklist, baseline)
+                selected_ids = decision13[(kind, row.query_id)].selected_evidence_ids
+                if selected_ids == tuple(candidate.evidence_id for candidate in row.topk10):
+                    selector_generation = baseline_generation
+                    reused = True
+                else:
+                    selected_set = set(selected_ids)
+                    selected = SelectedEvidenceSet(
+                        query_id=row.query_id,
+                        evidence=tuple(
+                            candidate for candidate in row.topk10
+                            if candidate.evidence_id in selected_set
+                        ),
+                    )
+                    selector_generation = generator.generate(query, checklist, selected)
+                    reused = False
+                baseline_match = answer_match(
+                    baseline_generation.answer, row.reference_answers
+                ).value
+                selector_match = answer_match(
+                    selector_generation.answer, row.reference_answers
+                ).value
+                if baseline_match is None or selector_match is None:
+                    raise ValueError("final answer_match unexpectedly has no score")
+                topk_answers[kind][row.query_id] = baseline_match
+                selector_answers[kind][row.query_id] = selector_match
+                components[kind][row.query_id] = row.component_id
+                answer_rows.append(
+                    {
+                        "schema_version": "selector-lean-final-answer-v1",
+                        "dataset_kind": kind,
+                        "query_id": row.query_id,
+                        "component_id": row.component_id,
+                        "topk10": baseline_generation.model_dump(mode="json"),
+                        "selector": selector_generation.model_dump(mode="json"),
+                        "topk10_answer_match": baseline_match,
+                        "selector_answer_match": selector_match,
+                        "identical_context_reused": reused,
+                    }
+                )
+        answer_inference = macro_answer_inference(
+            selector_by_dataset=selector_answers,
+            topk10_by_dataset=topk_answers,
+            components_by_dataset=components,
+        )
+        dataset_delta = cast(Mapping[str, float], answer_inference["dataset_delta"])
+        answer_pass = (
+            _finite_number(answer_inference["macro_delta"], label="macro answer delta") > 0.0
+            and dataset_delta["niah"] >= -0.01
+            and dataset_delta["2wiki"] >= -0.01
+        )
+
+    report: dict[str, object] = {
+        "schema_version": "selector-lean-final-report-v1",
+        "status": "PASS" if evidence_pass and answer_pass else "FAIL",
         "role": "decision-dev",
         "frozen_policy_sha256": _sha256_file(frozen_policy_path),
         "decision_projection_sha256": decision_projection_sha256,
         "datasets": {
-            "niah": {"queries": len(niah.rows), "projection_sha256": niah.sha256},
-            "2wiki": {"queries": len(twowiki.rows), "projection_sha256": twowiki.sha256},
+            kind: {
+                "queries": len(projections[kind].rows),
+                "projection_sha256": projections[kind].sha256,
+            }
+            for kind in _DATASET_KINDS
+        },
+        "policy": policy.to_dict(),
+        "evidence_gate": {
+            "status": "PASS" if evidence_pass else "FAIL",
+            "conditions": evidence_conditions,
+            "metrics_by_seed": {seed: asdict(metrics[seed]) for seed in _SEEDS},
+            "inference_by_seed": inference,
+        },
+        "answer_gate": {
+            "status": "PASS" if answer_pass else "FAIL",
+            "skipped": not evidence_pass,
+            "inference": answer_inference,
         },
     }
-    _write_new(output_metadata_path, _json_bytes(metadata))
-    return metadata
+    root.mkdir(parents=True, exist_ok=True)
+    _write_new(root / "final_report.json", _json_bytes(report))
+    for seed in _SEEDS:
+        _write_new(
+            root / f"decision_trace_seed{seed}.jsonl",
+            _jsonl_bytes(
+                _decision_rows(
+                    seed=seed,
+                    decisions=decisions[seed],
+                    projections=projections,
+                    scores=scores_by_seed[seed],
+                )
+            ),
+        )
+    if answer_rows:
+        _write_new(root / "answer_rows_seed13.jsonl", _jsonl_bytes(answer_rows))
+    return report
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -1706,6 +2069,7 @@ def _parser() -> argparse.ArgumentParser:
     calibrate.add_argument("--config", required=True, type=Path)
     calibrate.add_argument("--variant", required=True, choices=("NLI-base", "NLI-pair"))
     calibrate.add_argument("--model-snapshot", required=True, type=Path)
+    calibrate.add_argument("--generator-snapshot", required=True, type=Path)
     calibrate.add_argument("--seed13-fit-dir", required=True, type=Path)
     calibrate.add_argument("--seed42-fit-dir", required=True, type=Path)
     calibrate.add_argument(
@@ -1727,12 +2091,6 @@ def _parser() -> argparse.ArgumentParser:
     calibrate.add_argument("--device", default="cuda:0")
     calibrate.add_argument("--evaluation-batch-size", type=int, default=32)
     calibrate.add_argument("--code-commit", required=True)
-    calibrate.add_argument(
-        "--final-input-sha256",
-        required=True,
-        help="hash computed from the pinned raw decision-dev inputs before calibration",
-    )
-    calibrate.add_argument("--generator-sha256", required=True)
     calibrate.add_argument("--output-policy", required=True, type=Path)
     calibrate.add_argument(
         "--base-stop",
@@ -1745,11 +2103,12 @@ def _parser() -> argparse.ArgumentParser:
     )
     final.add_argument("--config", required=True, type=Path)
     final.add_argument("--frozen-policy", required=True, type=Path)
+    final.add_argument("--model-snapshot", required=True, type=Path)
+    final.add_argument("--generator-snapshot", required=True, type=Path)
     final.add_argument("--seed13-fit-dir", required=True, type=Path)
     final.add_argument("--seed42-fit-dir", required=True, type=Path)
     final.add_argument("--code-commit", required=True)
     final.add_argument("--development-projection-sha256", required=True)
-    final.add_argument("--generator-sha256", required=True)
     final.add_argument("--niah-dataset-manifest", required=True, type=Path)
     final.add_argument("--niah-source-parent", required=True, type=Path)
     final.add_argument("--niah-candidate-pool", required=True, type=Path)
@@ -1760,7 +2119,10 @@ def _parser() -> argparse.ArgumentParser:
     final.add_argument("--twowiki-source-parent", required=True, type=Path)
     final.add_argument("--twowiki-candidate-pool", required=True, type=Path)
     final.add_argument("--twowiki-components-dir", required=True, type=Path)
-    final.add_argument("--output-metadata", required=True, type=Path)
+    final.add_argument("--output-dir", required=True, type=Path)
+    final.add_argument("--device", default="cuda:0")
+    final.add_argument("--evaluation-batch-size", type=int, default=32)
+    final.add_argument("--generator-device", default="cuda:0")
     return parser
 
 
@@ -1801,28 +2163,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             development.get("development_projection_sha256"),
             label="development projection hash",
         )
-        result = calibrate_selector_lean(
-            config_path=arguments.config,
-            variant=cast(Variant, arguments.variant),
-            seed13_fit_directory=arguments.seed13_fit_dir,
-            seed42_fit_directory=arguments.seed42_fit_dir,
-            development_results_path=arguments.development_results,
-            code_commit=arguments.code_commit,
-            final_input_sha256=arguments.final_input_sha256,
-            development_projection_sha256=development_projection_sha256,
-            generator_sha256=arguments.generator_sha256,
-            output_policy_path=arguments.output_policy,
-            base_stop_path=arguments.base_stop,
-        )
-    elif arguments.command == "final-evaluate":
-        result = final_evaluate_selector_lean(
-            config_path=arguments.config,
-            frozen_policy_path=arguments.frozen_policy,
-            seed13_fit_directory=arguments.seed13_fit_dir,
-            seed42_fit_directory=arguments.seed42_fit_dir,
-            code_commit=arguments.code_commit,
-            development_projection_sha256=arguments.development_projection_sha256,
-            generator_sha256=arguments.generator_sha256,
+        config = _load_lean_config(arguments.config)
+        pinned_final_input = final_input_sha256(
             niah_dataset_manifest=arguments.niah_dataset_manifest,
             niah_source_parent=arguments.niah_source_parent,
             niah_candidate_pool=arguments.niah_candidate_pool,
@@ -1833,7 +2175,45 @@ def main(argv: Sequence[str] | None = None) -> int:
             twowiki_source_parent=arguments.twowiki_source_parent,
             twowiki_candidate_pool=arguments.twowiki_candidate_pool,
             twowiki_components_directory=arguments.twowiki_components_dir,
-            output_metadata_path=arguments.output_metadata,
+        )
+        pinned_generator = _audit_generator_snapshot(arguments.generator_snapshot, config)
+        result = calibrate_selector_lean(
+            config_path=arguments.config,
+            variant=cast(Variant, arguments.variant),
+            seed13_fit_directory=arguments.seed13_fit_dir,
+            seed42_fit_directory=arguments.seed42_fit_dir,
+            development_results_path=arguments.development_results,
+            code_commit=arguments.code_commit,
+            final_input_sha256=pinned_final_input,
+            development_projection_sha256=development_projection_sha256,
+            generator_sha256=pinned_generator,
+            output_policy_path=arguments.output_policy,
+            base_stop_path=arguments.base_stop,
+        )
+    elif arguments.command == "final-evaluate":
+        result = final_evaluate_selector_lean(
+            config_path=arguments.config,
+            frozen_policy_path=arguments.frozen_policy,
+            model_snapshot=arguments.model_snapshot,
+            generator_snapshot=arguments.generator_snapshot,
+            seed13_fit_directory=arguments.seed13_fit_dir,
+            seed42_fit_directory=arguments.seed42_fit_dir,
+            code_commit=arguments.code_commit,
+            development_projection_sha256=arguments.development_projection_sha256,
+            niah_dataset_manifest=arguments.niah_dataset_manifest,
+            niah_source_parent=arguments.niah_source_parent,
+            niah_candidate_pool=arguments.niah_candidate_pool,
+            niah_components_directory=arguments.niah_components_dir,
+            niah_assignment=arguments.niah_assignment,
+            niah_provenance=arguments.niah_provenance,
+            twowiki_dataset_manifest=arguments.twowiki_dataset_manifest,
+            twowiki_source_parent=arguments.twowiki_source_parent,
+            twowiki_candidate_pool=arguments.twowiki_candidate_pool,
+            twowiki_components_directory=arguments.twowiki_components_dir,
+            output_directory=arguments.output_dir,
+            device=arguments.device,
+            evaluation_batch_size=arguments.evaluation_batch_size,
+            generator_device=arguments.generator_device,
         )
     else:  # pragma: no cover - argparse enforces the finite command set
         raise AssertionError(f"unhandled command: {arguments.command}")

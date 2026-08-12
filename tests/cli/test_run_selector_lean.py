@@ -122,6 +122,37 @@ def test_final_input_hash_changes_when_an_actual_raw_input_changes(tmp_path: Pat
     assert before != after
 
 
+def test_generator_snapshot_identity_binds_config_and_both_weight_shards(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    config = lean_cli._load_lean_config(CONFIG_PATH)
+    generator = config.raw["generator"]
+    assert isinstance(generator, dict)
+    snapshot_files = generator["snapshot_files"]
+    assert isinstance(snapshot_files, dict)
+    digests = {str(name): str(digest) for name, digest in snapshot_files.items()}
+    digests.update(
+        {
+            "model-00001-of-00002.safetensors": next(
+                digest for digest in lean_cli._GENERATOR_WEIGHT_SHA256 if digest.startswith("895")
+            ),
+            "model-00002-of-00002.safetensors": next(
+                digest for digest in lean_cli._GENERATOR_WEIGHT_SHA256 if digest.startswith("de8")
+            ),
+        }
+    )
+    for filename in digests:
+        (tmp_path / filename).write_bytes(b"fixture")
+    monkeypatch.setattr(lean_cli, "_sha256_file", lambda path: digests[Path(path).name])
+
+    identity = lean_cli._audit_generator_snapshot(tmp_path, config)
+    assert len(identity) == 64
+
+    digests["model-00002-of-00002.safetensors"] = "0" * 64
+    with pytest.raises(ValueError, match="weight shards"):
+        lean_cli._audit_generator_snapshot(tmp_path, config)
+
+
 def test_full_frozen_schedule_is_balanced_pair_preserving_and_exact_once() -> None:
     niah: list[LeanTrainingRow] = []
     for index in range(870):
