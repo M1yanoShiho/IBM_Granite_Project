@@ -87,9 +87,16 @@ better" than BM25 — it is **significantly worse on every recall metric**:
 | Recall | 0.9098 | 0.9166 | **−0.0068** | 0.0292 |
 
 So "StrongBM25 vs BM25 is not a reliable win" understates it: on NQ the tuned parameters and
-stopword filtering cost recall at every depth, and only the top-rank metric breaks even. The
-dense and hybrid NQ arms were still running when this was written; they change nothing above,
-since this pair is complete on its own.
+stopword filtering cost recall at every depth, and only the top-rank metric breaks even.
+
+**The hybrid arm reproduces too (job `18421897`, COMPLETED 04:38:23).** `hybrid-rrf vs
+strong-bm25` on NQ: MRR 0.8873 vs 0.8153 (**+0.0720**, p=0.0000), R@10 +0.0748, R@20 +0.0736,
+recall +0.0611 — all p=0.0000 at n=2000. R2 recorded Δ +0.071 MRR p<0.0001 for this pair on NQ,
+so conclusion 2 — the strongest and most consistent result in the whole matrix — is now
+independently reproduced from a rebuilt dataset as well.
+
+Two R2 findings therefore survive re-derivation from scratch, and the one correction is to
+conclusion 1's scope rather than to its direction.
 
 ---
 
