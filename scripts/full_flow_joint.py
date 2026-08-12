@@ -43,7 +43,7 @@ from evidence_rag.generator.granite import (
     GraniteGenerator,
     GraniteLLMClient,
 )
-from evidence_rag.generator.nli import build_nli_model
+from evidence_rag.generator.nli import TrueNLIModel, build_nli_model
 from evidence_rag.generator.verify_annotate import VerifyAnnotateGenerator
 from evidence_rag.infrastructure.datasets import GoldCase
 
@@ -689,6 +689,10 @@ def _parser() -> argparse.ArgumentParser:
     _add_runtime_inputs(run)
     run.add_argument("--granite-snapshot", required=True, type=Path)
     run.add_argument("--nli-backend", choices=("true", "minicheck", "deberta"), default="true")
+    run.add_argument(
+        "--nli-model-id",
+        help="local TRUE snapshot path; avoids network lookup during the frozen run",
+    )
     run.add_argument("--output-dir", required=True, type=Path)
     run.add_argument("--limit", type=int)
     run.add_argument("--max-error-rate", type=float, default=DEFAULT_MAX_ERROR_RATE)
@@ -734,14 +738,21 @@ def main(argv: Sequence[str] | None = None) -> int:
         output_dir = args.output_dir.resolve()
         if output_dir.exists() and any(output_dir.iterdir()):
             raise ValueError(f"output directory must be absent or empty: {output_dir}")
+        if args.nli_model_id is not None and args.nli_backend != "true":
+            raise ValueError("--nli-model-id is currently supported only with --nli-backend true")
         llm = GraniteLLMClient(
             model_id=str(args.granite_snapshot.resolve()),
             config=GraniteGenerationConfig(max_new_tokens=256, temperature=0.0, top_p=1.0),
         )
         basic = GraniteGenerator(llm=llm)
+        nli = (
+            TrueNLIModel(model_id=args.nli_model_id)
+            if args.nli_model_id is not None
+            else build_nli_model(args.nli_backend)
+        )
         verify = VerifyAnnotateGenerator(
             llm=llm,
-            nli=build_nli_model(args.nli_backend),
+            nli=nli,
             entity_gate="observe",
             abstain_when_unverified=False,
         )
@@ -764,6 +775,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "errors_by_arm": error_counts,
             "gold_loaded_at_runtime": False,
             "nli_backend": args.nli_backend,
+            "nli_model_id": args.nli_model_id,
             "max_new_tokens": 256,
             "generations_sha256": _sha256_file(output_dir / "generations.jsonl"),
         }

@@ -1,12 +1,12 @@
 # Selector–Generator 跨阶段桥接跟踪表
 
 **对应计划：** [PLAN.md](PLAN.md)
-**当前状态：** `F000 PASS / F001 READY`
+**当前状态：** `F000 PASS / F001 RUNNING`
 
 | Run | 目的 | 比较/输出 | 优先级 | 状态 | 备注 |
 |---|---|---|---|---|---|
 | F000 | 冻结联合实验入口 | 数据、四臂、Granite/TRUE 配置、同作业协议 | MUST | PASS | 739 题；109 题改变；运行时不读 gold |
-| F001 | 现有三模块联合 | A/B/C/D 四臂、总体与109题结果 | MUST | TODO | 第一项应执行的实验 |
+| F001 | 现有三模块联合 | A/B/C/D 四臂、总体与109题结果 | MUST | RUNNING | 1题 TRUE smoke 四臂零错误；完整739题已启动 |
 | F002 | 联合结果归因 | 细节遗漏、空输出、无支持、多跳、真实缺证据分类 | MUST | TODO | 决定 F003/F004 的具体范围 |
 | F003A | 传递但暂不使用跨阶段信号 | `SelectionGuidance` allowlist + 默认无信号回退 + gold 泄漏测试 | CONDITIONAL | TODO | 只承载 Selector 原生运行时信号 |
 | F003B | 关键事实读取 | 问题需求、notes-only、guided-notes | CONDITIONAL | TODO | 细节遗漏/空答案占主导时才运行 |

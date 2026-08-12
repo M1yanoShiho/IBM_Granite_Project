@@ -1,7 +1,7 @@
 # 01 — Selector–Generator 跨阶段桥接
 
 **日期：** 2026-08-12
-**状态：** `F000 PASS / F001 READY / NOT YET AUTHORISED FOR FINAL TEST`
+**状态：** `F000 PASS / F001 RUNNING / NOT YET AUTHORISED FOR FINAL TEST`
 
 ## 零基础说明
 

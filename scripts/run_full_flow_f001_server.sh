@@ -5,6 +5,7 @@ REPO=/home/fl25387/projects/IBM_Granite_Project_latest
 RUNTIME=/scratch/fl25387/IBM_Granite_Project_latest
 PYTHON=$RUNTIME/envs/selector_mis_py311/bin/python
 GRANITE=$RUNTIME/model-cache/models--ibm-granite--granite-4.1-3b/snapshots/c0650403e44e78ec0262dab1c90914c65b196c4e
+TRUE_NLI=$RUNTIME/model-cache/models--google--t5_xxl_true_nli_mixture/snapshots/aa6cfe1dd4257853bfdd772992045f41bfc14988
 OUT=$RUNTIME/runs/full-flow/F001
 
 export HF_HOME=$RUNTIME/model-cache
@@ -31,6 +32,7 @@ mkdir -p "$RUNTIME/runs/full-flow/F000"
   --decision-trace "$RUNTIME/runs/selector-lean-v3/L003/final/decision_trace_seed13.jsonl" \
   --granite-snapshot "$GRANITE" \
   --nli-backend true \
+  --nli-model-id "$TRUE_NLI" \
   --output-dir "$OUT"
 
 "$PYTHON" "$REPO/scripts/full_flow_joint.py" score \

@@ -125,6 +125,34 @@ def test_runtime_parser_has_no_gold_argument() -> None:
         )
 
 
+def test_non_true_backend_rejects_explicit_nli_model_id(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(joint, "load_runtime_cases", lambda **_kwargs: _cases())
+    with pytest.raises(ValueError, match="only with --nli-backend true"):
+        joint.main(
+            [
+                "run",
+                "--queries",
+                "q.jsonl",
+                "--candidate-pool",
+                "p.jsonl",
+                "--roles",
+                "r.jsonl",
+                "--decision-trace",
+                "d.jsonl",
+                "--granite-snapshot",
+                str(tmp_path / "granite"),
+                "--nli-backend",
+                "deberta",
+                "--nli-model-id",
+                str(tmp_path / "nli"),
+                "--output-dir",
+                str(tmp_path / "output"),
+            ]
+        )
+
+
 def test_load_runtime_cases_rejects_selector_evidence_outside_topk(tmp_path: Path) -> None:
     queries = tmp_path / "queries.jsonl"
     pools = tmp_path / "pool.jsonl"
