@@ -2,6 +2,8 @@
 
 **更新时间：** 2026-08-12
 
+跨阶段浏览入口：[Selector 历次实验总索引](../docs/selector/experiments/README.md)。该目录是带来源哈希的归档导航层，不替代本清单中的 canonical 文件。
+
 | 文件 | 用途 | 状态 |
 |---|---|---|
 | [`EXPERIMENT_PLAN.md`](EXPERIMENT_PLAN.md) | 原 v2 固定副本；R001–R004 PASS、R005 FAIL、R006–R015 CUT、TopK10 默认 | frozen-v2-stopped |

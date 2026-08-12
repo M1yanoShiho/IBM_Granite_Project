@@ -1,0 +1,103 @@
+{
+  "schema_version": "selector-experiment-source-manifest-v1",
+  "experiment_id": "01_corroboration_reranking_2026-07-05",
+  "archive_date": "2026-08-12",
+  "archive_status": "COMPLETED / LIMITED POSITIVE SIGNAL / NOT A PRODUCTION SELECTOR",
+  "archive_policy": {
+    "snapshots_are_exact_source_copies": true,
+    "snapshots_are_execution_entrypoints": false,
+    "archive_operation_moved_or_renamed_sources": false,
+    "some_sources_may_exist_only_in_git_history": true,
+    "production_default": "TopK10"
+  },
+  "entries": [
+    {
+      "role": "plan",
+      "source_kind": "git_blob",
+      "source_commit": "d273b105d56d53044e9df1e47985c70b57728005",
+      "source_path": "docs/superpowers/plans/2026-07-05-corroboration-reranking.md",
+      "current_worktree_path_exists": false,
+      "source_blob": "3e3c3d1b50546472c96151e559e682f391d52c3e",
+      "snapshot_path": "snapshots/2026-07-05-corroboration-reranking-plan.md",
+      "snapshot_blob": "3e3c3d1b50546472c96151e559e682f391d52c3e",
+      "integrity": "MATCH"
+    },
+    {
+      "role": "gated_followup_plan",
+      "source_kind": "git_blob",
+      "source_commit": "d273b105d56d53044e9df1e47985c70b57728005",
+      "source_path": "docs/superpowers/plans/2026-07-06-gated-corroboration.md",
+      "current_worktree_path_exists": false,
+      "source_blob": "fe6f01793229a800fce310943accf48ec790d0a1",
+      "snapshot_path": "snapshots/2026-07-06-gated-corroboration-plan.md",
+      "snapshot_blob": "fe6f01793229a800fce310943accf48ec790d0a1",
+      "integrity": "MATCH"
+    },
+    {
+      "role": "nested_cv_plan",
+      "source_kind": "git_blob",
+      "source_commit": "d273b105d56d53044e9df1e47985c70b57728005",
+      "source_path": "docs/superpowers/plans/2026-07-06-nested-cv-corroboration.md",
+      "current_worktree_path_exists": false,
+      "source_blob": "6e1c37ce24514cffef8b3bf572f71b8b99223614",
+      "snapshot_path": "snapshots/2026-07-06-nested-cv-corroboration-plan.md",
+      "snapshot_blob": "6e1c37ce24514cffef8b3bf572f71b8b99223614",
+      "integrity": "MATCH"
+    },
+    {
+      "role": "design",
+      "source_kind": "git_blob",
+      "source_commit": "d273b105d56d53044e9df1e47985c70b57728005",
+      "source_path": "docs/superpowers/specs/2026-07-05-corroboration-reranking-design.md",
+      "current_worktree_path_exists": false,
+      "source_blob": "4155edfa754e91dd8788663d422fc21d541958fa",
+      "snapshot_path": "snapshots/2026-07-05-corroboration-reranking-design.md",
+      "snapshot_blob": "4155edfa754e91dd8788663d422fc21d541958fa",
+      "integrity": "MATCH"
+    },
+    {
+      "role": "gated_followup_design",
+      "source_kind": "git_blob",
+      "source_commit": "d273b105d56d53044e9df1e47985c70b57728005",
+      "source_path": "docs/superpowers/specs/2026-07-06-gated-corroboration-design.md",
+      "current_worktree_path_exists": false,
+      "source_blob": "d2233e9119683d3c8075d80810fb62483221a9e8",
+      "snapshot_path": "snapshots/2026-07-06-gated-corroboration-design.md",
+      "snapshot_blob": "d2233e9119683d3c8075d80810fb62483221a9e8",
+      "integrity": "MATCH"
+    },
+    {
+      "role": "nested_cv_design",
+      "source_kind": "git_blob",
+      "source_commit": "d273b105d56d53044e9df1e47985c70b57728005",
+      "source_path": "docs/superpowers/specs/2026-07-06-nested-cv-corroboration-design.md",
+      "current_worktree_path_exists": false,
+      "source_blob": "889710332321acd22f7dbebb7c0bd202a4ef74eb",
+      "snapshot_path": "snapshots/2026-07-06-nested-cv-corroboration-design.md",
+      "snapshot_blob": "889710332321acd22f7dbebb7c0bd202a4ef74eb",
+      "integrity": "MATCH"
+    },
+    {
+      "role": "nested_cv_mrr_result",
+      "source_kind": "git_blob",
+      "source_commit": "d273b105d56d53044e9df1e47985c70b57728005",
+      "source_path": "results/corroboration_nested_cv_mrr.csv",
+      "current_worktree_path_exists": false,
+      "source_blob": "4560221f0efd457adf9ac46c625f70476352d857",
+      "snapshot_path": "snapshots/results/corroboration_nested_cv_mrr.csv",
+      "snapshot_blob": "4560221f0efd457adf9ac46c625f70476352d857",
+      "integrity": "MATCH"
+    },
+    {
+      "role": "nested_cv_per_query_result",
+      "source_kind": "git_blob",
+      "source_commit": "d273b105d56d53044e9df1e47985c70b57728005",
+      "source_path": "results/corroboration_nested_cv_per_query.csv",
+      "current_worktree_path_exists": false,
+      "source_blob": "dc3dfb16b7bc3128303f1d3a4296cbfe114c97d0",
+      "snapshot_path": "snapshots/results/corroboration_nested_cv_per_query.csv",
+      "snapshot_blob": "dc3dfb16b7bc3128303f1d3a4296cbfe114c97d0",
+      "integrity": "MATCH"
+    }
+  ]
+}

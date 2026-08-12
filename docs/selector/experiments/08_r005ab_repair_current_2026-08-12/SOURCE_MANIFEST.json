@@ -1,0 +1,125 @@
+{
+  "schema_version": "selector-experiment-source-manifest-v1",
+  "experiment_id": "08_r005ab_repair_current_2026-08-12",
+  "archive_date": "2026-08-12",
+  "archive_status": "DRAFT / WAITING A000 EXPLICIT APPROVAL / NOT IMPLEMENTED / NOT RUN",
+  "archive_policy": {
+    "snapshots_are_exact_source_copies": true,
+    "snapshots_are_execution_entrypoints": false,
+    "archive_operation_moved_or_renamed_sources": false,
+    "some_sources_may_exist_only_in_git_history": false,
+    "production_default": "TopK10"
+  },
+  "entries": [
+    {
+      "role": "canonical_v2_plan",
+      "source_kind": "git_blob",
+      "source_commit": "99b9e0c71abf085ae04837b3f870d305a492625a",
+      "source_path": "refine-logs/EXPERIMENT_PLAN_AMENDMENT_2026-08-12_R005AB_v2.md",
+      "current_worktree_path_exists": true,
+      "source_blob": "f6adbb7d2c4a9e8fcd91e800fcb6f7d3f43d4eab",
+      "snapshot_path": "snapshots/EXPERIMENT_PLAN_AMENDMENT_R005AB_v2.md",
+      "snapshot_blob": "f6adbb7d2c4a9e8fcd91e800fcb6f7d3f43d4eab",
+      "integrity": "MATCH"
+    },
+    {
+      "role": "canonical_v2_machine_contract",
+      "source_kind": "git_blob",
+      "source_commit": "99b9e0c71abf085ae04837b3f870d305a492625a",
+      "source_path": "refine-logs/EXPERIMENT_PLAN_AMENDMENT_2026-08-12_R005AB_v2.json",
+      "current_worktree_path_exists": true,
+      "source_blob": "a1691e886b91a57d2b8e304711b255070c9aaa7d",
+      "snapshot_path": "snapshots/EXPERIMENT_PLAN_AMENDMENT_R005AB_v2.json",
+      "snapshot_blob": "a1691e886b91a57d2b8e304711b255070c9aaa7d",
+      "integrity": "MATCH"
+    },
+    {
+      "role": "canonical_v2_tracker",
+      "source_kind": "git_blob",
+      "source_commit": "99b9e0c71abf085ae04837b3f870d305a492625a",
+      "source_path": "refine-logs/EXPERIMENT_TRACKER_AMENDMENT_2026-08-12_R005AB_v2.md",
+      "current_worktree_path_exists": true,
+      "source_blob": "6b5e0228062d3b6532cbd8329b9c7f171e72d476",
+      "snapshot_path": "snapshots/EXPERIMENT_TRACKER_AMENDMENT_R005AB_v2.md",
+      "snapshot_blob": "6b5e0228062d3b6532cbd8329b9c7f171e72d476",
+      "integrity": "MATCH"
+    },
+    {
+      "role": "a001_implementation_map",
+      "source_kind": "git_blob",
+      "source_commit": "99b9e0c71abf085ae04837b3f870d305a492625a",
+      "source_path": "refine-logs/R005AB_A001_IMPLEMENTATION_MAP_2026-08-12.md",
+      "current_worktree_path_exists": true,
+      "source_blob": "abd44349afc887823ba0a1b0184b497e99966900",
+      "snapshot_path": "snapshots/R005AB_A001_IMPLEMENTATION_MAP.md",
+      "snapshot_blob": "abd44349afc887823ba0a1b0184b497e99966900",
+      "integrity": "MATCH"
+    },
+    {
+      "role": "a001_machine_map",
+      "source_kind": "git_blob",
+      "source_commit": "99b9e0c71abf085ae04837b3f870d305a492625a",
+      "source_path": "refine-logs/R005AB_A001_IMPLEMENTATION_MAP_2026-08-12.json",
+      "current_worktree_path_exists": true,
+      "source_blob": "0c7d764b256075074de3d09b3499f3581709af24",
+      "snapshot_path": "snapshots/R005AB_A001_IMPLEMENTATION_MAP.json",
+      "snapshot_blob": "0c7d764b256075074de3d09b3499f3581709af24",
+      "integrity": "MATCH"
+    },
+    {
+      "role": "corrective_reaudit",
+      "source_kind": "git_blob",
+      "source_commit": "99b9e0c71abf085ae04837b3f870d305a492625a",
+      "source_path": "refine-logs/R005AB_CORRECTIVE_REAUDIT_2026-08-12.md",
+      "current_worktree_path_exists": true,
+      "source_blob": "6a6a62bd2d8304ebb5f569194e62ecd3f4c67e4c",
+      "snapshot_path": "snapshots/R005AB_CORRECTIVE_REAUDIT.md",
+      "snapshot_blob": "6a6a62bd2d8304ebb5f569194e62ecd3f4c67e4c",
+      "integrity": "MATCH"
+    },
+    {
+      "role": "corrective_reaudit_machine",
+      "source_kind": "git_blob",
+      "source_commit": "99b9e0c71abf085ae04837b3f870d305a492625a",
+      "source_path": "refine-logs/R005AB_CORRECTIVE_REAUDIT_2026-08-12.json",
+      "current_worktree_path_exists": true,
+      "source_blob": "e860f23d6b2a79789b21d34f0183acf1a480c8ce",
+      "snapshot_path": "snapshots/R005AB_CORRECTIVE_REAUDIT.json",
+      "snapshot_blob": "e860f23d6b2a79789b21d34f0183acf1a480c8ce",
+      "integrity": "MATCH"
+    },
+    {
+      "role": "superseded_v1_plan",
+      "source_kind": "git_blob",
+      "source_commit": "99b9e0c71abf085ae04837b3f870d305a492625a",
+      "source_path": "refine-logs/EXPERIMENT_PLAN_AMENDMENT_2026-08-12_R005AB.md",
+      "current_worktree_path_exists": true,
+      "source_blob": "a1073626ec6560b5dbea37477ff728e20ade68cd",
+      "snapshot_path": "snapshots/superseded/EXPERIMENT_PLAN_AMENDMENT_R005AB_v1.md",
+      "snapshot_blob": "a1073626ec6560b5dbea37477ff728e20ade68cd",
+      "integrity": "MATCH"
+    },
+    {
+      "role": "superseded_v1_machine_contract",
+      "source_kind": "git_blob",
+      "source_commit": "99b9e0c71abf085ae04837b3f870d305a492625a",
+      "source_path": "refine-logs/EXPERIMENT_PLAN_AMENDMENT_2026-08-12_R005AB.json",
+      "current_worktree_path_exists": true,
+      "source_blob": "d52e76c4be5814b74bb77834915a40eb26e9b8e1",
+      "snapshot_path": "snapshots/superseded/EXPERIMENT_PLAN_AMENDMENT_R005AB_v1.json",
+      "snapshot_blob": "d52e76c4be5814b74bb77834915a40eb26e9b8e1",
+      "integrity": "MATCH"
+    },
+    {
+      "role": "superseded_v1_tracker",
+      "source_kind": "git_blob",
+      "source_commit": "99b9e0c71abf085ae04837b3f870d305a492625a",
+      "source_path": "refine-logs/EXPERIMENT_TRACKER_AMENDMENT_2026-08-12_R005AB.md",
+      "current_worktree_path_exists": true,
+      "source_blob": "f97f89598d5e1e650b33c86831953eebe7b1af58",
+      "snapshot_path": "snapshots/superseded/EXPERIMENT_TRACKER_AMENDMENT_R005AB_v1.md",
+      "snapshot_blob": "f97f89598d5e1e650b33c86831953eebe7b1af58",
+      "integrity": "MATCH"
+    }
+  ]
+}

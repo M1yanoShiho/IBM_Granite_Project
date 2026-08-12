@@ -1,0 +1,59 @@
+{
+  "schema_version": "selector-experiment-source-manifest-v1",
+  "experiment_id": "07_adaptive_conservative_r001_r005_2026-08-11",
+  "archive_date": "2026-08-12",
+  "archive_status": "R001–R004 PASS / R005 TRAINING-GATE FAIL / R006–R015 CUT",
+  "archive_policy": {
+    "snapshots_are_exact_source_copies": true,
+    "snapshots_are_execution_entrypoints": false,
+    "archive_operation_moved_or_renamed_sources": false,
+    "some_sources_may_exist_only_in_git_history": false,
+    "production_default": "TopK10"
+  },
+  "entries": [
+    {
+      "role": "canonical_v2_plan",
+      "source_kind": "git_blob",
+      "source_commit": "99b9e0c71abf085ae04837b3f870d305a492625a",
+      "source_path": "refine-logs/EXPERIMENT_PLAN_2026-08-11_v2.md",
+      "current_worktree_path_exists": true,
+      "source_blob": "6a50b20367d1a7e5e15c1c0331858cf0f4bf7db6",
+      "snapshot_path": "snapshots/EXPERIMENT_PLAN_v2.md",
+      "snapshot_blob": "6a50b20367d1a7e5e15c1c0331858cf0f4bf7db6",
+      "integrity": "MATCH"
+    },
+    {
+      "role": "canonical_v2_tracker",
+      "source_kind": "git_blob",
+      "source_commit": "99b9e0c71abf085ae04837b3f870d305a492625a",
+      "source_path": "refine-logs/EXPERIMENT_TRACKER_2026-08-11_v2.md",
+      "current_worktree_path_exists": true,
+      "source_blob": "1c1f1b85c6578516877f7baba8d5f92a1c97faf0",
+      "snapshot_path": "snapshots/EXPERIMENT_TRACKER_v2.md",
+      "snapshot_blob": "1c1f1b85c6578516877f7baba8d5f92a1c97faf0",
+      "integrity": "MATCH"
+    },
+    {
+      "role": "superseded_v1_plan",
+      "source_kind": "git_blob",
+      "source_commit": "99b9e0c71abf085ae04837b3f870d305a492625a",
+      "source_path": "refine-logs/EXPERIMENT_PLAN_2026-08-11.md",
+      "current_worktree_path_exists": true,
+      "source_blob": "9b79c32f1f30c5b32802011f81fb99bfc964de29",
+      "snapshot_path": "snapshots/superseded/EXPERIMENT_PLAN_v1.md",
+      "snapshot_blob": "9b79c32f1f30c5b32802011f81fb99bfc964de29",
+      "integrity": "MATCH"
+    },
+    {
+      "role": "superseded_v1_tracker",
+      "source_kind": "git_blob",
+      "source_commit": "99b9e0c71abf085ae04837b3f870d305a492625a",
+      "source_path": "refine-logs/EXPERIMENT_TRACKER_2026-08-11.md",
+      "current_worktree_path_exists": true,
+      "source_blob": "41b8c028a4d1afb0860e0ca086190e2d80b20ca8",
+      "snapshot_path": "snapshots/superseded/EXPERIMENT_TRACKER_v1.md",
+      "snapshot_blob": "41b8c028a4d1afb0860e0ca086190e2d80b20ca8",
+      "integrity": "MATCH"
+    }
+  ]
+}
