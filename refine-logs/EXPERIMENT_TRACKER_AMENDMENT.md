@@ -1,6 +1,7 @@
 # 当前 Selector 修订实验 tracker
 
-**当前版本：** [`EXPERIMENT_TRACKER_AMENDMENT_2026-08-12_R005AB_v2.md`](EXPERIMENT_TRACKER_AMENDMENT_2026-08-12_R005AB_v2.md)  
-**状态：** `DRAFT / WAITING FOR USER APPROVAL`
+**当前版本：** [`EXPERIMENT_TRACKER_AMENDMENT_2026-08-12_R005AB_v3_LEAN.md`](EXPERIMENT_TRACKER_AMENDMENT_2026-08-12_R005AB_v3_LEAN.md)
 
-当前已完成 R005 当前复验与 train-fit-only 诊断；v1 草案的终审后来发现四项遗漏，v2 已纠正并通过两路新稳定快照复审。R005A/R005B 的样本物化、代码实现和训练均未开始，当前只等待用户明确批准。原 R005 保持 FAIL，原 R006–R015 保持 CUT，TopK10 保持唯一生产默认。
+**状态：** `LEAN SCOPE APPROVED / L000 PASS / FROZEN FOR L001 / FINAL UNOPENED`
+
+Lean v3 文档已冻结并通过最终复核（P0=0/P1=0）。下一步是最小 NLI-aware scorer 实现；旧 R005 保持 FAIL，v1/v2 amendment 保留为从未运行的历史，TopK10 保持唯一生产默认。
