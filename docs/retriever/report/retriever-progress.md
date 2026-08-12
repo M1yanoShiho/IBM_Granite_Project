@@ -333,12 +333,46 @@ The lower row also reproduces R2's conclusion 3 on NQ from the rebuilt dataset �
 significantly underperforms StrongBM25 there on every metric — making it the third R2 finding to
 survive re-derivation.
 
-**One number that does not fit the pattern, and is not yet a claim.** On NQ `decompose-orig`
-reaches total recall **0.9220 against StrongBM25's 0.9098**, while its MRR (0.8077) stays below
-StrongBM25's (0.8153). That would be the first time any decompose arm leads the base retriever on
-any metric, on any dataset. It is two means with no paired test behind it — the pair was not wired
-into `retriever_significance.sh` because nothing had ever suggested it could be positive. The pair
-is now wired in; until it is run, this is an observation, not a result.
+**Step 5 — and one result that qualifies this report's own headline conclusion.** On NQ,
+`decompose-orig` was observed leading StrongBM25 on total recall. Nothing had ever suggested any
+decompose arm could lead the base retriever on any metric, so the pair was not even wired into
+`retriever_significance.sh`. It is now, and it was tested on all four metrics:
+
+| Metric | decompose-orig | StrongBM25 | Δ | p | 95% CI |
+|---|---|---|---|---|---|
+| MRR | 0.8077 | 0.8153 | −0.0076 | 0.1157 | [−0.0170, +0.0020] |
+| R@10 | 0.7409 | 0.7476 | −0.0067 | 0.1185 | [−0.0151, +0.0018] |
+| R@20 | 0.8425 | 0.8391 | +0.0034 | 0.3955 | [−0.0042, +0.0112] |
+| **Recall (top-50)** | **0.9220** | **0.9098** | **+0.0122** | **0.0000** | **[+0.0061, +0.0187]** |
+
+The deficit shrinks monotonically with depth, crosses zero, and reaches significance only at the
+deepest measure. So on NQ the shape is not "worse everywhere": **there is no measurable cost at the
+top (MRR and R@10 both non-significant) and a real gain in pool coverage.**
+
+That matters for this architecture specifically rather than as a curiosity. As noted in
+`scripts/retriever_significance.sh`, `top_k=50` feeds a selector that keeps 5, so **pool depth is
+the metric this pipeline actually consumes** — and it is the one metric that moved.
+
+It also partly vindicates a reading this report withdrew. A mid-analysis claim that decomposition
+"trades top-rank precision for pool coverage" was withdrawn above because the SciFact paired test
+gave p=0.5811. The withdrawal was correct *for SciFact*. On NQ the pool-coverage half of that claim
+is now significant with a confidence interval well clear of zero.
+
+**Stated carefully:** this is one significant result among four metrics on one dataset, so it is a
+qualification rather than a reversal. `p=0.0000` is the randomization test reporting no permutation
+at least as extreme, and the CI does not approach zero, so it is not a marginal finding — but
+SciFact and 2Wiki show nothing like it, and the mechanism (why *this* corpus) is not established.
+
+**Revised recommendation.** "Repaired, and still not worth it" was right on the evidence available
+then and is now too broad. More precisely:
+
+- On SciFact and 2Wiki, unchanged: no decompose configuration beats StrongBM25, and every query
+  costs N extra LLM calls and N extra retrievals to draw level at best.
+- On NQ, `decompose-orig` buys **+1.2pp of final pool recall, significant**, at no measurable cost
+  at rank 1. Whether that is worth N extra LLM calls per query is now a budget decision with a
+  measured benefit on one side of it, which is not what this report could say yesterday.
+- `include_original` remains the one switch worth turning on everywhere. `fusion="best-rank"` still
+  only pays off where the full-query ranking is already strong.
 
 ---
 
