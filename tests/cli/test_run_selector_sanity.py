@@ -8,6 +8,8 @@ import evidence_rag.cli.run_selector_sanity as sanity_runner
 from evidence_rag.cli.run_selector_preflight import _Pair
 from evidence_rag.cli.run_selector_sanity import (
     _assess_sample_classes,
+    _class_weights,
+    _core_class_weights,
     _load_sanity_config,
     _NonFiniteTrainingError,
     _policy_contract_probes,
@@ -26,6 +28,7 @@ from evidence_rag.evaluation.selector_sanity import (
     SanitySampleQuery,
     SanitySourceHeadLossTrend,
     SanityTrainingTrace,
+    compute_class_weights,
 )
 
 
@@ -61,6 +64,97 @@ def test_source_superset_is_projected_to_the_r004_labelled_query_universe() -> N
     assert projected == {"q1": 1, "q2": 2}
     with pytest.raises(ValueError, match="omits R004 labelled queries"):
         _project_query_universe({"q1": 1}, {"q1", "q2"}, label="fixture source")
+
+
+def test_runner_class_weights_use_the_exact_canonical_float_path() -> None:
+    counts = {
+        ("niah", "protect", 0): 16,
+        ("niah", "protect", 1): 79,
+        ("niah", "harm", 0): 16,
+        ("niah", "harm", 1): 16,
+        ("2wiki", "protect", 1): 32,
+    }
+    rows = []
+    for index in range(16):
+        rows.append(
+            {
+                "dataset_kind": "niah",
+                "query_id": f"n-cf-{index}",
+                "evidence_id": f"n-cf-{index}",
+                "role": "train-fit",
+                "protect_label": 0,
+                "protect_mask": True,
+                "harm_label": 1,
+                "harm_mask": True,
+            }
+        )
+        rows.append(
+            {
+                "dataset_kind": "niah",
+                "query_id": f"n-clean-{index}",
+                "evidence_id": f"n-clean-{index}",
+                "role": "train-fit",
+                "protect_label": 1,
+                "protect_mask": True,
+                "harm_label": 0,
+                "harm_mask": True,
+            }
+        )
+    rows.extend(
+        {
+            "dataset_kind": "niah",
+            "query_id": f"n-required-{index}",
+            "evidence_id": f"n-required-{index}",
+            "role": "train-fit",
+            "protect_label": 1,
+            "protect_mask": True,
+            "harm_label": None,
+            "harm_mask": False,
+        }
+        for index in range(63)
+    )
+    rows.extend(
+        {
+            "dataset_kind": "2wiki",
+            "query_id": f"w-{index}",
+            "evidence_id": f"w-{index}",
+            "role": "train-fit",
+            "protect_label": 1,
+            "protect_mask": True,
+            "harm_label": None,
+            "harm_mask": False,
+        }
+        for index in range(32)
+    )
+    core = {
+        (row.dataset_kind, row.head, row.class_label): float(row.normalized_weight)
+        for row in compute_class_weights(rows)
+    }
+
+    assert _class_weights(counts) == core
+    assert core[("2wiki", "protect", 1)] == 0.9999999999999998
+    assert core[("niah", "protect", 0)] / core[("niah", "protect", 1)] == pytest.approx(
+        math.sqrt(79 / 16)
+    )
+
+
+def test_core_class_weights_bind_training_values_to_report_rows() -> None:
+    pairs = _passing_active_pairs()
+
+    weights, rows = _core_class_weights(pairs)  # type: ignore[arg-type]
+    reported = {(row["dataset_kind"], row["head"], row["class_label"]): row for row in rows}
+
+    assert set(weights) == set(reported)
+    assert all(weights[key] == reported[key]["normalized_weight"] for key in weights)
+    for dataset_kind, head in (("niah", "protect"), ("niah", "harm"), ("2wiki", "protect")):
+        group = [row for row in rows if (row["dataset_kind"], row["head"]) == (dataset_kind, head)]
+        total = sum(int(row["active_count"]) for row in group)
+        weighted_mean = (
+            sum(float(row["normalized_weight"]) * int(row["active_count"]) for row in group) / total
+        )
+        assert weighted_mean == pytest.approx(1.0)
+    assert ("2wiki", "harm", 0) not in weights
+    assert ("2wiki", "harm", 1) not in weights
 
 
 def test_policy_contract_probes_cover_every_frozen_fallback() -> None:

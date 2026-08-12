@@ -693,8 +693,8 @@ def _class_weights(
                 continue
             raw = {label: 1.0 / math.sqrt(count) for label, count in observed.items()}
             active_total = sum(observed.values())
-            weighted_total = sum(observed[label] * raw[label] for label in observed)
-            scale = active_total / weighted_total
+            sqrt_frequency_total = sum(math.sqrt(count) for count in observed.values())
+            scale = active_total / sqrt_frequency_total
             for label in observed:
                 weights[(kind, head, label)] = raw[label] * scale
     return weights

@@ -236,3 +236,4 @@ count-matched 对照 seed/100 repeats/输出路径:
 | 2026-08-12 | R005 仅把样本覆盖失败与 epoch 1–30 训练循环内 OOM/NaN 封存为实验 FAIL；其余执行异常保持 hard error | 实验失败回答“冻结方法不满足门”，而初始化、checkpoint、最终评分或 modelval 无法执行只说明该次运行未完成；混在一起会把工程故障误写成科学结论 | hard error 不发布正式 R005、不改阈值或样本；修复执行问题后按同一冻结协议重跑 |
 | 2026-08-12 | R005 使用独立 `adaptive_risk_r005_sanity.toml`，恢复且不再修改 R004 已 pin 的 `adaptive_risk_v1.toml` | 首次 formal 在训练前复验 R004 时，被配置内容 hash/size 保护拦截；共享可变配置会破坏上游证据链 | 该次未创建 staging、未读取模型结果；修复后按同一预注册样本与阈值运行 |
 | 2026-08-12 | R005 将 source dataset/gold/candidate 超集投影到 R004 精确标注 universe，并要求所有标注 query 必须存在 | 第二次 formal 在训练前发现 NIAH 源池有 2,000 题而冻结标签/assignment 合法 universe 为 1,023 题；原实现错误要求两者全集相等 | 977 个未标注源题既不训练也不评估；固定样本仍只从原先冻结的 label roles 哈希抽取，未创建 staging、未读取模型结果 |
+| 2026-08-12 | R005 的 runner class-weight 交叉计算改用与权威 core 完全相同的 `Σ√n_c` 浮点运算路径 | 第三次 formal 在训练前发现数学等价的 `n/√n` 与 `√n` 路径仅有约 `1e-16` 舍入差，但原代码错误用不同结合顺序后再逐位比较 | 权威 core 权重、样本、公式和阈值均不改变；保留严格逐键相等检查，该次未创建 staging、未读取模型结果 |
