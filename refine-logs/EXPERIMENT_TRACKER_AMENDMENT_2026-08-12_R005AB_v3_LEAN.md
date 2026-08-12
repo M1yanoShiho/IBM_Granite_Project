@@ -2,7 +2,7 @@
 
 **对应计划：** `EXPERIMENT_PLAN_AMENDMENT_2026-08-12_R005AB_v3_LEAN.md`
 
-**状态：** `LEAN SCOPE APPROVED / L000 PASS / FROZEN FOR L001 / FINAL UNOPENED`
+**状态：** `LEAN SCOPE APPROVED / L001 PASS / READY FOR L002 / FINAL UNOPENED`
 
 **状态词：** `NOT RUN / RUNNING / PASS / FAIL / BLOCKED / CUT`
 
@@ -15,7 +15,7 @@
 | Run | 目的 | 数据 | 关键输出 | 状态 | 下一步许可 |
 |---|---|---|---|---|---|
 | L000 | 冻结 Lean v3 计划、JSON 合同与 tracker | 不读取效果数据 | 一致文档；独立复核 P0=0/P1=0 | PASS | 进入 L001 |
-| L001 | 实现 NLI scorer、pair loss、lean evaluator/CLI 与必要测试 | synthetic + 已暴露旧 R005/train smoke | clean commit；本地测试；服务器真实模型 smoke | NOT RUN | PASS 后进入 L002 |
+| L001 | 实现 NLI scorer、pair loss、lean evaluator/CLI 与必要测试 | synthetic + 已暴露旧 R005/train smoke | clean commit；本地测试；服务器真实模型 smoke | PASS | 进入 L002 |
 | L002 | 两 seed 训练并只在 development 选择 variant/quantile/cap | train-fit + crc-calibration | 两 checkpoint、唯一冻结策略、开发报告 | NOT RUN | PASS 才能打开 final |
 | L003 | 一次性 final：先证据门，再答案指标 | R002 `decision-dev`（NIAH 739q；2Wiki 1000q） | decisions、metrics、CI、最终报告 | NOT RUN | PASS 才能提出后续确认；FAIL 保持 TopK10 |
 
@@ -34,19 +34,19 @@ Git commit/push 只记在项目历史与本次交付说明中，不再为它增�
 
 ## L001 — 最小实现
 
-- [ ] 新增 `selector/nli_dual_head.py`，不改旧 R005 模型文件。
-- [ ] NLI 初始化的 protect/harm 概率与原三分类 softmax 对应。
-- [ ] 两 classifier 初值相同但存储不共享；shared dropout 每次 forward 只调用一次。
-- [ ] masked BCE、空 mask、NLI-pair `log(2)`/梯度方向和 2Wiki zero-gradient 测试通过。
-- [ ] 固定 source×head×class inverse-sqrt 权重、active-count BCE、完整 AdamW 参数与 1:1 source schedule。
-- [ ] pair/row digest、pair填充singleton、两源交替的每epoch batch顺序与合同完全一致。
-- [ ] NLI strict pair 同 microbatch/同 forward；其余 NIAH 与 2Wiki 只贡献合法 masked BCE。
-- [ ] 复用 `RiskControlledSelector`；0删除、cap1/2、TopK10 子集、冲突/缺分数 keep-all 测试通过。
-- [ ] Lean evaluator 的只读 evaluation projection 能从 R002 role/component 与 R001 pins 重建开发/最终指标字段；R004 labels 只用于 train-fit。
-- [ ] 阈值只由 train quantile + development 选择；final evaluator拒绝重新选择。
-- [ ] 本地全量相关测试、格式与静态检查通过。
-- [ ] 服务器 pinned model 的真实初始化、forward、短训练与 checkpoint reload smoke 通过。
-- [ ] clean commit 并 push GitHub。
+- [x] 新增 `selector/nli_dual_head.py`，不改旧 R005 模型文件。
+- [x] NLI 初始化的 protect/harm 概率与原三分类 softmax 对应。
+- [x] 两 classifier 初值相同但存储不共享；shared dropout 每次 forward 只调用一次。
+- [x] masked BCE、空 mask、NLI-pair `log(2)`/梯度方向和 2Wiki zero-gradient 测试通过。
+- [x] 固定 source×head×class inverse-sqrt 权重、active-count BCE、完整 AdamW 参数与 1:1 source schedule。
+- [x] pair/row digest、pair填充singleton、两源交替的每epoch batch顺序与合同完全一致。
+- [x] NLI strict pair 同 microbatch/同 forward；其余 NIAH 与 2Wiki 只贡献合法 masked BCE。
+- [x] 复用 `RiskControlledSelector`；0删除、cap1/2、TopK10 子集、冲突/缺分数 keep-all 测试通过。
+- [x] Lean evaluator 的只读 evaluation projection 能从 R002 role/component 与 R001 pins 重建开发/最终指标字段；R004 labels 只用于 train-fit。
+- [x] 阈值只由 train quantile + development 选择；final evaluator拒绝重新选择。
+- [x] 本地全量相关测试、格式与静态检查通过。
+- [x] 服务器 pinned model 的真实初始化、forward、短训练与 checkpoint reload smoke 通过。
+- [x] clean commit 并 push GitHub。
 
 ## L002 — 训练与开发选择
 
@@ -59,7 +59,7 @@ Git commit/push 只记在项目历史与本次交付说明中，不再为它增�
 - [ ] 两 seed 都有正 harmful reduction；seed13 recall/chain 各≤1pp；seed42 各≤3pp。
 - [ ] Selector 的 NIAH deletion precision/harmful reduction 优于等量 random 和 bottom-rank。
 - [ ] 若 NLI-base 失败，才运行 NLI-pair 两 seed；不得增加第三个 variant。
-- [ ] 冻结唯一 variant、两个 checkpoint、quantile、cap、代码/data/projection，以及 Granite revision/weights/prompt/greedy config。
+- [ ] 冻结唯一 variant、两个 checkpoint、quantile、cap、代码、最终原始输入 pins、development projection hash，以及 Granite revision/weights/prompt/greedy config；L003 另记 final projection hash。
 - [ ] development FAIL 时 L003 保持未打开，TopK10 保持默认。
 
 ## L003 — 最终盲测
@@ -88,6 +88,7 @@ Git commit/push 只记在项目历史与本次交付说明中，不再为它增�
 | 2026-08-12 | R001–R004 全部复用，旧 R005 保留 FAIL | 前四阶段提供有效资产；R005 精确定位到评分器绝对边界失败 |
 | 2026-08-12 | 只保留 NLI-base 和条件触发的 NLI-pair | 直接针对丢失 NLI 表示与配对 margin 两个已知问题，避免多路线并跑 |
 | 2026-08-12 | 每题允许删0条，cap只在1/2中选择 | 比固定最多1条灵活，同时至少保留8条，符合保守目标 |
+| 2026-08-12 | L001 PASS，进入 L002 | 本地相关回归、格式、类型检查通过；服务器真实 NLI forward、单步训练、checkpoint reload 与 38 项测试通过 |
 | 2026-08-12 | 不再声称 CRC guarantee | 只保留开发/最终隔离和paired CI；方法名称改为经验验证的保守 Selector |
 | 2026-08-12 | 最终答案主指标固定为 macro `system.core.answer_match` | 直接回答是否比 TopK10 有哪怕小幅下游提升，避免结果后挑指标 |
 | 2026-08-12 | train-modelval 不读取；decision-dev 成为本轮唯一 final | 保持真正的 train-fit→development→final 三角色，并直接复用 R002 已冻结 component map |

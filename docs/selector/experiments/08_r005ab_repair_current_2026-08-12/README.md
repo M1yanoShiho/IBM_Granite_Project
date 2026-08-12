@@ -2,7 +2,7 @@
 
 **时间：** 2026-08-12 起
 
-**状态：** `V3 LEAN FROZEN / L000 PASS / L001 NEXT / NOT RUN / FINAL UNOPENED`
+**状态：** `V3 LEAN / L001 PASS / L002 NEXT / FINAL UNOPENED`
 
 ## 这次要验证什么
 
@@ -12,8 +12,8 @@
 
 ## 当前边界
 
-- L000 文档冻结已通过，最终独立复核为 `P0=0 / P1=0`；
-- 下一步是 L001 最小实现，尚未训练；
+- L000 文档冻结和 L001 最小实现均已通过；
+- 下一步是 L002 两个 seed 的正式训练与普通 development 选择；
 - development 只用于选择方法和阈值，`decision-dev` 最终盲测仍未打开；
 - v1/v2 都从未运行，现作为被 v3 取代的历史完整保留；
 - TopK10 仍是唯一默认，除非最终实验通过才讨论变更。
@@ -24,3 +24,4 @@
 - [状态记录](TRACKER.md)
 - [证据索引](EVIDENCE_INDEX.md)
 - [来源清单](SOURCE_MANIFEST.json)
+- [L001 最小实现报告](L001_IMPLEMENTATION_REPORT.md)

@@ -1,0 +1,264 @@
+schema_version = "1.0"
+experiment_id = "selector-r005ab-v3-lean"
+plan_version = "selector-lean-plan-v3"
+production_default = "TopK10"
+
+[model]
+architecture_version = "nli-aware-independent-dual-head-v1"
+model_id = "cross-encoder/nli-deberta-v3-base"
+revision = "6c749ce3425cd33b46d187e45b92bbf96ee12ec7"
+weights_file = "model.safetensors"
+weights_sha256 = "d8148c6d49e0a7925134294c56326c71fe0ab1dc390e37355e00c7efbb488afa"
+max_length = 512
+truncation = "only_second"
+input_fields = ["question", "candidate_text"]
+output_activation = "independent-sigmoid"
+shared_modules = ["deberta_encoder", "context_pooler", "single_dropout_call"]
+heads = "two-independent-copies-of-pretrained-three-logit-classifier"
+protect_logit = "entailment-logsumexp(contradiction,neutral)"
+harm_logit = "contradiction-logsumexp(entailment,neutral)"
+fine_tune = ["encoder", "context_pooler", "protect_classifier", "harm_classifier"]
+torch_dtype = "float32"
+
+[model.label_map]
+contradiction = 0
+entailment = 1
+neutral = 2
+
+[model.snapshot_files]
+"added_tokens.json" = "a4b6bfe668f2b3cf6f0cd535e98a0663d2d0d4a4a15f13075ad3597d33985a23"
+"config.json" = "897e756eb59d3183adb505952e7910e7cbc7750a43f3b3747a96b688d2b02a47"
+"model.safetensors" = "d8148c6d49e0a7925134294c56326c71fe0ab1dc390e37355e00c7efbb488afa"
+"special_tokens_map.json" = "ed7c099c988dbb414b18a6980d20cb57b91b7cd119f6f6941eb364b0e892e712"
+"spm.model" = "c679fbf93643d19aab7ee10c0b99e460bdbc02fedf34b92b05af343b4af586fd"
+"tokenizer.json" = "5124ef2ead1a10a717703bc436de7f353da76d6340e4587719b42b1693707964"
+"tokenizer_config.json" = "f3eecd07c370ef0bf7dd3780d3cd68cf9c8b00c267e21a208ddcd8f82bfec1a6"
+
+[labels]
+protocol_version = "selector-labels-v2"
+unjudged_policy = "mask"
+training_role = "train-fit"
+niah_counterfactual = "protect=0,harm=1"
+niah_required = "protect=1,harm=mask-unless-verified-clean-counterpart"
+niah_verified_clean_counterpart = "protect=1,harm=0"
+niah_other = "protect=mask,harm=mask"
+twowiki_supporting = "protect=1,harm=mask"
+twowiki_unjudged = "protect=mask,harm=mask"
+model_input_fields = ["question", "candidate_text"]
+
+[data]
+train_role = "train-fit"
+development_role = "crc-calibration"
+development_meaning = "ordinary-development-not-conformal-risk-control"
+final_role = "decision-dev"
+final_is_one_shot = true
+unused_unread_roles = ["train-modelval", "sealed600", "2wiki-official-heldout"]
+development_final_query_component_crossing = 0
+twowiki_train_dev_supporting_parent_overlap = 449
+
+[data.expected.train.niah]
+queries = 920
+components = 817
+
+[data.expected.train."2wiki"]
+queries = 2700
+components = 2094
+
+[data.expected.development.niah]
+queries = 740
+components = 523
+
+[data.expected.development."2wiki"]
+queries = 1000
+components = 866
+
+[data.expected.final.niah]
+queries = 739
+components = 534
+
+[data.expected.final."2wiki"]
+queries = 1000
+components = 866
+
+[training]
+seeds = [13, 42]
+optimizer = "AdamW"
+learning_rate = 0.00002
+weight_decay = 0.01
+adam_beta1 = 0.9
+adam_beta2 = 0.999
+adam_epsilon = 0.00000001
+epochs = 3
+batch_size = 4
+gradient_accumulation_steps = 4
+scheduler = "none"
+gradient_clipping = "none"
+supervision = "train-fit-active-masks-only"
+class_weighting = "inverse-sqrt-frequency-per-dataset-head-binary-class"
+class_weight_normalization = "mean-active-example-weight-one-per-dataset-head"
+masked_bce_normalization = "active-count-per-head"
+checkpoint_rule = "final-epoch-only"
+health_gate = "no-nan-or-oom;active-losses-finite;both-heads-changed-from-initialization"
+epoch_mean_loss = "record-only"
+checkpoint_sidecar_required = [
+  "architecture_version",
+  "label_map",
+  "base_snapshot_sha256",
+  "config_sha256",
+  "checkpoint_sha256",
+]
+
+[training.expected]
+niah_active_rows = 5312
+twowiki_active_rows = 5311
+niah_strict_pairs = 870
+microbatches_per_source_per_epoch = 1328
+total_microbatches_per_epoch = 2656
+optimizer_steps_per_epoch = 664
+
+[training.batch_schedule]
+protocol = "selector-lean-v3"
+epoch_numbers = [1, 2, 3]
+dataset_microbatch_ratio = "NIAH:2Wiki=1:1"
+pair_digest = 'sha256("selector-lean-v3\n" + str(seed) + "\n" + str(epoch) + "\nPAIR\n" + query_id + "\n" + clean_evidence_id + "\n" + cf_evidence_id)'
+row_digest = 'sha256("selector-lean-v3\n" + str(seed) + "\n" + str(epoch) + "\n" + dataset + "\n" + query_id + "\n" + evidence_id)'
+unit_sort = "ascending-digest-query_id-evidence_id"
+niah_packing = "each-sorted-pair-plus-next-up-to-two-singletons;then-singletons-in-groups-of-four"
+twowiki_packing = "sorted-active-rows-in-groups-of-four"
+source_interleave = "strictly-alternate-NIAH-then-2Wiki"
+row_coverage = "exactly-once-per-epoch-no-repeat-no-omission"
+
+[pair_objective]
+primary_variant = "NLI-base"
+fallback_variant = "NLI-pair"
+nli_base_weight = 0.0
+nli_pair_weight = 0.5
+eligible = "same-train-fit-NIAH-query-with-exactly-one-verified-clean-and-one-counterfactual"
+formula = "mean(0.5*(softplus(-(protect_clean-protect_cf))+softplus(-(harm_cf-harm_clean))))"
+total_loss = "masked-dual-head-bce+variant-weight*pair-mean"
+same_microbatch_and_forward = true
+twowiki_pair_contribution = "graph-connected-exact-zero"
+invalid_pair = "do-not-fabricate"
+same_batch_schedule_for_both_variants = true
+
+[selection]
+baseline_k = 10
+safe_score = "min(harm_score,1-protect_score)"
+delete_comparison = "safe_score>=threshold"
+quantiles = [0.995, 0.99, 0.975, 0.95]
+quantile_dtype = "float32"
+quantile_method = "nearest-rank-ascending-index-ceil-pN"
+quantile_pool = "all-train-fit-TopK10-scores-NIAH-then-2Wiki"
+threshold_scope = "one-global-threshold-per-seed"
+duplicate_thresholds = "retain-grid-identity"
+candidate_caps = [1, 2]
+per_query_deletion = "0-to-cap"
+include_p0 = true
+common_quantile_and_cap_across_seeds = true
+absolute_threshold_per_seed = true
+tie_epsilon_pp = 0.5
+selection_effect = "mean-seed13-seed42-NIAH-harmful-reduction"
+equivalent_set = "all-eligible-candidates-within-0.5pp-of-global-maximum-selection-effect"
+tie_break = ["higher-quantile", "smaller-cap", "fewer-mean-deletions"]
+fallback = "KEEP_ALL"
+replacement_from_rank_11_to_20 = false
+
+[development_gate]
+role = "crc-calibration"
+require_nonzero_deletion = true
+harmful_reduction_each_seed = ">0"
+seed13_max_recall_chain_loss_pp = 1.0
+seed42_max_recall_chain_loss_pp = 3.0
+seed13_controls = "harmful-reduction-and-deletion-precision-each-beat-random-100-mean-and-bottom-rank"
+variant_order = ["NLI-base", "NLI-pair"]
+failure = "STOP_KEEP_TOPK10_DO_NOT_OPEN_FINAL"
+
+[statistics]
+bootstrap_samples = 10000
+bootstrap_seed = 13
+interval = "two-sided-percentile-95"
+primary_checkpoint_seed = 13
+replication_checkpoint_seed = 42
+replication_rule = "seed42-reported-separately-no-pooling-with-seed13"
+cluster_unit = "R002-component"
+forbidden_independent_units = ["candidate-rows", "seed-times-query"]
+primary_inference = "paired-query-delta-then-component-cluster-bootstrap"
+answer_macro = "independent-component-resample-per-dataset-then-equal-dataset-average"
+
+[controls]
+primary_seed = 13
+random_repeats = 100
+bottom_rank_repeats = 1
+deletion_counts = "copy-selector-per-query"
+random_point = "mean-over-100-repeats"
+harmful_difference_intervals = [
+  "selector-minus-random-mean-paired-component-ci",
+  "selector-minus-bottom-rank-paired-component-ci",
+]
+c2_statistical_support = "both-harmful-difference-ci-lowers-greater-than-zero"
+c2_if_either_ci_crosses_zero = "point-support-only"
+generator_not_run = true
+
+[generator]
+implementation = "GraniteGenerator"
+model_id = "ibm-granite/granite-4.1-3b"
+revision = "c0650403e44e78ec0262dab1c90914c65b196c4e"
+weight_shard_sha256 = [
+  "895bf5f2d7c8b06ca902499567d3c3d9ed30061e4c5ad94bf8216286ca67e2fd",
+  "de8c9efdaa6f669d595bda8b949213cba92ea69689fd2a27fbceed3d1ebeb2f7",
+]
+prompt = "CITATION_RAG_PROMPT"
+prompt_utf8_sha256 = "691fb659d6f81a5df84c89e205de56858de4926ffc6aed9af3f24d7c5670b45f"
+max_new_tokens = 32
+temperature = 0.0
+top_p = 1.0
+do_sample = false
+load_contract = "verified-resolved-local-snapshot-only-no-environment-or-network-fallback"
+run_only_after_evidence_gate = true
+paired_rule = "same-loaded-model-prompt-config-process-and-inputs-except-selected-topk10-subset"
+
+[generator.snapshot_files]
+"config.json" = "9a0e589b69e7d3ad9fb9fb2c844aa7d7156e052cb7ea4211de7de48ab7c8525c"
+"tokenizer.json" = "e2bad66439538cb4d5a7580680932432ed9ece9d3b8577e675512bdf11599253"
+"tokenizer_config.json" = "a5ec5daab12ba090a90f3dd169c8f9c275557013a87b9c1258dc7cb497a35c86"
+"special_tokens_map.json" = "c08676c49fd7969a3130f72be6d4bf34da66aa484a6e21dffe359893a1bd5f2e"
+"chat_template.jinja" = "fed2756d2d24e127b951dcf139d0b03ab7db8ef23a456128ebc9c2db4901d476"
+
+[final_gate]
+role = "decision-dev"
+harmful_reduction_seed13_ci_lower = ">0"
+harmful_reduction_seed42_point = ">0"
+seed13_max_recall_chain_loss_point_pp = 1.0
+seed13_max_recall_chain_loss_ci_upper_pp = 3.0
+seed42_max_recall_chain_loss_point_pp = 3.0
+answer_metric = "macro-equal-dataset-system.core.answer_match"
+answer_delta = ">0"
+per_dataset_answer_loss_pp = 1.0
+answer_ci_lower_gt_zero = "stronger-claim-only-not-hard-gate"
+
+[evaluation_projection]
+training_labels = "reuse-R004-train-fit-labels-only"
+development_and_final = "join-R002-role-and-component-then-rebuild-from-R001-official-gold-NIAH-assignment-provenance-and-source-parent"
+development_materialization = "L002-only"
+final_materialization = "L003-only"
+freeze_before_final = "development-projection-hash-plus-final-raw-input-pins-and-projection-code"
+final_projection_hash = "record-in-L003-final-run-manifest-not-equal-to-development-projection-hash"
+separate_materializer_or_state_machine = false
+
+[boundaries]
+freeze_before_final = [
+  "variant",
+  "seed13_checkpoint",
+  "seed42_checkpoint",
+  "quantile",
+  "cap",
+  "code",
+  "input_pools",
+  "development_projection",
+  "final_raw_input_pins_and_projection_code",
+  "generator_config",
+]
+development_and_final_are_disjoint = true
+no_method_change_after_final_effect_access = true
+preserve_failures = true
+production_default_changes_only_after_pass = true

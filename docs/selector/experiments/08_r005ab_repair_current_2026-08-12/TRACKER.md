@@ -8,8 +8,10 @@
 | 旧 R005 | FAIL | raw-CLS 随机双头失败结论保持不变 |
 | v1/v2 | SUPERSEDED / NEVER RUN | 历史计划完整保留，不作为当前入口 |
 | L000 | PASS | Lean v3 冻结；最终复核 P0=0/P1=0 |
-| L001 | NEXT / NOT RUN | 最小实现与必要测试 |
-| L002 | NOT RUN | 训练并只在 development 选择策略 |
+| L001 | PASS | 最小实现、本地检查与服务器真实模型 smoke 已通过 |
+| L002 | NEXT / NOT RUN | 两 seed 训练并只在 development 选择策略 |
 | L003 | NOT RUN / FINAL UNOPENED | 一次性最终盲测 |
 
 归档同步不代表实验已经成功；TopK10 仍是默认。
+
+L001 的可读报告见 [L001_IMPLEMENTATION_REPORT.md](L001_IMPLEMENTATION_REPORT.md)。

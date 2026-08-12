@@ -173,7 +173,7 @@ total_loss = masked_dual_head_BCE + 0.5 * pair_mean
 
 ### 3.3 最终盲测与置信区间
 
-最终前一次冻结：variant、两个 checkpoint、分位点、cap、代码 commit、输入池、evaluation projection 和 Generator 配置。development/final 的训练标签不能直接复用 R004 train-only label 文件；Lean evaluator 必须在 L001 先冻结一个小型只读 projection：development/final 按 R002 role/component 映射筛 query，再从 R001 已 pin 的 official gold、NIAH assignment/provenance 与 source-parent 按 R004 同一语义重建 required/harm/supporting 评测字段。L002 只物化并 hash development projection；L003 才物化并 hash `decision-dev` projection。它不修改旧 R002/R004，也不另建 materializer 或状态机。
+最终前一次冻结：variant、两个 checkpoint、分位点、cap、代码 commit、最终原始输入 pins、development projection hash、projection 实现语义和 Generator 配置。development/final 的训练标签不能直接复用 R004 train-only label 文件；Lean evaluator 必须在 L001 固定一个小型只读 projection 实现：development/final 按 R002 role/component 映射筛 query，再从 R001 已 pin 的 official gold、NIAH assignment/provenance 与 source-parent 按 R004 同一语义重建 required/harm/supporting 评测字段。L002 只物化并 hash development projection；`decision-dev` projection 在冻结前尚不存在，L003 才一次性物化并把它自己的 hash 写入 final run manifest，不能要求它等于 development projection hash。它不修改旧 R002/R004，也不另建 materializer 或状态机。
 
 最终同一批题同时运行 TopK10 与 Selector。正式 C1 指标全部使用事前指定的 seed13，每个指标先算每题成对差值，再按 R002 已冻结的 component 整体做 10,000 次 paired cluster bootstrap。seed42 只单独报告方向与保护点值，不与 seed13 拼样本或相互抵消。CI 固定为 two-sided percentile 95%，bootstrap seed=`13`。
 

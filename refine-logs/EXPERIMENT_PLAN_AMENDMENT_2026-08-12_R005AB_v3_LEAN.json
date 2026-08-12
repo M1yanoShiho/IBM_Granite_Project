@@ -132,6 +132,8 @@
     "development_and_final": "join_R002_role_and_component_then_rebuild_metrics_fields_from_R001_pinned_official_gold_niah_assignment_provenance_and_source_parent",
     "development_materialization": "L002_only",
     "final_materialization": "L003_only",
+    "freeze_before_final": "development_projection_hash_plus_final_raw_input_pins_and_projection_code",
+    "final_projection_hash": "record_in_L003_final_run_manifest_not_equal_to_development_projection_hash",
     "separate_materializer_or_state_machine": false
   },
   "policy_grid": {
@@ -222,7 +224,7 @@
   "minimal_safeguards": [
     "train_development_final_query_and_component_isolation",
     "cross_official_split_parent_overlap_disclosed",
-    "freeze_variant_checkpoints_quantile_cap_code_data_projection_and_generator_before_final",
+    "freeze_variant_checkpoints_quantile_cap_code_final_input_pins_development_projection_and_generator_before_final",
     "paired_same_query_same_topk10_comparison",
     "no_method_change_after_final_effect_access",
     "record_commit_config_model_data_checkpoint_hashes",
