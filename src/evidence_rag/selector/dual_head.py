@@ -16,11 +16,13 @@ import hashlib
 import importlib
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
-from typing import Any
+from pathlib import Path
+from typing import Any, Literal
 
 DEFAULT_MODEL_ID = "cross-encoder/nli-deberta-v3-base"
 MAX_LENGTH = 512
 FINGERPRINT_SCHEMA_VERSION = "selector-dual-head-fingerprint-v1"
+WeightNormalization = Literal["active_weight_sum", "active_count"]
 
 
 @dataclass(frozen=True)
@@ -304,6 +306,7 @@ def load_dual_head_model(
     model_id_or_path: str = DEFAULT_MODEL_ID,
     *,
     revision: str | None = None,
+    identity_model_id: str | None = None,
     local_files_only: bool = False,
     device: str | None = None,
 ) -> Any:
@@ -316,6 +319,10 @@ def load_dual_head_model(
 
     if not isinstance(model_id_or_path, str) or not model_id_or_path.strip():
         raise ValueError("model_id_or_path must be a non-blank string")
+    if identity_model_id is not None and (
+        not isinstance(identity_model_id, str) or not identity_model_id.strip()
+    ):
+        raise ValueError("identity_model_id must be a non-blank string when provided")
     torch = _optional_module("torch")
     transformers = _optional_module("transformers")
     load_kwargs: dict[str, Any] = {
@@ -337,7 +344,7 @@ def load_dual_head_model(
     model = model_class(
         tokenizer=tokenizer,
         encoder=encoder,
-        model_id=model_id_or_path,
+        model_id=identity_model_id or model_id_or_path,
         revision=revision,
     )
     if device is not None:
@@ -354,6 +361,8 @@ def _validate_loss_tensor_shapes(
     harm_labels: Any,
     protect_mask: Any,
     harm_mask: Any,
+    protect_weights: Any | None = None,
+    harm_weights: Any | None = None,
 ) -> None:
     expected = tuple(protect_logits.shape)
     named = {
@@ -363,6 +372,10 @@ def _validate_loss_tensor_shapes(
         "protect_mask": protect_mask,
         "harm_mask": harm_mask,
     }
+    if protect_weights is not None:
+        named["protect_weights"] = protect_weights
+    if harm_weights is not None:
+        named["harm_weights"] = harm_weights
     if len(expected) != 1:
         raise ValueError(f"protect_logits must be one-dimensional, got shape {expected}")
     for name, value in named.items():
@@ -376,6 +389,8 @@ def _masked_bce_component(
     logits: Any,
     labels: Any,
     mask: Any,
+    weights: Any | None,
+    weight_normalization: WeightNormalization,
     name: str,
 ) -> tuple[Any, int]:
     mask_values = mask.detach()
@@ -403,8 +418,25 @@ def _masked_bce_component(
         reduction="none",
     )
     active_float = active.to(dtype=logits.dtype)
-    count_tensor = active_float.sum()
-    loss = (elementwise * active_float).sum() / count_tensor.clamp_min(1)
+    if weights is None:
+        active_weights = active_float
+    else:
+        weights_on_device = weights.to(device=logits.device, dtype=logits.dtype)
+        observed_weights = weights_on_device[active]
+        if observed_weights.numel() and not bool(
+            torch.all(torch.isfinite(observed_weights)).item()
+        ):
+            raise ValueError(f"{name}_weights contains a non-finite active value")
+        if observed_weights.numel() and not bool(torch.all(observed_weights > 0).item()):
+            raise ValueError(f"{name}_weights active values must be strictly positive")
+        # As with masked labels, an explicit NaN sentinel outside the active mask is harmless
+        # only after replacement.  Multiplying NaN by zero would otherwise contaminate loss.
+        active_weights = torch.where(active, weights_on_device, torch.zeros_like(logits))
+    active_count = active_float.sum()
+    denominator = (
+        active_weights.sum() if weight_normalization == "active_weight_sum" else active_count
+    )
+    loss = (elementwise * active_weights).sum() / denominator.clamp_min(1)
     return loss, int(active.sum().detach().cpu().item())
 
 
@@ -416,9 +448,26 @@ def masked_dual_head_bce(
     harm_labels: Any,
     protect_mask: Any,
     harm_mask: Any,
+    protect_weights: Any | None = None,
+    harm_weights: Any | None = None,
+    weight_normalization: WeightNormalization = "active_weight_sum",
 ) -> DualHeadLoss:
-    """Compute two independent masked BCE losses and their graph-connected sum."""
+    """Compute two independent masked BCE losses and their graph-connected sum.
 
+    Optional weights are per-example.  ``active_weight_sum`` (the default) divides each head's
+    weighted numerator by the sum of its active weights, preserving the original R004 behavior.
+    ``active_count`` instead divides by the number of active labels.  R005 uses that explicit
+    mode because its source/head/class weights are already normalized to have active-example
+    mean one; dividing by their batch-local sum would otherwise cancel a class weight entirely
+    in a single-class microbatch.
+
+    Masked labels and weights may carry NaN sentinels.  They are replaced before arithmetic so
+    an empty mask remains a graph-connected exact zero; every active weight must be finite and
+    strictly positive.
+    """
+
+    if weight_normalization not in ("active_weight_sum", "active_count"):
+        raise ValueError("weight_normalization must be 'active_weight_sum' or 'active_count'")
     torch = _optional_module("torch")
     _validate_loss_tensor_shapes(
         protect_logits=protect_logits,
@@ -427,12 +476,16 @@ def masked_dual_head_bce(
         harm_labels=harm_labels,
         protect_mask=protect_mask,
         harm_mask=harm_mask,
+        protect_weights=protect_weights,
+        harm_weights=harm_weights,
     )
     protect_loss, protect_count = _masked_bce_component(
         torch,
         logits=protect_logits,
         labels=protect_labels,
         mask=protect_mask,
+        weights=protect_weights,
+        weight_normalization=weight_normalization,
         name="protect",
     )
     harm_loss, harm_count = _masked_bce_component(
@@ -440,6 +493,8 @@ def masked_dual_head_bce(
         logits=harm_logits,
         labels=harm_labels,
         mask=harm_mask,
+        weights=harm_weights,
+        weight_normalization=weight_normalization,
         name="harm",
     )
     return DualHeadLoss(
@@ -494,3 +549,40 @@ def fingerprint_dual_head_model(model: Any) -> DualHeadModelFingerprint:
         max_length=MAX_LENGTH,
         weights_sha256=weights_sha256(model),
     )
+
+
+def save_dual_head_checkpoint(model: Any, path: Path) -> DualHeadModelFingerprint:
+    """Write one complete sanity/training state dict as a write-once safetensors file."""
+
+    torch = _optional_module("torch")
+    safetensors = _optional_module("safetensors.torch")
+    destination = Path(path)
+    if destination.suffix != ".safetensors":
+        raise ValueError("dual-head checkpoint path must end in .safetensors")
+    if destination.exists():
+        raise FileExistsError(f"refusing to overwrite dual-head checkpoint: {destination}")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    state = {
+        name: tensor.detach().to(device="cpu").contiguous()
+        for name, tensor in model.state_dict().items()
+    }
+    if not state:
+        raise ValueError("dual-head checkpoint state dict must not be empty")
+    if any(not bool(torch.all(torch.isfinite(tensor)).item()) for tensor in state.values()):
+        raise ValueError("dual-head checkpoint contains a non-finite tensor")
+    safetensors.save_file(state, str(destination))
+    return fingerprint_dual_head_model(model)
+
+
+def load_dual_head_checkpoint(model: Any, path: Path) -> DualHeadModelFingerprint:
+    """Strictly load a safetensors state dict and return the resulting full-state fingerprint."""
+
+    safetensors = _optional_module("safetensors.torch")
+    source = Path(path)
+    if source.suffix != ".safetensors" or not source.is_file():
+        raise ValueError(f"missing .safetensors dual-head checkpoint: {source}")
+    state = safetensors.load_file(str(source), device="cpu")
+    if not state:
+        raise ValueError("dual-head checkpoint state dict must not be empty")
+    model.load_state_dict(state, strict=True)
+    return fingerprint_dual_head_model(model)

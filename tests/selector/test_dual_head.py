@@ -4,6 +4,7 @@ import builtins
 import importlib
 import sys
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -12,7 +13,10 @@ from evidence_rag.selector.dual_head import (
     MAX_LENGTH,
     audit_token_lengths,
     fingerprint_dual_head_model,
+    load_dual_head_checkpoint,
+    load_dual_head_model,
     masked_dual_head_bce,
+    save_dual_head_checkpoint,
     tokenize_question_candidates,
     weights_sha256,
 )
@@ -124,6 +128,63 @@ def _torch() -> Any:
     return pytest.importorskip("torch")
 
 
+def test_model_loader_rejects_blank_canonical_identity_before_optional_imports() -> None:
+    with pytest.raises(ValueError, match="identity_model_id"):
+        load_dual_head_model("local/snapshot", identity_model_id=" ")
+
+
+def test_model_loader_separates_local_load_path_from_canonical_identity(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    torch = _torch()
+    module = importlib.import_module("evidence_rag.selector.dual_head")
+
+    class TinyEncoder(torch.nn.Module):  # type: ignore[name-defined,misc]
+        @dataclass
+        class Config:
+            hidden_size: int = 3
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.config = self.Config()
+            self.projection = torch.nn.Linear(1, 3)
+
+    class AutoTokenizer:
+        @staticmethod
+        def from_pretrained(path: str, **kwargs: Any) -> FakeTokenizer:
+            assert path == "local/snapshot"
+            assert kwargs["revision"] == "frozen-revision"
+            return FakeTokenizer()
+
+    class AutoModel:
+        @staticmethod
+        def from_pretrained(path: str, **kwargs: Any) -> TinyEncoder:
+            assert path == "local/snapshot"
+            assert kwargs["revision"] == "frozen-revision"
+            return TinyEncoder()
+
+    transformers = type(
+        "FakeTransformers",
+        (),
+        {"AutoTokenizer": AutoTokenizer, "AutoModel": AutoModel},
+    )()
+
+    def optional_module(name: str, *, extra: str = "granite") -> Any:
+        del extra
+        return torch if name == "torch" else transformers
+
+    monkeypatch.setattr(module, "_optional_module", optional_module)
+    model = load_dual_head_model(
+        "local/snapshot",
+        revision="frozen-revision",
+        identity_model_id="cross-encoder/nli-deberta-v3-base",
+        local_files_only=True,
+    )
+
+    assert model.model_id == "cross-encoder/nli-deberta-v3-base"
+    assert model.revision == "frozen-revision"
+
+
 def test_masked_bce_uses_independent_masks() -> None:
     torch = _torch()
     protect_logits = torch.tensor([0.0, 0.0], requires_grad=True)
@@ -175,6 +236,114 @@ def test_active_nan_label_is_refused_but_masked_nan_is_allowed() -> None:
             harm_labels=torch.tensor([0.0]),
             protect_mask=torch.tensor([1]),
             harm_mask=torch.tensor([0]),
+        )
+
+
+def test_masked_bce_applies_only_finite_positive_active_weights() -> None:
+    torch = _torch()
+    logits = torch.tensor([0.0, 2.0, -2.0], requires_grad=True)
+    losses = masked_dual_head_bce(
+        protect_logits=logits,
+        harm_logits=torch.zeros(3, requires_grad=True),
+        protect_labels=torch.tensor([0.0, 0.0, float("nan")]),
+        harm_labels=torch.tensor([float("nan"), float("nan"), float("nan")]),
+        protect_mask=torch.tensor([1, 1, 0]),
+        harm_mask=torch.tensor([0, 0, 0]),
+        protect_weights=torch.tensor([3.0, 1.0, float("nan")]),
+        harm_weights=torch.tensor([float("nan"), float("nan"), float("nan")]),
+    )
+    expected = (
+        3.0 * torch.nn.functional.binary_cross_entropy_with_logits(logits[0], torch.tensor(0.0))
+        + torch.nn.functional.binary_cross_entropy_with_logits(logits[1], torch.tensor(0.0))
+    ) / 4.0
+    assert losses.protect.item() == pytest.approx(expected.item())
+    assert losses.harm.item() == 0.0
+    assert torch.isfinite(losses.total)
+
+    for invalid in (0.0, -1.0, float("nan"), float("inf")):
+        with pytest.raises(ValueError, match="protect_weights"):
+            masked_dual_head_bce(
+                protect_logits=torch.tensor([0.0]),
+                harm_logits=torch.tensor([0.0]),
+                protect_labels=torch.tensor([1.0]),
+                harm_labels=torch.tensor([float("nan")]),
+                protect_mask=torch.tensor([1]),
+                harm_mask=torch.tensor([0]),
+                protect_weights=torch.tensor([invalid]),
+            )
+
+
+def test_active_count_normalization_preserves_normalized_class_weight_scale() -> None:
+    torch = _torch()
+    logits = torch.tensor([0.0, 2.0, -2.0], requires_grad=True)
+    weights = torch.tensor([3.0, 1.0, float("nan")])
+    common = {
+        "protect_logits": logits,
+        "harm_logits": torch.zeros(3, requires_grad=True),
+        "protect_labels": torch.tensor([0.0, 0.0, float("nan")]),
+        "harm_labels": torch.tensor([float("nan"), float("nan"), float("nan")]),
+        "protect_mask": torch.tensor([1, 1, 0]),
+        "harm_mask": torch.tensor([0, 0, 0]),
+        "protect_weights": weights,
+        "harm_weights": torch.tensor([float("nan"), float("nan"), float("nan")]),
+    }
+
+    default = masked_dual_head_bce(**common)
+    active_count = masked_dual_head_bce(**common, weight_normalization="active_count")
+    numerator = 3.0 * torch.nn.functional.binary_cross_entropy_with_logits(
+        logits[0], torch.tensor(0.0)
+    ) + torch.nn.functional.binary_cross_entropy_with_logits(logits[1], torch.tensor(0.0))
+    assert default.protect.item() == pytest.approx((numerator / 4.0).item())
+    assert active_count.protect.item() == pytest.approx((numerator / 2.0).item())
+
+    single_class = masked_dual_head_bce(
+        protect_logits=torch.tensor([0.0], requires_grad=True),
+        harm_logits=torch.tensor([0.0], requires_grad=True),
+        protect_labels=torch.tensor([1.0]),
+        harm_labels=torch.tensor([float("nan")]),
+        protect_mask=torch.tensor([1]),
+        harm_mask=torch.tensor([0]),
+        protect_weights=torch.tensor([3.0]),
+        harm_weights=torch.tensor([float("nan")]),
+        weight_normalization="active_count",
+    )
+    assert single_class.protect.item() == pytest.approx(3.0 * 0.693147, rel=1e-5)
+
+
+def test_active_count_normalization_keeps_empty_mask_finite_and_graph_connected() -> None:
+    torch = _torch()
+    protect_logits = torch.tensor([0.2, -0.4], requires_grad=True)
+    harm_logits = torch.tensor([-0.1, 0.5], requires_grad=True)
+    losses = masked_dual_head_bce(
+        protect_logits=protect_logits,
+        harm_logits=harm_logits,
+        protect_labels=torch.tensor([float("nan"), float("nan")]),
+        harm_labels=torch.tensor([float("nan"), float("nan")]),
+        protect_mask=torch.tensor([0, 0]),
+        harm_mask=torch.tensor([False, False]),
+        protect_weights=torch.tensor([float("nan"), float("nan")]),
+        harm_weights=torch.tensor([float("nan"), float("nan")]),
+        weight_normalization="active_count",
+    )
+    assert losses.protect_count == losses.harm_count == 0
+    assert losses.protect.item() == losses.harm.item() == 0.0
+    assert torch.isfinite(losses.total)
+    losses.total.backward()
+    assert torch.equal(protect_logits.grad, torch.zeros_like(protect_logits))
+    assert torch.equal(harm_logits.grad, torch.zeros_like(harm_logits))
+
+
+def test_masked_bce_rejects_unknown_weight_normalization() -> None:
+    torch = _torch()
+    with pytest.raises(ValueError, match="weight_normalization"):
+        masked_dual_head_bce(
+            protect_logits=torch.tensor([0.0]),
+            harm_logits=torch.tensor([0.0]),
+            protect_labels=torch.tensor([1.0]),
+            harm_labels=torch.tensor([0.0]),
+            protect_mask=torch.tensor([1]),
+            harm_mask=torch.tensor([1]),
+            weight_normalization="batch_magic",  # type: ignore[arg-type]
         )
 
 
@@ -249,3 +418,33 @@ def test_weight_fingerprint_is_deterministic_and_covers_both_heads() -> None:
     assert fingerprint.revision == "abc123"
     assert fingerprint.weights_sha256 == after
     assert fingerprint.to_dict()["max_length"] == 512
+
+
+def test_safetensors_checkpoint_roundtrip_is_strict_and_write_once(tmp_path: Path) -> None:
+    torch = _torch()
+    pytest.importorskip("safetensors.torch")
+
+    class TinyModule(torch.nn.Module):  # type: ignore[name-defined,misc]
+        def __init__(self) -> None:
+            super().__init__()
+            self.encoder = torch.nn.Linear(2, 2)
+            self.protect_head = torch.nn.Linear(2, 1)
+            self.harm_head = torch.nn.Linear(2, 1)
+            self.model_id = "tiny"
+            self.revision = "abc123"
+            self.max_length = MAX_LENGTH
+
+    model = TinyModule()
+    checkpoint = tmp_path / "checkpoint" / "dual_head.safetensors"
+    expected = save_dual_head_checkpoint(model, checkpoint)
+    with pytest.raises(FileExistsError, match="refusing to overwrite"):
+        save_dual_head_checkpoint(model, checkpoint)
+
+    with torch.no_grad():
+        model.protect_head.weight.add_(4.0)
+    assert fingerprint_dual_head_model(model) != expected
+    loaded = load_dual_head_checkpoint(model, checkpoint)
+    assert loaded == expected
+
+    with pytest.raises(ValueError, match=r"\.safetensors"):
+        save_dual_head_checkpoint(model, tmp_path / "wrong.pt")

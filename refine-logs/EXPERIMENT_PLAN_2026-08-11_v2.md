@@ -78,7 +78,7 @@ R001–R004 已通过各自的前置门；当前只允许进入 R005 的小样�
 4. **R002 — metric/component/CRC protocol（COMPLETE / SAMPLE-SIZE GO）：** component map、派生角色 crossing、CRC representatives、指标符号和 expected-risk 规则已冻结；四项风险代表数均 `n≥99`；
 5. **R003 — TopK/count controls（COMPLETE / BASELINE-PROTOCOL PASS）：** TopK10/9/8/7 数量基线和 count-matched random/bottom-rank 生成协议已冻结并复验；固定 TopK9 在 NIAH dev 虽改善约 `2.04 pp` harmful，却损失约 `1.90 pp` recall 和 `4.47 pp` 完整链，因此不能作为保守方案；
 6. **R004 — label/resource preflight（COMPLETE / RESOURCE-PREFLIGHT PASS）：** 两数据源全量 active-mask 标签、固定 200-query GPU 前向与短训练资源探针均通过，且没有读取 sealed/heldout 效果、保存 checkpoint 或执行删除；
-7. **Gate 0：PASS；Gate 1：PASS；Gate 2：RUNNING；R005：NEXT/TODO。** R004 只证明严格标签和双头 scorer 的资源路线可行，不代表 Selector 或非零删除策略成功；真实 count-matched 结果仍必须等未来 Selector trace 决定逐题删除数后生成。
+7. **Gate 0：PASS；Gate 1：PASS；Gate 2：RUNNING；R005：RUNNING（实现与运行前审计通过，formal 尚未运行）。** R004 只证明严格标签和双头 scorer 的资源路线可行，不代表 Selector 或非零删除策略成功；真实 count-matched 结果仍必须等 R005 formal 的真实 Selector trace 决定逐题删除数后生成。
 
 ---
 
@@ -700,9 +700,18 @@ paired bootstrap CI 主要反映“换一批相似 query”带来的抽样不确
 
 ### R005 — dual-head-sanity
 
-- 小样本过拟合与 held-out sanity；
-- 检查两头没有被错误做成互斥 softmax；
-- 检查 `ABSTAIN_KEEP`、0 删除和 fallback。
+- 从两数据源的 `train-fit` 各取 16 个 query；抽样顺序固定为 `sha256("selector-r005-sanity-v1\n{dataset_kind}\n{query_id}\n20260811")` 升序，不查看文本长度、标签分布或模型结果后换样本；抽中样本若缺少必要 active class 覆盖则 R005 FAIL，不重抽“更容易”的题；
+- 上述固定样本覆盖不足时也必须留下完整、可复验的 FAIL 证据：保存 seed-13 初始化态的 epoch-0 checkpoint，明确写出缺失类别/有效配对数，并令 candidate scores、decision trace、selected sets 与 count-matched 文件为空；若 epoch 1–30 的训练循环内部遇到 CUDA OOM 或 NaN/Inf，则丢弃失败 epoch 的任何部分更新、回滚并保存最后一个完整 epoch 的 checkpoint，记录实际完成 epoch 和失败类别，且同样禁止继续阈值/modelval；普通代码错误、输入 hash 损坏、非法标签，以及初始 snapshot/基线评分、checkpoint 保存/重载、最终样本评分/梯度探针或 modelval 执行阶段的技术异常仍应直接报错并令该次运行保持未完成，不能伪装成实验 FAIL；
+- 只用抽中 query 的 active-mask 行、按 NIAH/2Wiki `1:1` micro-batch 调度训练 30 epochs；class weight 仅由这批 `train-fit` active labels 按“source × head × observed class 的 inverse-sqrt-frequency，再归一到 active 平均权重为 1”计算，零频类别不造样本、不除零；加权 BCE 在每个 head 内固定除以该 micro-batch 的 active 样本数，而不是再除以 active weight 总和，否则单一类别 micro-batch 中权重会被自身抵消；
+- 最终 epoch checkpoint 是唯一 checkpoint；NIAH 必须实际覆盖 protect 0/1 与 harm 0/1 四类，且四类各自准确率 `≥0.95`；2Wiki 必须有 protect positive 且准确率 `≥0.95`，其 protect negative 与 harm 0/1 因没有合法标签明确记为 N/A，不能用 mask 行补分母；至少 12 个 NIAH verified clean/counterfactual 同题配对，并要求 `protect(clean)>protect(cf)`、`harm(cf)>harm(clean)`、`safe(cf)>safe(clean)` 三个严格方向同时成立的比例 `≥0.95`，tie 计失败；两项 active head loss 都必须有限并较初始化下降，两个 head 的参数都必须改变，2Wiki 全 mask 的 harm head 梯度必须为零；
+- checkpoint 只用于证明训练链能学习，标记为 `R005-sanity-only`，R006 必须重新从冻结 base 初始化，不能沿用该 checkpoint；
+- manifest 中的通用 model identity 固定表示与 R004 相同的 base snapshot；训练后模型状态另用严格 checkpoint fingerprint 和 checkpoint 文件 hash 绑定，不能把两种 hash 混成同一含义；正式目录只从同一文件系统的 staging 在完整 freeze + verify 后原子改名发布，不依赖可被复制改变的文件 mtime；同一 pinned server 环境负责加载 checkpoint 后的分数/阈值/策略语义重算，跨机器只声称内容 hash 完整性核验，不把任意硬件上的浮点逐字节一致夸大为可移植保证；
+- 阈值不得从 held-out 结果反推：最终 checkpoint 先对两数据源**全部** `train-fit` query 的 TopK10 评分，合并且不按标签筛选这些 safe scores，再用 nearest-rank 按保守到激进顺序映射固定分位点 `[0.99,0.975,0.95,0.90]`；重复分位点阈值照样保留并报告，不能临时补新阈值；R005 仅运行诊断性的 `0–cap1`，这些阈值、cap 和 checkpoint 均不得带入 R006/R007 的正式方法选择；
+- 冻结 checkpoint/阈值后，一次性评分全部 `train-modelval`：NIAH 103 题、2Wiki 300 题，每题保存 Top20 双头分数，但删除动作严格只在 TopK10；输出阈值形成所需的全量 train-fit TopK10 scores，以及所有预注册诊断 point 的 modelval candidate scores、decision trace、selected sets、metrics 和基于真实逐题删除数的 100-repeat count-matched random/bottom-rank 对照；若多个 point 通过，只把配置中从 `.99` 开始的第一个通过者记为 diagnostic witness；
+- **过拟合 Go：** 对完整执行并成功得到的 loss/score，数值必须全部有限，epoch 1–30 训练循环内无 OOM/NaN，且两头为独立 sigmoid、所有训练准确率/配对方向达到上述门槛；这些模型/训练判据不满足则 FAIL，不进入 R006；若 checkpoint、最终评分/梯度探针等执行本身中断，则本次运行不产生实验状态，修复执行问题后仍须按同一冻结协议重跑；
+- **safe-corner Go：** 至少一个事前分位点有真实非零 `DROP_HARM`，NIAH Top20 pool-conditional harmful reduction point `>0`；NIAH recall、NIAH conditional chain、2Wiki recall、2Wiki conditional chain 四项损失必须分别 `≤3 pp`，禁止跨数据或跨指标平均抵消；NIAH deletion precision 必须严格高于 100 次逐题等量随机删除 precision 的均值，并同时报告这 100 次的分布，而不是要求高于任意一次或全部 100 次；否则 CUT，不进入 R006；
+- 检查显式 P0 的 0 删除严格等于 TopK10；高 harm/高 protect 冲突、达到 cap/min-keep、缺分数或依赖不完整时使用 `ABSTAIN_KEEP`，它仍是保留且不得记作 harmful 改善；候选少于 7 条整题 fallback，`max_selected!=10` fail fast，不从 rank 11–20 补位；
+- **解释边界：** R005 只问“链路能否学会、是否存在值得继续的安全角落”，不要求 harmful 95% CI 下界大于 0，也不冻结正式方法；R009 才进行未参与选择的单种子可信效果检验。
 
 ### R006 — train-seed13
 

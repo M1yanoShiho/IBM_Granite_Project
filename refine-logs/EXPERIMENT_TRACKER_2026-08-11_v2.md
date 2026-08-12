@@ -14,7 +14,7 @@
 | R002 | M0 | 冻结指标、cluster CI、expected-risk CRC 协议 | toy + simulated losses | document-ID、conditional chain、component representative、`(ΣL+1)/(n+1)` | MUST | PASS | `COMPLETE / SAMPLE-SIZE GO`；四风险 n 均≥99；不代表真实 Selector/策略已通过 CRC |
 | R003 | M0 | 数量基线并冻结等量删除对照生成器 | TopK10/9/8/7；random/bottom-rank 协议 | harm、recall、chain、selected count、seed derivation | MUST | PASS | `BASELINE-PROTOCOL PASS`；生成/verify-only `5/5`，本地/服务器 `14/14` hash match；固定 TopK9 不满足保守目标；非 Selector PASS |
 | R004 | M1 | 标签审计与 200q 资源预检 | source-train 全量标签；train-modelval 固定 200q | label/mask、truncation、吞吐 | MUST | PASS | `RESOURCE-PREFLIGHT PASS`；80,460 条标签零语义违规；4,000 pair 前向 145.431 pair/s；无截断/OOM/NaN；未写 checkpoint、未执行删除 |
-| R005 | M1 | 双头 sanity | 小样本 protect/harm | overfit、held-out safe corner、fallback | MUST | TODO | NEXT；只验证 scorer 是否学到正确方向，不进入全量训练或正式效果结论 |
+| R005 | M1 | 双头 sanity | 固定 train-fit 16+16 小样本；全部 403q train-modelval | 分头/分类准确率、配对方向、safe corner、等量随机对照、fallback | MUST | RUNNING | 实现、完整本地回归与运行前独立审计已通过（P0/P1=0）；等待固定 commit 的服务器 formal，尚无实验结果 |
 | R006 | M2 | 全量训练 seed13，只冻结 checkpoint/候选分位点 | train-fit → train-modelval | dual scores、checkpoint rule | MUST | TODO | 不提前冻结 P0–P6 |
 | R007 | M2 | 方法选择与决定性消融 | grouped OOF/train-modelval | 0–cap1/2/3、`ε_harm`、复杂度序；冻结唯一 family/cap/分位点 | MUST | TODO | 不看 calibration/decision |
 | R008 | M2 | CRC calibration seed13 | CRC-calibration | P0–P6、recall/chain risk bound | MUST | TODO | 非零策略全未通过、只能结构回退 P0 则 CUT |
@@ -229,3 +229,8 @@ count-matched 对照 seed/100 repeats/输出路径:
 | 2026-08-12 | R004 允许最多12个不落盘的训练 micro-batch 资源探针 | 只有 forward 吞吐不能可信估计反向传播、optimizer 与显存成本；该探针不保存 checkpoint、不用于选模型 | R004 只估资源；R005 才开始小样本 sanity |
 | 2026-08-12 | R004/R005 不再复用旧 Beam 的“每题4个 hard negative”；未判断候选数量固定为0 | 当前没有 audited irrelevant sidecar，非 gold 不等于负例；沿用旧开关会把已识别的监督错误重新引入 | 只训练 active-mask 标签；某 source/head/class 频数为0时不造样本、不除零、不计 loss |
 | 2026-08-12 | R004 判定为 `COMPLETE / RESOURCE-PREFLIGHT PASS`，Gate 2 仅完成前四项 | 全量标签、输入隔离、独立双头、长度、GPU 前向/短反向探针与封存复验均通过；但没有训练 checkpoint 或真实删除效果 | 只允许进入 R005 小样本 sanity；不得声称 Selector、非零策略或 harmful reduction 已通过 |
+| 2026-08-12 | R005 在运行前冻结为 train-fit 哈希抽样 16+16、最终 epoch checkpoint、训练分数分位点阈值、全部 403q modelval 一次性验收 | 原计划未说明 16 题如何选、95% 按什么分母、阈值从哪里来；先补规则可阻止看过 modelval 后换样本/阈值 | R005 仅诊断 0–cap1；checkpoint/cap/threshold 不进入 R006/R007，失败按 FAIL/CUT 停止 |
+| 2026-08-12 | R005 加权 BCE 固定按每个 head 的 active 样本数归一，不按当前 micro-batch 的 weight sum 再归一 | 后一种写法会在单类 micro-batch 中把 class weight 自身抵消，使已冻结的少数类加权名存实亡；该问题在任何 R005 模型结果产生前发现 | R004 默认 loss 语义不变；R005 显式使用 `active-count-per-head` |
+| 2026-08-12 | R005 的固定样本覆盖不足、训练 CUDA OOM 或 NaN/Inf 必须封存为可复验 FAIL | 直接异常退出会丢掉“为什么没有进入 modelval”的证据；但把任意代码/输入错误包装成实验失败也会掩盖实现缺陷 | 覆盖不足保存 epoch-0 初始化 checkpoint；训练异常回滚最后完整 epoch；两者都短路阈值/modelval，普通实现或 pin 错误继续硬失败 |
+| 2026-08-12 | R005 将 base snapshot identity 与 trained checkpoint fingerprint 分开，并移除 mtime 证据 | 通用 `ModelPin` 要能跨 R004/R005 比较同一基座；checkpoint 状态另需独立绑定，mtime 不能跨 Git/SSH 稳定保存 | inner/top-level manifest 固定基座 identity；checkpoint manifest 固定加载后 state fingerprint；同一 pinned server 环境做语义重算，跨机只核内容 hash；staging 完整复验后原子发布 |
+| 2026-08-12 | R005 仅把样本覆盖失败与 epoch 1–30 训练循环内 OOM/NaN 封存为实验 FAIL；其余执行异常保持 hard error | 实验失败回答“冻结方法不满足门”，而初始化、checkpoint、最终评分或 modelval 无法执行只说明该次运行未完成；混在一起会把工程故障误写成科学结论 | hard error 不发布正式 R005、不改阈值或样本；修复执行问题后按同一冻结协议重跑 |
