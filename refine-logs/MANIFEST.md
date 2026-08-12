@@ -25,12 +25,15 @@
 | [`R005_POSTHOC_DIAGNOSIS_2026-08-12.json`](R005_POSTHOC_DIAGNOSIS_2026-08-12.json) | R005 失败诊断机器摘要 | posthoc-design-evidence-only |
 | [`R005AB_DESIGN_AUDIT_2026-08-12.md`](R005AB_DESIGN_AUDIT_2026-08-12.md) | 三个领域设计审计 + 两个稳定快照批准前终审 | plan-audited-P0-0-P1-0-P2-0-not-run |
 | [`R005AB_DESIGN_AUDIT_2026-08-12.json`](R005AB_DESIGN_AUDIT_2026-08-12.json) | R005A/B 设计与终审机器摘要 | ready-for-A001-after-approval-not-run |
+| [`R005AB_SERVER_READINESS_AUDIT_2026-08-12.md`](R005AB_SERVER_READINESS_AUDIT_2026-08-12.md) | Git 对齐、canonical namespace 与服务器状态机能力的只读就绪性核验 | WARN-P0-0-P1-1-server-behind-awaiting-approval |
+| [`R005AB_SERVER_READINESS_AUDIT_2026-08-12.json`](R005AB_SERVER_READINESS_AUDIT_2026-08-12.json) | 服务器就绪性机器摘要；明确接口存在不等于 A001 行为测试通过 | awaiting-A000-explicit-approval |
 | [`.aris/traces/experiment-audit/2026-08-12_run01`](../.aris/traces/experiment-audit/2026-08-12_run01/) | R005 正式完整性审计 request、reviewer output 与 metadata | persisted-reviewer-trace |
 | [`.aris/traces/experiment-audit/2026-08-12_r005ab_sample`](../.aris/traces/experiment-audit/2026-08-12_r005ab_sample/) | R005A/B 样本与隔离审计 trace | persisted-reviewer-trace |
 | [`.aris/traces/experiment-audit/2026-08-12_r005ab_stats`](../.aris/traces/experiment-audit/2026-08-12_r005ab_stats/) | R005A/B 统计门与揭示顺序审计 trace | persisted-reviewer-trace |
 | [`.aris/traces/experiment-audit/2026-08-12_r005ab_code`](../.aris/traces/experiment-audit/2026-08-12_r005ab_code/) | R005A/B 模型、loss 与 batch 审计 trace | persisted-reviewer-trace |
 | [`.aris/traces/experiment-audit/2026-08-12_r005ab_final_state_machine`](../.aris/traces/experiment-audit/2026-08-12_r005ab_final_state_machine/) | 最终稳定快照的防泄漏、formal-fit、崩溃恢复与语义重算对抗审计 | PASS-P0-0-P1-0-P2-0 |
 | [`.aris/traces/experiment-audit/2026-08-12_r005ab_final_consistency`](../.aris/traces/experiment-audit/2026-08-12_r005ab_final_consistency/) | 最终稳定快照的 MD/JSON/tracker 一致性终审 | PASS-P0-0-P1-0-P2-0 |
+| [`.aris/traces/experiment-audit/2026-08-12_r005ab_server_readiness`](../.aris/traces/experiment-audit/2026-08-12_r005ab_server_readiness/) | amendment 目标服务器的独立只读实施就绪性审计 | WARN-P0-0-P1-1-P2-0 |
 | [`R001_RECOVERY_AUDIT.md`](../results/selector-adaptive-risk-v1/R001/R001_RECOVERY_AUDIT.md) | 六个 Hybrid RRF Top20 pool、数据 sidecar 与模型资产的本地/原 HPC 只读恢复审计 | R001A/B-pass-evidence |
 | [`R001C_GATE_EVIDENCE.md`](../results/selector-adaptive-risk-v1/R001/R001C_GATE_EVIDENCE.md) | 六池 write-once v2 freeze、独立 verify-only、测试与机器可读 manifest 索引 | R001C-pool-pass-evidence |
 | [`R002_PROTOCOL_REPORT.md`](../results/selector-adaptive-risk-v1/R002/R002_PROTOCOL_REPORT.md) | 指标、component/role、CRC 样本量门及其零基础解释 | R002-sample-size-go-evidence |

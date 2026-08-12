@@ -1,0 +1,66 @@
+{
+  "schema": "selector-r005ab-server-readiness-audit-v1",
+  "date": "2026-08-12",
+  "mode": "independent-read-only",
+  "verdict": "WARN",
+  "severity_counts": {
+    "P0": 0,
+    "P1": 1,
+    "P2": 0
+  },
+  "git_alignment": {
+    "branch": "refactor/three-module-baseline",
+    "local_head": "454acdfc60118e0cbb4c6fe1647c93e1aa384f47",
+    "github_head": "454acdfc60118e0cbb4c6fe1647c93e1aa384f47",
+    "server_head": "33c95a84c4edeb6d9ec85a3fa74cbf9d62fc0e3b",
+    "server_worktree_clean": true,
+    "finding": "P1_SERVER_REPOSITORY_BEHIND_AUDITED_BASELINE"
+  },
+  "audited_protocol_blobs": {
+    "amendment_md_git_blob": "a1073626ec6560b5dbea37477ff728e20ade68cd",
+    "amendment_json_git_blob": "d52e76c4be5814b74bb77834915a40eb26e9b8e1"
+  },
+  "canonical_namespace": {
+    "run_root": {
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/selector-r005-amendment-v1",
+      "exists": false
+    },
+    "audit_root": {
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/audit/selector-r005-amendment-v1",
+      "exists": false
+    },
+    "external_audit_root": {
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/audit-journal/selector-r005-amendment-v1",
+      "exists": false
+    },
+    "consumed": false
+  },
+  "server_capability_basis": {
+    "kernel": "Linux 5.15.0-139-generic x86_64",
+    "glibc": "2.31",
+    "python": "3.8.10",
+    "scratch_filesystem": "xfs",
+    "flock_available": true,
+    "python_fcntl_flock_available": true,
+    "python_os_link_available": true,
+    "python_o_directory_available": true,
+    "libc_renameat2_symbol_available": true,
+    "behavior_and_fault_injection_tested": false
+  },
+  "unapproved_execution": {
+    "canonical_artifacts_found": false,
+    "matching_process_found_after_self_match_exclusion": false,
+    "heldout_content_read": false,
+    "formal_training_run": false
+  },
+  "only_legal_next_step": "A000_EXPLICIT_USER_APPROVAL",
+  "after_approval_first_stage": "A001_IMPLEMENT_AND_TEST_WITH_OLD_R005_TRAIN_FIT_AND_SYNTHETIC_FIXTURES_ONLY",
+  "not_authorized_before_a001_exit": [
+    "A002",
+    "new_sample_materialization",
+    "formal_fit",
+    "A-screen_or_B-confirm_access"
+  ],
+  "scientific_pass_claimed": false,
+  "topk10_default_changed": false
+}
