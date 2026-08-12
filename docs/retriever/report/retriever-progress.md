@@ -485,11 +485,53 @@ postings at all. Those are separate axes and should be recommended separately.
 - Synthetic corpora only. The vocabulary is Pareto-distributed and the "prose" is generated,
   so the numbers size the effect and identify the mechanism; they are not SciFact or NQ
   figures. The R5 scaling harness on the cluster is where they should be confirmed.
-- Memory is again unmeasured. The postings are a transpose of the per-chunk counters they
-  replace rather than an addition to them, but Python's per-object overhead on
-  `tuple[tuple[int, int], ...]` is real and unquantified — the same gap R5 left open.
+- ~~Memory is again unmeasured.~~ **Measured 2026-08-12 — and the caution above was wrong
+  in the safe direction.** See below.
 - Nothing here changes index *build* time asymptotics; build was already linear and negligible
   against query cost (R5: 1.09 s to build against 7.7 s for fifty queries).
+
+### Memory, finally measured with an instrument that can see it
+
+This gap had been open twice: R5 estimated ~2.9 KB/chunk for the cached forward index from
+`sys.getsizeof`, then **withdrew the estimate** because peak RSS showed no rise at all on the
+real corpus — twice — and recorded the suspicion that peak RSS is the wrong instrument, being
+dominated by build-phase transients. R9 above could then only repeat "unmeasured".
+
+`scripts/retriever_memory.py` measures **retained** bytes instead of peak: `tracemalloc`
+snapshots either side of the build with `gc.collect()` before the second, so freed transients
+do not count and only what the retriever still holds does. Synthetic Zipf-like corpus,
+`chunk_size=180/overlap=30` — the same settings as the R5-era estimate, so the two are directly
+comparable.
+
+| Implementation | B/chunk | Index ÷ corpus |
+|---|---|---|
+| Forward index (`tokens` + `term_frequencies`) | 6731–6738 | 6.78× |
+| **Inverted index (postings)** | **1055–1068** | **1.07×** |
+
+Flat across a 4× range of corpus sizes in both cases, so the per-chunk figure extrapolates.
+
+Two corrections fall out, and both go against what was previously written:
+
+1. **The inverted index does not cost memory — it saves about 6.3×.** R9's limitation section
+   hedged that postings "are a transpose rather than an addition, but Python's per-object
+   overhead is real and unquantified". The hedge was unnecessary: the forward index kept a full
+   token tuple *per chunk* (one reference per token) **and** a `Counter` dict per chunk, while
+   the postings store each (chunk, frequency) pair exactly once. The transpose is strictly
+   cheaper, not merely no worse.
+2. **R5's withdrawn estimate was too low, not too high.** It guessed ~2.9 KB/chunk; the forward
+   index actually held **6.7 KB/chunk**. So peak RSS reporting "no rise at all" was not evidence
+   that the estimate was inflated — it was the instrument failing to see 6.7 KB/chunk. R5's own
+   diagnosis of the instrument was right, and its instinct to withdraw rather than defend the
+   number was right too, but the direction it implied was wrong.
+
+For R5's extrapolation question: at a million chunks this is **~1.06 GB** against the forward
+index's ~6.7 GB. Memory is no longer the thing that stops enterprise scale here; the remaining
+constraint is the query cost R9 measured, and specifically its dependence on term selectivity.
+
+**Limitation:** synthetic corpus. The vocabulary distribution drives the number of distinct
+postings, so this sizes the effect on prose-like text rather than on SciFact or NQ specifically.
+`--manifest` measures a real corpus and should be run on the cluster alongside the R5 scaling
+harness.
 
 ---
 
