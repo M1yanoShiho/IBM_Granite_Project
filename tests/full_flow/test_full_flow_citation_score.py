@@ -98,3 +98,14 @@ def test_score_reports_alce_precision_and_recall_by_scope() -> None:
         "citation_recall_alce"
     ] == pytest.approx(0.5)
     assert len(per_case) == 1
+
+
+def test_empty_scope_returns_explicit_not_scorable_comparison() -> None:
+    result = citation._paired_common_answered({}, {}, {})
+
+    assert result == {
+        "status": "NOT_SCORABLE",
+        "reason": "no query was answered by both arms",
+        "n_paired": 0,
+        "n_total": 0,
+    }

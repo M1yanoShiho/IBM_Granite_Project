@@ -131,6 +131,40 @@ def _mean(values: Sequence[float]) -> float | None:
     return sum(values) / len(values) if values else None
 
 
+def _paired_common_answered(
+    on: Mapping[str, float | None],
+    off: Mapping[str, float | None],
+    component_ids: Mapping[str, str],
+) -> dict[str, object]:
+    """Compare only the pre-declared intersection of answered query IDs.
+
+    Coverage is reported separately.  Citation quality is undefined for an empty
+    answer, so an empty answer in either arm excludes that pair from this
+    conditional comparison rather than creating a one-sided scoring mask.
+    """
+
+    common = {
+        query_id
+        for query_id in on
+        if on[query_id] is not None and off[query_id] is not None
+    }
+    if not common:
+        return {
+            "status": "NOT_SCORABLE",
+            "reason": "no query was answered by both arms",
+            "n_paired": 0,
+            "n_total": len(on),
+        }
+    result = asdict(
+        compare_paired(
+            {query_id: on[query_id] for query_id in sorted(common)},
+            {query_id: off[query_id] for query_id in sorted(common)},
+            component_ids={query_id: component_ids[query_id] for query_id in sorted(common)},
+        )
+    )
+    return {"status": "SCORED_COMMON_ANSWERED", **result, "scope_total": len(on)}
+
+
 def score_rows(
     rows: Sequence[Mapping[str, Any]],
     entails: Callable[[str, str], bool],
@@ -191,12 +225,10 @@ def score_rows(
         ):
             comparisons[label] = {}
             for metric in ("citation_precision", "citation_recall"):
-                comparisons[label][metric] = asdict(
-                    compare_paired(
-                        {query_id: per_case[on_arm][query_id][metric] for query_id in wanted},
-                        {query_id: per_case[off_arm][query_id][metric] for query_id in wanted},
-                        component_ids=components,
-                    )
+                comparisons[label][metric] = _paired_common_answered(
+                    {query_id: per_case[on_arm][query_id][metric] for query_id in wanted},
+                    {query_id: per_case[off_arm][query_id][metric] for query_id in wanted},
+                    components,
                 )
         return {
             "queries": len(wanted),
