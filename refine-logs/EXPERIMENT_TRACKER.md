@@ -13,7 +13,7 @@
 | R001 | M0 | A盘点→B恢复/重建→C实现严格 Hybrid-v2 manifest | NIAH/2Wiki train/dev；sealed 只审计 hash | 完整性、retriever/pool SHA、连通分量 overlap | MUST | PASS | 六池 exact recovery 与 Hybrid-v2 pool freeze PASS；component/crossing 由 R002 封存；未训练 |
 | R002 | M0 | 冻结指标、cluster CI、expected-risk CRC 协议 | toy + simulated losses | document-ID、conditional chain、component representative、`(ΣL+1)/(n+1)` | MUST | PASS | `COMPLETE / SAMPLE-SIZE GO`；四风险 n 均≥99；不代表真实 Selector/策略已通过 CRC |
 | R003 | M0 | 数量基线并冻结等量删除对照生成器 | TopK10/9/8/7；random/bottom-rank 协议 | harm、recall、chain、selected count、seed derivation | MUST | PASS | `BASELINE-PROTOCOL PASS`；生成/verify-only `5/5`，本地/服务器 `14/14` hash match；固定 TopK9 不满足保守目标；非 Selector PASS |
-| R004 | M1 | 标签审计与 200q 资源预检 | train-modelval 子集 | label/mask、truncation、吞吐 | MUST | TODO | NEXT；只做标签审计与资源预检，不直接开始全量训练 |
+| R004 | M1 | 标签审计与 200q 资源预检 | source-train 全量标签；train-modelval 固定 200q | label/mask、truncation、吞吐 | MUST | RUNNING | NIAH/2Wiki 各100q按冻结SHA规则抽样；Top20前向4,000 pair；不写checkpoint |
 | R005 | M1 | 双头 sanity | 小样本 protect/harm | overfit、held-out safe corner、fallback | MUST | TODO |  |
 | R006 | M2 | 全量训练 seed13，只冻结 checkpoint/候选分位点 | train-fit → train-modelval | dual scores、checkpoint rule | MUST | TODO | 不提前冻结 P0–P6 |
 | R007 | M2 | 方法选择与决定性消融 | grouped OOF/train-modelval | 0–cap1/2/3、`ε_harm`、复杂度序；冻结唯一 family/cap/分位点 | MUST | TODO | 不看 calibration/decision |
@@ -220,3 +220,6 @@ count-matched 对照 seed/100 repeats/输出路径:
 | 2026-08-12 | R003 判定为 `COMPLETE / BASELINE-PROTOCOL PASS`，Gate 1 PASS | TopK10/9/8/7 与三种 harm 分母已复算；固定 TopK9 虽改善约2.04 pp harmful，却损失约1.90 pp recall、4.47 pp 完整链，不能替代自适应 Selector | R004 NEXT；后续策略必须允许逐题删0条 |
 | 2026-08-12 | count-matched 只冻结生成器与100个重复，结果延后到真实 Selector trace | 公平对照必须逐题复制实际删除数；R003 没有 Selector trace，提前填结果属于伪造 | R009/R012/R014/R015 生成真实对照；R003 manifest 标记 `DEFERRED` |
 | 2026-08-12 | run-level artifact contract 显式区分 `NOT_APPLICABLE` 与 `DEFERRED` | 基线/协议阶段没有 learned scores 或 Selector trace；伪造空占位文件比明确状态更易误读 | R003 起每阶段 manifest 声明适用性；进入 scorer/Selector 阶段后仍必须产出当阶段必需文件 |
+| 2026-08-12 | R004 的 200q 固定为两数据各100个 train-modelval query，按预注册 SHA-256 顺序抽样；每题前向 Top20 | 不按标签/长度/结果挑样本，同时用最大候选负载测 scorer；后续删除动作仍只在 TopK10 | R004 RUNNING；另对全部403q/8,060 pair做 tokenizer-only 截断审计 |
+| 2026-08-12 | R004 允许最多12个不落盘的训练 micro-batch 资源探针 | 只有 forward 吞吐不能可信估计反向传播、optimizer 与显存成本；该探针不保存 checkpoint、不用于选模型 | R004 只估资源；R005 才开始小样本 sanity |
+| 2026-08-12 | R004/R005 不再复用旧 Beam 的“每题4个 hard negative”；未判断候选数量固定为0 | 当前没有 audited irrelevant sidecar，非 gold 不等于负例；沿用旧开关会把已识别的监督错误重新引入 | 只训练 active-mask 标签；某 source/head/class 频数为0时不造样本、不除零、不计 loss |
