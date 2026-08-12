@@ -303,6 +303,7 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--generations", required=True, type=Path)
     parser.add_argument("--model-id", required=True)
+    parser.add_argument("--device", default="cpu", help="MiniCheck scoring device")
     parser.add_argument("--output-json", required=True, type=Path)
     parser.add_argument("--output-rows", required=True, type=Path)
     parser.add_argument("--output-report", required=True, type=Path)
@@ -313,11 +314,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     rows = list(_jsonl(args.generations))
     judge = MiniCheckNLIModel(model_id=args.model_id)
+    if args.device != "cpu":
+        _tokenizer, model = judge._ensure_loaded()
+        judge._model = model.to(args.device)
 
     def entails(premise: str, hypothesis: str) -> bool:
         return judge.classify(premise=premise, hypothesis=hypothesis) == "entailment"
 
     summary, per_case = score_rows(rows, entails)
+    summary["judge_device"] = args.device
     _write_json(args.output_json, summary)
     _write_jsonl(args.output_rows, per_case)
     args.output_report.parent.mkdir(parents=True, exist_ok=True)
