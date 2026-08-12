@@ -1,0 +1,230 @@
+{
+  "artifact_status": {
+    "candidate_scores": "NOT_APPLICABLE_UNTRAINED_RESOURCE_TRACE_ONLY",
+    "crc": "NOT_APPLICABLE_BEFORE_R008",
+    "model_checkpoint": "NOT_APPLICABLE_EPHEMERAL_MODEL_DISCARDED",
+    "sealed_or_heldout_effect": "NOT_ACCESSED",
+    "selected_sets": "NOT_APPLICABLE_NO_SELECTOR_POLICY",
+    "selector_decision_trace": "NOT_APPLICABLE_NO_SELECTOR_POLICY"
+  },
+  "counts": {
+    "forward_pairs": 4000,
+    "runtime_log_events": 6,
+    "sample_queries": 200,
+    "token_audit_pairs": 8060
+  },
+  "inputs": {
+    "2wiki/candidate_pool": {
+      "bytes": 38645090,
+      "path": "/home/fl25387/projects/IBM_Granite_Project_latest/runs/selector-beam-v1/pools/2wiki-train/candidate_sets.jsonl",
+      "sha256": "0ab0fc92f95add1c5d514f531e7b567c4e67d1e5430c401f37ec6f719dbc8887"
+    },
+    "2wiki/components/chain_representatives.jsonl": {
+      "bytes": 0,
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/selector-adaptive-risk-v1/R002/2wiki-train/chain_representatives.jsonl",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "2wiki/components/component_map.jsonl": {
+      "bytes": 1691898,
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/selector-adaptive-risk-v1/R002/2wiki-train/component_map.jsonl",
+      "sha256": "394fb41123322b08c618ce3d94ec3dc6bb1f4666bceb1f32e1e7019e241fe298"
+    },
+    "2wiki/components/recall_representatives.jsonl": {
+      "bytes": 0,
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/selector-adaptive-risk-v1/R002/2wiki-train/recall_representatives.jsonl",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "2wiki/components/role_assignments.jsonl": {
+      "bytes": 723243,
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/selector-adaptive-risk-v1/R002/2wiki-train/role_assignments.jsonl",
+      "sha256": "d435d526fc40ca5f463110ab95eb006736354f3fe343a37eba247f745e7d47fd"
+    },
+    "2wiki/components/selector_components_manifest.json": {
+      "bytes": 4676,
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/selector-adaptive-risk-v1/R002/2wiki-train/selector_components_manifest.json",
+      "sha256": "48c849d52e22e1f66f3d8006a93c7e3e3542c181d2b9a883f2a5c938e7e2febd"
+    },
+    "2wiki/components/selector_components_report.json": {
+      "bytes": 3461,
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/selector-adaptive-risk-v1/R002/2wiki-train/selector_components_report.json",
+      "sha256": "3272ce61973c6428782ec1e128cef8b5ac0679fedcb10c7d6fa8d53b57f5677b"
+    },
+    "2wiki/dataset_manifest": {
+      "bytes": 244,
+      "path": "/home/fl25387/projects/IBM_Granite_Project_latest/runs/twowiki-train/manifest.json",
+      "sha256": "a16f3e76e8072cc68a8df350fa1e7928d88f3df0a3b21415d4bbad8dffd9fe0e"
+    },
+    "2wiki/labels/selector_labels.jsonl": {
+      "bytes": 34154372,
+      "path": "labels/2wiki/selector_labels.jsonl",
+      "sha256": "9a39cdd05b096d24e77ff89c01027b973870afddbfb0497ecfa668c04f9bbf8c"
+    },
+    "2wiki/labels/selector_labels_manifest.json": {
+      "bytes": 4550,
+      "path": "labels/2wiki/selector_labels_manifest.json",
+      "sha256": "fba629c34704bc302b470b74afc5bf1bd3c12300d1edd5b57cef3628cdb52cd0"
+    },
+    "2wiki/labels/selector_labels_report.json": {
+      "bytes": 2469,
+      "path": "labels/2wiki/selector_labels_report.json",
+      "sha256": "6d0240b55384ee984b811ed0c5fc8e7c9e1306e0af94abf61d8b4795f96fab13"
+    },
+    "2wiki/pool_manifest": {
+      "bytes": 494293,
+      "path": "/home/fl25387/projects/IBM_Granite_Project_latest/runs/selector-beam-v1/pools/2wiki-train/selector_candidate_pool_manifest_v2.json",
+      "sha256": "067cad9e9b46cfb901d78ead6c55d80d0815a2f3afade0653011b337c547326d"
+    },
+    "2wiki/source_parent": {
+      "bytes": 1302335,
+      "path": "/home/fl25387/projects/IBM_Granite_Project_latest/runs/twowiki-train/source_parent.jsonl",
+      "sha256": "1af322fb6bf749ce5f7897ced3674758b100dfd2c5f7ab80b7021d07a5b7d76e"
+    },
+    "config": {
+      "bytes": 3921,
+      "path": "/home/fl25387/projects/IBM_Granite_Project_latest/configs/selector/adaptive_risk_v1.toml",
+      "sha256": "b5545848202964af77821af9ef92c360b2981c1aa6bdccc1b9d8d143218810ed"
+    },
+    "model_snapshot/added_tokens.json": {
+      "bytes": 26,
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/hf-cache/hub/models--cross-encoder--nli-deberta-v3-base/blobs/71b89921f9568175266f31ac7e5ed6c39f008fd3",
+      "sha256": "a4b6bfe668f2b3cf6f0cd535e98a0663d2d0d4a4a15f13075ad3597d33985a23"
+    },
+    "model_snapshot/config.json": {
+      "bytes": 1052,
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/hf-cache/hub/models--cross-encoder--nli-deberta-v3-base/blobs/f421929530a688a116ac1f95911e6aa06bd4820d",
+      "sha256": "897e756eb59d3183adb505952e7910e7cbc7750a43f3b3747a96b688d2b02a47"
+    },
+    "model_snapshot/model.safetensors": {
+      "bytes": 737726552,
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/hf-cache/hub/models--cross-encoder--nli-deberta-v3-base/blobs/d8148c6d49e0a7925134294c56326c71fe0ab1dc390e37355e00c7efbb488afa",
+      "sha256": "d8148c6d49e0a7925134294c56326c71fe0ab1dc390e37355e00c7efbb488afa"
+    },
+    "model_snapshot/special_tokens_map.json": {
+      "bytes": 301,
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/hf-cache/hub/models--cross-encoder--nli-deberta-v3-base/blobs/21ee423233314af53c84b2a229398f8b425672f5",
+      "sha256": "ed7c099c988dbb414b18a6980d20cb57b91b7cd119f6f6941eb364b0e892e712"
+    },
+    "model_snapshot/spm.model": {
+      "bytes": 2464616,
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/hf-cache/hub/models--cross-encoder--nli-deberta-v3-base/blobs/c679fbf93643d19aab7ee10c0b99e460bdbc02fedf34b92b05af343b4af586fd",
+      "sha256": "c679fbf93643d19aab7ee10c0b99e460bdbc02fedf34b92b05af343b4af586fd"
+    },
+    "model_snapshot/tokenizer.json": {
+      "bytes": 8656624,
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/hf-cache/hub/models--cross-encoder--nli-deberta-v3-base/blobs/12cc2e86bad0e731393847b017b32a7405ebd4f8",
+      "sha256": "5124ef2ead1a10a717703bc436de7f353da76d6340e4587719b42b1693707964"
+    },
+    "model_snapshot/tokenizer_config.json": {
+      "bytes": 1346,
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/hf-cache/hub/models--cross-encoder--nli-deberta-v3-base/blobs/734481711f0d172bd376a6d06c545286d58d8159",
+      "sha256": "f3eecd07c370ef0bf7dd3780d3cd68cf9c8b00c267e21a208ddcd8f82bfec1a6"
+    },
+    "niah/assignment": {
+      "bytes": 365773,
+      "path": "/home/fl25387/projects/IBM_Granite_Project_latest/runs/selector-beam-v1/data/niah/niah_train_assignments.jsonl",
+      "sha256": "47442a1df218eaef4b97cc1489cefef9bd17597692d3054b8c0393fc3ec57e93"
+    },
+    "niah/candidate_pool": {
+      "bytes": 36283237,
+      "path": "/home/fl25387/projects/IBM_Granite_Project_latest/runs/selector-beam-v1/pools/niah-train/candidate_sets.jsonl",
+      "sha256": "09e8c9b4972f48a67661c8b06dcf220f178528156699da671a16dd8d08fb908f"
+    },
+    "niah/components/chain_representatives.jsonl": {
+      "bytes": 0,
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/selector-adaptive-risk-v1/R002/niah-train/chain_representatives.jsonl",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "niah/components/component_map.jsonl": {
+      "bytes": 868038,
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/selector-adaptive-risk-v1/R002/niah-train/component_map.jsonl",
+      "sha256": "86be62b1fb6c25e335692ce1041284fbc8cc4341a30370224003ebf2872bc2ab"
+    },
+    "niah/components/recall_representatives.jsonl": {
+      "bytes": 0,
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/selector-adaptive-risk-v1/R002/niah-train/recall_representatives.jsonl",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "niah/components/role_assignments.jsonl": {
+      "bytes": 220716,
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/selector-adaptive-risk-v1/R002/niah-train/role_assignments.jsonl",
+      "sha256": "afcffc5ebe57bf6ec86843149977b1f2534092b717725e1ae638f6421405aa00"
+    },
+    "niah/components/selector_components_manifest.json": {
+      "bytes": 4813,
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/selector-adaptive-risk-v1/R002/niah-train/selector_components_manifest.json",
+      "sha256": "ca7c82d14606824241dd1bafcda1e036d55972f99eb826b254e0947e4adf0a35"
+    },
+    "niah/components/selector_components_report.json": {
+      "bytes": 3451,
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/selector-adaptive-risk-v1/R002/niah-train/selector_components_report.json",
+      "sha256": "c34773d890eec12ad98c75eb4bd050ee11760582dad04666e20aa3f215a028de"
+    },
+    "niah/dataset_manifest": {
+      "bytes": 245,
+      "path": "/home/fl25387/projects/IBM_Granite_Project_latest/runs/niah-train-injected/manifest.json",
+      "sha256": "edc2f870837a9e44a4bd95167c1c3c6024fef6548512e0037bc71fd76c63b3cf"
+    },
+    "niah/labels/selector_labels.jsonl": {
+      "bytes": 10974785,
+      "path": "labels/niah/selector_labels.jsonl",
+      "sha256": "936c3fc0757be62802c10087f74f8cb2dc31c93bbe4e7083c40578e7da8d73b1"
+    },
+    "niah/labels/selector_labels_manifest.json": {
+      "bytes": 4922,
+      "path": "labels/niah/selector_labels_manifest.json",
+      "sha256": "7e7fa2c306a7a1011eb19e4ec695c67db1a6919275c17e3bbd8793c56aac7a1e"
+    },
+    "niah/labels/selector_labels_report.json": {
+      "bytes": 2552,
+      "path": "labels/niah/selector_labels_report.json",
+      "sha256": "3c4951a2e653358f0b6f4e7b547d5ae4810ceb01d334dd494441c4e3ddbfbd92"
+    },
+    "niah/pool_manifest": {
+      "bytes": 276063,
+      "path": "/home/fl25387/projects/IBM_Granite_Project_latest/runs/selector-beam-v1/pools/niah-train/selector_candidate_pool_manifest_v2.json",
+      "sha256": "cdab40bc25104077facde5170bebb7f47d043aeb47e92c4c59c314bec1b6a5b5"
+    },
+    "niah/provenance": {
+      "bytes": 753860,
+      "path": "/home/fl25387/projects/IBM_Granite_Project_latest/runs/niah-train-injected/provenance.jsonl",
+      "sha256": "50dbbb3941a65e47363f1aa1acb8bdff7eb755bba9e22000a485d1f233769898"
+    },
+    "niah/source_parent": {
+      "bytes": 7662163,
+      "path": "/home/fl25387/projects/IBM_Granite_Project_latest/runs/niah-train-injected/source_parent.jsonl",
+      "sha256": "721c1b23668c5576d60cf80db592dcf3d6b4bc60ab2b282acce08a737f9582d5"
+    }
+  },
+  "interpretation": "UNTRAINED_RESOURCE_PROBE_DO_NOT_INTERPRET_AS_SELECTOR_EFFECT",
+  "manifest_type": "selector_resource_preflight_manifest",
+  "outputs": {
+    "preflight_sample.jsonl": {
+      "bytes": 46396,
+      "records": 200,
+      "sha256": "28a40a7951e8118e98fd0364cc24afc83049a4a86bb4250c92fe56997ce8cfed"
+    },
+    "resource_preflight_log.jsonl": {
+      "bytes": 463,
+      "records": 6,
+      "sha256": "80005441e1f64949647df164c2e371192327c5feb90cb478978a721196a8e34c"
+    },
+    "resource_preflight_report.json": {
+      "bytes": 45022,
+      "sha256": "0e2c5587cf9a3477bf5e3d9d0c88e8f44112ed4521838688d14af2f82bd60f75"
+    },
+    "token_length_audit.jsonl": {
+      "bytes": 2385275,
+      "records": 8060,
+      "sha256": "9bbd4e0ed3265d88fe323bf3922b5bd5e38de06e975a2b534a1fa7146a179476"
+    },
+    "untrained_forward_trace.jsonl": {
+      "bytes": 1057178,
+      "records": 4000,
+      "sha256": "573975d799fe7a1aca8f58f3d50d0c8a25338bf573f5204bf2c740b2f15ade9e"
+    }
+  },
+  "protocol_version": "selector-r004-preflight-v1",
+  "run_id": "R004",
+  "schema_version": "1.0",
+  "status": "PASS"
+}

@@ -68,16 +68,17 @@ R007 必须输出唯一的 `policy_family`、最终 cap 和 P0–P6 构造规则
 
 `ABSTAIN_KEEP` 不能一边被保留，一边被写成“已经处理 harmful”。未来的隔离查证不属于本轮核心实验。
 
-### 0.4 当前进度：R001–R003 已完成，R004 标签与资源预检正在执行
+### 0.4 当前进度：R001–R004 已完成，下一步只做 R005 双头 sanity
 
-R001–R003 已通过各自的前置门；当前只允许进入 R004 的标签审计与 200-query 资源预检，仍不开始全量 scorer 训练。已经完成的顺序为：
+R001–R004 已通过各自的前置门；当前只允许进入 R005 的小样本双头 sanity，仍不开始 R006 全量 scorer 训练。已经完成的顺序为：
 
 1. **R001A — inventory（COMPLETE）：** candidate pool、gold、provenance、ParentIndex、run/index manifest 和模型资产的本地/原 HPC 路径、存在性、schema、bytes 与 SHA-256 已记录；
 2. **R001B — recover-or-rebuild decision（COMPLETE）：** 六个历史 Hybrid pool 均按原 hash 精确恢复，决策为 `EXACT_RECOVERY / REPACKAGE`；
 3. **R001C — pool code integrity（COMPLETE）：** 独立 Hybrid-v2 pool manifest 已实现，六个真实池的 retriever、Top20、query/document/corpus 对齐和逐题 hash 均通过 freeze + verify-only；
 4. **R002 — metric/component/CRC protocol（COMPLETE / SAMPLE-SIZE GO）：** component map、派生角色 crossing、CRC representatives、指标符号和 expected-risk 规则已冻结；四项风险代表数均 `n≥99`；
 5. **R003 — TopK/count controls（COMPLETE / BASELINE-PROTOCOL PASS）：** TopK10/9/8/7 数量基线和 count-matched random/bottom-rank 生成协议已冻结并复验；固定 TopK9 在 NIAH dev 虽改善约 `2.04 pp` harmful，却损失约 `1.90 pp` recall 和 `4.47 pp` 完整链，因此不能作为保守方案；
-6. **Gate 0：PASS；Gate 1：PASS；R004：RUNNING。** R003 的 PASS 只表示基线与协议完整，不代表 Selector 或非零删除策略成功；真实 count-matched 结果必须等未来 Selector trace 决定逐题删除数后生成。
+6. **R004 — label/resource preflight（COMPLETE / RESOURCE-PREFLIGHT PASS）：** 两数据源全量 active-mask 标签、固定 200-query GPU 前向与短训练资源探针均通过，且没有读取 sealed/heldout 效果、保存 checkpoint 或执行删除；
+7. **Gate 0：PASS；Gate 1：PASS；Gate 2：RUNNING；R005：NEXT/TODO。** R004 只证明严格标签和双头 scorer 的资源路线可行，不代表 Selector 或非零删除策略成功；真实 count-matched 结果仍必须等未来 Selector trace 决定逐题删除数后生成。
 
 ---
 
@@ -681,7 +682,7 @@ paired bootstrap CI 主要反映“换一批相似 query”带来的抽样不确
 - **证据：** `results/selector-adaptive-risk-v1/R003/R003_PROTOCOL_REPORT.md`、`R003_VALIDATION_REPORT.json`、`selector_experiment_manifest.json` 与 `CHECKSUMS.sha256`；
 - **解释边界：** R003 PASS 仅证明基线/协议完整且可复算，不表示 Selector、阈值或非零删除策略通过。
 
-### R004 — label-audit-and-200q-preflight — RUNNING
+### R004 — label-audit-and-200q-preflight — COMPLETE / RESOURCE-PREFLIGHT PASS
 
 - 在两个 source-train 的全部合格 query 上生成并审计 protect/harm/mask 标签；确保 provenance 只用于造标签和核验，模型可见投影严格只有 `question + candidate_text`；
 - NIAH 只有 own counterfactual 使用 `(protect=0,harm=1)`；official required 使用 `protect=1`，且只有通过 MutationRecord 的 query、needle/twin、文本双 hash、替换 span 和可逆恢复联合核验的 clean needle 才使用 `harm=0`；其余候选全部 mask；
@@ -691,6 +692,11 @@ paired bootstrap CI 主要反映“换一批相似 query”带来的抽样不确
 - 用未训练的独立双头只测 forward；最多 12 个临时 micro-batch 可用于 masked-BCE backward/optimizer 显存和速度探针，进程结束即丢弃且不写 checkpoint，因此不构成 R005/R006 训练；
 - 以实测训练 micro-batch 时间、正式 batch/accumulation/epoch 和两数据源 1:1 调度公式记录 seed-13 GPU 小时点估计与保守估计；估计假设必须写入报告，不能把 forward 吞吐直接冒充完整训练速度；
 - **Go：** 标签/配对/输入 pin 审计零异常，两个 head 均为独立 sigmoid，空 mask loss 有限，固定模型离线加载成功，4,000-pair forward 与临时训练探针无 OOM/NaN，并生成可复算 GPU 时间估计；否则 `FAIL/BLOCKED`，不得进入 R005。
+- **正式结果：** NIAH `20,460` 条与 2Wiki `60,000` 条标签全部冻结并通过重新计算式 verify-only；NIAH `965` 条 `(protect=0,harm=1)`、`973` 条 `(protect=1,harm=0)`，候选文本语义违规为 `0`；2Wiki `5,922` 条 official supporting 仅监督 protect，其余 `54,078` 条保持双 mask；
+- **资源结果：** 固定 `100+100` query、`4,000` pair 前向为 `145.431 pair/s`；全部 `403` query、`8,060` pair 的最大长度为 `298<512`，截断 `0`；12 个临时训练 micro-batch 无 OOM/NaN，峰值 allocated 显存 `4,331,716,096` bytes；seed-13 全量训练点估计 `0.2142 GPU-hour`，p95 保守估计 `0.2818 GPU-hour`；
+- **封存：** 正式 clean Git 为 `3170d154351cc620e9cee5cefbdf49cae7e831a2`；staging 内 freeze/verify、原子改名后 preflight verify 与顶层 manifest verify 全部 PASS；独立 post-run 审计重算标签、样本、token、双头输出、训练探针和 GPU 时间后为 PASS、无 P0/P1；顶层 manifest SHA-256 为 `4d7c393f5943583039f85020a8d3de41995e21683f5979e264db70d25f1b6539`；
+- **证据：** [`resource_preflight_report.json`](../results/selector-adaptive-risk-v1/R004/preflight/resource_preflight_report.json)、[`selector_experiment_manifest.json`](../results/selector-adaptive-risk-v1/R004/selector_experiment_manifest.json) 与 [`CHECKSUMS.sha256`](../results/selector-adaptive-risk-v1/R004/CHECKSUMS.sha256)；
+- **解释边界：** 未训练 scorer checkpoint、未构造删除策略、未读取 sealed/heldout 效果、未改变生产 TopK10；R004 PASS 只允许进入 R005 sanity。
 
 ### R005 — dual-head-sanity
 

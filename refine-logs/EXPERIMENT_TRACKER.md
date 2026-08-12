@@ -13,8 +13,8 @@
 | R001 | M0 | A盘点→B恢复/重建→C实现严格 Hybrid-v2 manifest | NIAH/2Wiki train/dev；sealed 只审计 hash | 完整性、retriever/pool SHA、连通分量 overlap | MUST | PASS | 六池 exact recovery 与 Hybrid-v2 pool freeze PASS；component/crossing 由 R002 封存；未训练 |
 | R002 | M0 | 冻结指标、cluster CI、expected-risk CRC 协议 | toy + simulated losses | document-ID、conditional chain、component representative、`(ΣL+1)/(n+1)` | MUST | PASS | `COMPLETE / SAMPLE-SIZE GO`；四风险 n 均≥99；不代表真实 Selector/策略已通过 CRC |
 | R003 | M0 | 数量基线并冻结等量删除对照生成器 | TopK10/9/8/7；random/bottom-rank 协议 | harm、recall、chain、selected count、seed derivation | MUST | PASS | `BASELINE-PROTOCOL PASS`；生成/verify-only `5/5`，本地/服务器 `14/14` hash match；固定 TopK9 不满足保守目标；非 Selector PASS |
-| R004 | M1 | 标签审计与 200q 资源预检 | source-train 全量标签；train-modelval 固定 200q | label/mask、truncation、吞吐 | MUST | RUNNING | NIAH/2Wiki 各100q按冻结SHA规则抽样；Top20前向4,000 pair；不写checkpoint |
-| R005 | M1 | 双头 sanity | 小样本 protect/harm | overfit、held-out safe corner、fallback | MUST | TODO |  |
+| R004 | M1 | 标签审计与 200q 资源预检 | source-train 全量标签；train-modelval 固定 200q | label/mask、truncation、吞吐 | MUST | PASS | `RESOURCE-PREFLIGHT PASS`；80,460 条标签零语义违规；4,000 pair 前向 145.431 pair/s；无截断/OOM/NaN；未写 checkpoint、未执行删除 |
+| R005 | M1 | 双头 sanity | 小样本 protect/harm | overfit、held-out safe corner、fallback | MUST | TODO | NEXT；只验证 scorer 是否学到正确方向，不进入全量训练或正式效果结论 |
 | R006 | M2 | 全量训练 seed13，只冻结 checkpoint/候选分位点 | train-fit → train-modelval | dual scores、checkpoint rule | MUST | TODO | 不提前冻结 P0–P6 |
 | R007 | M2 | 方法选择与决定性消融 | grouped OOF/train-modelval | 0–cap1/2/3、`ε_harm`、复杂度序；冻结唯一 family/cap/分位点 | MUST | TODO | 不看 calibration/decision |
 | R008 | M2 | CRC calibration seed13 | CRC-calibration | P0–P6、recall/chain risk bound | MUST | TODO | 非零策略全未通过、只能结构回退 P0 则 CUT |
@@ -36,7 +36,7 @@
 
 ## Gate 0 — 代码和资产现实
 
-- [x] 实际 commit/branch 已记录：R001 恢复盘点基线为 `refactor/three-module-baseline@74026c0`；R002 正式生成与服务器核验使用 `ffe2d27411e6c4848debcb2887405c045cea0541`；R003 正式生成使用 `c23c4df71ba61c95b1acb72411684e6a62ff3e77`，服务器工作树 clean。
+- [x] 实际 commit/branch 已记录：R001 恢复盘点基线为 `refactor/three-module-baseline@74026c0`；R002 正式生成与服务器核验使用 `ffe2d27411e6c4848debcb2887405c045cea0541`；R003 正式生成使用 `c23c4df71ba61c95b1acb72411684e6a62ff3e77`；R004 正式资源预检使用 clean commit `3170d154351cc620e9cee5cefbdf49cae7e831a2`。
 - [x] 六个历史 Hybrid RRF Top20 pool 已恢复并逐文件匹配历史 SHA-256；决策是 exact recovery/repackage，不是 rebuild。
 - [x] Hybrid RRF Top20 使用独立 `SelectorCandidatePoolManifestV2`；现有 BM25-only pin 未被放宽或误用。
 - [x] retriever name/version/params hash、`top_n=20`、query/data signature 和逐题 pool hash 已冻结。
@@ -83,7 +83,7 @@
 - [x] calibration 与未来 component 的可交换性假设和分布审计已记录；无法支持时未声称 CRC 理论保证。
 - [x] CRC toy/simulation 在无安全策略时选择 P0；bootstrap 95% CI 没有被写成 CRC 保证。
 
-**状态：** PASS（R002 的指标/CRC 样本量协议与 R003 的 TopK 数量基线、三种 harm 分母、count-matched 生成协议均已冻结并独立复验；下一步 R004）
+**状态：** PASS（R002 的指标/CRC 样本量协议与 R003 的 TopK 数量基线、三种 harm 分母、count-matched 生成协议均已冻结并独立复验；R004 资源前置检查也已通过，下一步 R005）
 
 **证据：**
 
@@ -97,16 +97,21 @@
 
 ## Gate 2 — Scorer 可行性
 
-- [ ] protect/harm 是两个独立输出，不是 softmax 互斥类。
-- [ ] NIAH counterfactual 没有仅因“相关”被标成 protect positive。
-- [ ] 2Wiki unjudged 使用 mask，不是 negative。
-- [ ] provenance/source group 没进入文本推理特征。
+- [x] protect/harm 是两个独立 sigmoid 输出，不是 softmax 互斥类；R004 对两头原始输出差值做了非退化审计。
+- [x] NIAH counterfactual 没有仅因“相关”被标成 protect positive；965 条 own counterfactual 全部为 `(protect=0,harm=1)`。
+- [x] 2Wiki unjudged 使用 mask，不是 negative；除 5,922 条 official supporting protect positive 外，其余 54,078 条均为双 mask。
+- [x] provenance/source group 没进入文本推理特征；模型可见输入严格只有 `question + candidate_text`。
 - [ ] modelval 至少有一个非零策略 harm point 改善、两数据 recall loss ≤3 pp。
 - [ ] deletion precision 优于逐题 count-matched random。
 
-**状态：** TODO
+**状态：** RUNNING（R004 `RESOURCE-PREFLIGHT PASS`；前四项结构/标签/输入条件已证实；最后两项必须由 R005 及其后续真实 Selector trace 回答）
 
 **证据：**
+
+- R004 顶层封存：[`selector_experiment_manifest.json`](../results/selector-adaptive-risk-v1/R004/selector_experiment_manifest.json) 与 [`CHECKSUMS.sha256`](../results/selector-adaptive-risk-v1/R004/CHECKSUMS.sha256)；原子改名前后 verify-only 均 PASS；独立 post-run 审计逐行复算后 PASS、无 P0/P1。
+- 标签审计：NIAH `20,460` 条、2Wiki `60,000` 条；候选文本语义违规 `0`，未判断 2Wiki 候选没有被伪造为 negative。
+- 资源预检：[`resource_preflight_report.json`](../results/selector-adaptive-risk-v1/R004/preflight/resource_preflight_report.json)；固定 `100+100` query 共 `4,000` pair 前向为 `145.431 pair/s`，全部 `8,060` pair 最大 token 长度 `298<512`、截断 `0`，12 个临时训练 micro-batch 无 OOM/NaN。
+- seed-13 全量训练估计为 `0.2142 GPU-hour`，p95 保守估计 `0.2818 GPU-hour`；这只是资源可行性，不是效果 PASS。R004 没有 checkpoint、策略、删除 trace、count-matched 结果或 sealed/heldout 效果。
 
 ## Gate 3 — Seed 13 主结果
 
@@ -223,3 +228,4 @@ count-matched 对照 seed/100 repeats/输出路径:
 | 2026-08-12 | R004 的 200q 固定为两数据各100个 train-modelval query，按预注册 SHA-256 顺序抽样；每题前向 Top20 | 不按标签/长度/结果挑样本，同时用最大候选负载测 scorer；后续删除动作仍只在 TopK10 | R004 RUNNING；另对全部403q/8,060 pair做 tokenizer-only 截断审计 |
 | 2026-08-12 | R004 允许最多12个不落盘的训练 micro-batch 资源探针 | 只有 forward 吞吐不能可信估计反向传播、optimizer 与显存成本；该探针不保存 checkpoint、不用于选模型 | R004 只估资源；R005 才开始小样本 sanity |
 | 2026-08-12 | R004/R005 不再复用旧 Beam 的“每题4个 hard negative”；未判断候选数量固定为0 | 当前没有 audited irrelevant sidecar，非 gold 不等于负例；沿用旧开关会把已识别的监督错误重新引入 | 只训练 active-mask 标签；某 source/head/class 频数为0时不造样本、不除零、不计 loss |
+| 2026-08-12 | R004 判定为 `COMPLETE / RESOURCE-PREFLIGHT PASS`，Gate 2 仅完成前四项 | 全量标签、输入隔离、独立双头、长度、GPU 前向/短反向探针与封存复验均通过；但没有训练 checkpoint 或真实删除效果 | 只允许进入 R005 小样本 sanity；不得声称 Selector、非零策略或 harmful reduction 已通过 |

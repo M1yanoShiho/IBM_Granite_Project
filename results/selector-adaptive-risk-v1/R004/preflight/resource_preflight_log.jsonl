@@ -1,0 +1,6 @@
+{"event":"start","run_id":"R004","time_utc":"2026-08-12T00:37:25.175397+00:00"}
+{"event":"labels-verified","time_utc":"2026-08-12T00:37:58.528630+00:00"}
+{"event":"token-audit-complete","time_utc":"2026-08-12T00:38:08.456832+00:00"}
+{"event":"forward-complete","time_utc":"2026-08-12T00:38:36.494163+00:00"}
+{"event":"ephemeral-training-probe-complete","time_utc":"2026-08-12T00:38:37.870236+00:00"}
+{"event":"pass","time_utc":"2026-08-12T00:38:37.870276+00:00"}
