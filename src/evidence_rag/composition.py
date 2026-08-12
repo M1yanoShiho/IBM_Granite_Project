@@ -4,22 +4,20 @@ import math
 import os
 from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
 from evidence_rag.contracts.models import Document, RetrieverProvenance
 from evidence_rag.contracts.protocols import Generator, Retriever, Selector
 from evidence_rag.generator.extractive import ExtractiveGenerator
 from evidence_rag.generator.granite import (
-    GraniteGenerationConfig,
     GraniteGenerator,
     GraniteLLMClient,
     TextGenerator,
 )
-from evidence_rag.generator.nli import NLIModel, build_nli_model
-from evidence_rag.generator.verify_annotate import EntityGateMode, VerifyAnnotateGenerator
+from evidence_rag.generator.nli import NLIModel
+from evidence_rag.generator.verify_annotate import VerifyAnnotateGenerator
 from evidence_rag.infrastructure.config import ExperimentConfig, ModuleConfig
 from evidence_rag.infrastructure.corpus import CorpusSnapshot
-from evidence_rag.materializer.source_parent import read_parent_index
 from evidence_rag.pipeline.service import EvidenceRAGPipeline
 from evidence_rag.retriever.bm25 import BM25Retriever, validate_bm25_parameters
 from evidence_rag.retriever.chunking import Chunker
@@ -43,16 +41,6 @@ from evidence_rag.retriever.indexing import (
     write_index,
 )
 from evidence_rag.retriever.strong_bm25 import StrongBM25Retriever
-from evidence_rag.selector.corroboration import CorroborationSelector
-from evidence_rag.selector.deberta_contradiction import DebertaContradictionScorer
-from evidence_rag.selector.gated import GatedCorroborationSelector, GatedCoverageSelector
-from evidence_rag.selector.reliability_mis import (
-    DEFAULT_CONTRADICTION_THRESHOLD,
-    MAX_WINDOW_SIZE,
-    ContradictionScorer,
-    LazyAnswerGenerator,
-    ReliabilityMISSelector,
-)
 from evidence_rag.selector.top_k import TopKSelector
 
 
@@ -376,169 +364,10 @@ def build_retriever(
     return _construct_retriever(name, parameters, corpus)
 
 
-def _float_parameter(name: str, value: object, low: float, high: float) -> float:
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
-        raise ValueError(f"invalid selector parameter {name}: expected a number")
-    number = float(value)
-    if not low <= number <= high:
-        raise ValueError(f"invalid selector parameter {name}: must be in [{low}, {high}]")
-    return number
-
-
-def _int_parameter(name: str, value: object, minimum: int) -> int:
-    if isinstance(value, bool) or not isinstance(value, int):
-        raise ValueError(f"invalid selector parameter {name}: expected an integer")
-    if value < minimum:
-        raise ValueError(f"invalid selector parameter {name}: must be >= {minimum}")
-    return value
-
-
-def _selector_parameters(
-    config: ModuleConfig,
-    allowed: frozenset[str],
-) -> dict[str, float | int]:
-    unknown = sorted(set(config.parameters) - allowed)
-    if unknown:
-        raise ValueError(f"unknown selector parameter: {unknown[0]}")
-    parameters: dict[str, float | int] = {}
-    if "alpha" in config.parameters:
-        parameters["alpha"] = _float_parameter("alpha", config.parameters["alpha"], 0.0, 1.0)
-    if "margin" in config.parameters:
-        parameters["margin"] = _int_parameter("margin", config.parameters["margin"], 1)
-    if "support_cap" in config.parameters:
-        parameters["support_cap"] = _int_parameter(
-            "support_cap", config.parameters["support_cap"], 0
-        )
-    if "top_n" in config.parameters:
-        parameters["top_n"] = _int_parameter("top_n", config.parameters["top_n"], 1)
-    if "winner_floor" in config.parameters:
-        parameters["winner_floor"] = _int_parameter(
-            "winner_floor", config.parameters["winner_floor"], 0
-        )
-    return parameters
-
-
-SOURCE_PARENT_INDEX_ENV = "SOURCE_PARENT_INDEX"
-
-
-def _source_parent_index_path() -> Path:
-    """Resolve the SAME_SOURCE sidecar path, failing loudly when it is absent.
-
-    A silent fallback to the document unit would run a whole experiment on the old vote counting
-    and no metric would reveal it.
-    """
-    raw_path = os.environ.get(SOURCE_PARENT_INDEX_ENV)
-    if not raw_path:
-        raise ValueError(
-            f"source-parent-aware selector needs the {SOURCE_PARENT_INDEX_ENV} environment variable "
-            "pointing at a source_parent.jsonl sidecar; build one with "
-            "'python -m evidence_rag.cli.build_source_parent'"
-        )
-    return Path(raw_path)
-
-
-def source_parent_provenance(config: ModuleConfig) -> dict[str, str]:
-    """Identity of the sidecar a source-parent-aware selector actually loaded.
-
-    The sidecar comes from the environment, not the config, so without this the archived
-    provenance cannot distinguish a run against a stale sidecar from one against a regenerated
-    one — the config would read `support_unit = "parent"` in both cases. Empty for every other
-    selector, so callers can merge it unconditionally.
-    """
-    if config.name != "reliability-mis" and config.parameters.get("support_unit") != "parent":
-        return {}
-    path = _source_parent_index_path()
-    digest = hashlib.sha256(path.read_bytes()).hexdigest()
-    return {"source_parent_index": str(path), "source_parent_sha256": digest}
-
-
-def _load_parent_index() -> Mapping[str, str]:
-    return read_parent_index(_source_parent_index_path()).parent_by_document
-
-
-def build_selector(
-    config: ModuleConfig,
-    *,
-    llm: TextGenerator | None = None,
-    contradiction_scorer: ContradictionScorer | None = None,
-) -> Selector:
+def build_selector(config: ModuleConfig) -> Selector:
     if config.name == "top-k":
         _reject_parameters(config, "selector")
         return TopKSelector()
-    if config.name == "corroboration":
-        parameters = _selector_parameters(config, frozenset({"alpha", "top_n"}))
-        client = llm if llm is not None else GraniteLLMClient()
-        return CorroborationSelector(
-            client,
-            alpha=float(parameters.get("alpha", 0.6)),
-            top_n=int(parameters.get("top_n", 20)),
-        )
-    if config.name == "reliability-mis":
-        parameters = _selector_parameters(config, frozenset({"top_n"}))
-        top_n = int(parameters.get("top_n", MAX_WINDOW_SIZE))
-        if top_n > MAX_WINDOW_SIZE:
-            raise ValueError(f"invalid selector parameter top_n: must be <= {MAX_WINDOW_SIZE}")
-        reliability_parent_by_document = _load_parent_index()
-
-        def answer_factory() -> TextGenerator:
-            if llm is not None:
-                return llm
-            return GraniteLLMClient(
-                config=GraniteGenerationConfig(max_new_tokens=32, temperature=0.0)
-            )
-
-        return ReliabilityMISSelector(
-            LazyAnswerGenerator(answer_factory),
-            contradiction_scorer or DebertaContradictionScorer(),
-            reliability_parent_by_document,
-            top_n=top_n,
-            contradiction_threshold=DEFAULT_CONTRADICTION_THRESHOLD,
-        )
-    if config.name in {"gated-corroboration", "gated-coverage-corroboration"}:
-        parameters = _selector_parameters(
-            config,
-            frozenset(
-                {
-                    "alpha",
-                    "margin",
-                    "support_cap",
-                    "winner_floor",
-                    "top_n",
-                    "equivalence",
-                    "support_unit",
-                }
-            ),
-        )
-        client = llm if llm is not None else GraniteLLMClient()
-        selector_class = (
-            GatedCoverageSelector
-            if config.name == "gated-coverage-corroboration"
-            else GatedCorroborationSelector
-        )
-        raw_equivalence = config.parameters.get("equivalence", "exact")
-        if raw_equivalence not in ("exact", "lenient"):
-            raise ValueError(f"invalid selector parameter equivalence: {raw_equivalence!r}")
-        equivalence: Literal["exact", "lenient"] = (
-            "lenient" if raw_equivalence == "lenient" else "exact"
-        )
-        raw_support_unit = config.parameters.get("support_unit", "document")
-        if raw_support_unit not in ("document", "parent"):
-            raise ValueError(f"invalid selector parameter support_unit: {raw_support_unit!r}")
-        parent_by_document = (
-            _load_parent_index() if raw_support_unit == "parent" else None
-        )
-        return selector_class(
-            client,
-            alpha=float(parameters.get("alpha", 0.6)),
-            margin=int(parameters.get("margin", 2)),
-            support_cap=int(parameters.get("support_cap", 1)),
-            # 0 = the frozen four-condition gate. Any positive value is a different arm and must
-            # be reported as one; it is not a tuning knob for an existing reading.
-            winner_floor=int(parameters.get("winner_floor", 0)),
-            top_n=int(parameters.get("top_n", 20)),
-            equivalence=equivalence,
-            parent_by_document=parent_by_document,
-        )
     raise ValueError(f"unknown selector: {config.name}")
 
 
@@ -550,11 +379,9 @@ def build_generator(
 ) -> Generator:
     """Build the configured Generator.
 
-    ``llm`` and ``nli`` are injectable for the same reason ``build_selector``'s
-    are: **`GraniteLLMClient` loads its weights in `__init__`**, not on first use,
-    unlike every other model client in this package. So constructing a
-    Granite-backed generator is not free, and a caller that only wants to check
-    the wiring needs a seam. See `docs/generator/design-review.md`.
+    ``llm`` and ``nli`` are injectable because ``GraniteLLMClient`` loads its
+    weights in ``__init__``. A caller that only wants to check the wiring should
+    not have to load a production model. See ``docs/generator/design-review.md``.
     """
     if config.name == "extractive":
         _reject_parameters(config, "generator")
@@ -651,51 +478,4 @@ def build_q2d_granite_baseline(
         retriever=Query2DocRetriever(dense_retriever, shared_llm),
         selector=TopKSelector(),
         generator=GraniteGenerator(llm=shared_llm),
-    )
-
-
-def build_q2d_corroboration_granite(
-    documents: Iterable[Document],
-    *,
-    embedder: TextEmbedder | None = None,
-    llm: TextGenerator | None = None,
-    alpha: float = 0.6,
-    chunker: Chunker | None = None,
-) -> EvidenceRAGPipeline:
-    shared_llm = llm or GraniteLLMClient()
-    dense_retriever = GraniteDenseRetriever(documents, embedder=embedder, chunker=chunker)
-    return EvidenceRAGPipeline(
-        retriever=Query2DocRetriever(dense_retriever, shared_llm),
-        selector=CorroborationSelector(shared_llm, alpha=alpha),
-        generator=GraniteGenerator(llm=shared_llm),
-    )
-
-
-def build_q2d_corroboration_verify_annotate(
-    documents: Iterable[Document],
-    *,
-    embedder: TextEmbedder | None = None,
-    llm: TextGenerator | None = None,
-    nli: NLIModel | None = None,
-    alpha: float = 0.6,
-    entity_gate: EntityGateMode = "observe",
-    chunker: Chunker | None = None,
-) -> EvidenceRAGPipeline:
-    """The full main-line pipeline: Q2D retrieval, corroboration selection, and
-    the verify-and-annotate Generator.
-
-    The Generator's own defaults are the calibrated ones -- entity layer
-    observe-only, no wholesale abstention -- so this builds what G8/G9 measured
-    rather than a differently-configured cousin of it.
-    """
-    shared_llm = llm or GraniteLLMClient()
-    dense_retriever = GraniteDenseRetriever(documents, embedder=embedder, chunker=chunker)
-    return EvidenceRAGPipeline(
-        retriever=Query2DocRetriever(dense_retriever, shared_llm),
-        selector=CorroborationSelector(shared_llm, alpha=alpha),
-        generator=VerifyAnnotateGenerator(
-            llm=shared_llm,
-            nli=nli or build_nli_model(),
-            entity_gate=entity_gate,
-        ),
     )

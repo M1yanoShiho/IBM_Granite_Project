@@ -1,0 +1,118 @@
+{
+  "artifacts": {
+    "chain_representatives.jsonl": {
+      "bytes": 223704,
+      "records": 468,
+      "sha256": "7eea51a3e263347c36c7be350ad86d4af0a73335158a894ed235ae7715c0d387"
+    },
+    "component_map.jsonl": {
+      "bytes": 1150141,
+      "records": 2000,
+      "sha256": "89b5af6d4dfd02fe93c4b3d0283ac21330c164a4e2d8f34a545eeaec21c780ea"
+    },
+    "recall_representatives.jsonl": {
+      "bytes": 413948,
+      "records": 866,
+      "sha256": "da63898cdf4aa0b497a7bafbe421209eb6640a997fce18a428501c63c9b1dabb"
+    },
+    "role_assignments.jsonl": {
+      "bytes": 490067,
+      "records": 2000,
+      "sha256": "2befaafcd9b6babb35c51771c70908eb4dfd4f0013abb4ddff15aa4a4091456d"
+    }
+  },
+  "candidate_pool_manifest_verified": true,
+  "candidate_pool_status": "VERIFIED_SELECTOR_POOL_V2",
+  "canonical_projection_fingerprints": {
+    "chain_representative_rows": {
+      "bytes": 105300,
+      "records": 468,
+      "sha256": "196589489648940ae4bbbfe38a6405aeea7f7468e6112c9e5e7a1fa643ff9163"
+    },
+    "component_rows": {
+      "bytes": 320000,
+      "records": 2000,
+      "sha256": "2655617cffffb2c935e079fbc17efecb35f35a897737a3efd2f549f79b88fa45"
+    },
+    "recall_representative_rows": {
+      "bytes": 194850,
+      "records": 866,
+      "sha256": "31b748d5aa313053392ef61dad464a9cb314f9da00bff2df2f99cc8a30950dec"
+    },
+    "role_rows": {
+      "bytes": 367000,
+      "records": 2000,
+      "sha256": "7e1c73a5b32ae440d21a29d5fd86879f2079a7bd920fc579490e7efe7c820bf9"
+    },
+    "role_rows_by_role": {
+      "crc-calibration": {
+        "bytes": 185000,
+        "records": 1000,
+        "sha256": "a8e4b5b42e0da1bdc088f4da58d1d4722d403190d9a13d445a106516e6b752cf"
+      },
+      "decision-dev": {
+        "bytes": 182000,
+        "records": 1000,
+        "sha256": "28baeefb0d1c257da3a61045258da2fce5ea066462d2e6ef033617615db634ce"
+      }
+    }
+  },
+  "counts": {
+    "candidate_windows": 2000,
+    "chain_eligible_components": 916,
+    "chain_eligible_queries": 933,
+    "components": 1732,
+    "dataset_queries": 2000,
+    "eligible_input_queries": 2000,
+    "gold_cases": 2000,
+    "max_component_queries": 8,
+    "niah_assignments": 0
+  },
+  "crossing": {
+    "components_across_folds": 0,
+    "components_across_roles": 0
+  },
+  "dataset_id": "2wiki/multihop",
+  "dataset_kind": "2wiki",
+  "dataset_signature": "69dce7a2d909808ddf6c509005181a4741f22c471551ecf117b399eddef38afc",
+  "dataset_version": "dev-subsample-2000",
+  "declared_dataset_split": "dev",
+  "evaluation_semantics": {
+    "crc_representatives": "dev crc-calibration only",
+    "decision_dev_inference": "all eligible decision-dev queries; frozen components are cluster-bootstrap units, not CRC representatives",
+    "train_modelval_chain": null
+  },
+  "fold_query_counts": {
+    "0": 1000,
+    "1": 1000
+  },
+  "protocol_version": "selector-components-v1",
+  "representatives": {
+    "chain": {
+      "crc": true,
+      "records": 468,
+      "source_role": "crc-calibration"
+    },
+    "recall": {
+      "crc": true,
+      "records": 866,
+      "source_role": "crc-calibration"
+    }
+  },
+  "roles": {
+    "crc-calibration": {
+      "chain_eligible_components": 468,
+      "chain_eligible_queries": 477,
+      "components": 866,
+      "queries": 1000
+    },
+    "decision-dev": {
+      "chain_eligible_components": 448,
+      "chain_eligible_queries": 456,
+      "components": 866,
+      "queries": 1000
+    }
+  },
+  "schema_version": "1.0",
+  "source_split": "dev"
+}

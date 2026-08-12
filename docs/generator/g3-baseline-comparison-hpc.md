@@ -1,4 +1,26 @@
-# G3 baseline comparison — verified vs generation-time citation
+# G3 baseline comparison — verified vs generation-time citation (METRIC RETRACTED)
+
+> **⚠ Every citation precision and recall figure in this file is void.**
+>
+> They were computed **answer-level**, before the ALCE sentence-level scorer
+> existed. The headline **−0.107** (verified-full vs baseline) and **−0.228**
+> (verified-full vs verify-only) are substantially *measurement artefact*, not
+> results: the flat citation convention charged one arm for citations it never
+> attached to the sentence being scored.
+>
+> The control that establishes this is in `frozen-results.md` §2 — under one
+> convention applied to both arms, the arm whose convention changed moved 0.111
+> and the arm whose convention did not moved 0.000.
+>
+> **What survives:** the *design* conclusions this round produced (the completeness
+> loop is inert; abstention was all-or-nothing) and the diagnosis narrative. Cite
+> the numbers from `local/report-writing/verified-numbers.md` instead.
+>
+> Related but **not** retracted: the human-audited **claim-level** in-chain
+> citation precision of 0.900 (`verifier-audit-results.md`) was never an
+> answer-level metric and stands.
+
+## Original document follows
 
 Tests the method's central claim: **citations produced by post-hoc verification
 are more faithful than the citations the model declares while generating.** Three

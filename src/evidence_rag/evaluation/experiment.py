@@ -13,7 +13,6 @@ from evidence_rag.composition import (
     build_selector,
     prepare_retriever_index,
     retriever_provenance,
-    source_parent_provenance,
 )
 from evidence_rag.contracts.models import (
     CandidateSet,
@@ -37,7 +36,7 @@ from evidence_rag.infrastructure.config import (
     ModuleConfig,
     load_experiment_config,
 )
-from evidence_rag.infrastructure.corpus import CorpusBuilder, CorpusSnapshot, WordChunker
+from evidence_rag.infrastructure.corpus import CorpusBuilder, CorpusSnapshot, build_chunker
 from evidence_rag.infrastructure.datasets import DatasetBundle, JsonlDatasetAdapter
 from evidence_rag.retriever.indexing import IndexManifest, read_index_manifest
 
@@ -96,7 +95,8 @@ class ExperimentWorkflow:
         self.config = config
         self.dataset: DatasetBundle = JsonlDatasetAdapter.load(config.dataset_manifest_path)
         self.corpus: CorpusSnapshot = CorpusBuilder(
-            WordChunker(
+            build_chunker(
+                config.chunker.name,
                 chunk_size=config.chunker.chunk_size,
                 overlap=config.chunker.overlap,
             )
@@ -455,10 +455,6 @@ class ExperimentWorkflow:
         elif stage == "selector":
             module = self.config.selector
             parameters = {"max_selected": self.config.max_selected}
-            # The SAME_SOURCE sidecar is resolved from the environment, not the config, so
-            # its identity has to be recorded here or two runs against different sidecars
-            # would be indistinguishable in the archived provenance.
-            parameters.update(source_parent_provenance(self.config.selector))
         elif stage == "generator":
             module = self.config.generator
             parameters = {}

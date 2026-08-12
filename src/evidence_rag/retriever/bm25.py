@@ -67,16 +67,39 @@ class BM25Retriever:
 
     def _set_chunks(self, chunks: Iterable[Chunk]) -> None:
         self.chunks = tuple(chunks)
-        self.tokens = tuple(self.analyzer(chunk.text) for chunk in self.chunks)
-        # Term counts are a function of the corpus alone, so they are built once here
-        # instead of being rebuilt for every chunk on every query. Chunks hold ~180
-        # tokens against ~6 effective query terms, so that rebuild was most of the
-        # per-query constant (measured in R5, docs/hpc-run-log.md).
-        self.term_frequencies = tuple(Counter(tokens) for tokens in self.tokens)
+        analyzed = [self.analyzer(chunk.text) for chunk in self.chunks]
         self.average_length = (
-            sum(len(tokens) for tokens in self.tokens) / len(self.tokens) if self.tokens else 0.0
+            sum(len(tokens) for tokens in analyzed) / len(analyzed) if analyzed else 0.0
         )
-        self.document_frequency = Counter(token for tokens in self.tokens for token in set(tokens))
+        self.document_frequency = Counter(token for tokens in analyzed for token in set(tokens))
+
+        # The inverted index. R5 measured that the remaining cost was the *linearity* --
+        # every query touched every chunk regardless of what it asked for, and the constant
+        # had already been cut as far as it goes (5.27-5.40x, bit-for-bit identical). Only
+        # this changes the asymptotics: a query now touches the chunks containing its terms
+        # and no others.
+        #
+        # This is a transpose of the per-chunk Counters it replaces, not an addition to
+        # them, so it holds the same postings in the other orientation. Its memory cost
+        # relative to the old forward index is unmeasured -- see the limitations in R5.
+        postings: dict[str, list[tuple[int, int]]] = {}
+        for index, tokens in enumerate(analyzed):
+            for term, frequency in Counter(tokens).items():
+                postings.setdefault(term, []).append((index, frequency))
+        self.postings = {term: tuple(entries) for term, entries in postings.items()}
+
+        # Length normalisation depends only on the chunk and on (k1, b), both fixed for the
+        # life of the retriever, so it is computed once here. The expression is grouped
+        # exactly as it was inside the scan, so the float is identical rather than close.
+        self.normalisation = tuple(
+            self.k1
+            * (
+                1.0
+                - self.b
+                + self.b * (len(tokens) / self.average_length if self.average_length else 0.0)
+            )
+            for tokens in analyzed
+        )
 
     def retrieve(self, query: Query, top_k: int) -> CandidateSet:
         if top_k <= 0:
@@ -93,25 +116,30 @@ class BM25Retriever:
             if term not in inverse_document_frequency:
                 df = self.document_frequency[term]
                 inverse_document_frequency[term] = math.log(1.0 + (total - df + 0.5) / (df + 0.5))
-        scored: list[tuple[float, Chunk]] = []
-        for chunk, tokens, counts in zip(
-            self.chunks, self.tokens, self.term_frequencies, strict=True
-        ):
-            # Length normalisation is constant across the terms of a single chunk. The
-            # arithmetic below is grouped exactly as it was when computed per term, so
-            # scores stay bit-for-bit identical rather than merely close.
-            length_ratio = len(tokens) / self.average_length if self.average_length else 0.0
-            normalisation = self.k1 * (1.0 - self.b + self.b * length_ratio)
-            score = 0.0
-            for term in query_terms:
-                frequency = counts[term]
-                if frequency == 0:
-                    continue
-                score += inverse_document_frequency[term] * (
-                    frequency * (self.k1 + 1.0) / (frequency + normalisation)
+        # Walking the postings term by term, rather than the corpus chunk by chunk, is what
+        # makes the cost proportional to the query's own postings instead of to the corpus.
+        # It must not move a score, and the order of the additions is what decides that:
+        # a chunk accumulates one contribution per query term, in query-term order, exactly
+        # as the old inner loop did. Float addition is not associative, so iterating terms
+        # in any other order would change the last bits of the sum.
+        accumulated: dict[int, float] = {}
+        k1_plus_one = self.k1 + 1.0
+        for term in query_terms:
+            entries = self.postings.get(term)
+            if entries is None:
+                continue
+            weight = inverse_document_frequency[term]
+            for index, frequency in entries:
+                accumulated[index] = accumulated.get(index, 0.0) + weight * (
+                    frequency * k1_plus_one / (frequency + self.normalisation[index])
                 )
-            if score > 0.0:
-                scored.append((score, chunk))
+        # Every contribution is strictly positive (IDF > 0 for any df, and the term factor
+        # is positive whenever frequency > 0), so a chunk absent from the postings is
+        # exactly a chunk the old scan would have left at 0.0 and dropped. The filter is
+        # kept anyway rather than assumed away.
+        scored: list[tuple[float, Chunk]] = [
+            (score, self.chunks[index]) for index, score in accumulated.items() if score > 0.0
+        ]
         scored.sort(key=lambda item: (-item[0], item[1].evidence_id))
         candidates = tuple(
             EvidenceCandidate(

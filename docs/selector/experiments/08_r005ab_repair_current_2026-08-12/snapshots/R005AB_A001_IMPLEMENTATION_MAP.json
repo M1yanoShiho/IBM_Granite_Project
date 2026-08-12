@@ -1,0 +1,60 @@
+{
+  "schema_version": "1.0",
+  "artifact": "r005ab-a001-implementation-map",
+  "date": "2026-08-12",
+  "status": "PRE_APPROVAL_NOT_IMPLEMENTED_NOT_RUN",
+  "protocol_document": "refine-logs/EXPERIMENT_PLAN_AMENDMENT_2026-08-12_R005AB_v2.md",
+  "old_core_git_blobs_must_remain_unchanged": {
+    "src/evidence_rag/selector/dual_head.py": "6eb95ad0c3ab69d94366cdaa1e8d2f38da1f8775",
+    "src/evidence_rag/evaluation/selector_sanity.py": "1ecd822a76309fb7da3c694f1f2d047deee1cb38",
+    "src/evidence_rag/cli/run_selector_sanity.py": "0f623dbe5678099fac507d0455cd4be57695ac77",
+    "src/evidence_rag/cli/finalize_selector_r005.py": "6486cafc564dd20edbf4c75735f616fdc96e7507"
+  },
+  "new_modules": [
+    "src/evidence_rag/infrastructure/durable_fs.py",
+    "src/evidence_rag/selector/r005ab.py",
+    "src/evidence_rag/evaluation/selector_r005ab_protocol.py",
+    "src/evidence_rag/evaluation/selector_r005ab.py",
+    "src/evidence_rag/evaluation/selector_r005ab_state.py",
+    "src/evidence_rag/evaluation/selector_r005ab_bundle.py",
+    "src/evidence_rag/evaluation/selector_r005ab_verifier.py",
+    "src/evidence_rag/materializer/selector_r005ab.py",
+    "src/evidence_rag/cli/materialize_selector_r005ab.py",
+    "src/evidence_rag/cli/run_selector_r005ab.py",
+    "configs/selector/adaptive_risk_r005_amendment_v1.toml"
+  ],
+  "a001_allowed_data": [
+    "old-r005-train-fit",
+    "synthetic-fixtures",
+    "plans-and-code",
+    "public-model-snapshot-metadata"
+  ],
+  "a001_forbidden_actions": [
+    "read-or-materialize-new-A-screen-or-B-confirm-content",
+    "run-A002",
+    "run-formal-fit-or-GPU-training",
+    "consume-canonical-formal-or-reveal-namespace",
+    "modify-old-r005-core-files"
+  ],
+  "implementation_order": [
+    "schemas-statistics",
+    "versioned-models",
+    "sealed-materializer-firewall",
+    "durable-files-and-state-machines",
+    "closed-world-bundle-and-semantic-verifier",
+    "cli-and-config",
+    "full-test-and-independent-code-audit",
+    "clean-commit-push-and-server-alignment"
+  ],
+  "a001_exit_requires": [
+    "all-plan-section-11-tests-pass",
+    "old-core-git-blobs-unchanged",
+    "zero-new-heldout-artifacts-and-zero-canonical-namespace-consumption",
+    "independent-code-audit-P0-0-P1-0",
+    "clean-implementation-commit-on-GitHub",
+    "local-GitHub-server-same-commit-and-server-clean"
+  ],
+  "a002_authorized": false,
+  "training_authorized": false,
+  "topk10_default_changed": false
+}

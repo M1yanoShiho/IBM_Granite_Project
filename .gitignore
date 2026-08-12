@@ -33,3 +33,7 @@ venv/
 # Held-out final test set (docs/hpc-run-log.md: RGB / HotpotQA / MuSiQue-Full are
 # never loaded during development). Cloned locally by mistake; keep it untracked.
 /RGB/
+
+# local agent tooling, not project code
+.claude/
+AGENTS.md

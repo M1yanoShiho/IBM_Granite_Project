@@ -46,8 +46,9 @@ class RunManifest(FrozenModel):
     corpus_signature: NonEmpty
     chunker_name: NonEmpty
     chunker_version: NonEmpty
-    chunk_size: PositiveInteger
-    overlap: NonNegativeInteger
+    # Mirrors CorpusManifest: ``None`` where the chunker has no fixed window.
+    chunk_size: PositiveInteger | None
+    overlap: NonNegativeInteger | None
     index_implementation: NonEmpty
     index_implementation_version: NonEmpty
     index_signature: Digest

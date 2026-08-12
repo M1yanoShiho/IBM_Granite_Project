@@ -53,7 +53,7 @@ class QueryChecklist(FrozenModel):
 
 class SourceMetadata(FrozenModel):
     schema_version: Literal["1.0"] = "1.0"
-    source_type: Literal["txt", "pdf", "image"]
+    source_type: Literal["txt", "pdf", "image", "docx", "pptx", "html"]
     file_name: NonEmpty
     page_number: PositiveRank | None = None
     image_path: NonEmpty | None = None

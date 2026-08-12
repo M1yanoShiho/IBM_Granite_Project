@@ -1,0 +1,17 @@
+{
+  "trace_kind": "experiment-audit",
+  "run_id": "2026-08-12_run01",
+  "target": "formal R005 Selector bundle and corresponding code/report/plan/tracker",
+  "reviewer": {
+    "independent_subagent": true,
+    "model": "gpt-5.6-terra",
+    "reasoning_effort": "xhigh"
+  },
+  "requested_model_available": false,
+  "requested_model": "historical-gpt-5.5",
+  "mode": "read-only",
+  "project_files_edited_by_reviewer": false,
+  "overall_verdict": "WARN",
+  "p0_count": 0,
+  "p1_count": 1
+}

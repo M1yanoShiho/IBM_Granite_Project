@@ -1,0 +1,106 @@
+{
+  "schema_version": "selector-experiment-archive-index-v1",
+  "generated_date": "2026-08-12",
+  "archive_root": "docs/selector/experiments",
+  "unit_of_archive": "independent_method_or_experiment_route",
+  "current_experiment_id": "08_r005ab_repair_current_2026-08-12",
+  "current_authorization_state": "V3_LEAN_COMPLETE_OVERALL_FAIL_KEEP_TOPK10",
+  "production_default": "TopK10",
+  "policies": {
+    "historical_snapshots_are_execution_entrypoints": false,
+    "archive_operation_moved_or_renamed_sources": false,
+    "historical_git_only_sources_exist": true,
+    "one_run_or_seed_equals_one_experiment": false,
+    "superseded_draft_equals_failed_experiment": false
+  },
+  "experiments": [
+    {
+      "ordinal": 1,
+      "experiment_id": "01_corroboration_reranking_2026-07-05",
+      "directory": "01_corroboration_reranking_2026-07-05",
+      "status": "COMPLETED / LIMITED POSITIVE SIGNAL / NOT A PRODUCTION SELECTOR",
+      "execution_state": "COMPLETE",
+      "route_state": "CLOSED_LIMITED_SIGNAL",
+      "gate_outcome": "PRODUCTION_SELECTOR_NOT_ESTABLISHED",
+      "unrun_scope": ["safe_harmful_evidence_deletion", "production_registration"],
+      "conclusion": "Reranking signal only; no evidence of safe harmful-evidence deletion."
+    },
+    {
+      "ordinal": 2,
+      "experiment_id": "02_ml_selector_v1_2026-07-10",
+      "directory": "02_ml_selector_v1_2026-07-10",
+      "status": "COMPLETE / GATE FAIL / STOPPED",
+      "execution_state": "STOPPED_AFTER_GATE_FAILURE",
+      "route_state": "CLOSED_STOPPED",
+      "gate_outcome": "FAIL",
+      "unrun_scope": ["full_rag_answer_evaluation"],
+      "conclusion": "Ranking/recall partly improved, but harmful filtering and transfer gates failed."
+    },
+    {
+      "ordinal": 3,
+      "experiment_id": "03_gated_graph1_2026-07-20",
+      "directory": "03_gated_graph1_2026-07-20",
+      "status": "COMPLETE / SAFETY GATE FAIL / RETIRED",
+      "execution_state": "COMPLETE_AND_RETIRED",
+      "route_state": "CLOSED_RETIRED",
+      "gate_outcome": "SAFETY_GATE_FAIL",
+      "unrun_scope": ["production_registration"],
+      "conclusion": "Harmful evidence decreased, but required-evidence recall loss exceeded the safety limit."
+    },
+    {
+      "ordinal": 4,
+      "experiment_id": "04_graph2_relation_layer_2026-07-30",
+      "directory": "04_graph2_relation_layer_2026-07-30",
+      "status": "PARTIAL / NO SELECTOR-LEVEL PASS / RETIRED",
+      "execution_state": "PARTIAL_AND_RETIRED",
+      "route_state": "CLOSED_PARTIAL_RETIRED",
+      "gate_outcome": "NO_SELECTOR_LEVEL_PASS",
+      "unrun_scope": ["three_seed_confirmation", "sealed_selector_c1"],
+      "conclusion": "Zero-shot gate failed; one-seed training converged but real-pool false conflicts blocked sealed Selector evaluation."
+    },
+    {
+      "ordinal": 5,
+      "experiment_id": "05_reliability_mis_2026-08-08",
+      "directory": "05_reliability_mis_2026-08-08",
+      "status": "COMPLETE / FAIL / RETIRED",
+      "execution_state": "COMPLETE_AND_RETIRED",
+      "route_state": "CLOSED_RETIRED",
+      "gate_outcome": "RECALL_SAFETY_FAIL",
+      "unrun_scope": ["production_registration"],
+      "conclusion": "Harmful retention improved at an unacceptable required/supporting recall cost."
+    },
+    {
+      "ordinal": 6,
+      "experiment_id": "06_beam_selector_2026-08-09",
+      "directory": "06_beam_selector_2026-08-09",
+      "status": "COMPLETE / M2 FAIL / RETIRED",
+      "execution_state": "STOPPED_AT_M2",
+      "route_state": "CLOSED_RETIRED",
+      "gate_outcome": "M2_FAIL",
+      "unrun_scope": ["M3_three_seed", "M4_formal_evaluation"],
+      "conclusion": "All 16 M2 settings exceeded the recall-loss limit; M3 and M4 were cut."
+    },
+    {
+      "ordinal": 7,
+      "experiment_id": "07_adaptive_conservative_r001_r005_2026-08-11",
+      "directory": "07_adaptive_conservative_r001_r005_2026-08-11",
+      "status": "R001–R004 PASS / R005 TRAINING-GATE FAIL / R006–R015 CUT",
+      "execution_state": "STOPPED_AT_R005",
+      "route_state": "CLOSED_STOPPED",
+      "gate_outcome": "R005_TRAINING_GATE_FAIL",
+      "unrun_scope": ["R006-R015"],
+      "conclusion": "Infrastructure and baselines passed, but the dual-head scorer failed the formal training-qualification gate."
+    },
+    {
+      "ordinal": 8,
+      "experiment_id": "08_r005ab_repair_current_2026-08-12",
+      "directory": "08_r005ab_repair_current_2026-08-12",
+      "status": "COMPLETE / EVIDENCE PASS / ANSWER FAIL / KEEP TOPK10",
+      "execution_state": "L000_L003_COMPLETE",
+      "route_state": "CLOSED_OVERALL_FAIL",
+      "gate_outcome": "EVIDENCE_PASS_ANSWER_FAIL",
+      "unrun_scope": [],
+      "conclusion": "NLI-aware conservative deletion reduced harmful evidence by about 13% with zero required recall/chain loss, but macro answer delta was -0.1353pp; TopK10 remains the default."
+    }
+  ]
+}

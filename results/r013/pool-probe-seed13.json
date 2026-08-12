@@ -1,0 +1,31 @@
+{
+  "by_role": {
+    "needle": {
+      "REFUTES": 189,
+      "SUPPORTS": 8412
+    },
+    "other": {
+      "REFUTES": 19043,
+      "SUPPORTS": 689,
+      "UNKNOWN": 1
+    },
+    "twin": {
+      "REFUTES": 1154,
+      "SUPPORTS": 92
+    }
+  },
+  "checkpoint": "runs/r013/seed-13/fold-0",
+  "false_conflict_rate": 0.9999493234683018,
+  "label_order": [
+    "REFUTES",
+    "SUPPORTS",
+    "UNKNOWN"
+  ],
+  "mean_false_conflicts_per_window": 13.341446923597026,
+  "n_queries_scored": 1479,
+  "other_n": 19733,
+  "other_unknown_rate": 5.067653169817058e-05,
+  "skipped": {
+    "no injected twin": 521
+  }
+}

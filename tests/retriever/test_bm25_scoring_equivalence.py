@@ -23,20 +23,32 @@ from evidence_rag.retriever.strong_bm25 import StrongBM25Retriever
 
 
 def reference_scores(retriever: BM25Retriever, query: Query) -> list[tuple[str, float]]:
-    """The scoring loop exactly as it stood before the R5 hoisting rewrite."""
+    """The original scoring loop: a full scan, rebuilding everything per chunk.
+
+    Deliberately self-contained — it re-analyses every chunk from ``retriever.chunks`` and
+    recomputes document frequencies and lengths itself, touching none of the retriever's
+    cached structures. It was not always so: it used to read ``retriever.tokens`` and
+    ``retriever.term_frequencies``, which the inverted index replaced, and a reference
+    implementation that shares structure with the thing it checks can only detect a subset
+    of the ways that thing can be wrong.
+    """
+
+    analyzed = [retriever.analyzer(chunk.text) for chunk in retriever.chunks]
+    total = len(analyzed)
+    document_frequency = Counter(term for tokens in analyzed for term in set(tokens))
+    average_length = sum(len(tokens) for tokens in analyzed) / total if total else 0.0
 
     out: list[tuple[str, float]] = []
-    total = len(retriever.chunks)
-    for chunk, tokens in zip(retriever.chunks, retriever.tokens, strict=True):
+    for chunk, tokens in zip(retriever.chunks, analyzed, strict=True):
         counts = Counter(tokens)
         score = 0.0
         for term in retriever.analyzer(query.text):
             frequency = counts[term]
             if frequency == 0:
                 continue
-            df = retriever.document_frequency[term]
+            df = document_frequency[term]
             inverse_document_frequency = math.log(1.0 + (total - df + 0.5) / (df + 0.5))
-            length_ratio = len(tokens) / retriever.average_length if retriever.average_length else 0.0
+            length_ratio = len(tokens) / average_length if average_length else 0.0
             denominator = frequency + retriever.k1 * (1.0 - retriever.b + retriever.b * length_ratio)
             score += inverse_document_frequency * (frequency * (retriever.k1 + 1.0) / denominator)
         if score > 0.0:
@@ -99,21 +111,47 @@ def test_a_repeated_query_term_still_counts_once_per_occurrence() -> None:
     assert twice.retrieval_score == once.retrieval_score * 2
 
 
-def test_term_frequencies_are_built_once_and_match_the_tokens() -> None:
+def test_postings_are_exactly_the_transpose_of_the_per_chunk_counts() -> None:
+    # The inverted index must hold the same information as the forward index it replaced,
+    # in the other orientation: same terms, same chunks, same frequencies, no extras and
+    # nothing dropped. A posting list missing an entry loses a chunk silently — it simply
+    # never gets scored, and no metric says why.
     retriever = build(synthetic_documents(15, seed=7))
-    assert len(retriever.term_frequencies) == len(retriever.chunks)
-    for tokens, counts in zip(retriever.tokens, retriever.term_frequencies, strict=True):
-        assert counts == Counter(tokens)
+    expected: dict[str, list[tuple[int, int]]] = {}
+    for index, chunk in enumerate(retriever.chunks):
+        for term, frequency in Counter(retriever.analyzer(chunk.text)).items():
+            expected.setdefault(term, []).append((index, frequency))
+
+    assert set(retriever.postings) == set(expected)
+    for term, entries in expected.items():
+        # Corpus order, so a posting list can be walked without sorting it first.
+        assert list(retriever.postings[term]) == sorted(entries)
+    # And it agrees with the document frequencies computed independently of it.
+    for term, entries in retriever.postings.items():
+        assert retriever.document_frequency[term] == len(entries)
 
 
-def test_scoring_a_missing_term_does_not_grow_the_cached_counters() -> None:
-    # Counter.__missing__ returns 0 without inserting, but the counters are now shared
-    # across queries rather than thrown away, so a regression here would leak on every
-    # unseen term — unbounded growth over a long-running index.
+def test_a_chunk_is_scored_only_when_it_holds_a_query_term() -> None:
+    # The whole point: the scan is over the query's postings, not over the corpus. If a
+    # chunk sharing no term with the query were still reachable, the linearity R5 measured
+    # would still be there and the change would have bought nothing.
+    documents = (
+        Document(document_id="hit", text="revenue revenue margin", source_uri="fixture://hit"),
+        Document(document_id="miss", text="inventory dividend", source_uri="fixture://miss"),
+    )
+    retriever = build(documents)
+    candidates = retriever.retrieve(Query(query_id="q", text="revenue"), top_k=10).candidates
+    assert [candidate.document_id for candidate in candidates] == ["hit"]
+
+
+def test_scoring_an_absent_term_does_not_grow_the_index() -> None:
+    # Postings are read with .get, never indexed into, so an unseen term cannot insert an
+    # empty list. A regression here would leak on every unseen term — unbounded growth
+    # over a long-running index.
     retriever = build(synthetic_documents(10, seed=3))
-    before = [len(counts) for counts in retriever.term_frequencies]
+    before = len(retriever.postings)
     retriever.retrieve(Query(query_id="q", text="wholly absent vocabulary"), top_k=5)
-    assert [len(counts) for counts in retriever.term_frequencies] == before
+    assert len(retriever.postings) == before
 
 
 def test_strong_bm25_inherits_the_rewrite_unchanged() -> None:

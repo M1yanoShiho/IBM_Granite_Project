@@ -1,0 +1,51 @@
+{
+  "audit_date": "2026-08-12",
+  "audit_scope": "formal-r005-bundle-code-report-plan-tracker",
+  "auditor": {
+    "independent": true,
+    "model": "gpt-5.6-terra",
+    "reasoning_effort": "xhigh",
+    "fallback_reason": "requested historical gpt-5.5 reviewer unavailable"
+  },
+  "overall_verdict": "WARN",
+  "formal_r005_conclusion_supported": true,
+  "formal_r005_status": "COMPLETE_FAIL",
+  "fail_closed_stop_supported": true,
+  "checks": {
+    "ground_truth_provenance": "WARN",
+    "score_normalization": "PASS",
+    "result_existence": "WARN",
+    "dead_code_invocation": "WARN",
+    "scope": "PASS",
+    "evaluation_classification": "PASS"
+  },
+  "issues": {
+    "P0": [],
+    "P1": [
+      {
+        "id": "P1-1",
+        "title": "Historical verifier and audit event claims lack persisted independent attestations",
+        "required_action": "Downgrade historical-count wording and preserve current/future command, commit, timestamp, exit code, verifier identity and hashes outside the exact R005 artifact root"
+      }
+    ],
+    "P2": [
+      "Keep deterministic-synthetic-proxy wording for NIAH harm",
+      "Describe 2Wiki 32/32 as official protect-positive sensitivity, not full binary accuracy",
+      "Do not describe unexecuted policy/safe-corner code as R005 effect evidence"
+    ]
+  },
+  "leakage": {
+    "modelval_scored": false,
+    "sealed_or_heldout_effect_read": false,
+    "scorer_input_fields": [
+      "question",
+      "candidate_text"
+    ],
+    "verdict": "PASS"
+  },
+  "limitations": [
+    "NIAH harm supervision is a deterministic provenance-verified counterfactual proxy",
+    "2Wiki has official protect-positive labels only; harm and unjudged labels are masked",
+    "Historical verify-only and three-audit counts were reported but not preserved as immutable independent attestations"
+  ]
+}

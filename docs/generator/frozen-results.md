@@ -2,6 +2,13 @@
 
 Final tables for the write-up. These results will not change.
 
+**The evaluated system is tagged `generator-frozen-g9-qampari-2026-08-10`**
+(commit `eb64023`) — the commit the cluster checked out for both the G9
+calibration and the QAMPARI held-out. `generator/` and `contracts/` are
+byte-identical between the G9 freeze (`27e8280`) and that tag, so both runs
+measured the same object. Anything above the tag is post-freeze engineering and
+changes no number here.
+
 **Provenance rule, applied throughout: every number is traceable to a single
 job, and no table mixes jobs.** The reason is measured and appears as §5 below.
 Where a figure from a different job is mentioned for context, it is labelled and
@@ -15,31 +22,87 @@ never subtracted from anything.
 | 4 | **Five-arm calibration (final)** | **`18322642` + `18322643` (G9)** | MiniCheck |
 | 5 | Cross-job non-determinism | `18269703`, `18295681`, `18307720`, `18322642` | byte comparison |
 | 6 | Sentence-splitter unification | none — deterministic, on G8's recorded text | direct diff |
+| 7 | **Module-level held-out (QAMPARI)** | **`18326078` + `18326079`** | MiniCheck |
 
 **§4 was rebuilt on G9.** The G8 tables it replaced are superseded, not merged:
 no figure below is carried over from `18307720`.
 
 ---
 
-## 1. Verifier selection — six arms
+## 1. Verifier selection
 
-TRUE was selected as the production verifier and **never judges its own output**;
-MiniCheck scores everything downstream, which is why the two are different models.
+**Recomputed from the raw scores** (`results/verifier-triage/scores.jsonl`, 1189
+rows) by `scripts/g1_verifier_metrics.py`, with every definition stated. Nothing
+below is carried over from the earlier triage tables. Full per-slice output:
+`local/report-writing/g1-verifier-metrics.md`.
 
-| verifier | role | outcome |
+**Definitions.** A verifier *fires* when `p_entail ≥ 0.50`.
+`recall = TP / (gold-entailment rows)`; `FP rate = FP / (gold-neutral rows)`;
+`precision = TP / (TP + FP)`, so precision is only defined on a slice carrying
+both polarities. Of the seven cells, **only `asqa` does** — the `2wiki-*` cells
+are entailment-only apart from `2wiki-neutral`, and `counterfactual` is
+neutral-only.
+
+### `asqa` — n = 300 (150 gold-entailment, 150 gold-neutral)
+
+| backend | recall | FP rate | precision | TP | FP |
+|---|---|---|---|---|---|
+| **TRUE** (`t5_xxl_true_nli_mixture`) | **0.7467** | **0.0067** | **0.9912** | 112 | 1 |
+| Granite-3B self-check | 0.7667 | 0.0667 | 0.9200 | 115 | 10 |
+| Granite-8B self-check | 0.9000 | 0.2400 | 0.7895 | 135 | 36 |
+
+### `counterfactual` — n = 109, all gold-neutral (entity-substituted)
+
+Rejection rate = 1 − FP rate.
+
+| backend | rejection | FP |
 |---|---|---|
-| `t5_xxl_true_nli_mixture` (TRUE) | selected | best calibrated recall on the human-labelled slice; 0.747 recall at threshold 0.50 |
-| Granite self-check | rejected | the generator judging itself is not independent evidence |
-| DeBERTa NLI cross-encoder | rejected | weaker on the counterfactual slice |
-| MiniCheck | reserved as **judge** | kept out of production precisely so it can score without circularity |
+| **TRUE** | **0.9633** | 4 |
+| Granite-3B | 0.9450 | 6 |
+| Granite-8B | 0.8716 | 14 |
+
+### Two corrections this recomputation forces
+
+**The published derived citation precision of 0.966 does not reproduce.** On the
+`asqa` slice the formula gives **0.9912**; on `asqa + 2wiki-neutral` it is also
+0.9912; across all cells, 0.9874. No principled slice yields 0.966. **0.9912 on
+`asqa` is the figure to use**, with its slice and formula named.
+
+**TRUE's 0.747 recall is ASQA-specific, not global.** On the 2WikiMultihop
+entailment cells (n = 540) its recall is **0.5204**, and across all
+gold-entailment rows (n = 690) it is **0.5696**. The 0.747 figure should always
+carry its slice.
+
+### Why TRUE, and why MiniCheck is not in production
+
+TRUE is selected on the **precision/FP** axis, not on recall: Granite-8B has
+higher recall (0.9000) but a 0.2400 false-positive rate, so it would attach
+citations that do not hold. Granite self-check is additionally rejected on
+principle — the generator grading its own output is not independent evidence.
+MiniCheck is deliberately reserved as the downstream **judge**, so the production
+verifier never scores its own decisions.
 
 The operating point (0.50) is frozen and was never tuned against a reported
-metric. TRUE's 0.747 recall is the origin of the whole redesign: under a delete
-policy, one supported claim in four is destroyed, which is what
+metric. TRUE's 0.7467 ASQA recall is the origin of the redesign: under a delete
+policy, roughly one supported claim in four is destroyed, which is what
 verify-and-annotate exists to stop.
 
-**Entity layer, adversarial slice:** 0.963 verifier-alone → **1.000** with the
-layer engaged. This is the layer's one demonstrated benefit and it is real.
+### The entity layer
+
+The entity check targets a real and documented attack surface: **evidence that
+supports a claim in wording while the entity has been substituted**, to which a
+general-purpose entailment model is blind.
+
+Two independent blind adjudications put its false-veto rate on natural data at
+**70%**, so it was removed from the citation decision. Removing it cost **nothing
+on either citation axis** (precision −0.0046, p = 0.698; recall +0.0043,
+p = 0.720) and recovered **12.7 points of coverage and 4.4 points of correctness**
+(G9, nogate vs open). It is retained in **observe-only** mode.
+
+Its only positive measurement comes from a synthetic slice constructed in its
+favour, using a component version later shown to be inaccurate, and **cannot be
+reproduced from the surviving artefacts** — the raw file carries the three NLI
+backends only, with no entity-layer column. **It is therefore not relied upon.**
 
 ---
 
@@ -238,6 +301,84 @@ unlabelled sentence through the validator. Fixed before G9 ran.
 all five arms is identical. So the unification removed a **latent** inconsistency
 rather than a manifesting one, on this corpus.
 
+## 7. Module-level held-out — QAMPARI, jobs `18326078` / `18326079`
+
+400 queries, seed 13, top-5 GTR passages — the same evidence setting as
+calibration. Pre-registered at `c559d5c`, 2026-08-09 15:57:20 +0100, **before any
+QAMPARI byte was read**. Loaded once; no system change followed.
+
+Correctness here is **answer recall by containment**, the pre-registered metric.
+It is **not** ALCE's official QAMPARI F1 and **not comparable to ASQA's STR-EM**;
+it is recall-only. Citation metrics are the identical measurement on both sets,
+which is why the generalisation test is strongest on the axis the claim rests on.
+
+| arm | coverage | recall | rec@5 | cite prec (ALCE) | cite prec (cited) | cite recall | answered |
+|---|---|---|---|---|---|---|---|
+| baseline | 0.808 | 0.075 | 0.121 | 0.535 | 0.535 (323) | 0.578 | 323/400 |
+| verify-only | 0.597 | 0.055 | 0.086 | 0.802 | 0.802 (228) | 0.802 | 228/382 |
+| verify-annotate-capped | 0.579 | 0.052 | 0.084 | 0.844 | 0.848 (220) | 0.828 | 221/382 |
+| verify-annotate-open | 0.720 | 0.058 | 0.096 | 0.679 | 0.848 (220) | 0.665 | 275/382 |
+| **verify-annotate-nogate** | **0.785** | **0.065** | **0.107** | 0.696 | **0.848 (246)** | 0.684 | 300/382 |
+
+Paired, within-job:
+
+| comparison | coverage | correctness | rec@5 | cite precision | cite recall |
+|---|---|---|---|---|---|
+| **nogate vs baseline** | −0.0157 (p=0.469) | −0.0105 (p=0.025) | −0.0141 (p=0.101) | **+0.2685 (p=0.0)** | **+0.0929 (p=0.010)** |
+| nogate vs open | +0.0654 (p=0.0) | +0.0068 (p=0.0) | +0.0110 (p=0.0) | −0.0066 (p=0.350) | −0.0010 (p=0.874) |
+
+### The pre-registered criterion
+
+| conjunct | result |
+|---|---|
+| citation precision > baseline at p<0.05 | **+0.2685, p = 0.0**, CI [0.198, 0.336], n=233 — **met** |
+| coverage deficit not worse than −0.0152 | −0.0157, p=0.469 — **untestable, see below** |
+
+### Why the coverage conjunct is untestable, not passed
+
+The registered claim-splitter clause fired: failure was **18/400 = 4.50%** against
+calibration's ~0.5%, so *"coverage comparisons are reported as unreliable and the
+failure rate is stated with the results."*
+
+The bias is measured, not assumed. The splitter sits upstream of every verify arm,
+so a failure removes the query from all of them while the **baseline** keeps it —
+and the baseline answered **17/18 (0.944)** of the failed queries against **0.801**
+of the rest. Pairing correctly drops them from both sides, which removes exactly
+the ground the baseline was winning on.
+
+| treatment | nogate | baseline | deficit |
+|---|---|---|---|
+| paired, failures excluded (reported) | 300/382 = 0.785 | 306/382 = 0.801 | **−0.0157** |
+| failures counted as unanswered (bound) | 300/400 = 0.750 | 323/400 = 0.808 | **−0.0575** |
+
+−0.0157 passes; −0.0575 would not. The true value is between them and this run
+cannot locate it. **Reported as untested, not as passed.**
+
+The failures are not concentrated on many-answer questions (median gold answers
+7.5 for failures against 8.0 for the rest), so this is a higher base rate of
+malformed JSON on a new distribution.
+
+### What replicates
+
+| claim | ASQA (G9) | QAMPARI | |
+|---|---|---|---|
+| citation precision > baseline | +0.1913 (p=0.0) | **+0.2685 (p=0.0)** | **replicates, larger** |
+| citation recall > baseline | +0.0711 (p=0.009) | **+0.0929 (p=0.010)** | **replicates, larger** |
+| gate costs coverage, buys no citation quality | +0.1266 cov, citation ns | +0.0654 cov, citation ns | **replicates** |
+| nothing destroyed | 0 drops | 0 drops | **holds** |
+| coverage ≈ baseline | −0.0152 (p=0.386) | −0.0157 (p=0.469) | **untestable here** |
+| correctness ≈ baseline | +0.0015 (p=0.892) | **−0.0105 (p=0.025)** | **does not replicate** |
+| review-flag enrichment | 2.86× | **1.28×** | **does not replicate** |
+
+Routing: 441 claims → 364 verified, 77 annotated, **0 destroyed**. The gate would
+have destroyed 48; all 48 cited instead. Control self-check exact (48 = 48).
+Declared-citation survival 310/400 = 0.775.
+
+**Review flag on QAMPARI**: flagged error rate 0.184 (n=44) against unflagged
+0.145 (n=202) — **lift 1.28×** against calibration's 2.86×. The screening claim is
+**calibration-specific** and must not be stated as a general property of the
+entity layer.
+
 ## Known limitations
 
 - The abbreviation list shared by the contract and the scorer is small and
@@ -253,3 +394,10 @@ rather than a manifesting one, on this corpus.
 - The entity layer's adversarial benefit rests on a single slice.
 - No blind audit exists for the annotate path; adjudication covered the
   entity-conflict path and claim support only.
+- **The claim splitter is a single point of total failure.** It sits upstream of
+  every verification arm, so one malformed response removes a query from all of
+  them while the baseline keeps it. Its rate moved nine-fold between two datasets
+  in the same benchmark family (0.5% → 4.5%), which is what made QAMPARI's
+  coverage comparison untestable.
+- **Correctness on QAMPARI is recall-only**, so an answer that enumerates from
+  parametric knowledge is rewarded and never penalised for over-generation.

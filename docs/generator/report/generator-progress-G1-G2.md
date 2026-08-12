@@ -1,4 +1,23 @@
-# Generator — Progress Summary
+# Generator — Progress Summary, G1–G2 (PARTLY INVALIDATED)
+
+> **⚠ Every completeness figure here is invalid, including the 0.786 own-fact
+> coverage below.**
+>
+> `required_facts` was built from the wrong ASQA field — background provenance
+> snippets rather than the facts the gold answer states — so the completeness
+> checker was scored against a target that was never the right one. That
+> invalidates own-fact coverage, every false-gap rate derived from it, and
+> `verified-full`'s coverage read as a completeness measure.
+>
+> Found by **human blind adjudication**, not by any metric: the numbers looked
+> plausible throughout. The completeness loop was subsequently retired as a
+> runtime mechanism (G4) and never returned.
+>
+> **What survives:** the G1 verifier selection (TRUE at threshold 0.50) and the
+> adversarial entity-substitution slice, both of which are re-stated with
+> provenance in `frozen-results.md` §1.
+>
+> Current numbers live in `local/report-writing/verified-numbers.md`.
 
 Notice: G1, G2, etc. are task numbers
 
