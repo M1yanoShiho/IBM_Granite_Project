@@ -2,7 +2,7 @@
   "schema_version": "selector-experiment-source-manifest-v1",
   "experiment_id": "08_r005ab_repair_current_2026-08-12",
   "archive_date": "2026-08-12",
-  "archive_status": "V3 LEAN / L002 PASS / POLICY FROZEN / L003 NEXT / FINAL UNOPENED",
+  "archive_status": "COMPLETE / EVIDENCE PASS / ANSWER FAIL / KEEP TOPK10",
   "archive_policy": {
     "snapshots_are_exact_source_copies": true,
     "snapshots_are_execution_entrypoints": false,

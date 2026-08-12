@@ -2,7 +2,7 @@
 
 **对应计划：** `EXPERIMENT_PLAN_AMENDMENT_2026-08-12_R005AB_v3_LEAN.md`
 
-**状态：** `L002 PASS / NLI-BASE POLICY FROZEN / READY FOR L003 / FINAL UNOPENED`
+**状态：** `L003 COMPLETE / EVIDENCE PASS / ANSWER FAIL / OVERALL FAIL / KEEP TOPK10`
 
 **状态词：** `NOT RUN / RUNNING / PASS / FAIL / BLOCKED / CUT`
 
@@ -17,7 +17,7 @@
 | L000 | 冻结 Lean v3 计划、JSON 合同与 tracker | 不读取效果数据 | 一致文档；独立复核 P0=0/P1=0 | PASS | 进入 L001 |
 | L001 | 实现 NLI scorer、pair loss、lean evaluator/CLI 与必要测试 | synthetic + 已暴露旧 R005/train smoke | clean commit；本地测试；服务器真实模型 smoke | PASS | 进入 L002 |
 | L002 | 两 seed 训练并只在 development 选择 variant/quantile/cap | train-fit + crc-calibration | 两 checkpoint、唯一冻结策略、开发报告 | PASS | 允许一次 L003 final |
-| L003 | 一次性 final：先证据门，再答案指标 | R002 `decision-dev`（NIAH 739q；2Wiki 1000q） | decisions、metrics、CI、最终报告 | NOT RUN | PASS 才能提出后续确认；FAIL 保持 TopK10 |
+| L003 | 一次性 final：先证据门，再答案指标 | R002 `decision-dev`（NIAH 739q；2Wiki 1000q） | decisions、metrics、CI、最终报告 | EVIDENCE PASS / ANSWER FAIL | 路线结束；保持 TopK10 |
 
 ## L000 — 文档冻结
 
@@ -64,21 +64,21 @@ Git commit/push 只记在项目历史与本次交付说明中，不再为它增�
 
 ## L003 — 最终盲测
 
-- [ ] 开始前复核 frozen config/commit/checkpoint/data hashes，final 之前无效果访问。
-- [ ] 两 seed 同批运行 R002 `decision-dev`，不看一个结果后修改另一个；sealed600/2Wiki heldout 保持未读。
-- [ ] seed13 harmful reduction CI lower>0；seed42 harmful point>0。
-- [ ] seed13 recall/chain 点损失各≤1pp、CI upper各≤3pp；seed42 点损失各≤3pp。
-- [ ] seed13 的 count-matched random-100/bottom-rank 对照完成，harmful reduction 与 deletion precision 分别优于两者；seed42只做方向/保护复现。
-- [ ] 分别报告 Selector 相对 random mean 与 bottom-rank 的 harmful-reduction paired component CI；两条下界都>0才称 C2 有统计支持。
-- [ ] P0逐题等于 TopK10；全部输出为 TopK10 子集。
-- [ ] 正式 CI只用seed13逐题差值做component bootstrap；seed42单独报告方向/保护点值，不与seed13拼样本。
-- [ ] 证据门 PASS 后，用 seed13 与冻结 Generator 评估 `system.core.answer_match`。
-- [ ] Generator 固定为 Granite 4.1 3B revision `c065040...`、固定 prompt、32 tokens、greedy；不能误用 extractive。
-- [ ] 实际加载前核对本地 snapshot revision、weights/config/tokenizer/chat-template hashes，并把 resolved snapshot path 传入客户端；不回落到环境变量/最新版。
-- [ ] 两数据分别按 component bootstrap 后 50:50 macro answer delta>0，且任一数据集 answer loss不超过1pp。
-- [ ] 报告全 decision-dev、2Wiki parent-seen-in-train-fit 与 unseen-in-any-used-data 敏感性。
-- [ ] 保存 PASS/FAIL 结果；final 后不改方法重新试。
-- [ ] commit 并 push GitHub。
+- [x] 开始前复核 frozen config/commit/checkpoint/data hashes，final 之前无效果访问。
+- [x] 两 seed 同批运行 R002 `decision-dev`，不看一个结果后修改另一个；sealed600/2Wiki heldout 保持未读。
+- [x] seed13 harmful reduction CI lower>0；seed42 harmful point>0。
+- [x] seed13 recall/chain 点损失各≤1pp、CI upper各≤3pp；seed42 点损失各≤3pp。
+- [x] seed13 的 count-matched random-100/bottom-rank 对照完成，harmful reduction 与 deletion precision 分别优于两者；seed42只做方向/保护复现。
+- [x] 分别报告 Selector 相对 random mean 与 bottom-rank 的 harmful-reduction paired component CI；两条下界都>0，C2 有统计支持。
+- [x] P0逐题等于 TopK10；全部输出为 TopK10 子集。
+- [x] 正式 CI只用seed13逐题差值做component bootstrap；seed42单独报告方向/保护点值，不与seed13拼样本。
+- [x] 证据门 PASS 后，用 seed13 与冻结 Generator 评估 `system.core.answer_match`。
+- [x] Generator 固定为 Granite 4.1 3B revision `c065040...`、固定 prompt、32 tokens、greedy；未使用 extractive。
+- [x] 实际加载前核对本地 snapshot revision、weights/config/tokenizer/chat-template hashes，并把 resolved snapshot path 传入客户端；无环境变量/最新版回落。
+- [x] 两数据分别按 component bootstrap 后做 50:50 macro：点值 −0.1353pp，未满足必须>0；NIAH −0.2706pp、2Wiki 0pp，均未超过1pp损失上限。
+- [x] 报告全 decision-dev；2Wiki 两 seed 均0删除，因此 parent-seen 与 unseen 分层差值必然都为0，无组间动作可估计。
+- [x] 保存 FAIL 结果；final 后未改方法或重新试。
+- [x] 本阶段结果已整理，随后以独立 commit push GitHub。
 
 ## 决策日志
 
@@ -90,6 +90,7 @@ Git commit/push 只记在项目历史与本次交付说明中，不再为它增�
 | 2026-08-12 | 每题允许删0条，cap只在1/2中选择 | 比固定最多1条灵活，同时至少保留8条，符合保守目标 |
 | 2026-08-12 | L001 PASS，进入 L002 | 本地相关回归、格式、类型检查通过；服务器真实 NLI forward、单步训练、checkpoint reload 与 38 项测试通过 |
 | 2026-08-12 | L002 PASS，冻结 NLI-base q=.99/cap2 | 两 seed harmful reduction 10.77%/10.47%，保护损失受控，优于等量删除对照；final 尚未打开 |
+| 2026-08-12 | L003 证据门 PASS、答案门 FAIL，路线结束 | final harmful reduction 12.95%/13.10%，required recall/chain 零损失；macro answer −0.1353pp，保持 TopK10 |
 | 2026-08-12 | 不再声称 CRC guarantee | 只保留开发/最终隔离和paired CI；方法名称改为经验验证的保守 Selector |
 | 2026-08-12 | 最终答案主指标固定为 macro `system.core.answer_match` | 直接回答是否比 TopK10 有哪怕小幅下游提升，避免结果后挑指标 |
 | 2026-08-12 | train-modelval 不读取；decision-dev 成为本轮唯一 final | 保持真正的 train-fit→development→final 三角色，并直接复用 R002 已冻结 component map |
