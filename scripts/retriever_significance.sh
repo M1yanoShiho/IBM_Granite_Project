@@ -23,6 +23,11 @@ PAIRS=(
   "hybrid-convex granite-dense" # Score fusion vs dense
   "strong-bm25 bm25"            # Tuned sparse vs baseline sparse
   "decompose-orig decompose"    # Fusing the original query back in (R1 follow-up)
+  # The bar for the original-query arm on its own. On NQ its total recall (.9220) came out
+  # ABOVE strong-bm25 (.9098) while its MRR stayed below -- the first time any decompose
+  # arm has led the base retriever on any metric, so it needs a p-value rather than a
+  # glance at two means.
+  "decompose-orig strong-bm25"
   "decompose-bestrank decompose"           # max-rank fusion vs RRF's sum (R2 follow-up)
   "decompose-orig-bestrank decompose-orig" # ...and on top of the original-query arm
   # The bar that matters: does the best decompose arm beat just using the sparse

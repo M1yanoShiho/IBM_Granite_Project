@@ -312,9 +312,33 @@ ranking is already strong.**
 
 Two things to hold against this report's own earlier claims. A mid-analysis reading that
 decomposition "trades top-rank precision for pool coverage" — from SciFact recall 0.8683 vs 0.8624 —
-**did not survive the paired test** (p=0.5811) and is withdrawn. And the NQ arm never ran: its
-dataset (`runs/niah-base`) was not materialised, so generality was established on SciFact alone, not
-on the two datasets the pre-registration promised.
+**did not survive the paired test** (p=0.5811) and is withdrawn. And the NQ arm did not run at the
+time: its dataset (`runs/niah-base`) was not materialised, so generality rested on SciFact alone
+rather than on the two datasets the pre-registration promised. **That is now settled — see below.**
+
+**Step 4 — the NQ arm finally ran, and the original-query arm generalises to a third dataset
+(2026-08-12, job `18426837`, n=2000).**
+
+| Pair | MRR | R@10 | R@20 | Recall |
+|---|---|---|---|---|
+| decompose vs strong-bm25 | −0.0472 | −0.0426 | −0.0317 | −0.0178 |
+| **decompose-orig vs decompose** | **+0.0396** | **+0.0358** | **+0.0351** | **+0.0300** |
+
+Every cell above is p=0.0000. So the original-query arm is significant on all four metrics on
+SciFact, large on 2Wiki, and now significant on all four on NQ: **it is a real improvement to
+decomposition on every dataset we have**, not damage control peculiar to 2Wiki. The
+pre-registration's promise of two datasets is met, three over.
+
+The lower row also reproduces R2's conclusion 3 on NQ from the rebuilt dataset — decompose
+significantly underperforms StrongBM25 there on every metric — making it the third R2 finding to
+survive re-derivation.
+
+**One number that does not fit the pattern, and is not yet a claim.** On NQ `decompose-orig`
+reaches total recall **0.9220 against StrongBM25's 0.9098**, while its MRR (0.8077) stays below
+StrongBM25's (0.8153). That would be the first time any decompose arm leads the base retriever on
+any metric, on any dataset. It is two means with no paired test behind it — the pair was not wired
+into `retriever_significance.sh` because nothing had ever suggested it could be positive. The pair
+is now wired in; until it is run, this is an observation, not a result.
 
 ---
 
