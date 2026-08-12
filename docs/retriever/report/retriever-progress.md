@@ -4,6 +4,46 @@ Notice: R1, R2, etc. are task numbers
 
 ---
 
+## Current recommendations (2026-08-12)
+
+Read this section if you consume the retriever rather than work on it. Everything here is a
+one-line summary of a numbered task below, which holds the evidence and the caveats. Several of
+these changed on 2026-08-11/12, and the older statements scattered through R2 and R4 are
+narrower or broader than what is now measured — where they disagree with this section, this
+section is current.
+
+| Question | Answer | Evidence |
+|---|---|---|
+| Which retriever by default? | **Hybrid (RRF)** over strong-bm25 + granite-dense | R2 (all three datasets), and R6 measured it end to end on real SciFact: system final document recall **0.6962 → 0.8051** |
+| StrongBM25 or plain BM25? | **Not a quality decision — a latency one.** Pick StrongBM25 when query latency matters | R2 + NQ re-run: no MRR gain anywhere, *significantly worse* recall on NQ. R9: **~900× faster** on natural-language queries, because stopword postings are never scored |
+| Decomposition? | **No on SciFact/2Wiki. On NQ it is a budget decision** — +1.2pp final pool recall (significant) at N extra LLM calls per query | R4 Steps 3–5 |
+| If decomposing anyway | `include_original` **on, everywhere**. `fusion="best-rank"` only where the full-query ranking is already strong. Weighting the original arm never beats plain strong-bm25 | R4 Steps 2–4 |
+| Chunking | `word` (120/20) remains the default and is unchanged. `section` exists for corpora with real structure but **is not yet measured** | R7 |
+| Scale | Query cost is proportional to the query's posting coverage, not to the corpus. Memory ≈ **1.06 GB per million chunks** | R9 |
+
+**Two cautions on reading the table.** The Hybrid and StrongBM25 rows rest on all three datasets;
+the decomposition row rests on one significant result on one dataset and is a qualification, not
+a reversal — R11 is running to test whether it is a function of corpus size. And the R9 latency
+and memory figures are from synthetic corpora: they size the effect and identify the mechanism,
+but the real-corpus confirmation is still outstanding.
+
+### Where to find what
+
+| | |
+|---|---|
+| Retriever variants and how to select them | R1 |
+| The 8 × 3 benchmark, its conclusions, and their independent reproduction | R2 |
+| Ingestion: PDF, images, DOCX/PPTX/HTML | R3 |
+| Decomposition: why it fails, what fixes it, and what that is worth | R4 |
+| Retrieval cost at corpus scale | R5, then R9 |
+| Connecting to the shared three-module pipeline | R6 |
+| Chunking as a configurable choice | R7 |
+| The frozen baseline that had stopped reproducing | R8 |
+| The inverted index: latency, and memory | R9 |
+| Open questions and what is blocked on whom | "The open question", "Next steps" |
+
+---
+
 ## R1 - Retriever capability extensions
 
 The codebase previously had only a single baseline BM25 retriever. This task adds four new
@@ -64,9 +104,15 @@ output; SciFact table shown in full, NQ/2Wiki summarized (full tables in the lin
    StrongBM25 significantly on SciFact/NQ MRR but loses significantly on 2Wiki MRR (Δ −0.022,
    p<0.0001) while still winning on 2Wiki Recall@10 (Δ +0.011, p=0.0002).
 
-**Decision: Hybrid (RRF) is the strongest general-purpose retriever measured so far and is the
-recommended default when latency budget allows running two arms. Decompose should not be used on
-multi-hop-style corpora (see R4 for why, and for how far a fix gets).**
+**Decision at the time of R2: Hybrid (RRF) is the strongest general-purpose retriever measured so
+far and is the recommended default when latency budget allows running two arms. Decompose should
+not be used on multi-hop-style corpora (see R4 for why, and for how far a fix gets).**
+
+*Superseded in two places — see "Current recommendations" at the top.* The Hybrid half stands and
+has since been measured end to end (R6). The other half does not: "Decompose should not be used"
+was written before the NQ arm existed, and R4 Step 5 narrows it to SciFact and 2Wiki. And this
+line treats StrongBM25 purely as a quality choice, which R9 shows it is not — with an inverted
+index it is a large latency win regardless of its quality record.*
 
 **Independent reproduction of the NQ arm, and one correction to conclusion 1 (2026-08-11,
 job `18421897`, partial).** The NQ dataset R2 used was never committed, so it was re-materialised
@@ -713,54 +759,46 @@ consistently carrying a signature no code could produce stayed green for three w
 
 ## Next steps
 
-1. ~~**Weight the original-query fusion arm instead of adding it at equal weight**~~ — **done and
-   answered 2026-08-10 (see R4)**: monotone climb, 77% of the MRR gap recovered at `w=5`, and no
-   finite weight exceeds strong-bm25 on any metric. The pre-registered negative. Original text kept
-   below for the pre-registration record. R4 shows the arm
-   recovers the top-20 but not rank 1, consistent with one vote diluted among N. **Mechanism landed
-   2026-08-05, result still pending**: run the `w{2,3,5}` sweep on SciFact (judging ground) with
-   2Wiki as corroboration, and pair against the `original_weight=1.0` arm. The pre-registered
-   question is **not** "does MRR rise" — that is near-structural, see above — but **whether any
-   finite weight beats plain strong-bm25**. Falsifying outcomes: all three weights
-   indistinguishable from `w=1` (the dilution account is wrong), or a monotone climb that never
-   crosses strong-bm25 (decomposition adds nothing). Both are publishable negatives.
-   **Analysis side is wired (2026-08-10)**: `scripts/retriever_significance.sh` now carries both
-   pair families — `w{2,3,5}` vs `decompose-orig` (does weight do anything) and `w{2,3,5}` vs
-   `strong-bm25` (the pre-registered bar). Only the cluster runs are outstanding:
-   ```
-   sbatch scripts/run_retriever_eval.slurm \
-     configs/experiments/retr_scifact_decompose-orig-w{2,3,5}.toml
-   sbatch scripts/run_retriever_eval.slurm \
-     configs/experiments/retr_2wiki_decompose-orig-w{2,3,5}.toml
-   scripts/retriever_significance.sh scifact   # then, on the login node
-   ```
-2. **Re-run the NQ arm** — the third dataset the R3 pre-registration promised and did not deliver,
-   blocked only on materialising `runs/niah-base`. Generality currently rests on SciFact alone, so a
-   second headroom-bearing dataset is what would actually settle it. The blocker is one login-node
-   command (dpr-w100 download, so it cannot run on a compute node):
-   ```
-   python -m evidence_rag.materializer.base_cli --split dev --output runs/niah-base \
-     --corpus-size 100000 --query-limit 2000 --seed 42
-   ```
-   Every `configs/experiments/retr_nq_*.toml` already points at `runs/niah-base/manifest.json`,
-   so the arms need no new configuration once it exists.
-3. **Measure hallucinated-caption rate on real (non-synthetic) documents** — the OCR-smoke PASS
-   proves the mechanism works, not that captions are trustworthy at scale; requires the
-   cross-module sync with Generator noted above.
-4. ~~**Build an inverted index**~~ — **built and measured 2026-08-11 (R9)**, with a correction
-   to the premise: it does not remove the linearity, it makes cost proportional to the query's
-   own postings, and the linearity survives for common terms. What remains is confirming the
-   synthetic numbers on a real corpus an order of magnitude larger than SciFact, which still
-   needs that corpus materialised.
-5. ~~Configurable chunking~~ — **done (R7)**: chunker selection landed 2026-08-10, and the
-   structure-aware `section` chunker on 2026-08-11. What remains is not implementation but
-   evidence: compare `section` against `word` on a corpus that actually has structure (the
-   Markdown-emitting PDF path), since neither SciFact nor 2Wiki can show a difference.
-6. ~~Broaden ingestion format coverage (docx/pptx/html via Docling)~~ — **done 2026-08-11
-   (see R3)**. What remains of this item is surfacing OCR quality signals instead of letting a
-   poor scan degrade silently, which is untouched.
-7. **Measure `section` against `word` on a genuinely structured corpus.** Now unblocked by the
-   two items above — the chunker exists and there is finally a loader that can produce a corpus
-   with headings and tables in it. Neither SciFact nor 2Wiki can show anything here, so this
-   needs a real DOCX/HTML corpus materialised first. Until then R7 is a mechanism with a
-   rationale, not a measured improvement, and should be described that way.
+Ordered by what each is *waiting on*, because most of what is left is not implementation. The
+authoritative pre-registrations live in `docs/hpc-run-log.md`; this list only points at them.
+
+### Waiting on us
+
+1. **Measure `section` against `word` on a genuinely structured corpus.** Both halves now exist —
+   the chunker (R7) and a loader that can produce Markdown with real headings and tables (R3) —
+   so nothing technical blocks this. What it needs is **~20 real DOCX/HTML documents** chosen from
+   the project's own material; neither SciFact nor 2Wiki can show anything here, because neither
+   has any structure to cut on. Until this runs, R7 is a mechanism with a rationale, not a
+   measured improvement, and should be described that way.
+2. **Surface OCR quality signals** instead of letting a poor scan degrade silently (the remaining
+   half of the old ingestion item). Implementable now; but **validating that it helps needs real
+   low-quality scans**, and the repository has none — the only PDF in the tree is a synthetic
+   smoke file.
+3. **Materialise a corpus an order of magnitude larger than SciFact.** R5's extrapolation past
+   5183 documents is an assumption, and R9's asymptotic claims were measured on synthetic data.
+
+### Waiting on machine time
+
+4. **R11 — is the NQ decomposition win a function of corpus size?** Running (jobs `18431334`,
+   `18431335`). Pre-registered with its falsifying outcomes before any number was read.
+5. **Confirm R9's latency and memory figures on a real corpus.** Both harnesses take a manifest:
+   `scripts/retriever_scaling.py --manifest …` and `scripts/retriever_memory.py --manifest …`.
+   Until then those numbers size the effect and identify the mechanism, and are not SciFact or NQ
+   figures.
+
+### Waiting on another group
+
+6. **Hallucinated-caption rate on real documents.** The OCR-smoke PASS proves the mechanism works,
+   not that captions are trustworthy at scale. This is genuinely cross-module — a hallucinated
+   caption only does damage where something downstream trusts it as evidence — so it needs a sync
+   with the Generator group, and labelled data neither group has yet.
+
+### Closed, with where the result lives
+
+| Item | Outcome |
+|---|---|
+| Weight the original-query fusion arm | R4 — pre-registered negative: monotone climb, no finite weight beats strong-bm25, on two datasets |
+| Re-run the NQ arm | R2 and R4 — dataset rebuilt from scratch, three R2 conclusions reproduced, R4 Step 3 settled |
+| Build an inverted index | R9 — built, with a correction to R5's premise, plus the memory measurement R5 left open |
+| Configurable chunking | R7 — chunker selection and a structure-aware implementation; measurement is item 1 above |
+| Broaden ingestion formats | R3 — DOCX/PPTX/HTML; OCR quality signals are item 2 above |
