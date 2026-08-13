@@ -16,14 +16,14 @@ section is current.
 |---|---|---|
 | Which retriever by default? | **Hybrid (RRF)** over strong-bm25 + granite-dense | R2 (all three datasets), and R6 measured it end to end on real SciFact: system final document recall **0.6962 → 0.8051** |
 | StrongBM25 or plain BM25? | **Not a quality decision — a latency one.** Pick StrongBM25 when query latency matters | R2 + NQ re-run: no MRR gain anywhere, *significantly worse* recall on NQ. R9: **~900× faster** on natural-language queries, because stopword postings are never scored |
-| Decomposition? | **No on SciFact/2Wiki. On NQ it is a budget decision** — +1.2pp final pool recall (significant) at N extra LLM calls per query | R4 Steps 3–5 |
+| Decomposition? | **No on SciFact/2Wiki. On NQ it is a trade** — buys ~+1.2pp pool recall, costs top-rank precision, at N extra LLM calls per query. Worth it only if the downstream consumes pool depth | R4 Steps 3–6 |
 | If decomposing anyway | `include_original` **on, everywhere**. `fusion="best-rank"` only where the full-query ranking is already strong. Weighting the original arm never beats plain strong-bm25 | R4 Steps 2–4 |
 | Chunking | `word` (120/20) remains the default and is unchanged. `section` exists for corpora with real structure but **is not yet measured** | R7 |
 | Scale | Query cost is proportional to the query's posting coverage, not to the corpus. Memory ≈ **1.06 GB per million chunks** | R9 |
 
 **Two cautions on reading the table.** The Hybrid and StrongBM25 rows rest on all three datasets;
-the decomposition row rests on one significant result on one dataset and is a qualification, not
-a reversal — R11 is running to test whether it is a function of corpus size. And the R9 latency
+the decomposition row rests on one dataset, but on four independently sampled corpus sizes within
+it (R11), so it is robust there without being shown to generalise. And the R9 latency
 and memory figures are from synthetic corpora: they size the effect and identify the mechanism,
 but the real-corpus confirmation is still outstanding.
 
@@ -392,8 +392,24 @@ decompose arm could lead the base retriever on any metric, so the pair was not e
 | **Recall (top-50)** | **0.9220** | **0.9098** | **+0.0122** | **0.0000** | **[+0.0061, +0.0187]** |
 
 The deficit shrinks monotonically with depth, crosses zero, and reaches significance only at the
-deepest measure. So on NQ the shape is not "worse everywhere": **there is no measurable cost at the
-top (MRR and R@10 both non-significant) and a real gain in pool coverage.**
+deepest measure.
+
+**Corrected 2026-08-13 by R11.** Written from this single corpus size, the reading above was
+"there is no measurable cost at the top (MRR and R@10 both non-significant) and a real gain in
+pool coverage". Repeating the pair at four corpus sizes shows the second half holds and **the
+first half does not**: 100k happens to be the point where the top-rank cost misses significance.
+
+| Corpus | Δ MRR | p | Δ Recall | p |
+|---|---|---|---|---|
+| 25k | −0.0170 | **0.0005** | +0.0105 | 0.0001 |
+| 50k | −0.0175 | **0.0001** | +0.0145 | 0.0001 |
+| 100k | −0.0076 | 0.1157 | +0.0122 | 0.0000 |
+| 200k | −0.0096 | 0.0509 | +0.0122 | 0.0013 |
+
+So the shape is a clean **trade, not a free gain**: top-rank precision is lost, pool coverage is
+bought, and on the two smallest corpora the loss is significant. Whether the trade is worth taking
+depends entirely on which metric the downstream consumes — with `top_k=50` feeding a selector that
+keeps 5, pool depth is what this architecture uses; a pipeline that reads rank 1 loses on it.
 
 That matters for this architecture specifically rather than as a curiosity. As noted in
 `scripts/retriever_significance.sh`, `top_k=50` feeds a selector that keeps 5, so **pool depth is
@@ -419,6 +435,26 @@ then and is now too broad. More precisely:
   measured benefit on one side of it, which is not what this report could say yesterday.
 - `include_original` remains the one switch worth turning on everywhere. `fusion="best-rank"` still
   only pays off where the full-query ranking is already strong.
+
+**Step 6 — R11: the effect is not about corpus size, and it is not a fluke (2026-08-13, jobs
+`18431334`/`18431335`).** The obvious explanation for why NQ and only NQ was corpus scale: NQ has
+100k passages against SciFact's 5183, and if sub-queries work by broadening the pool then the more
+there is to miss the more they should help. Pre-registered, then swept at 25k/50k/100k/200k with
+queries, gold documents and every parameter held fixed.
+
+**The hypothesis is dead — the curve is flat.** Eight-fold more corpus moves the recall gain not at
+all (+0.0105, +0.0145, +0.0122, +0.0122), and all four points sit inside one another's confidence
+intervals. The design's control behaved as expected — StrongBM25's absolute recall falls
+monotonically as distractors are added (0.9307 → 0.9202 → 0.9098 → 0.8965) — so the corpora really
+did get harder; the paired difference simply does not care.
+
+**What that buys is worth more than the hypothesis would have been.** The pre-registration's third
+falsifying outcome was "significant only at 100k, i.e. probably a fluke", and that is now firmly
+excluded: **the effect replicates significantly at four independently sampled corpus sizes.** A
+lone significant result became a robust one, and the explanation moves off scale and onto
+**question form** — NQ is single-hop factoid natural questions, SciFact is claim verification,
+2Wiki is multi-hop. That is where the next experiment on this belongs, and sweeping size further
+would be wasted machine time.
 
 ---
 
@@ -779,8 +815,11 @@ authoritative pre-registrations live in `docs/hpc-run-log.md`; this list only po
 
 ### Waiting on machine time
 
-4. **R11 — is the NQ decomposition win a function of corpus size?** Running (jobs `18431334`,
-   `18431335`). Pre-registered with its falsifying outcomes before any number was read.
+4. ~~**R11 — is the NQ decomposition win a function of corpus size?**~~ **Answered 2026-08-13: no.**
+   The curve is flat across 25k–200k, so the hypothesis is dead — but the effect replicates
+   significantly at all four sizes, which rules out the "probably a fluke" outcome and makes it
+   robust within NQ. **The successor experiment is on question form, not scale** (single-hop
+   factoid vs claim verification vs multi-hop); sweeping size further is wasted machine time.
 5. **Confirm R9's latency and memory figures on a real corpus.** Both harnesses take a manifest:
    `scripts/retriever_scaling.py --manifest …` and `scripts/retriever_memory.py --manifest …`.
    Until then those numbers size the effect and identify the mechanism, and are not SciFact or NQ
