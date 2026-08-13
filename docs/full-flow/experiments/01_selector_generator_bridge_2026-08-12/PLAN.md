@@ -3,7 +3,7 @@
 **问题：** 为什么 Selector 已经能保守删除一部分有害证据，但这种改善没有自动转化成更好的最终答案？
 **研究主线：** Reliability across the full evidence flow。
 **方法目标：** 让 Selector 的可靠性信息真正被 Generator 使用，而不是三个模块只在形式上串联。
-**状态：** 计划已写明，尚未执行；第一阶段结果出来前，不冻结第二阶段的最终方法。运行时信号边界按 [`AMENDMENT_RUNTIME_SIGNAL_BOUNDARY_v2.md`](AMENDMENT_RUNTIME_SIGNAL_BOUNDARY_v2.md) 执行。
+**状态：** `EXECUTION COMPLETE / F005 FINAL-NO-WIN`。运行时信号边界按 [`AMENDMENT_RUNTIME_SIGNAL_BOUNDARY_v2.md`](AMENDMENT_RUNTIME_SIGNAL_BOUNDARY_v2.md) 执行，完整结果见 [`F005_RESULTS.md`](F005_RESULTS.md)。
 
 ---
 
@@ -377,7 +377,7 @@ L003 报告中的 `chain loss=0` 是利用 official gold supporting evidence 计
 
 ---
 
-## 10. 当前决定
+## 10. 初始执行决定（历史记录）
 
 现在只批准到“计划与接口设计”层面。正确的下一项执行是 F000/F001：现有四臂联合实验。
 
@@ -393,3 +393,17 @@ L003 报告中的 `chain loss=0` 是利用 official gold supporting evidence 计
 - [Self-RAG（ICLR 2024）](https://proceedings.iclr.cc/paper_files/paper/2024/hash/25f7be9694d7b32d5cc670927b8091e1-Abstract-Conference.html)：支持生成与事实核验结合；本项目已有 Verify-and-annotate 实现，因此不重建完整 Self-RAG。
 
 这些文献为设计提供依据，但不能把方法组合本身自动视为创新；G2 必须通过相对 G1 的消融，才能支持跨阶段机制的独立作用。
+
+---
+
+## 12. 最终执行结果
+
+本计划已执行到 F005。F006 的 Mixed-LoRA 在 109 题开发集上通过候选选择门，但在独立 sealed600 上：
+
+- 默认 `TopK + Base`：63.17%；
+- `TopK + Mixed-LoRA`：63.33%；
+- `Selector + Mixed-LoRA`：63.17%；
+- Selector-only 净作用：−0.17 pp；
+- 完整系统相对默认系统：0.00 pp。
+
+因此当前方法没有通过预先约定的 `C>A 且 C>B` 条件。sealed600 已退休，不再用于新一轮调参。Selector 的 deletion precision 为 90.24%，说明证据识别能力可以保留；下一条新路线如果启动，应针对 Generator 的上下文删减稳定性，而不是继续在本最终集上调整删除阈值。

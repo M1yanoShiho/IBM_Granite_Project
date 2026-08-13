@@ -1,7 +1,9 @@
 # F005 独立确认：Selector 阶段
 
 **日期：** 2026-08-13
-**状态：** `SELECTION COMPLETE / GENERATION NOT RUN`
+**状态：** `SELECTION COMPLETE`（这是运行前冻结记录；最终生成与评分随后已完成）
+
+> 后续状态：F005 最终确认没有超过 TopK，完整结果见 [`F005_RESULTS.md`](F005_RESULTS.md)。本文件保留选择发生当时“不读取 gold、尚未生成答案”的时间边界。
 
 ## 零基础说明
 

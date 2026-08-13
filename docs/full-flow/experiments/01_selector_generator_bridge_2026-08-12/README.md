@@ -1,7 +1,7 @@
 # 01 — Selector–Generator 跨阶段桥接
 
 **日期：** 2026-08-12
-**状态：** `F000 PASS / F001 COMPLETE-NO-WIN / F002 COMPLETE / F003A-B COMPLETE / F004 COMPLETE-NO-GATE / F006 DEV-PASS / F005 AUTHORISED`
+**状态：** `COMPLETE / F005 FINAL-NO-WIN`
 
 ## 零基础说明
 
@@ -32,3 +32,10 @@ Retriever → Selector → Generator
 - [F006 小规模鲁棒训练报告](F006_TRAINING_REPORT.md)
 - [F006 正式开发集结果](F006_RESULTS.md)
 - [F005 独立确认 Selector 阶段](F005_SELECTION_REPORT.md)
+- [F005 独立最终确认结果](F005_RESULTS.md)
+
+## 最终结果
+
+F005 在独立 600 题上完成后，默认 TopK 和完整系统的答案正确率同为 63.17%；固定 Generator 后，Selector 的净作用为 −0.17 个百分点。当前路线因此没有证明端到端提升，sealed600 已退休，不能再用于调参。
+
+但 Selector 的证据层能力仍然成立：82 条删除中有 74 条是已知有害证据。失败主要发生在 Generator 对删减后上下文不稳定，而不是 Selector 在最终答案变化的 5 题中删错了 gold 文档。完整解释见 [F005_RESULTS.md](F005_RESULTS.md)。

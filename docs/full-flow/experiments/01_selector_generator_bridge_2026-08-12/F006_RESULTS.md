@@ -3,6 +3,8 @@
 **日期：** 2026-08-13
 **状态：** `COMPLETE / DEVELOPMENT GATE PASS / F005 AUTHORISED`
 
+> 后续独立确认：本结果成功选出了唯一进入 F005 的候选，但其开发集提升没有在 sealed600 上复现。最终 `TopK + Base` 与 `Selector + Mixed-LoRA` 均为 63.17%，见 [`F005_RESULTS.md`](F005_RESULTS.md)。本文件继续保留为真实的开发集选择记录，不应单独作为最终提升结论。
+
 ## 一句话结论
 
 Mixed-LoRA 在 109 个 Selector 实际改变证据的问题上取得 **61.47%** 的最终答案正确率，高于原始 TopK、未训练的关键事实笔记和 Clean-LoRA，因此通过了预先固定的 F005 进入门槛。
