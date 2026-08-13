@@ -164,10 +164,14 @@ class KeyFactDraftAnswerGenerator:
         *,
         guided: bool = False,
         claim_splitter: ClaimsSplitter | None = None,
+        note_llm: TextGenerator | None = None,
     ) -> None:
         self.llm = llm
         self.guided = guided
-        self.note_extractor = KeyFactNoteExtractor(llm, guided=guided)
+        # F006 may adapt only the extraction call while keeping drafting and
+        # claim splitting on the frozen base model. Existing F003/F004 callers
+        # omit ``note_llm`` and preserve the original single-client behaviour.
+        self.note_extractor = KeyFactNoteExtractor(note_llm or llm, guided=guided)
         self.claim_splitter = claim_splitter or ClaimSplitter(llm=llm)
         self.last_notes: tuple[KeyFactNote, ...] = ()
 

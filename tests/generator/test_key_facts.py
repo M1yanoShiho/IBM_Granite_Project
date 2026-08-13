@@ -190,3 +190,28 @@ def test_no_detectable_slot_falls_back_to_current_draft_prompt() -> None:
 
     assert len(llm.prompts) == 1
     assert "Cover every part of the question" in llm.prompts[0]
+
+
+def test_note_llm_can_be_separate_from_frozen_draft_llm() -> None:
+    note_llm = ScriptedLLM(
+        '{"facts":[{"slot":"DATE_OR_YEAR","value":"1 March 1973","evidence":[1]}]}'
+    )
+    draft_llm = ScriptedLLM("The album was released on 1 March 1973 [1].")
+    generator = KeyFactDraftAnswerGenerator(
+        draft_llm,
+        guided=False,
+        claim_splitter=NoSplit(),  # type: ignore[arg-type]
+        note_llm=note_llm,
+    )
+    checklist = QueryChecklist(query_id="q1", focus="album release", required_facts=())
+
+    draft = generator.generate(
+        Query(query_id="q1", text="When was the album released?"),
+        checklist,
+        _selected(),
+    )
+
+    assert len(note_llm.prompts) == 1
+    assert len(draft_llm.prompts) == 1
+    assert "Key-fact notes:" in draft_llm.prompts[0]
+    assert draft.answer_text == "The album was released on 1 March 1973 [1]."
