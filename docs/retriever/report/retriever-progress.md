@@ -448,6 +448,38 @@ intervals. The design's control behaved as expected — StrongBM25's absolute re
 monotonically as distractors are added (0.9307 → 0.9202 → 0.9098 → 0.8965) — so the corpora really
 did get harder; the paired difference simply does not care.
 
+**Step 7 — R12: the gain is confirmed absent on multi-hop, unknown on claim verification
+(2026-08-13, analysis only).** R11 pointed at question form, and testing that axis needed no
+machine time: the three datasets are three forms, and both arms already existed on all three.
+The pair had only ever been read on NQ, because nothing before had suggested it could be positive.
+Predicted first, then read:
+
+| Dataset | Question form | Δ Recall | p | n |
+|---|---|---|---|---|
+| NQ | single-hop factoid | **+0.0122** | **0.0001** | 2000 |
+| SciFact | claim verification | +0.0042 | 0.6781 | **300** |
+| 2Wiki | multi-hop | −0.0003 | 0.9155 | 2000 |
+
+Neither falsifying outcome occurred, so this is consistent with the gain being specific to
+single-hop factoid questions.
+
+**But one limitation the pre-registration did not anticipate caps what this can claim: SciFact's
+sample cannot rule out an NQ-sized effect.** At n=300 — a sixth of NQ's — the interval is roughly
+±0.016 by a same-variance scaling of NQ's ±0.0063, i.e. **wider than the whole effect being looked
+for**. SciFact's p=0.6781 is therefore *absence of evidence*, not evidence of absence. 2Wiki is a
+genuine null: n=2000 and Δ=−0.0003, no power problem.
+
+So the strongest honest statement is narrower than the prediction: **confirmed absent on multi-hop,
+unknown on claim verification, confirmed present on single-hop factoid.** And the gap cannot be
+closed by running more — SciFact's test split has 300 queries in total. Settling claim verification
+needs either a larger dataset of that form, or the experiment that was already named as the real
+successor: **vary question form within one corpus**, which fixes the power problem and the
+confounding at the same time.
+
+One detail that echoes Step 1: on 2Wiki, MRR, R@10 and R@20 are all significantly negative while
+total recall is exactly nothing (−0.0003, p=0.9155). That is the Step 1 diagnosis — a ranking
+failure with the candidate pool intact — showing up again on an independent arm.
+
 **What that buys is worth more than the hypothesis would have been.** The pre-registration's third
 falsifying outcome was "significant only at 100k, i.e. probably a fluke", and that is now firmly
 excluded: **the effect replicates significantly at four independently sampled corpus sizes.** A
