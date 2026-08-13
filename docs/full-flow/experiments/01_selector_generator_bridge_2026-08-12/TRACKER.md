@@ -1,17 +1,17 @@
 # Selector–Generator 跨阶段桥接跟踪表
 
 **对应计划：** [PLAN.md](PLAN.md)
-**当前状态：** `F000 PASS / F001 RUNNING`
+**当前状态：** `F000 PASS / F001 COMPLETE-NO-WIN / F002 COMPLETE / F003A-B AUTHORISED`
 
 | Run | 目的 | 比较/输出 | 优先级 | 状态 | 备注 |
 |---|---|---|---|---|---|
 | F000 | 冻结联合实验入口 | 数据、四臂、Granite/TRUE 配置、同作业协议 | MUST | PASS | 739 题；109 题改变；运行时不读 gold |
-| F001 | 现有三模块联合 | A/B/C/D 四臂、总体与109题结果 | MUST | RUNNING | 1题 TRUE smoke 四臂零错误；完整739题已启动 |
-| F002 | 联合结果归因 | 细节遗漏、空输出、无支持、多跳、真实缺证据分类 | MUST | TODO | 决定 F003/F004 的具体范围 |
-| F003A | 传递但暂不使用跨阶段信号 | `SelectionGuidance` allowlist + 默认无信号回退 + gold 泄漏测试 | CONDITIONAL | TODO | 只承载 Selector 原生运行时信号 |
-| F003B | 关键事实读取 | 问题需求、notes-only、guided-notes | CONDITIONAL | TODO | 细节遗漏/空答案占主导时才运行 |
+| F001 | 现有三模块联合 | A/B/C/D 四臂、总体与109题结果 | MUST | COMPLETE-NO-WIN | 四臂零错误；B−A 与 D−C 均为净 −3；interaction=0 |
+| F002 | 联合结果归因 | 细节遗漏、空输出、无支持、多跳、真实缺证据分类 | MUST | COMPLETE | 无可达官方相关文档被删；提取失败16、空答15为最大可修类别 |
+| F003A | 传递但暂不使用跨阶段信号 | `SelectionGuidance` allowlist + 默认无信号回退 + gold 泄漏测试 | CONDITIONAL | AUTHORISED | 只承载 Selector 原生运行时信号 |
+| F003B | 关键事实读取 | 问题需求、notes-only、guided-notes | CONDITIONAL | AUTHORISED | 细节遗漏/空答案由 F002 触发 |
 | F003C | 运行时证据准备度 | `READY/PARTIAL/CONFLICTED/UNKNOWN` | CONDITIONAL | NOT AUTHORISED | 只由问题和 selected evidence 估计；多跳组合失败占主导时才运行 |
-| F004 | 轻量 Generator 消融 | G0 当前、G1 notes-only、G2 guided notes | CONDITIONAL | TODO | 只有 G2>G1 才保留跨阶段主张 |
+| F004 | 轻量 Generator 消融 | G0 当前、G1 notes-only、G2 guided notes | CONDITIONAL | AUTHORISED | 只有 G2>G1 才保留跨阶段主张 |
 | F005 | 独立最终确认 | 冻结方法、未参与选择的数据、配对 CI | CONDITIONAL | TODO | `decision-dev` 不再是新方法盲测 |
 | F006 | 小规模鲁棒训练 | base、clean-only、mixed-context LoRA | CONDITIONAL | NOT AUTHORISED | 仅当前两阶段证实需要训练时启动 |
 
