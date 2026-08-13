@@ -70,7 +70,7 @@ from evidence_rag.contracts.models import (
     is_unverified_annotation,
     strip_unverified_annotation,
 )
-from evidence_rag.generator.draft import DraftAnswerGenerator
+from evidence_rag.generator.draft import DraftAnswerGenerator, DraftAnswerProducer
 from evidence_rag.generator.entity_check import (
     EntityChecker,
     EntityConsistencyChecker,
@@ -403,7 +403,7 @@ class VerifyAnnotateGenerator:
 
     def __init__(
         self,
-        draft_generator: DraftAnswerGenerator | None = None,
+        draft_generator: DraftAnswerProducer | None = None,
         verifier: CitationRoutedVerifier | None = None,
         *,
         llm: TextGenerator | None = None,

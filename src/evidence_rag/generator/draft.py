@@ -70,6 +70,17 @@ class ClaimsSplitter(Protocol):
     def split(self, answer_text: str) -> tuple[Claim, ...]: ...
 
 
+class DraftAnswerProducer(Protocol):
+    """Structural contract shared by the ordinary and notes-first draft paths."""
+
+    def generate(
+        self,
+        query: Query,
+        checklist: QueryChecklist,
+        selected: SelectedEvidenceSet,
+    ) -> DraftAnswer: ...
+
+
 class DraftGenerator:
     """Generate the unverified answer that A2 will split into claims."""
 
