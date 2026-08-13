@@ -23,10 +23,12 @@ Three quantities are separated because they answer different questions:
   linearity is checked rather than assumed. R5's extrapolation to a million chunks is
   only meaningful if the per-chunk cost is flat.
 
-Deliberately standalone, and synthetic by default: it measures *this* implementation's
-data structures, and the vocabulary distribution is what drives postings count, so the
-corpus is generated with a Zipf-like draw rather than pretending a fixture is prose.
-Pass --manifest to measure a real corpus instead.
+**Use real text.** The synthetic generator is a fallback, and a misleading one: postings cost
+scales with *distinct terms per chunk*, and a hand-tuned Pareto draw gets that badly wrong. The
+default generator yields ~13.6 distinct terms per chunk against ~95 for real prose, which
+understated the inverted index's memory by about 7× and overstated its saving over the forward
+index by about 4× the first time this was run. `--documents DIR` measures a directory of
+.md/.txt; `--manifest` measures a benchmark.
 
 Usage (CPU only):
 
@@ -113,6 +115,13 @@ def _measure(documents: tuple[Document, ...], *, chunk_size: int, overlap: int) 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--manifest", type=Path, help="measure a real corpus instead of synthetic")
+    parser.add_argument(
+        "--documents",
+        type=Path,
+        help="measure a directory of .md/.txt files -- the most realistic option available "
+        "without a benchmark, and the one that matters: postings cost scales with DISTINCT "
+        "terms per chunk, which a synthetic vocabulary gets wrong by several fold",
+    )
     parser.add_argument("--sizes", type=int, nargs="+", default=[2000, 4000, 8000])
     parser.add_argument("--chunk-size", type=int, default=180)
     parser.add_argument("--overlap", type=int, default=30)
@@ -123,9 +132,22 @@ def _parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     arguments = _parser().parse_args(argv)
-    source = (
-        JsonlDatasetAdapter.load(arguments.manifest).documents if arguments.manifest else None
-    )
+    if arguments.manifest:
+        source = JsonlDatasetAdapter.load(arguments.manifest).documents
+    elif arguments.documents:
+        source = tuple(
+            Document(
+                document_id=str(path.relative_to(arguments.documents)).replace("\\", "/"),
+                text=text,
+                source_uri=str(path),
+            )
+            for path in sorted(arguments.documents.rglob("*"))
+            if path.suffix.lower() in {".md", ".txt"}
+            and path.is_file()
+            and (text := path.read_text(encoding="utf-8", errors="replace")).strip()
+        )
+    else:
+        source = None
 
     tracemalloc.start()
     rows = []
@@ -141,7 +163,7 @@ def main(argv: list[str] | None = None) -> int:
     tracemalloc.stop()
 
     report = {
-        "corpus": str(arguments.manifest) if arguments.manifest else "synthetic",
+        "corpus": str(arguments.manifest or arguments.documents or "synthetic"),
         "chunk_size": arguments.chunk_size,
         "overlap": arguments.overlap,
         "python": platform.python_version(),

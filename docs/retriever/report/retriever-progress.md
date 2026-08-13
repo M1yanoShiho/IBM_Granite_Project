@@ -19,7 +19,7 @@ section is current.
 | Decomposition? | **No on SciFact/2Wiki. On NQ it is a trade** — buys ~+1.2pp pool recall, costs top-rank precision, at N extra LLM calls per query. Worth it only if the downstream consumes pool depth | R4 Steps 3–6 |
 | If decomposing anyway | `include_original` **on, everywhere**. `fusion="best-rank"` only where the full-query ranking is already strong. Weighting the original arm never beats plain strong-bm25 | R4 Steps 2–4 |
 | Chunking | `word` (120/20) is still the default, but **it is not the best setting measured** — at a fixed evidence budget, 60×10 beats it by +2.2pp (p=0.0008) and the optimum may be smaller still. Overlap is irrelevant anywhere in 0–60. `section` keeps tables intact but its retrieval effect is **unmeasured** | R10, R7 |
-| Scale | Query cost is proportional to the query's posting coverage, not to the corpus. Memory ≈ **1.06 GB per million chunks** | R9 |
+| Scale | Query cost is proportional to the query's posting coverage, not to the corpus. Memory ≈ **7.8 GB per million chunks** on real prose (an earlier figure of 1.06 GB came from a synthetic corpus and was ~7× optimistic) | R9 |
 
 **Three cautions on reading the table.** Every downstream or "system-level" number in this
 report was produced with the **`extractive` generator**, which reports whether the answer string
@@ -624,35 +624,41 @@ do not count and only what the retriever still holds does. Synthetic Zipf-like c
 `chunk_size=180/overlap=30` — the same settings as the R5-era estimate, so the two are directly
 comparable.
 
-| Implementation | B/chunk | Index ÷ corpus |
-|---|---|---|
-| Forward index (`tokens` + `term_frequencies`) | 6731–6738 | 6.78× |
-| **Inverted index (postings)** | **1055–1068** | **1.07×** |
+**First measured on a synthetic corpus, then corrected on real text — the synthetic answer was
+wrong by several fold, and the correction is the more useful result.** Postings cost scales with
+**distinct terms per chunk**, and that is precisely what a hand-tuned vocabulary gets wrong: the
+generator produced 13.6 distinct terms per chunk against **95.3** for real prose. Both measured at
+`chunk_size=180/overlap=30`, the settings of the R5-era estimate:
 
-Flat across a 4× range of corpus sizes in both cases, so the per-chunk figure extrapolates.
+| Corpus | distinct/chunk | Forward index | Inverted index | Saving |
+|---|---|---|---|---|
+| Synthetic (Pareto) | 13.6 | 6735 B/chunk | 1055 B/chunk | 6.3× |
+| **Real prose (121 Markdown docs)** | **95.3** | **12539 B/chunk** | **7787 B/chunk** | **1.6×** |
 
-Two corrections fall out, and both go against what was previously written:
+**Use the second row.** The first understates the inverted index's memory by ~7× and overstates
+its advantage by ~4×, because `tokens` scales with *total* tokens per chunk while postings scale
+with *distinct* ones — so an unrealistically skewed vocabulary flatters postings specifically.
 
-1. **The inverted index does not cost memory — it saves about 6.3×.** R9's limitation section
-   hedged that postings "are a transpose rather than an addition, but Python's per-object
-   overhead is real and unquantified". The hedge was unnecessary: the forward index kept a full
-   token tuple *per chunk* (one reference per token) **and** a `Counter` dict per chunk, while
-   the postings store each (chunk, frequency) pair exactly once. The transpose is strictly
-   cheaper, not merely no worse.
-2. **R5's withdrawn estimate was too low, not too high.** It guessed ~2.9 KB/chunk; the forward
-   index actually held **6.7 KB/chunk**. So peak RSS reporting "no rise at all" was not evidence
-   that the estimate was inflated — it was the instrument failing to see 6.7 KB/chunk. R5's own
-   diagnosis of the instrument was right, and its instinct to withdraw rather than defend the
-   number was right too, but the direction it implied was wrong.
+What survives, and what does not:
 
-For R5's extrapolation question: at a million chunks this is **~1.06 GB** against the forward
-index's ~6.7 GB. Memory is no longer the thing that stops enterprise scale here; the remaining
-constraint is the query cost R9 measured, and specifically its dependence on term selectivity.
+1. **The inverted index does save memory, but 1.6×, not 6.3×.** R9's original hedge — postings are
+   a transpose, but Python's per-object overhead is unquantified — turns out to have been closer
+   to right than the synthetic measurement that replaced it.
+2. **R5's withdrawn estimate was approximately correct, and an earlier version of this section
+   wrongly said it was too low.** R5 guessed ~2.9 KB/chunk **for `term_frequencies` alone**; on
+   real prose that component measures ~3.2 KB/chunk. The mistake here was comparing R5's
+   component estimate against the *whole* forward index (12.5 KB/chunk) measured on the *wrong*
+   corpus. R5's number was fine; what failed was peak RSS's ability to see it, which is exactly
+   what R5 itself concluded.
+3. **The extrapolation moves accordingly:** ~**7.8 GB** per million chunks, not ~1.06 GB. Memory
+   is a real constraint again at that scale, not a solved one.
 
-**Limitation:** synthetic corpus. The vocabulary distribution drives the number of distinct
-postings, so this sizes the effect on prose-like text rather than on SciFact or NQ specifically.
-`--manifest` measures a real corpus and should be run on the cluster alongside the R5 scaling
-harness.
+**Limitation, and it now has a measured size.** 121 Markdown documents are real prose but they are
+*our own technical documentation*, not SciFact or NQ. Given that the synthetic-to-real move
+changed the answer ~7×, dataset-to-dataset variation should be assumed material until measured:
+`scripts/retriever_memory.py --manifest …` on the cluster is the way to settle it. **The general
+lesson is worth more than the number: a synthetic corpus tuned by hand was off by several fold on
+a quantity that looked simple.**
 
 ---
 
