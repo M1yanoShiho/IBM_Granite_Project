@@ -12,6 +12,15 @@ these changed on 2026-08-11/12, and the older statements scattered through R2 an
 narrower or broader than what is now measured — where they disagree with this section, this
 section is current.
 
+**Every row must name where its evidence lives, and `scripts/check_recommendations.py` fails the
+build if one does not.** Write `R<n>` for an entry in this report and **`ledger R<n>`** for one in
+`docs/hpc-run-log.md` — the two documents number their entries independently and the numbers do
+*not* correspond (this report's R9 is the inverted index; the ledger's R9 is the chunk sweep).
+The check exists because these two documents drifted apart until a reconciliation on 2026-08-13
+found nine disagreements, one of them a recommendation contradicting a measurement taken three
+days earlier in our own ledger. It verifies that a reader can reach the evidence in one step; it
+cannot verify that the evidence supports the claim, which stays a human job.
+
 | Question | Answer | Evidence |
 |---|---|---|
 | Which retriever by default? | **Hybrid (RRF)** over strong-bm25 + granite-dense — the only arm measured significantly better at the *system* level, not just the retrieval level | R2 (all three datasets); ledger R7 (2Wiki, paired, +0.0425 p=0.0000 downstream); R6 (SciFact end to end, but two point estimates rather than a paired test) |
