@@ -4770,3 +4770,48 @@ sbatch scripts/run_retriever_scaling.slurm \
 **⚠️ 内存上限:** 20 万文档下倒排索引按 docs/ 实测的 7.8 KB/chunk 约需 1.6 GB,`tracemalloc`
 本身还会翻倍。作业申请 32G,应当够;若 OOM,砍掉 200000 那一点再报,**不要偷偷降 sizes 后
 当作完整曲线报告**。
+
+### R14 — "同预算下 chunk 越小越好"在 NQ 上复现吗 [PRE-REGISTERED 2026-08-13]
+
+**赌注比以往几条都大:这一条若复现,生产设置就该改。** 台账 R9 在 2Wiki 上、**固定证据预算
+600 词**的条件下测得 `answer_match` 随 chunk 变小单调上升:60×10 = 0.5405 / 120×5 = 0.5185 /
+200×3 = 0.4700 / 300×2 = 0.4145,三个对照对生产值全部显著(60×10 **+0.0220 p=0.0008**)。
+⇒ **当前生产值 `chunk_size=120` 已被证明不是最优。** 但它只有一个数据集,所以至今没人敢动;
+改 `chunk_size` 会改 `corpus_signature`,进而作废所有已持久化索引与已记录数字,确认必须够硬。
+
+**为什么是 NQ:** 它是三个数据集里除 2Wiki 外唯一带标准答案文本的(`base_loader` 从 dpr-w100
+的 `answers` 字段取,写进 `GoldCase.reference_answers`),而本设计的主指标 `answer_match` 没有
+答案就无法评分——SciFact 因此**不可用**,这不是选择而是约束。
+
+**设计:** 完全镜像 R9 的 set B,只换数据集。四点 (60,10)/(120,5)/(200,3)/(300,2),
+overlap = chunk_size/6,`chunk_size × max_selected ≡ 600 词`,retriever 全程 strong-bm25
+(CPU only,不引入 LLM 成本与方差),`top_k=50`。除 `[chunker]` 与 `max_selected` 外逐字相同。
+
+**假设 H14:** `answer_match` 随 chunk 变小**单调上升**,且 60×10 显著优于 120×5。
+
+- **证伪 A —— NQ 上不显著或反向:** 粒度效应是 **2Wiki 特有的**(多跳:答案分散在多篇文档,
+  更多小块直接提高覆盖到不同 gold 文档的机会;NQ 单跳则不然)。**这会把 R9 的结论从"粒度是主旋钮"
+  收缩为"多跳语料上粒度是主旋钮",并解除改动生产值的理由。** 这是最有价值的一种否定。
+- **证伪 B —— 单调但方向相反(大块更好):** 与 R9 直接冲突,两条不可同时为真;须先排除
+  证据体积是否真的被控住(核对四点的 `selRecall`/`sysRecall` 与选中文本词数)。
+- **确证:** 两个数据集同向 ⇒ 建议把生产值下调,并**在同一提案里**给出迁移成本
+  (重建索引、既有数字作废的范围)。**不得只报质量收益而不报迁移代价。**
+
+**必做的自检(照抄 R9 的纪律):** `chunk_nq_b-c120o20` 是生产值锚点,其 retriever 指标必须与
+既有 `runs/retr-nq-strong-bm25` **逐位一致**(MRR .8153 / Recall .9098)。不一致即说明配置或
+语料有别,**先查清再读结果**。
+
+**⚠️ 本条不测什么:** 不测 set A(不控制体积的那组)。R9 已经证明不控制体积会把符号翻过来,
+重跑一遍只会重复一个已知的错误答案,浪费机时。
+
+**命令:**
+
+```bash
+sbatch scripts/run_retriever_eval.slurm \
+  configs/experiments/chunk_nq_b-c{60o10,120o20,200o33,300o50}.toml
+# 读数(login node):
+python -m evidence_rag.evaluation.paired_metric_cli \
+  --on-report runs/chunk-nq-b-c60o10/generator_report.json \
+  --off-report runs/chunk-nq-b-c120o20/generator_report.json \
+  --metric system.core.answer_match
+```
