@@ -1,0 +1,38 @@
+{
+  "schema_version": "full-flow-f006-data-manifest-v1",
+  "status": "COMPLETE",
+  "source_role": "NIAH train only",
+  "forbidden_roles_read": [],
+  "dev_used_only_as_query_id_exclusion_set": true,
+  "sealed_or_heldout_read": false,
+  "selection_rule": "sha256(full-flow-f006-v1\\nquery_id)",
+  "eligibility": "exactly one question slot; reference exact-normalised substring of a labelled-relevant TopK10 candidate; at least one labelled-nonrelevant distractor",
+  "counts": {
+    "train_pool_queries": 2000,
+    "excluded_train_dev_overlap": 202,
+    "excluded_not_exactly_one_slot": 181,
+    "eligible": 1443,
+    "eligible_NAME_OR_TITLE": 254,
+    "excluded_no_nonrelevant_distractor": 154,
+    "eligible_PERSON": 645,
+    "eligible_DATE_OR_YEAR": 344,
+    "eligible_LOCATION": 143,
+    "eligible_NUMBER": 57,
+    "excluded_no_exact_relevant_answer": 20
+  },
+  "train_queries": 1000,
+  "validation_queries": 100,
+  "examples_per_training_query": 2,
+  "clean_only_examples": 2000,
+  "mixed_examples": 2000,
+  "clean_only_definition": "clean prompt duplicated twice",
+  "mixed_definition": "one clean prompt plus one mixed prompt",
+  "train_cases_sha256": "3d3c850c9f7beccf9e715d6d6256ffc420e5937e8d271f973bcadb7485994c68",
+  "validation_cases_sha256": "1c8383fed133de6de737104f6009899a0fadbf51a8d561ef610e760a6f4b64c2",
+  "input_sha256": {
+    "train_queries": "02af9b4ef8458ce35c9caf99833421d7098f07e704d2c1f534909ea2a64be1fe",
+    "train_candidates": "09e8c9b4972f48a67661c8b06dcf220f178528156699da671a16dd8d08fb908f",
+    "train_gold": "91af72dba9e8ccc97286f5933475bd21e43701a16727d0dfe0c442c55be90699",
+    "dev_queries_exclusion_only": "03cf4369197470f5b76872bd8c25050afd71aa15ce8435e8f75a8bee6aa6ccf1"
+  }
+}
