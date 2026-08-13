@@ -127,6 +127,27 @@ def diagnose_rows(
     g0_empty = [row for row in details if not bool(row["answered"][ARMS[0]])]
     g0_correct = [row for row in details if bool(row["matches"][ARMS[0]])]
     helped = [row for row in details if row["g0_diagnosis"] == "selector_helped_generation"]
+    notes_activation: dict[str, object] = {}
+    for arm in ARMS[1:]:
+        active = [row for row in details if int(row["note_counts"][arm]) > 0]
+        inactive = [row for row in details if int(row["note_counts"][arm]) == 0]
+        notes_activation[arm] = {
+            "active_queries": len(active),
+            "active_g0_correct": sum(bool(row["matches"][ARMS[0]]) for row in active),
+            "active_arm_correct": sum(bool(row["matches"][arm]) for row in active),
+            "active_wrong_to_right": sum(
+                not bool(row["matches"][ARMS[0]]) and bool(row["matches"][arm])
+                for row in active
+            ),
+            "active_right_to_wrong": sum(
+                bool(row["matches"][ARMS[0]]) and not bool(row["matches"][arm])
+                for row in active
+            ),
+            "inactive_queries": len(inactive),
+            "inactive_exact_same_answers": sum(
+                row["answers"][ARMS[0]] == row["answers"][arm] for row in inactive
+            ),
+        }
     summary: dict[str, object] = {
         "schema_version": "full-flow-f004-diagnosis-summary-v1",
         "status": "COMPLETE",
@@ -167,6 +188,7 @@ def diagnose_rows(
             ARMS[1]: {"correct": sum(bool(row["matches"][ARMS[1]]) for row in helped)},
             ARMS[2]: {"correct": sum(bool(row["matches"][ARMS[2]]) for row in helped)},
         },
+        "notes_activation": notes_activation,
         "by_g0_diagnosis": grouped("g0_diagnosis"),
         "by_reference_shape": grouped("reference_shape"),
     }

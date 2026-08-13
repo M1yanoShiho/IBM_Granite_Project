@@ -57,4 +57,5 @@ def test_diagnosis_counts_empty_recovery_and_selector_help_preservation() -> Non
     }
     assert summary["transition_counts"]["G1_vs_G0"]["0->1"] == 1
     assert summary["previous_selector_help_cases"]["G2_guided_notes"]["correct"] == 0
+    assert summary["notes_activation"]["G1_notes"]["active_queries"] == 1
     assert len(rows) == 1

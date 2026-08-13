@@ -61,6 +61,31 @@ def compare_to_topk(
                 "net": wrong_to_right - right_to_wrong,
             },
         }
+        active_ids: list[str] = []
+        for row in f004_rows:
+            query_id = str(row["query_id"])
+            arms = row["arms"]
+            if not isinstance(arms, Mapping) or not isinstance(arms[arm], Mapping):
+                raise ValueError(f"invalid notes row for {query_id}")
+            notes = arms[arm].get("notes", [])
+            if isinstance(notes, list) and notes:
+                active_ids.append(query_id)
+        active_wrong_to_right = sum(
+            off[q] == 0.0 and on[q] == 1.0 for q in active_ids
+        )
+        active_right_to_wrong = sum(
+            off[q] == 1.0 and on[q] == 0.0 for q in active_ids
+        )
+        active_result = output[arm]
+        assert isinstance(active_result, dict)
+        active_result["notes_active_subset"] = {
+            "queries": len(active_ids),
+            "topk_mean": sum(off[q] for q in active_ids) / len(active_ids),
+            "arm_mean": sum(on[q] for q in active_ids) / len(active_ids),
+            "wrong_to_right": active_wrong_to_right,
+            "right_to_wrong": active_right_to_wrong,
+            "net": active_wrong_to_right - active_right_to_wrong,
+        }
     return {
         "schema_version": "full-flow-f004-topk-comparison-v1",
         "status": "COMPLETE",

@@ -25,8 +25,11 @@ def test_compare_to_topk_reports_paired_transition() -> None:
             "query_id": "q1",
             "component_id": "c1",
             "arms": {
-                "G1_notes": {"generation": _generation("right")},
-                "G2_guided_notes": {"generation": _generation("right")},
+                "G1_notes": {"generation": _generation("right"), "notes": [{"slot": "X"}]},
+                "G2_guided_notes": {
+                    "generation": _generation("right"),
+                    "notes": [{"slot": "X"}],
+                },
             },
         }
     ]
@@ -37,4 +40,5 @@ def test_compare_to_topk_reports_paired_transition() -> None:
 
     assert report["comparisons"]["G1_notes"]["paired"]["delta"] == 1.0
     assert report["comparisons"]["G1_notes"]["transitions"]["net"] == 1
+    assert report["comparisons"]["G1_notes"]["notes_active_subset"]["queries"] == 1
     assert report["gold_loaded_at_runtime"] is False
