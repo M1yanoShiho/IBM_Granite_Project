@@ -14,14 +14,20 @@ section is current.
 
 | Question | Answer | Evidence |
 |---|---|---|
-| Which retriever by default? | **Hybrid (RRF)** over strong-bm25 + granite-dense | R2 (all three datasets), and R6 measured it end to end on real SciFact: system final document recall **0.6962 → 0.8051** |
+| Which retriever by default? | **Hybrid (RRF)** over strong-bm25 + granite-dense — the only arm measured significantly better at the *system* level, not just the retrieval level | R2 (all three datasets); ledger R7 (2Wiki, paired, +0.0425 p=0.0000 downstream); R6 (SciFact end to end, but two point estimates rather than a paired test) |
 | StrongBM25 or plain BM25? | **Not a quality decision — a latency one.** Pick StrongBM25 when query latency matters | R2 + NQ re-run: no MRR gain anywhere, *significantly worse* recall on NQ. R9: **~900× faster** on natural-language queries, because stopword postings are never scored |
 | Decomposition? | **No on SciFact/2Wiki. On NQ it is a trade** — buys ~+1.2pp pool recall, costs top-rank precision, at N extra LLM calls per query. Worth it only if the downstream consumes pool depth | R4 Steps 3–6 |
 | If decomposing anyway | `include_original` **on, everywhere**. `fusion="best-rank"` only where the full-query ranking is already strong. Weighting the original arm never beats plain strong-bm25 | R4 Steps 2–4 |
 | Chunking | `word` (120/20) is still the default, but **it is not the best setting measured** — at a fixed evidence budget, 60×10 beats it by +2.2pp (p=0.0008) and the optimum may be smaller still. Overlap is irrelevant anywhere in 0–60. `section` keeps tables intact but its retrieval effect is **unmeasured** | R10, R7 |
 | Scale | Query cost is proportional to the query's posting coverage, not to the corpus. Memory ≈ **1.06 GB per million chunks** | R9 |
 
-**Two cautions on reading the table.** The Hybrid and StrongBM25 rows rest on all three datasets;
+**Three cautions on reading the table.** Every downstream or "system-level" number in this
+report was produced with the **`extractive` generator**, which reports whether the answer string
+was *delivered* to the generator, not whether a model would use it. The experiment written to
+check that the ranking transmission survives a real generator (ledger R8) is pre-registered and
+has never run. Relatedly: transmission is real but **not sensitive** — a small upstream MRR gain
+(+0.0146, significant) did not reach significance downstream, so retrieval deltas of that size
+should not be quoted to another group as system gains. The Hybrid and StrongBM25 rows rest on all three datasets;
 the decomposition row rests on one dataset, but on four independently sampled corpus sizes within
 it (R11), so it is robust there without being shown to generalise. And the R9 latency
 and memory figures are from synthetic corpora: they size the effect and identify the mechanism,
@@ -767,8 +773,43 @@ Supporting numbers from the same run: retriever MRR 0.7047 (R2 measured 0.707 fo
 separate `top_k=50` run — an independent reproduction to three decimals), R@5 0.8051, selector
 conditional document recall 0.9201, cited document precision 0.2647.
 
-The point worth drawing out is the second row rather than the first. **Essentially all of the
-+0.1149 retrieval gain survives to the system output (+0.1089)** — the selector does not eat it.
+The point worth drawing out is the second row rather than the first: essentially all of the
++0.1149 retrieval gain appears at the system output too (+0.1089), so the selector does not eat it.
+
+**Status of that comparison, stated honestly: these are two point estimates from two runs, not a
+paired test.** The ledger's practice for exactly this kind of claim is paired randomization over
+per-case scores, and this comparison did not get it — the BM25 figures are the ones recorded in
+the shared plan in July, and nothing paired them against the Hybrid run case by case. Both runs
+exist, so the test is a few seconds of work and should be done before this is quoted as a
+measured system-level gain rather than a consistent one.
+
+**And it is not the first time the question was asked.** `docs/hpc-run-log.md` R7 measured
+transmission properly on 2Wiki across four retriever arms, and its findings both support and
+qualify the row above:
+
+- **Transmission is real, and it travels through the *ranking* channel rather than coverage.**
+  The clean control is `decompose vs bm25`, where the candidate pools are statistically
+  indistinguishable (Recall Δ −0.0024, p=0.3797) but the ranking collapses (MRR −0.3701) — and
+  downstream evidence delivery falls **−15.4pp (p=0.0000)**. Ranking collapse alone costs that
+  much, with the pool held constant.
+- **The mechanism is the top-50 → top-5 gate, and it is rank-gated.** Survival from pool to
+  selection is 0.626 for decompose against 0.873–0.885 for the other three, while the ratio of
+  answer to selected-recall stays flat (0.744–0.793). The arms differ in what survives the gate,
+  not in what is done with it afterwards.
+- **A small upstream gain does not show up downstream.** `strong-bm25 vs bm25` is significant
+  upstream (MRR +0.0146, p=0.0000) and **not** downstream (+0.0105, p=0.0513). So transmission
+  being real does not license promising system gains from small retrieval improvements — a
+  caution that belongs next to any MRR delta quoted to another group.
+- **Hybrid (RRF) is the only arm significantly better at the system level** (+0.0425, p=0.0000),
+  which is what turns "strongest retriever" into "strongest system", and is a firmer basis for the
+  recommendation than the unpaired SciFact comparison above.
+
+**One scope limit applies to every downstream number in this report, and it is easy to miss.**
+R7's arms, and the SciFact run above, all use the **`extractive` generator** — a toy that reports
+whether the answer string was *delivered*, not whether a model would use it. Ledger R8 was
+designed to re-run those arms with a real generator precisely to check whether the ranking
+transmission survives, and it is **pre-registered but never ran**. Until it does, every
+"system-level" claim here means *evidence delivery*, not answer quality.
 A retriever improvement that dies downstream would show up here as a large first row and a flat
 second one; that is not what happened, so switching the reference pipeline's retriever is a real
 end-to-end gain rather than a local one. Answer match stays unscored on both arms, so this says
