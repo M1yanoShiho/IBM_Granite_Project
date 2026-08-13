@@ -12,7 +12,7 @@
 | F003B | 关键事实读取 | 问题需求、notes-only、guided-notes | CONDITIONAL | COMPLETE | commit `9cb742f`；有限槽位、失败回退旧 draft |
 | F003C | 运行时证据准备度 | `READY/PARTIAL/CONFLICTED/UNKNOWN` | CONDITIONAL | NOT AUTHORISED | 只由问题和 selected evidence 估计；多跳组合失败占主导时才运行 |
 | F004 | 轻量 Generator 消融 | G0 当前、G1 notes-only、G2 guided notes | CONDITIONAL | COMPLETE-NO-GATE | G1−G0 +1.83 pp（4→2），但 G1−TopK −0.92 pp；G2−G1=0 |
-| F005 | 独立最终确认 | 冻结 Mixed-LoRA、未参与选择的数据、配对 CI | CONDITIONAL | AUTHORISED / PREFLIGHT | F006 已通过预设点估计门；先验证最终数据来源隔离与三组输入 |
+| F005 | 独立最终确认 | 冻结 Mixed-LoRA、未参与选择的数据、配对 CI | CONDITIONAL | SELECTION COMPLETE / GENERATION NEXT | sealed600 零 query-ID 重叠；600 题中改变 81 题、删除 82 条；选择时未读 gold |
 | F006 | 小规模鲁棒训练 | TopK、base notes、clean-only、mixed-context LoRA | CONDITIONAL | COMPLETE / DEV-PASS | Mixed 61.47%；比 Base +3.67 pp，比 Clean/TopK +2.75 pp；答案 CI 尚跨 0 |
 
 ## F002 结果路由

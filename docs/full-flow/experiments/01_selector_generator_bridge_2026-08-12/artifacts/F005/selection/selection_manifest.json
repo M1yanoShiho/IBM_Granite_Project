@@ -1,0 +1,17 @@
+{
+  "schema_version": "full-flow-f005-selection-manifest-v1",
+  "status": "COMPLETE",
+  "queries": 600,
+  "changed_queries": 81,
+  "dropped_candidates": 82,
+  "gold_loaded_at_runtime": false,
+  "selector_model_id": "cross-encoder/nli-deberta-v3-base",
+  "selector_revision": "6c749ce3425cd33b46d187e45b92bbf96ee12ec7",
+  "selector_checkpoint_sha256": "86622bd9ab6391c9eb560133b01b0cf3744c3706638ff8b0bd38925b84bf72bf",
+  "selector_state_sha256": "b47d78a920aca4a9b8191e30005175cf23e74a5ffe4159f86f1133f23e3b7f6c",
+  "safe_threshold": 0.9212157130241394,
+  "cap": 2,
+  "queries_sha256": "20a3f8d548aaf6713d1f1c514e548cf4a3b11f36062fe8c8747a8b09a81be748",
+  "candidate_pool_sha256": "777391fac4854448a47a7cdc9543cd77710b17f4e960084a26f4640f340ae590",
+  "selection_trace_sha256": "0ff16cb1c124ed6e8b6b027d3d22c6f3df2059e042079b6741860b7b22a8a299"
+}

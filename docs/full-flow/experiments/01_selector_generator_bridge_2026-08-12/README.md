@@ -31,3 +31,4 @@ Retriever → Selector → Generator
 - [F004 正式结果与停止决定](F004_RESULTS.md)
 - [F006 小规模鲁棒训练报告](F006_TRAINING_REPORT.md)
 - [F006 正式开发集结果](F006_RESULTS.md)
+- [F005 独立确认 Selector 阶段](F005_SELECTION_REPORT.md)

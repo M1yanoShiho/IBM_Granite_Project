@@ -22,5 +22,5 @@ F000–F004 已完成。F004 的普通关键事实笔记局部正向但整体未
 | F003B | [`F003_IMPLEMENTATION_REPORT.md`](F003_IMPLEMENTATION_REPORT.md)；问题需求/关键事实笔记实现 | COMPLETE，commit `9cb742f` |
 | F003C | 条件 `EvidenceReadiness` 实现与结果 | NOT AUTHORISED |
 | F004 | [`F004_RESULTS.md`](F004_RESULTS.md)；[`artifacts/F004/`](artifacts/F004/) 的 G0/G1/G2 输出、独立引用评分、失败转移诊断和 TopK 对照 | COMPLETE-NO-GATE |
-| F005 | 独立最终结果 | AUTHORISED / PREFLIGHT |
+| F005 | [`F005_SELECTION_REPORT.md`](F005_SELECTION_REPORT.md)；[`artifacts/F005/selection/`](artifacts/F005/selection/) 的冻结选择清单和逐题 trace | SELECTION COMPLETE / GENERATION NEXT |
 | F006 | [`F006_TRAINING_REPORT.md`](F006_TRAINING_REPORT.md)；[`F006_RESULTS.md`](F006_RESULTS.md)；[`artifacts/F006/`](artifacts/F006/) 的数据、训练、输出与独立引用评分 | COMPLETE / DEV-PASS |
