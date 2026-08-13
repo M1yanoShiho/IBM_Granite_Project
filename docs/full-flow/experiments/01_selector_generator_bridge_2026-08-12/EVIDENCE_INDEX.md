@@ -1,6 +1,6 @@
 # 证据与结果索引
 
-F000–F003B 已完成。F001 执行完整但方法未胜出；F002 批准的 F003A/F003B 已实施，F004 正在运行。
+F000–F004 已完成。F004 的普通关键事实笔记局部正向但整体未超过 TopK；G2 跨阶段风险信号无额外价值。F005 保持封存，F006 进入最小可行性检查。
 
 ## 已有上游证据
 
@@ -21,6 +21,6 @@ F000–F003B 已完成。F001 执行完整但方法未胜出；F002 批准的 F0
 | F003A | [`F003_IMPLEMENTATION_REPORT.md`](F003_IMPLEMENTATION_REPORT.md)；`SelectionGuidance` 接口、allowlist 与泄漏测试 | COMPLETE，commit `6d1b831` |
 | F003B | [`F003_IMPLEMENTATION_REPORT.md`](F003_IMPLEMENTATION_REPORT.md)；问题需求/关键事实笔记实现 | COMPLETE，commit `9cb742f` |
 | F003C | 条件 `EvidenceReadiness` 实现与结果 | NOT AUTHORISED |
-| F004 | G0/G1/G2 消融、独立引用评分、失败转移诊断 | RUNNING；runner commit `6d8f982` |
-| F005 | 独立最终结果 | NOT CREATED |
-| F006 | 条件训练配置、checkpoint 与结果 | NOT AUTHORISED |
+| F004 | [`F004_RESULTS.md`](F004_RESULTS.md)；[`artifacts/F004/`](artifacts/F004/) 的 G0/G1/G2 输出、独立引用评分、失败转移诊断和 TopK 对照 | COMPLETE-NO-GATE |
+| F005 | 独立最终结果 | SEALED / BLOCKED BY F004 |
+| F006 | 条件训练配置、checkpoint 与结果 | FEASIBILITY AUTHORISED / NOT RUN |

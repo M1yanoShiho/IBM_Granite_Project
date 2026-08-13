@@ -1,7 +1,7 @@
 # Selector–Generator 跨阶段桥接跟踪表
 
 **对应计划：** [PLAN.md](PLAN.md)
-**当前状态：** `F000 PASS / F001 COMPLETE-NO-WIN / F002 COMPLETE / F003A-B COMPLETE / F004 RUNNING`
+**当前状态：** `F000 PASS / F001 COMPLETE-NO-WIN / F002 COMPLETE / F003A-B COMPLETE / F004 COMPLETE-NO-GATE / F006 FEASIBILITY`
 
 | Run | 目的 | 比较/输出 | 优先级 | 状态 | 备注 |
 |---|---|---|---|---|---|
@@ -11,9 +11,9 @@
 | F003A | 传递但暂不使用跨阶段信号 | `SelectionGuidance` allowlist + 默认无信号回退 + gold 泄漏测试 | CONDITIONAL | COMPLETE | commit `6d1b831`；只承载 Selector 原生运行时信号 |
 | F003B | 关键事实读取 | 问题需求、notes-only、guided-notes | CONDITIONAL | COMPLETE | commit `9cb742f`；有限槽位、失败回退旧 draft |
 | F003C | 运行时证据准备度 | `READY/PARTIAL/CONFLICTED/UNKNOWN` | CONDITIONAL | NOT AUTHORISED | 只由问题和 selected evidence 估计；多跳组合失败占主导时才运行 |
-| F004 | 轻量 Generator 消融 | G0 当前、G1 notes-only、G2 guided notes | CONDITIONAL | RUNNING | 1 题 smoke PASS；109 题服务器作业已启动 |
-| F005 | 独立最终确认 | 冻结方法、未参与选择的数据、配对 CI | CONDITIONAL | TODO | `decision-dev` 不再是新方法盲测 |
-| F006 | 小规模鲁棒训练 | base、clean-only、mixed-context LoRA | CONDITIONAL | NOT AUTHORISED | 仅当前两阶段证实需要训练时启动 |
+| F004 | 轻量 Generator 消融 | G0 当前、G1 notes-only、G2 guided notes | CONDITIONAL | COMPLETE-NO-GATE | G1−G0 +1.83 pp（4→2），但 G1−TopK −0.92 pp；G2−G1=0 |
+| F005 | 独立最终确认 | 冻结方法、未参与选择的数据、配对 CI | CONDITIONAL | SEALED / BLOCKED | F004 未超过 TopK，不解封最终数据 |
+| F006 | 小规模鲁棒训练 | base、clean-only、mixed-context LoRA | CONDITIONAL | FEASIBILITY AUTHORISED | G1 有正向但不稳定案例；先检查数据隔离与工具，不等于已批准正式训练 |
 
 ## F002 结果路由
 
