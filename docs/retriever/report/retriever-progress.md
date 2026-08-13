@@ -18,7 +18,7 @@ section is current.
 | StrongBM25 or plain BM25? | **Not a quality decision — a latency one.** Pick StrongBM25 when query latency matters | R2 + NQ re-run: no MRR gain anywhere, *significantly worse* recall on NQ. R9: **~900× faster** on natural-language queries, because stopword postings are never scored |
 | Decomposition? | **No on SciFact/2Wiki. On NQ it is a trade** — buys ~+1.2pp pool recall, costs top-rank precision, at N extra LLM calls per query. Worth it only if the downstream consumes pool depth | R4 Steps 3–6 |
 | If decomposing anyway | `include_original` **on, everywhere**. `fusion="best-rank"` only where the full-query ranking is already strong. Weighting the original arm never beats plain strong-bm25 | R4 Steps 2–4 |
-| Chunking | `word` (120/20) remains the default and is unchanged. `section` exists for corpora with real structure but **is not yet measured** | R7 |
+| Chunking | `word` (120/20) is still the default, but **it is not the best setting measured** — at a fixed evidence budget, 60×10 beats it by +2.2pp (p=0.0008) and the optimum may be smaller still. Overlap is irrelevant anywhere in 0–60. `section` keeps tables intact but its retrieval effect is **unmeasured** | R10, R7 |
 | Scale | Query cost is proportional to the query's posting coverage, not to the corpus. Memory ≈ **1.06 GB per million chunks** | R9 |
 
 **Two cautions on reading the table.** The Hybrid and StrongBM25 rows rest on all three datasets;
@@ -38,6 +38,7 @@ but the real-corpus confirmation is still outstanding.
 | Retrieval cost at corpus scale | R5, then R9 |
 | Connecting to the shared three-module pipeline | R6 |
 | Chunking as a configurable choice | R7 |
+| How big a chunk should be, and how much overlap | R10 |
 | The frozen baseline that had stopped reproducing | R8 |
 | The inverted index: latency, and memory | R9 |
 | Open questions and what is blocked on whom | "The open question", "Next steps" |
@@ -649,6 +650,52 @@ harness.
 
 ---
 
+## R10 - How big should a chunk be, and how much should chunks overlap
+
+Both were swept on 2Wiki and both are recorded in `docs/hpc-run-log.md` (its R9 and R10 — note
+the ledger numbers its entries independently of this report, so *its* R9 is the chunk sweep while
+*this* document's R9 is the inverted index). Summarised here because these are measured results
+that change a production setting, and until now they lived only in the ledger while this report is
+what the other groups read.
+
+**Chunk granularity: the production value is not optimal, and the obvious way to measure it gives
+the wrong sign.** The headline is methodological. Sweeping `chunk_size` while holding
+`max_selected` fixed also changes how much *text* reaches the generator — 300 words at 60×5 against
+2400 at 480×5 — so the two arms differ in more than granularity. Run both ways (job `18329959`):
+
+| Sweep | Direction of `answer_match` as `chunk_size` grows |
+|---|---|
+| Volume uncontrolled (fixed `max_selected`) | **+0.0730 — "bigger is better"** |
+| **Volume controlled** (`chunk_size × max_selected ≡ 600` words) | **−0.1260 — smaller is better** |
+
+The confound does not inflate the effect, it **reverses it**. Under the controlled design the
+result is monotone toward small chunks — 60×10 = 0.5405, 120×5 = 0.5185, 200×3 = 0.4700,
+300×2 = 0.4145 — with all three contrasts significant against production (60×10 **+0.0220,
+p=0.0008**). **So `chunk_size=120` is measurably not the best setting**, and the best point tested
+sits on the scan's lower boundary, so the true optimum may be smaller still and is untested.
+Mechanism: the gain travels through final document recall almost one-for-one — more, smaller
+chunks cover more distinct gold documents, and answer quality follows coverage rather than
+precision.
+
+**Overlap: irrelevant across the range anyone would use.** Sweeping overlap alone at
+`chunk_size=120` (job `18357155`), against the production value of 20: overlap 0 (`+0.0015`,
+p=0.6916), 40 (`−0.0005`, p=1.0000) and 60 (`−0.0035`, p=0.2979) are all **statistically
+indistinguishable**; only 80 is significantly worse (`−0.0125`, p=0.0018) *and* costs ~3× the
+chunks. Sensitivity to overlap is an order of magnitude below sensitivity to granularity (span
+0.014 against 0.126). **Granularity is the knob; overlap is not.**
+
+That negative has content beyond "leave it alone". Overlap exists to stop an answer being cut at a
+chunk boundary, and raising it from 0 to 60 buys nothing — so **boundary cutting is not a
+meaningful factor in this setting**, and the granularity effect above cannot be explained by it.
+It has to be a coverage effect instead, which narrows what R9's result can be said to show.
+
+**Why this report has not acted on it yet.** Changing `chunk_size` changes `corpus_signature`,
+hence every persisted index and every recorded number, and the measurement is from 2Wiki alone.
+Moving production off 120 deserves confirmation on a second dataset first. It is recorded here so
+the default is understood to be a *pending* choice rather than a validated one.
+
+---
+
 ## The open question
 
 A still-unresolved risk on the ingestion side: hallucinated image captions are indistinguishable
@@ -788,8 +835,11 @@ does split the same table, so the justification is measured rather than assumed.
 Limitations, stated because they bound where this helps: Markdown only (ATX `#` headings,
 `|` table rows — reStructuredText, HTML tables and setext headings read as prose); an
 oversized table stays oversized (repeating the header row on each piece would be the fix, not
-implemented); and structural chunks do not overlap, so a fact spanning a section boundary is
-not duplicated into both.
+implemented); and structural chunks do not overlap, so a fact spanning a section boundary is not
+duplicated into both — though R10 below measured overlap to be irrelevant between 0 and 60 and
+boundary cutting not to be a meaningful factor, so on the closest evidence available this is
+probably not a real cost. The two boundary populations differ (a section break is a semantic
+break, an arbitrary word cut is not), so it is downgraded rather than dismissed.
 
 **Structural damage measured on real documents (2026-08-13), and it does not support both
 halves of the justification above.** `scripts/chunker_structure_audit.py` counts, per chunker,
