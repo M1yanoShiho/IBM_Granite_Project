@@ -5,6 +5,8 @@ REPO=/home/fl25387/projects/IBM_Granite_Project_latest
 RUNTIME=/scratch/fl25387/IBM_Granite_Project_latest
 PYTHON=$RUNTIME/envs/selector_mis_py311/bin/python
 OUT=$RUNTIME/runs/full-flow/F004
+F002_ROWS=$REPO/docs/full-flow/experiments/01_selector_generator_bridge_2026-08-12/artifacts/F001/F002_diagnosis_rows.jsonl
+GOLD=$REPO/runs/selector-beam-v1/pools/niah-dev/gold_cases.jsonl
 MINICHECK=$RUNTIME/model-cache/models--lytang--MiniCheck-Flan-T5-Large/snapshots/96eafd01cee2d16cf81aaa2fb226b14f422a37b3
 MAIN_PID=${1:?pass the F004 runner PID}
 
@@ -27,3 +29,11 @@ done
   --output-json "$OUT/citation_report.json" \
   --output-rows "$OUT/citation_per_case.jsonl" \
   --output-report "$OUT/CITATION_REPORT.md"
+
+"$PYTHON" "$REPO/scripts/full_flow_f004_diagnose.py" \
+  --generations "$OUT/generations.jsonl" \
+  --f002-rows "$F002_ROWS" \
+  --gold "$GOLD" \
+  --output-json "$OUT/diagnosis_summary.json" \
+  --output-rows "$OUT/diagnosis_rows.jsonl" \
+  --output-report "$OUT/DIAGNOSIS_REPORT.md"
