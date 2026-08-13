@@ -28,7 +28,7 @@ cannot verify that the evidence supports the claim, which stays a human job.
 | Decomposition? | **No on SciFact/2Wiki. On NQ it is a trade** — buys ~+1.2pp pool recall, costs top-rank precision, at N extra LLM calls per query. Worth it only if the downstream consumes pool depth | R4 Steps 3–6 |
 | If decomposing anyway | `include_original` **on, everywhere**. `fusion="best-rank"` only where the full-query ranking is already strong. Weighting the original arm never beats plain strong-bm25 | R4 Steps 2–4 |
 | Chunking | `word` (120/20) is still the default, but **it is not the best setting measured** — at a fixed evidence budget, 60×10 beats it by +2.2pp (p=0.0008) and the optimum may be smaller still. Overlap is irrelevant anywhere in 0–60. `section` keeps tables intact but its retrieval effect is **unmeasured** | R10, R7 |
-| Scale | Query cost is proportional to the query's posting coverage, not to the corpus. Memory ≈ **7.8 GB per million chunks** on real prose (an earlier figure of 1.06 GB came from a synthetic corpus and was ~7× optimistic) | R9 |
+| Scale | **Query cost still grows faster than the corpus** — 16× the corpus gave 32.7× the latency on real NQ questions, so the inverted index bought a constant factor, not better asymptotics. Memory per chunk *is* flat: ≈ **5.0 GB per million chunks** on NQ, ≈ 7.8 on our own Markdown | R9, ledger R13 |
 
 **Three cautions on reading the table.** Every downstream or "system-level" number in this
 report was produced with the **`extractive` generator**, which reports whether the answer string
@@ -598,6 +598,35 @@ coverage on the same 8000-chunk corpus.
 **So the honest correction to R5:** an inverted index does not remove the linearity. It makes
 the cost proportional to what the query actually asks for, and the linearity survives exactly
 to the extent that the query asks for common terms.
+
+**Corrected again 2026-08-13 by ledger R13, on real data at scale — and the correction goes
+further than the one above.** Everything in this section up to here was measured on synthetic
+corpora. Re-run on real NQ questions across a 16× span of a real corpus (12,500 → 200,000
+chunks, one node, one allocation):
+
+| chunks | mean ms | p50 ms | p95 ms | ms / 1k chunks |
+|---|---|---|---|---|
+| 12,500 | 3.4 | 2.2 | 12.8 | 0.27 |
+| 50,000 | 17.9 | 8.3 | 61.9 | 0.36 |
+| 200,000 | 110.4 | 54.2 | 385.6 | **0.55** |
+
+16× the corpus gives **32.7×** the mean latency and 24.4× the median — an exponent near
+1.15–1.3, with cost per thousand chunks *doubling* across the span. **For a real workload the
+inverted index is not sub-linear; it is worse than linear.** The mechanism above is intact —
+cost does track posting coverage — but the inference drawn from it was wrong, because real
+questions carry high-coverage terms whose posting lists grow with the corpus, and the
+accumulator's cache behaviour degrades on top of that.
+
+**What survives is the constant factor, not the asymptotics.** That is still worth having, but
+it is a different claim from the one this section was built to make, and the section title's
+promise — "what it actually buys" — is answered by that sentence rather than by the synthetic
+tables above.
+
+Two further readings. **The tail degrades faster than the mean** (p95 12.8 → 385.6 ms, 30×,
+against the median's 24×), so at 200k chunks p95 is already near 0.4 s per query and any
+mean-only report hides it. And **memory behaves oppositely and well**: bytes per chunk are flat
+across the same span (5245 → 4949, −5.6%), so per-chunk extrapolation is sound where latency
+extrapolation is not.
 
 **A consequence worth acting on: the analyzer is now a cost decision, not only a quality one.**
 Stopword filtering removes precisely the highest-coverage terms, so it should benefit more from
