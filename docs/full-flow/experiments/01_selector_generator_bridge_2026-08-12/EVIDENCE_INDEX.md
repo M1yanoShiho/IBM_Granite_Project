@@ -1,6 +1,6 @@
 # 证据与结果索引
 
-F000–F004 已完成。F004 的普通关键事实笔记局部正向但整体未超过 TopK；G2 跨阶段风险信号无额外价值。F006 的 Clean/Mixed 两组 LoRA 已完成训练，109 题正式 development 比较正在运行；F005 在通过预先冻结的门槛前仍保持封存。
+F000–F004 已完成。F004 的普通关键事实笔记局部正向但整体未超过 TopK；G2 跨阶段风险信号无额外价值。F006 的 Mixed-LoRA 在 109 题 development 比较中同时超过 Base、Clean 和 TopK，开发门通过；F005 已获准进行数据隔离与运行前检查。
 
 ## 已有上游证据
 
@@ -22,5 +22,5 @@ F000–F004 已完成。F004 的普通关键事实笔记局部正向但整体未
 | F003B | [`F003_IMPLEMENTATION_REPORT.md`](F003_IMPLEMENTATION_REPORT.md)；问题需求/关键事实笔记实现 | COMPLETE，commit `9cb742f` |
 | F003C | 条件 `EvidenceReadiness` 实现与结果 | NOT AUTHORISED |
 | F004 | [`F004_RESULTS.md`](F004_RESULTS.md)；[`artifacts/F004/`](artifacts/F004/) 的 G0/G1/G2 输出、独立引用评分、失败转移诊断和 TopK 对照 | COMPLETE-NO-GATE |
-| F005 | 独立最终结果 | SEALED / BLOCKED BY F004 |
-| F006 | [`F006_TRAINING_REPORT.md`](F006_TRAINING_REPORT.md)；[`artifacts/F006/`](artifacts/F006/) 的数据、训练和 adapter 配置清单；正式结果待补 | TRAINING COMPLETE / EVALUATING |
+| F005 | 独立最终结果 | AUTHORISED / PREFLIGHT |
+| F006 | [`F006_TRAINING_REPORT.md`](F006_TRAINING_REPORT.md)；[`F006_RESULTS.md`](F006_RESULTS.md)；[`artifacts/F006/`](artifacts/F006/) 的数据、训练、输出与独立引用评分 | COMPLETE / DEV-PASS |
