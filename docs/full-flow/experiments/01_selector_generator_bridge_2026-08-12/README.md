@@ -1,7 +1,7 @@
 # 01 — Selector–Generator 跨阶段桥接
 
 **日期：** 2026-08-12
-**状态：** `F000 PASS / F001 COMPLETE-NO-WIN / F002 COMPLETE / F003A-B AUTHORISED`
+**状态：** `F000 PASS / F001 COMPLETE-NO-WIN / F002 COMPLETE / F003A-B COMPLETE / F004 RUNNING`
 
 ## 零基础说明
 
@@ -27,3 +27,4 @@ Retriever → Selector → Generator
 - [证据与结果入口](EVIDENCE_INDEX.md)
 - [F000 联合实验入口冻结报告](F000_IMPLEMENTATION_REPORT.md)
 - [F001/F002 联合结果与问题归因](F001_F002_RESULTS.md)
+- [F003A/F003B 实施报告](F003_IMPLEMENTATION_REPORT.md)
