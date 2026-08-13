@@ -32,7 +32,6 @@ from evidence_rag.generator.attribution import Attributor, EntityMismatchRecord
 from evidence_rag.generator.models import Claim, ClaimSpan, DraftAnswer
 from evidence_rag.generator.nli import DebertaNLIModel
 
-
 # --------------------------------------------------------------------------- #
 # Fixtures: one DraftAnswer + one SelectedEvidenceSet, realistic enterprise
 # phrasing (company + year + money) so the entity normalizer actually runs.

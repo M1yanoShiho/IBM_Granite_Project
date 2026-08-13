@@ -33,7 +33,6 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any
 
 from evidence_rag.contracts.models import Document
 from evidence_rag.infrastructure.corpus import _parse_blocks, build_chunker
