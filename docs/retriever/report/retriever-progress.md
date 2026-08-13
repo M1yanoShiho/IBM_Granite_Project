@@ -15,7 +15,7 @@ section is current.
 | Question | Answer | Evidence |
 |---|---|---|
 | Which retriever by default? | **Hybrid (RRF)** over strong-bm25 + granite-dense — the only arm measured significantly better at the *system* level, not just the retrieval level | R2 (all three datasets); ledger R7 (2Wiki, paired, +0.0425 p=0.0000 downstream); R6 (SciFact end to end, but two point estimates rather than a paired test) |
-| StrongBM25 or plain BM25? | **Not a quality decision — a latency one.** Pick StrongBM25 when query latency matters | R2 + NQ re-run: no MRR gain anywhere, *significantly worse* recall on NQ. R9: **~900× faster** on natural-language queries, because stopword postings are never scored |
+| StrongBM25 or plain BM25? | **Not a quality decision — a latency one.** Pick StrongBM25 when query latency matters | R2 + NQ re-run: no MRR gain anywhere, *significantly worse* recall on NQ. R9: **1.8–3.1× faster** on real text depending on how many stopwords the query carries (an earlier "~900×" came from synthetic text and is retracted) |
 | Decomposition? | **No on SciFact/2Wiki. On NQ it is a trade** — buys ~+1.2pp pool recall, costs top-rank precision, at N extra LLM calls per query. Worth it only if the downstream consumes pool depth | R4 Steps 3–6 |
 | If decomposing anyway | `include_original` **on, everywhere**. `fusion="best-rank"` only where the full-query ranking is already strong. Weighting the original arm never beats plain strong-bm25 | R4 Steps 2–4 |
 | Chunking | `word` (120/20) is still the default, but **it is not the best setting measured** — at a fixed evidence budget, 60×10 beats it by +2.2pp (p=0.0008) and the optimum may be smaller still. Overlap is irrelevant anywhere in 0–60. `section` keeps tables intact but its retrieval effect is **unmeasured** | R10, R7 |
@@ -591,15 +591,32 @@ the cost proportional to what the query actually asks for, and the linearity sur
 to the extent that the query asks for common terms.
 
 **A consequence worth acting on: the analyzer is now a cost decision, not only a quality one.**
-Stopword filtering removes precisely the highest-coverage terms, so it should benefit far more
-from postings than plain tokenisation. Predicted, then measured on prose-like text (~45%
-stopwords, 8000 chunks, natural-language queries): BM25 **9.12 ms/query**, StrongBM25
-**0.01 ms/query** — roughly **900×**.
+Stopword filtering removes precisely the highest-coverage terms, so it should benefit more from
+postings than plain tokenisation. The direction is right and the magnitude first reported was
+not.
 
-That reframes R2's verdict on StrongBM25. R2 found it is not a reliable *quality* win (and the
-NQ re-run above shows it is significantly worse on recall there). With an inverted index it is
-a large *latency* win on natural-language queries, because it never scores the stopword
-postings at all. Those are separate axes and should be recommended separately.
+**Corrected 2026-08-13 on real text.** The first measurement used prose-*like* synthetic text —
+45% stopwords drawn from a 13-word list, so every stopword's postings covered essentially the
+whole corpus, while content terms were Pareto-drawn and therefore very rare. That is a
+manufactured extreme, and it produced BM25 9.12 ms/query against StrongBM25 0.01, "roughly
+900×". Re-run on the 121 real Markdown documents (1345 chunks), with two query styles to
+separate the corpus from the queries:
+
+| Query style | BM25 | StrongBM25 | Ratio |
+|---|---|---|---|
+| Real headings (few stopwords) | 0.42 ms | 0.24 ms | **1.8×** |
+| Natural questions (stopword-bearing) | 0.89 ms | 0.29 ms | **3.1×** |
+
+The mechanism survives — more stopwords in the query, bigger advantage — but the size is
+**1.8–3.1×, not ~900×**. The inverted index's own advantage over the full scan on the same real
+corpus is **3.9×** (BM25) and **5.7×** (StrongBM25), against the synthetic run's 1.4× for common
+terms and ~680× for rare ones: real queries fall between those manufactured extremes rather than
+near either.
+
+That still reframes R2's verdict on StrongBM25 — it is not a reliable *quality* win, and is
+significantly worse on NQ recall, while being a consistent if modest *latency* win — but "large"
+was the synthetic corpus talking. **Note also that 1345 chunks is small; the claim that rare-term
+cost is flat in corpus size has not been retested on real text at scale.**
 
 ### Limitations
 
