@@ -1,0 +1,30 @@
+# R14: does "smaller chunks are better at a fixed evidence budget" replicate on NQ?
+# Mirrors the 2Wiki set B of ledger R9 exactly -- same design, same retriever, same budget
+# (chunk_size x max_selected == 600 words), only the dataset differs. Everything except
+# [chunker] and max_selected is identical across the four points, so any difference is
+# attributable to granularity at a constant evidence volume rather than to volume itself,
+# which ledger R9 showed reverses the sign of the effect if left uncontrolled.
+[dataset]
+manifest = "../../runs/niah-base/manifest.json"
+
+[output]
+directory = "../../runs/chunk-nq-b-c60o10"
+
+[retriever]
+name = "strong-bm25"
+parameters = { k1 = 0.9, b = 0.4 }
+
+[selector]
+name = "top-k"
+
+[generator]
+name = "extractive"
+
+[chunker]
+chunk_size = 60
+overlap = 10
+
+[run]
+top_k = 50
+max_selected = 10
+seed = 7

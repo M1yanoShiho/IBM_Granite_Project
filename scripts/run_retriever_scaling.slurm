@@ -33,9 +33,20 @@ export PYTHONPATH=src PYTHONUNBUFFERED=1
 
 MANIFEST="${1:-data/benchmarks/scifact/test/manifest.json}"
 OUTPUT="${2:-results/retriever-scaling-scifact.json}"
+# Sizes are document-count prefixes of one corpus, so the points are strictly nested --
+# unlike R11's separately sampled corpora, composition cannot drift with size here.
+SIZES="${3:-500 1000 2000 3000 4000 5183}"
 
 python scripts/retriever_scaling.py \
   --manifest "$MANIFEST" \
-  --sizes 500 1000 2000 3000 4000 5183 \
+  --sizes $SIZES \
   --queries 50 \
   --output "$OUTPUT"
+
+# Memory in the same allocation, on the same node, against the same corpus. R6b's lesson was
+# that a paired comparison split across nodes measures the nodes; reading a latency curve and
+# a memory curve as one picture has the same requirement.
+python scripts/retriever_memory.py \
+  --manifest "$MANIFEST" \
+  --sizes $SIZES \
+  --output "${OUTPUT%.json}-memory.json"
