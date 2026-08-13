@@ -669,7 +669,9 @@ what ultimately trusts (or doesn't) the retrieved caption.
 - **Finding edge cases where retrieval fails:** done for the clearest one. Decompose on multi-hop is
   a measured, mechanistically explained failure with a quantified partial fix — not a hypothesis.
 - **Hallucinated-caption risk:** OCR path verified to work functionally (R3), but hallucination
-  *rate* on real documents is still unmeasured. Still needs a sync with the Generator student,
+  *rate* on real documents is **still unmeasured — the one item from this feedback round that has
+  not moved**, and the only one that cannot be moved by the retriever side alone. Needs a sync
+  with the Generator student,
   since the risk spans both modules. Reading the OCR raw did surface a concrete related defect: the
   OCR engine misread `2023 TO 2024` as `2023 T0 2024` on a clean synthetic figure while the Vision
   caption read it correctly, so one document can carry two contradictory readings of the same
@@ -678,11 +680,17 @@ what ultimately trusts (or doesn't) the retrieved caption.
   now the default, failures are logged rather than swallowed, and the parse path honours
   `on_error` — which it previously ignored, so a single corrupt file used to abort a whole
   ingest. Ids moved to relative paths so recursion cannot silently collide them.
-- **Performance at larger corpus sizes:** **done, with a fix landed** (2026-08-05/06, see R5).
-  Cost is linear in corpus size with no sub-linear region, which puts a million-document corpus
-  at roughly 29 s/query — measured, not guessed. The per-query constant has since been cut
-  **5.27–5.40×** with bit-for-bit identical output. What remains is the asymptotics, which only
-  an inverted index changes.
+- **Performance at larger corpus sizes:** **done** (R5, then R9). R5 measured the cost as linear
+  in corpus size with no sub-linear region — roughly 29 s/query at a million documents, measured
+  rather than guessed — and cut the per-query constant **5.27–5.40×** with bit-for-bit identical
+  output. R9 then built the inverted index R5 said was the only thing that could change the
+  asymptotics, **and corrected that premise**: it does not remove the linearity, it makes cost
+  proportional to the query's own postings, so the linearity survives exactly to the extent the
+  query asks for common terms. A consequence worth acting on came out of it — the analyzer is now
+  a cost decision as well as a quality one, with stopword filtering worth ~900× on prose queries.
+  Memory, which R5 flagged as unmeasured and then withdrew an estimate for, is now measured with
+  the right instrument: **~1.06 GB per million chunks**, and the inverted index turns out to use
+  ~6.3× *less* memory than the forward index it replaced, not more.
 
 ---
 
