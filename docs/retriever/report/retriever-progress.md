@@ -819,11 +819,38 @@ and two of them go against this section's own case:
    boundaries. More chunks means a larger index and more candidates competing for the same top-k.
    That cost belongs next to the benefit.
 
-**And an obvious cheaper alternative was never compared.** Simply raising `chunk_size` to 240
-takes table splitting from 46.7% to 13.9% with *no new chunker at all* — while also producing
-about half as many chunks as `section`. That is not free either (coarser chunks change what the
-selector receives), but a fair case for `section` has to beat tuning the number that already
-exists, and this report never asked it to.
+**~~And an obvious cheaper alternative was never compared.~~ Retracted the same day — it was
+never cheap, and it had already been measured.** The claim was that simply raising `chunk_size`
+to 240 takes table splitting from 46.7% to 13.9% with no new chunker. The rate is right; the
+recommendation was wrong, and it was wrong because I proposed it without checking our own ledger.
+
+`docs/hpc-run-log.md` R9 swept chunk granularity on 2Wiki (job `18329959`) **with evidence volume
+held constant**, which is the only way to read such a sweep — the same entry records that not
+controlling volume *reverses the sign* of the effect. At a fixed 600-word budget, end-to-end
+`answer_match` is **monotone toward smaller chunks**: 60×10 = 0.5405, 120×5 = 0.5185, 200×3 =
+0.4700, 300×2 = 0.4145, all three contrasts significant against the production value (60×10 is
+**+2.2pp, p=0.0008**), with the optimum sitting on the scan's lower boundary and therefore
+possibly smaller still. **Raising `chunk_size` is a measured-worse direction, not a free fix.**
+
+Putting that beside the audit above turns the argument around rather than weakening it:
+
+| chunk_size | `word` splits tables | Answer quality (R9, fixed budget) |
+|---|---|---|
+| 40 | 96.5% | better still (extrapolated) |
+| 60 | 82.1% | **best measured** |
+| 120 | 46.9% | production baseline |
+| 240 | 13.9% | significantly worse |
+
+**The direction that helps answers is exactly the direction that destroys tables.** At the
+empirically best granularity tested, a word window splits **82% of tables**. So `section` is not
+competing against "just tune the number" — tuning the number toward what actually helps makes the
+structural damage worse, and `section` is the only option here that takes small chunks *and* keeps
+tables whole, because its boundaries come from structure and an oversized table is left oversized
+rather than cut.
+
+Two honest limits on that synthesis: R9 was run on 2Wiki, which is prose with no tables, so it
+constrains the granularity direction but says nothing directly about structured corpora; and
+`section`'s +42% chunk-count cost above still stands and is still unpriced.
 
 **Retrieval quality remains unmeasured**, and this does not change that: structural damage is
 the mechanism, not the outcome. Quality needs queries and gold labels, which a directory of
