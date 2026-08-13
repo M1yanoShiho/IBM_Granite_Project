@@ -791,10 +791,45 @@ oversized table stays oversized (repeating the header row on each piece would be
 implemented); and structural chunks do not overlap, so a fact spanning a section boundary is
 not duplicated into both.
 
-**Not yet measured.** Whether this improves retrieval is an open question, not a claim — it
-needs a corpus with real structure to show anything, and SciFact/2Wiki have none. The PDF
-ingestion path (`pdf_mode = "pages"`, which emits Markdown) is where it should first be
-compared against `word` on equal footing.
+**Structural damage measured on real documents (2026-08-13), and it does not support both
+halves of the justification above.** `scripts/chunker_structure_audit.py` counts, per chunker,
+how many tables end up split across chunks and how many headings end up separated from the
+section they title. Run over the 121 Markdown documents in `docs/` — real documents with real
+tables and real heading hierarchies, if not a customer corpus:
+
+| chunk_size | `word` splits tables | `word` severs headings | chunks: `section` vs `word` |
+|---|---|---|---|
+| 40 | 96.5% | 12.5% | 6403 vs 5713 (+12%) |
+| 60 | 82.1% | 2.5% | 4667 vs 3898 (+20%) |
+| **120 (default)** | **46.7%** | **0.0%** | 2790 vs 1971 (**+42%**) |
+| 240 | 13.9% | 0.0% | 1971 vs 1013 (+95%) |
+
+`section` splits no table and severs no heading at any setting, by construction. Three readings,
+and two of them go against this section's own case:
+
+1. **The table claim holds and is large.** At the default 120/20, a word window cuts **nearly
+   half of all tables** in real documents. That is not a corner case invented by a fixture.
+2. **The heading claim does not hold at the configuration actually in use.** Severance is
+   **0.0%** at 120 and 240, and only appears below ~60 words. A cut has to land in the few tokens
+   between a heading and its body, which at a 100-word step is rare. The synthetic fixture made
+   this look like a co-equal failure mode; on real documents at the default it is not one. Written
+   up as one of two justifications, it should have been one.
+3. **`section` is not free, and R7 above did not say so.** It produces **+42% more chunks** at the
+   default, and +95% at 240 — chunk count grows because structure, not a word budget, sets the
+   boundaries. More chunks means a larger index and more candidates competing for the same top-k.
+   That cost belongs next to the benefit.
+
+**And an obvious cheaper alternative was never compared.** Simply raising `chunk_size` to 240
+takes table splitting from 46.7% to 13.9% with *no new chunker at all* — while also producing
+about half as many chunks as `section`. That is not free either (coarser chunks change what the
+selector receives), but a fair case for `section` has to beat tuning the number that already
+exists, and this report never asked it to.
+
+**Retrieval quality remains unmeasured**, and this does not change that: structural damage is
+the mechanism, not the outcome. Quality needs queries and gold labels, which a directory of
+documents does not provide. The honest ordering is that the mechanism is now shown to be real
+at the default setting for tables, and that is the ground on which a quality experiment would
+be worth running — against `chunk_size=240`, not only against 120.
 
 ## R8 - The committed frozen baseline had stopped reproducing, and nothing noticed
 
