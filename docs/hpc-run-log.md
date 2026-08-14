@@ -4804,10 +4804,22 @@ overlap = chunk_size/6,`chunk_size × max_selected ≡ 600 词`,retriever 全程
 **⚠️ 本条不测什么:** 不测 set A(不控制体积的那组)。R9 已经证明不控制体积会把符号翻过来,
 重跑一遍只会重复一个已知的错误答案,浪费机时。
 
-**命令:**
+**命令(⚠️ 修正于 2026-08-13,首次提交用错了脚本):**
+
+`run_retriever_eval.slurm` 只跑 `prepare → retriever`,**不产生 `generator_report.json`**,
+而本条的主指标 `answer_match` 是系统级指标,必须走完整 pipeline。首次提交(job 18445256)
+用了它:四个臂的检索部分正常完成,锚点自检也**逐位通过**(MRR .8153 / Recall .9098),
+但读数时才发现根本没有 generator 报告。**台账 R9 用的是 `run_pipeline_eval.slurm`,
+并以 `--partition=compute --gres=none` 覆盖到 CPU 分区** —— 本条照抄即可。
+
+重交前须先归档已有产物:`prepare` 对已存在的输出目录做严格校验(含 `source_tree_signature`),
+源码树自那次运行后变过,直接重交会失败(与 job 18380601 同一种失败)。
 
 ```bash
-sbatch scripts/run_retriever_eval.slurm \
+mkdir -p runs/_archive-$(date +%Y%m%d)
+mv runs/chunk-nq-b-c{60o10,120o20,200o33,300o50} runs/_archive-$(date +%Y%m%d)/
+sbatch --partition=compute --gres=none --time=04:00:00 \
+  scripts/run_pipeline_eval.slurm \
   configs/experiments/chunk_nq_b-c{60o10,120o20,200o33,300o50}.toml
 # 读数(login node):
 python -m evidence_rag.evaluation.paired_metric_cli \
