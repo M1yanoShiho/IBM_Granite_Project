@@ -5179,3 +5179,85 @@ passage 不被切开时,答案与查询词必然同处一块,无从分离。
 - **写给 results-summary 的草稿:标题应是
   "chunk_size 低于语料原生 passage 长度时,文档覆盖与答案命中脱钩" ——
   它同时解释了 R9 与 R14 的符号相反,比任一条单独的参数结论都更可迁移。**
+
+### R16 — 含答案的块去哪了:没检索到,还是检索到了没被选中 [PRE-REGISTERED 2026-08-14]
+
+**动机:R15 确证了阈值的位置,同日的更正又推翻了它对成因的说法,缺口是被本条重新打开的,不是遗留的。**
+R15 证明 `chunk_size` 低于源 passage 长度时 CMR 从 0.0000 跳到 0.0668,并用 chunk 计数
+(1.000 对 2.002)把"passage 被切成两半"坐实为事实。但同日的算术更正表明**答案从未被物理切断**
+(完整包住阈值 = `overlap` = 10/20/33/50 词,NQ 答案最长 5 词)。
+**⇒ 含答案的块一直存在,它只是没有出现在最终的十条证据里。本条问的就是它去哪了。**
+
+**本条提交时机声明:按 R15 记下的规矩,本预注册在作业/读数之前单独提交。**
+
+**评分链的三个事实(读设计前须先认,均来自代码而非推测):**
+1. `ExtractiveGenerator.generate` 把**每个选中 chunk 的全文原样拼接**,块间以 `\n- ` 和
+   `[evidence_id]` 分隔 ⇒ `answer_match == 1` **等价于**"gold 答案串完整落在**某一个**选中的
+   chunk 内",跨块拼接会被分隔符打断。
+2. 同函数把 `cited_evidence_ids` 设为**全部** selected ⇒ **`cited` 文档集恒等于 `selected` 文档集**。
+   R15 观测到的"两种条件口径逐位相同"由此有了代码依据,不再只是巧合。
+3. `[selector] name = "top-k"` ⇒ 选择就是按检索序截断到 `max_selected`(本臂 = 10),
+   `top_k = 50`。**"没被选中"因此精确地等于"检索名次 > 10"。**
+
+**总体(population):** `runs/chunk-nq-b-c60o10` 中同时满足 gold 文档已被选中
+(`generator.core.conditional_answer_match` 非空)与 `system.core.answer_match == 0` 的 case,
+即 R15 测得的那 CMR 群体,**n ≈ 1782 × 0.0668 ≈ 119**。这是 NQ 四臂中唯一 CMR > 0 的臂;
+另外三臂 CMR 恰好 0.0000,**没有 case 可分类,这本身就是本条的退化对照**。
+
+**分类(对每个 case,在其 top-50 候选表内扫描"含答案的块" —— 即归一化文本包含归一化 gold 答案的
+候选;归一化必须复用 `evidence_rag.evaluation.scoring` 的 `_normalise`,不得另写):**
+
+- **B2a 同源丢失** —— 存在含答案的候选,且它与某个已选中 chunk **共享 `document_id`**。
+  即:passage 被切成两半,选中的是含查询词的那半,答案在另一半。
+- **B2b 他源丢失** —— 存在含答案的候选,名次落在 11–50,但与任何已选中 chunk **不同源**。
+- **B1 检索失败** —— top-50 内**不存在**任何含答案的候选。
+- **C 不适用** —— 全语料内不存在含答案的块。该 case 与 chunking 无关,须单列并**排除出 B 的分母**。
+
+**假设 H16:B2a 占主导,预注册阈值为 > 60%。**
+理由:`top_k = 50` 对 20 万块的语料相当宽松,gold passage 的两半通常都能进候选表;
+真正的损失发生在 50 → 10 的截断处,而截断按查询词打分,系统性地偏向不含答案的那半。
+
+**证伪路径(读数前写定):**
+
+- **证伪 A —— B1 占主导:** 含答案的半块**连候选表都进不去**。
+  ⇒ 病灶在检索侧而非选择侧,`top_k = 50` 是绑定约束;修法是提高 `top_k` 或让打分看得到 parent,
+  **而不是改 selector**。这会把后续工作整个换一个方向,是最有价值的一种否定。
+- **证伪 B —— C 占比 > 5%:** 说明 R15 更正里那段算术有漏洞,或 `answer_match` 的归一化
+  与本条假定不符。**此时本条的其余结论一律不得采信,须先重新推导。**
+- **证伪 C —— B2b 占主导:** 损失与"被切开的 passage"无关,答案在另一篇文档里且名次 11–50。
+  ⇒ 现象不是同源半块问题,R15 的阈值叙事须重新审视。
+
+**次要记录(仅记录,不作判据):** 各 case 中**名次最靠前的含答案候选**的名次分布。
+若 B2a 成立,预期其密集堆在 11 附近;若大量散布在 40–50,则即使分类命中,
+"只差一点点"的叙事也不成立,提高 `max_selected` 的收益会远小于直觉。
+
+**跨数据集对照(仅记录,不作 H16 判据):** 对 `runs/chunk-2wiki-b-c60o10` 跑同一分类
+(该臂 CMR = 0.4590,n ≈ 917)。2Wiki 是多跳,一个 case 需要两篇 gold 文档,
+**失败可以有与切分无关的原因**,故不能用来判 H16;记录它是为了看该机制是否跨数据集成立。
+
+**⚠️ 本条不测什么:**
+- **不测 overlap。** 提高 overlap 是这个病最直觉的解药,但把解药和诊断混在一起,
+  就无法分辨"症状缓解"与"病因查清"。**overlap 是独立的一条,不进本条。**
+- **不换语料。** "chunk_size 不得低于原生 passage 长度"在第二个预切语料上的复现留给 R17。
+  **R16 填的是刚被打开的因果空洞,R17 拓宽的是已有硬证据的事实 —— 故 R16 在前。**
+- **不产出生产建议。** R14 已解除改动 `chunk_size=120` 的理由,本条只解释,不建议。
+
+**成本:零 GPU,零新作业。** 所需字段全在 `pipeline_runs.jsonl` 的候选记录内
+(`text` / `document_id` / `retrieval_rank`),配 `gold_cases.jsonl` 的 `reference_answers` 即可。
+按行流式读取,不整份载入。
+
+**命令(login node):**
+
+```bash
+PYTHONPATH=src python scripts/answer_chunk_forensics.py \
+  --run runs/chunk-nq-b-c60o10 \
+  --report runs/chunk-nq-b-c60o10/evaluation_report.json
+# 跨数据集对照:
+PYTHONPATH=src python scripts/answer_chunk_forensics.py \
+  --run runs/chunk-2wiki-b-c60o10 \
+  --report runs/chunk-2wiki-b-c60o10/evaluation_report.json
+```
+
+**⚠️ 前置:`scripts/answer_chunk_forensics.py` 尚不存在,须先写并提交。
+它必须 import `evidence_rag.evaluation.scoring` 的归一化函数,不得自行实现 —— 本条的全部判据
+都建立在"与 `answer_match` 使用同一归一化"之上,重写一份就等于换了指标。**
