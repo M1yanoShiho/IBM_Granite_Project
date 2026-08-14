@@ -5392,3 +5392,101 @@ passage"而写(防止 `independent_support` 把同源 passage 当成独立票数
   **(a)"把 passage 切小,丢的不是答案文本,是答案的可检索性"(主结论,跨两个数据集成立);**
   **(b)"2Wiki 上有一成的题,`answer_match` 只在测答案词是不是常见英语词" ——
   这是一条关于指标而非关于检索的发现,应写进指标一节,不是检索一节。**
+
+### R17 — R9→R16 这条链跑的全是 strong-bm25,它对生产的混合检索还成立吗 [PRE-REGISTERED 2026-08-14]
+
+**赌注:这一条若否定,前面五条对生产系统的适用性一起失效。**
+R9 / R11 / R12 / R14 / R15 / R16 全部只在 `strong-bm25` 上测得,而**生产选定的是 Hybrid RRF
+(strong-bm25 + granite-dense)**。R16 查明的机制**整个建立在"检索按查询词打分"之上**:
+切开 passage 把答案与命中查询词的文本分到两半,BM25 取走含查询词的那半,含答案的那半
+**连 top-50 都进不去(69.7%)**。**稠密检索不需要查询词逐字出现** —— 一个 60 词的半块,
+只要话题仍然贴近问题,嵌入相似度未必崩。**⇒ 有具体的、机制层面的理由怀疑这条链换到生产配置就不成立,
+这不是例行的"再测一个设置"。**
+
+**主指标:`CMR = P(answer_match == 0 | gold 文档已被选中)`,以及 R16 的四类划分。**
+次要记录 `answer_match` 的 60×10 vs 120×5 配对 delta(用于对照 R14 的 −0.0465)。
+
+**设计:完全镜像 R14 的 NQ set B,只换检索器。**
+- **核心对(必须先读):** `granite-dense` × {60×10, 120×5}
+- **扩展对(同批提交,后读):** `hybrid`(`fusion=rrf`, `k=60`, `[strong-bm25, granite-dense]`)× {60×10, 120×5}
+- 四臂 `chunk_size × max_selected ≡ 600 词`(60→10 / 120→5),`overlap = chunk_size/6`,
+  `top_k = 50`,`generator = extractive`,除 `[retriever]` / `[chunker]` / `max_selected` 外逐字相同。
+- **只取两个 chunk 点,不重跑 200/300。** R14 已确立 ≥120 的三点在 bm25 下并列 CMR 0.0000,
+  且 chunk 计数证明它们与 document 严格 1:1;**本条要分辨的是"切开 vs 不切开",两点足够,
+  多跑两点只是多花 GPU。**
+
+**假设 H17:稠密臂的 CMR 差距显著小于 bm25 的 `+0.0596`,预注册阈值为 `< +0.02`。**
+理由:嵌入编码整段文本的语义,60 词半块仍与问题同主题,故不会像 BM25 那样因缺少查询词而跌出候选池。
+
+**证伪路径(读数前写定):**
+
+- **⚠️ 证伪 A —— 稠密臂的 CMR 差距与 bm25 相当(`≥ +0.04`):**
+  **损失与"按查询词打分"无关**,切碎 passage 会以任何打分方式损害可检索性。
+  **这会把 R16 从"BM25 的性质"升级为"检索的普遍性质",并使其成为生产系统的实际风险,
+  而不是一个只在基线上出现的现象。这是最有价值、也是后果最重的一种否定。**
+- **证伪 B —— 稠密臂差距更大:** 切碎对稠密检索伤害**更重**(半块上下文更薄,嵌入更不稳)。
+  与 H17 方向相反,且会**反转工程建议** —— 那样"对齐 passage"对稠密比对稀疏更要紧。
+- **⚠️ 证伪 D(结构性,优先于以上三条检查)—— 120×5 臂的 CMR 不为 0.0000:**
+  在 `chunk_size=120` 下 passage 从不被切开(R15 chunk 计数 100,000 = documents,严格 1:1),
+  故"gold 文档被选中"就等于"该 passage 全文进入证据",而 dpr-w100 的 gold passage
+  **按构造包含答案**。**⇒ 任何检索器在该点的 CMR 都必须是 0.0000,这是结构决定的,与检索器无关。
+  若不为 0,说明"gold passage 按构造含答案"这一前提不成立,R15 / R16 的读法须整体重审,
+  本条其余结论一律不得采信。** 这一条先看。
+
+**必做的自检(照抄 R14 的纪律,两个锚点均已存在):**
+`configs/experiments/retr_nq_granite-dense.toml` 与 `retr_nq_hybrid-rrf.toml` 同样跑在
+`runs/niah-base` 上,**无 `[chunker]` 段即默认 120/20,与 c120o20 臂逐字相同**,
+`top_k=50` / `max_selected=5` 亦一致。**⇒ 新建的两个 120×5 臂,其 retriever 指标必须与既有
+`runs/retr-nq-granite-dense` / `runs/retr-nq-hybrid-rrf` 逐位一致。**
+**提交前须先读出这两个既有运行的 MRR / Recall 并记入本条,读数时逐位核对;不一致即停,先查清再读结果。**
+
+**⚠️ 本条不测什么:**
+- **不测 200×3 / 300×2**(理由见设计)。
+- **不换语料。** 阈值在第二个预切语料上的复现仍然待做,但**本条问的是"对生产是否成立",
+  优先级高于"规律有多普遍"**。
+- **不测那 83 个的真实名次。** 放大 `top_k` 是另一条(见 R16 AFTER),
+  且**若本条命中证伪 A,那条的设计要跟着改** —— 故本条在前。
+- **不产出生产建议。** 本条只回答适用性,任何"改检索单元"的提案须另立条目并附迁移成本。
+
+**⚠️ 提交注意(前两条都在这里栽过,写下来免得再犯):**
+`scripts/run_pipeline_eval.slurm` 内部 `export LLM_DEVICE=cuda` 且申请 `gpu:rtx_3090:1`。
+**R14 因主指标只需 CPU,曾用 `--partition=compute --gres=none` 覆盖到 CPU 分区;本条不可照抄 ——
+稠密臂要编码约 30 万 chunk(c60o10 的 200,191 + c120o20 的 100,000),混合臂再各编一次,
+必须走 GPU 分区,按默认提交即可。**
+另:`prepare` 对已存在的输出目录做严格校验(含 `source_tree_signature`),
+**本条四个输出目录均为新名,不与既有冲突,无需归档。**
+
+**命令:**
+
+```bash
+# 0) 先读锚点,记入本条,再提交作业:
+python -c "import json;d=json.load(open('runs/retr-nq-granite-dense/retriever_report.json'));print(d['aggregate'])"
+python -c "import json;d=json.load(open('runs/retr-nq-hybrid-rrf/retriever_report.json'));print(d['aggregate'])"
+
+# 1) 核心对 + 扩展对,同批提交(GPU 分区,不加 --gres=none):
+mkdir -p logs runs && sbatch scripts/run_pipeline_eval.slurm \
+  configs/experiments/chunk_nq_dense-c60o10.toml \
+  configs/experiments/chunk_nq_dense-c120o20.toml \
+  configs/experiments/chunk_nq_hybrid-c60o10.toml \
+  configs/experiments/chunk_nq_hybrid-c120o20.toml
+
+# 2) 读数(login node):
+PYTHONPATH=src python scripts/conditional_miss_rate.py \
+  runs/chunk-nq-dense-c{60o10,120o20}/evaluation_report.json \
+  --baseline runs/chunk-nq-dense-c120o20/evaluation_report.json
+PYTHONPATH=src python scripts/answer_chunk_forensics.py \
+  --run runs/chunk-nq-dense-c60o10 \
+  --report runs/chunk-nq-dense-c60o10/evaluation_report.json
+PYTHONPATH=src python scripts/paired_dataset_metric.py \
+  --on-report runs/chunk-nq-dense-c60o10/evaluation_report.json \
+  --off-report runs/chunk-nq-dense-c120o20/evaluation_report.json \
+  --metric system.core.answer_match
+```
+
+**⚠️ 前置:四个 config 尚不存在,须先写并提交。** 它们必须逐字镜像
+`chunk_nq_b-c60o10.toml` / `chunk_nq_b-c120o20.toml`,仅改 `[retriever]` 与 `[output]`;
+**任何其他差异都会使本条与 R14 不可比,而与 R14 可比正是本条的全部意义。**
+
+**成本:GPU,四臂。** 稠密编码约 30 万 chunk × 2(稠密臂与混合臂各一次)。
+**若 GPU 预算被迫削减,保留核心对(granite-dense),它承载机制问题;
+只跑混合对会把机制留在未决状态**,因为混合是两者的混合,分不清是哪一侧在起作用。
