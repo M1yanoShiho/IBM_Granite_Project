@@ -5325,11 +5325,21 @@ passage"而写(防止 `independent_support` 把同源 passage 当成独立票数
    被切开的答案半块在语义空间里未必掉名次。**⇒ R9 / R14 / R15 / R16 这一整条链
    是否适用于生产的混合检索,完全未测,且有具体理由怀疑它不适用。**
    这是本链条目前最大的外部效度缺口,优先级应高于换语料复现(原 R17)。
-3. 仍仅 `extractive` generator。真实 generator 可能从半块中重建答案,亦可能不能;未测。
+3. **⚠️ selector 侧是占位实现,而本条的判据直接建立在它之上 —— 这是本条最容易被误读的一点。**
+   `composition.build_selector` **只注册了 `top-k` 一个**,其余一律 `raise ValueError`;
+   仓库里 `selector/` 下的 `dual_head` / `nli_dual_head` / `risk_controlled` / `guidance`
+   **无法从 config 选到**,92 个实验 config 全部用 `top-k`。
+   本条据此把"没被选中"定义为"检索名次 > `max_selected`",**该等价仅在纯截断下成立**。
+   换成带门控的真实 selector,一个 case 可能因被门挡下而落选,与名次无关,
+   **四类划分届时必须重新定义,不可沿用本条的占比。**
+   **对照:generator 侧已在 G9 做过这件事** —— `verify-annotate`(项目的主方法)已注册进同一工厂,
+   其注释明确记着"在 G9 之前,config 驱动的 CLI 跑不了本项目要做的方法"。
+   **selector 侧尚未走完这一步,故其占位程度比 generator 侧更深:generator 至少选得到主方法。**
+4. 仍仅 `extractive` generator。真实 generator 可能从半块中重建答案,亦可能不能;未测。
    且换 generator 后"被选中 ≡ 被引用"的等价会破裂(依据见 R15 AFTER 主指标段)。
-4. **`sibling` / `other` 的划分依赖 `document_id` 相等。** 在 c60o10 下同一 passage 的两块
+5. **`sibling` / `other` 的划分依赖 `document_id` 相等。** 在 c60o10 下同一 passage 的两块
    共享 `document_id`,这一点由 R15 的 chunk 计数(2.002 chunks/doc)保证,**该前提已实测**。
-5. **跨数据集对照(`runs/chunk-2wiki-b-c60o10`,CMR 0.4590,n≈917)已于同日运行,
+6. **跨数据集对照(`runs/chunk-2wiki-b-c60o10`,CMR 0.4590,n≈917)已于同日运行,
    结果与由此查出的一个指标伪影见下一条"R16 AFTER 续"。** 预注册中它是
    "仅记录、不作 H16 判据",故不改变上述任何结论。
 
@@ -5343,7 +5353,7 @@ passage"而写(防止 `independent_support` 把同源 passage 当成独立票数
 
 ### R16 AFTER 续 — 跨数据集对照,以及它意外查出的一个指标伪影 [2026-08-14,login node,无新作业]
 
-**本段取代 R16 AFTER 限制 5 中"尚未运行"的记载。**
+**本段取代 R16 AFTER 限制 6 中"尚未运行"的记载。**
 
 **分类结果(`runs/chunk-2wiki-b-c60o10`,conditional misses n=917):**
 
