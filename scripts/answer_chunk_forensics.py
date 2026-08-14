@@ -142,6 +142,12 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="skip the `absent` class; it leaves R16's falsification B unresolved",
     )
+    parser.add_argument(
+        "--dump",
+        type=Path,
+        help="write per-case class, rank and gold answers as JSONL, so a class can be "
+        "cross-tabulated against the answers themselves",
+    )
     arguments = parser.parse_args(argv)
 
     population = read_population(arguments.report)
@@ -175,6 +181,21 @@ def main(argv: list[str] | None = None) -> int:
         retrieval = {q: gold[q] for q, label in classes.items() if label == "retrieval"}
         for query_id in corpus_holds_answer(arguments.run / "corpus_snapshot.json", retrieval):
             classes[query_id] = "absent"
+
+    if arguments.dump:
+        with arguments.dump.open("w", encoding="utf-8") as handle:
+            for query_id in sorted(classes):
+                handle.write(
+                    json.dumps(
+                        {
+                            "query_id": query_id,
+                            "class": classes[query_id],
+                            "best_rank": ranks.get(query_id),
+                            "reference_answers": list(gold[query_id][0]),
+                        }
+                    )
+                    + "\n"
+                )
 
     counts = Counter(classes.values())
     total = len(classes)
