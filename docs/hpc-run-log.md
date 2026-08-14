@@ -5438,6 +5438,14 @@ R9 / R11 / R12 / R14 / R15 / R16 全部只在 `strong-bm25` 上测得,而**生�
 `runs/niah-base` 上,**无 `[chunker]` 段即默认 120/20,与 c120o20 臂逐字相同**,
 `top_k=50` / `max_selected=5` 亦一致。**⇒ 新建的两个 120×5 臂,其 retriever 指标必须与既有
 `runs/retr-nq-granite-dense` / `runs/retr-nq-hybrid-rrf` 逐位一致。**
+
+**⚠️ 新臂的 MRR / Recall 从哪读 —— 写死在这里,因为同一个坑已经栽过两次:
+`run_pipeline_eval.slurm` 只跑 `prepare → pipeline`,**不产生 `retriever_report.json`**
+(那是 `retriever` 阶段的产物,R14 首次提交 job 18445256 即因此报废)。
+新臂的检索指标在 `evaluation_report.json` 的 `aggregate` 里,键为 `retriever.core.*`,
+亦见作业日志末尾 `summarize_pipeline_eval.py` 打印的 MRR / Recall 两列。
+**锚点侧的 `runs/retr-nq-*` 则确有 `retriever_report.json`,因为它们由 `retriever` 阶段产出 ——
+两侧读法不同,不可互抄。**
 **锚点值(2026-08-14 于 bp1 读出,记入本条,读数时逐位核对;不一致即停,先查清再读结果):**
 
 | 既有运行 | `document_mrr` | `document_recall` |
