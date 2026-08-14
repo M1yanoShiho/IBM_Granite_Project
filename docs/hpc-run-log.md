@@ -4632,13 +4632,13 @@ NQ 量级的效应。** n=300,是 NQ 的 1/6.7。NQ 的 CI 半宽为 ±0.0063;�
   |---|---|---|
   | NQ | `results/r11-nq100k-{strong-bm25,decompose-orig}-per-case.json` | **Δ +0.0122 / p 0.0001 / n 2000,与上表一致** |
   | 2Wiki | `results/r1-2wiki-strong-bm25-per-case.json` + `results/r2-2wiki-decompose-orig-per-case.json` | **Δ −0.0003 / p 0.9155 / n 2000,与上表一致** |
-  | SciFact | `results/r3-scifact-decompose-orig-per-case.json` | **⚠️ 只有 decompose-orig 一臂** |
+  | SciFact | `results/r3-scifact-decompose-orig-per-case.json` + `results/r12-scifact-strong-bm25-per-case.json` | **Δ +0.0042 / p 0.6781 / n 300,与上表一致** |
 
-- **⚠️ SciFact 的 `strong-bm25` 臂尚未拉回,故本条的 SciFact 结论目前不可从 `results/` 复核。**
-  该臂在 bp1 上是 `runs/retr-scifact-strong-bm25`;补拉的命令与 R11 相同
-  (`scripts/export_per_case.py` → `results/r12-scifact-strong-bm25-per-case.json`),
-  拉回后应复现 **Δ +0.0042 / p 0.6781 / n 300**。
-  **在补齐之前,本条那个"没有证据 ≠ 证据表明没有"的功效论证只能靠台账文字,不能靠数据重跑。**
+- **⇒ 三个臂全部可从 `results/` 复核,本条不再依赖 bp1 上的运行目录。**
+  SciFact 的 `strong-bm25` 臂原先从未拉回,是同日补的(`runs/retr-scifact-strong-bm25`,300 例,
+  检索阶段报告无 `trace`,逐字副本)。**补它的理由不是形式完整:本条最讲究的那句
+  "没有证据 ≠ 证据表明没有"是一个关于统计功效的论证,前提正是那个 n=300 的比较可以重跑;
+  在它拉回之前,该论证只剩台账上的文字。**
 
 ### 结构审计 × R9 的交叉读数 —— 一句当日提出、当日撤回的建议 [2026-08-13]
 
