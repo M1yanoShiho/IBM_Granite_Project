@@ -5915,11 +5915,12 @@ mkdir -p logs results runs && sbatch scripts/run_rank_depth.slurm
 
 ## G-A12 — verification-oriented A1 prompt 与 robust A2 splitter 的 2×2 消融 [PRE-REGISTERED 2026-08-15]
 
-**状态:CODE READY / NOT SUBMISSION READY。** 本 BEFORE 在任何本实验输出产生之前写入。
+**状态:READY。** 本 BEFORE 在任何本实验输出产生之前写入。
 实验 runner `scripts/generator_a1_a2_ablation.py`、Slurm 脚本
 `scripts/run_generator_a1_a2_ablation.slurm` 与 CPU/FakeLLM 测试
 `tests/generator/test_a1_a2_ablation.py` 已实现；Python 3.11 定向测试 4 passed、ruff 通过。
-当前仍**不得提交作业**：须先提交这三件套并将精确 commit hash 补入本条,方可 `sbatch`。
+三件套已提交并在下方固定精确 commit hash,可以按预注册命令提交；提交前仍须在 BluePebble
+确认该 commit 已拉取、Python 3.11 环境与 ASQA/Granite 缓存可用。
 
 ### BEFORE（预注册）
 
@@ -6040,6 +6041,6 @@ PYTHONPATH=src python scripts/generator_a1_a2_ablation.py \
   --output-dir results/generator-a1-a2-ablation
 ```
 
-**实验代码 commit:** `TBD — runner、Slurm、测试提交后补齐；未补齐前禁止 sbatch`。
+**实验代码 commit:** `c5ab67a`（`generator-add A1/A2 ablation experiment`）。
 
 **AFTER:** 未运行；不得填写。
