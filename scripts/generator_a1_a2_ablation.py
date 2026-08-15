@@ -12,6 +12,7 @@ import argparse
 import csv
 import hashlib
 import json
+import os
 import random
 import re
 import subprocess
@@ -134,15 +135,59 @@ def canonical_json(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
 
-def git_head() -> str:
-    completed = subprocess.run(
-        ["git", "rev-parse", "HEAD"],
-        cwd=REPO_ROOT,
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    return completed.stdout.strip() if completed.returncode == 0 else "unknown"
+def _git_head_from_metadata(repo_root: Path) -> str | None:
+    """Resolve HEAD without requiring the git executable on a compute node."""
+    git_dir = repo_root / ".git"
+    try:
+        head = (git_dir / "HEAD").read_text(encoding="utf-8").strip()
+    except OSError:
+        return None
+
+    if not head.startswith("ref: "):
+        return head if re.fullmatch(r"[0-9a-fA-F]{40}", head) else None
+
+    ref = head.removeprefix("ref: ").strip()
+    try:
+        value = (git_dir / ref).read_text(encoding="utf-8").strip()
+        if re.fullmatch(r"[0-9a-fA-F]{40}", value):
+            return value
+    except OSError:
+        pass
+
+    try:
+        packed_refs = (git_dir / "packed-refs").read_text(encoding="utf-8")
+    except OSError:
+        return None
+    for line in packed_refs.splitlines():
+        if line.startswith(("#", "^")):
+            continue
+        fields = line.split()
+        if len(fields) == 2 and fields[1] == ref:
+            return fields[0] if re.fullmatch(r"[0-9a-fA-F]{40}", fields[0]) else None
+    return None
+
+
+def git_head(repo_root: Path = REPO_ROOT) -> str:
+    supplied = os.environ.get("EXPERIMENT_GIT_HEAD", "").strip()
+    if re.fullmatch(r"[0-9a-fA-F]{40}", supplied):
+        return supplied
+
+    try:
+        completed = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=repo_root,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except OSError:
+        completed = None
+    if completed is not None:
+        value = completed.stdout.strip()
+        if completed.returncode == 0 and re.fullmatch(r"[0-9a-fA-F]{40}", value):
+            return value
+
+    return _git_head_from_metadata(repo_root) or "unknown"
 
 
 @dataclass(frozen=True)

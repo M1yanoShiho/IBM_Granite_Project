@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
+from unittest.mock import patch
 
 SCRIPTS = Path(__file__).resolve().parents[2] / "scripts"
 if str(SCRIPTS) not in sys.path:
@@ -72,6 +73,31 @@ def a_case() -> g3.G3Case:
         selected=selected,
         gold_answers=(("raised revenue",),),
     )
+
+
+def test_git_head_falls_back_to_repository_metadata_without_git(
+    tmp_path: Path,
+) -> None:
+    expected = "1" * 40
+    git_dir = tmp_path / ".git"
+    (git_dir / "refs" / "heads").mkdir(parents=True)
+    (git_dir / "HEAD").write_text("ref: refs/heads/main\n", encoding="utf-8")
+    (git_dir / "refs" / "heads" / "main").write_text(
+        f"{expected}\n", encoding="utf-8"
+    )
+
+    with (
+        patch.dict("os.environ", {}, clear=True),
+        patch.object(ablation.subprocess, "run", side_effect=FileNotFoundError),
+    ):
+        assert ablation.git_head(tmp_path) == expected
+
+
+def test_git_head_can_be_supplied_by_environment(tmp_path: Path) -> None:
+    expected = "a" * 40
+
+    with patch.dict("os.environ", {"EXPERIMENT_GIT_HEAD": expected}, clear=True):
+        assert ablation.git_head(tmp_path) == expected
 
 
 def test_runner_pairs_each_a1_answer_with_both_a2_versions() -> None:
