@@ -5367,16 +5367,23 @@ passage"而写(防止 `independent_support` 把同源 passage 当成独立票数
    被切开的答案半块在语义空间里未必掉名次。**⇒ R9 / R14 / R15 / R16 这一整条链
    是否适用于生产的混合检索,完全未测,且有具体理由怀疑它不适用。**
    这是本链条目前最大的外部效度缺口,优先级应高于换语料复现(原 R17)。
-3. **⚠️ selector 侧是占位实现,而本条的判据直接建立在它之上 —— 这是本条最容易被误读的一点。**
-   `composition.build_selector` **只注册了 `top-k` 一个**,其余一律 `raise ValueError`;
-   仓库里 `selector/` 下的 `dual_head` / `nli_dual_head` / `risk_controlled` / `guidance`
-   **无法从 config 选到**,92 个实验 config 全部用 `top-k`。
-   本条据此把"没被选中"定义为"检索名次 > `max_selected`",**该等价仅在纯截断下成立**。
-   换成带门控的真实 selector,一个 case 可能因被门挡下而落选,与名次无关,
-   **四类划分届时必须重新定义,不可沿用本条的占比。**
-   **对照:generator 侧已在 G9 做过这件事** —— `verify-annotate`(项目的主方法)已注册进同一工厂,
-   其注释明确记着"在 G9 之前,config 驱动的 CLI 跑不了本项目要做的方法"。
-   **selector 侧尚未走完这一步,故其占位程度比 generator 侧更深:generator 至少选得到主方法。**
+3. **本条的判据建立在 `top-k` 纯截断之上,而那是 selector 的最终路线,不是占位。**
+   `composition.build_selector` 只注册 `top-k`,其余 `raise ValueError`;92 个实验 config 全部用它。
+   本条据此把"没被选中"定义为"检索名次 > `max_selected`" —— **该等价对冻结基线是性质,不是假设。**
+
+   **⚠️ 更正(2026-08-15,据 Selector 组答复):本条初稿把这一点写成"selector 侧是占位实现"
+   并与 generator 组的 G9 对照,推论反了 —— 代码事实无误,但那是结论,不是待修的缺口。**
+   Selector 模块 2026-08-12 收口,六条路线零上线(corroboration 门 / Graph 2.0 / Reliability-MIS /
+   Beam 三分类 / Adaptive conservative / Lean v3),`0c710e2 refactor(selector): retire failed
+   methods and keep TopK` 即该决定的落地。`SELECTOR_FINAL_REPORT.md` 明令
+   **"论文或报告不得声称 Selector 已经带来性能提升"** —— 把那几条自判为 FAIL 的路线注册进工厂,
+   等于让任何人从 config 选中一条已被判死的方法跑出数字。
+   **⇒ 不注册是设计,把它记成"等接线修复的挂起项"是错的。**
+   G9 的类比亦不成立:那边是把工厂已有的依赖接上主方法,而 selector 的六条路线**从未走过
+   `build_pipeline_from_config`**,它们有自己的 CLI(`cli/run_selector_lean.py` 等)与
+   `configs/selector/*.toml`,整条实验通路本来就在工厂外面。
+   **⇒ 本限制保留(它如实描述了判据的适用范围),但"届时必须重新定义"这句的前提
+   ——会有带门控的 selector 上线——按目前决定不成立。**
 4. 仍仅 `extractive` generator。真实 generator 可能从半块中重建答案,亦可能不能;未测。
    且换 generator 后"被选中 ≡ 被引用"的等价会破裂(依据见 R15 AFTER 主指标段)。
 5. **`sibling` / `other` 的划分依赖 `document_id` 相等。** 在 c60o10 下同一 passage 的两块
@@ -5671,7 +5678,7 @@ R16 的解释是"切开 passage 把答案与命中查询词的文本分到两半
 **限制(须与结论同时声明):**
 1. **混合对未完成,故"对生产配置(Hybrid RRF)是否成立"这一本条的原始问题尚未回答。**
    已回答的是它的一半:机制在纯稠密检索下部分存活。
-2. 仍仅 NQ、仍仅两个 chunk 点、仍仅 `extractive` generator、仍是占位 selector(与 R16 限制 3 同)。
+2. 仍仅 NQ、仍仅两个 chunk 点、仍仅 `extractive` generator、仍是 `top-k` selector(见 R16 限制 3)。
 3. "减半"未经检验(见上)。
 4. 稠密臂的绝对 `answer_match` 显著高于 bm25(.9540/.9795 对 .8350/.8815),
    **但这是检索强度差,不是本条的结论**;本条全部判据均为组内相对比较。
@@ -5727,7 +5734,7 @@ hybrid 120×5 `CMR .0000 / answer .9540 / eligible 1899`。
 三个臂各自的组内结论则均成立。**(该归一同样是指示性的,理由见核心对部分。)
 
 **限制(须与结论同时声明):**
-1. 仍仅 NQ、仍仅两个 chunk 点、仍仅 `extractive` generator、仍是占位 selector。
+1. 仍仅 NQ、仍仅两个 chunk 点、仍仅 `extractive` generator、仍是 `top-k` selector。
    **其中 `extractive` 那一条正由 R8 处理中(job 18541857)。**
 2. 三臂的 `answer_match` 中有两臂饱和(dense .9540/.9795、hybrid .9330/.9540),
    **仅 bm25 臂落在有分辨力的区间内**。若要可比的效应量,须按 summarizer 的建议
@@ -5812,8 +5819,9 @@ R16 的原话:**若那些块排在 60 名附近,把 `top_k` 提到 100 就能解
    ⇒ 本条量的是"切开 passage 这一失效模式下"的名次深度,不是生产配置下的检索损失。
 2. **仅 strong-bm25。** R17 已证实 split penalty 在 dense 与 hybrid 上同样存在(hybrid `+0.0386`,
    p 0.0001),但**名次分布本身未在生产检索器上测过**。本条不外推,若需要则另开一条。
-3. **仍是 `extractive` generator 与占位 selector。** R16 的四类划分把"没被选中"定义为
-   "检索名次 > `max_selected`",该等价只在纯截断下成立 —— 与交接文档第 9 条同一件事。
+3. **仍是 `extractive` generator,selector 仍是 `top-k`。** R16 的四类划分把"没被选中"定义为
+   "检索名次 > `max_selected`",该等价只在纯截断下成立 —— 而纯截断是 selector 的最终路线
+   (见 R16 限制 3 的更正),故这是适用范围的陈述,不是待接线的依赖。
 4. **`answer_match` 在 NQ 上对 dense/hybrid 已饱和**(R17 限制第 7 条)。本条只用 bm25 臂,
    落在有分辨力的区间内,故不受影响;但任何把本条与 R17 的 dense/hybrid 数字并排的读法都不成立。
 

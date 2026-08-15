@@ -802,13 +802,12 @@ or to the shared layer; they are listed because they bound what this module's nu
 
 **Known and not pursued, with the reason.**
 
-3. **Where the lost half actually ranks.** Ledger R16 found that 69.7% of conditional misses
-   have no answer-bearing chunk in the top-50 pool at all, but the pool is truncated at 50, so
-   how far below that they sit is unmeasured. This decides whether raising `top_k` is a viable
-   fix or a hopeless one — ranks near 60 and ranks near 5000 imply opposite engineering. Not
-   done because the fix it would inform (aligning the retrieval unit with the passage) is a
-   larger change than this module was going to make. Settles it: rerun retrieval at a much
-   larger `top_k` and read the answer-bearing chunk's rank per case.
+3. **Where the lost half actually ranks — pre-registered as ledger R18.** R16 found that 69.7%
+   of conditional misses have no answer-bearing chunk in the top-50 pool at all, but the pool is
+   truncated at 50, so how far below they sit was unmeasured. It decides whether raising `top_k`
+   is a viable fix or a hopeless one, since ranks near 60 and ranks near 5000 imply opposite
+   engineering. No longer deferred: R18 reruns retrieval at a much larger `top_k` and reads the
+   answer-bearing chunk's rank per case.
 4. **The second pathway for the split penalty.** R17 showed the penalty survives a retriever
    that needs no verbatim query terms, so query-term separation is not the whole mechanism. A
    candidate second path — a 60-word half being a thinner context for the embedding — was
@@ -841,13 +840,19 @@ or to the shared layer; they are listed because they bound what this module's nu
 
 **Not ours, but they bound what the numbers mean.**
 
-9. **The selector reachable from a config is `top-k` and nothing else.** The implementations in
-   `selector/` cannot be selected from an experiment config, so every system-level number here
-   ran through pure truncation. R16's four-class split *defines* "not selected" as "ranked past
-   `max_selected`", which is exact only under truncation and would need redefining under a
-   gated selector. The generator side closed the same gap in G9 and is a usable precedent.
-   Whoever owns the selector decides this: its constructor takes `safe_threshold` and
-   `max_delete` with no defaults, and a run-scoped `ScoreTable` the factory has no path to.
+9. **The selector is `top-k`, and that is a decision rather than a gap.** Every system-level
+   number here ran through pure truncation, so R16's four-class split — which *defines* "not
+   selected" as "ranked past `max_selected`" — is exact for the shipped configuration rather
+   than an assumption about it. This entry originally read the single registration as an
+   unwired module and said so; the selector group corrected it. Their module closed on
+   2026-08-12 with six routes tried and none shipped, `0c710e2` retired the failed methods and
+   kept TopK, and their final report forbids claiming the selector improved anything.
+   Registering the retired routes would let anyone select a method the team judged failed and
+   produce numbers with it. The G9 comparison does not hold either: those routes never ran
+   through `build_pipeline_from_config` at all, having their own CLI and `configs/selector/`
+   tree. What remains open is not the wiring but whether a gated selector ever ships; on the
+   current decision it does not, and this limitation stands as a scope statement rather than a
+   pending dependency.
 10. **Dense retrieval re-embeds the corpus on every run.** Shared plan §4.4 fixed for v1 that no
     FAISS-style numeric structures are persisted and the index is rebuilt from the snapshot.
     That was written when only BM25 existed, where rebuilding costs seconds. `GraniteDense`
