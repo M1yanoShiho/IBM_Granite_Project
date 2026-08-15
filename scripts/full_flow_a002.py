@@ -45,6 +45,7 @@ ARMS = ("K_topk_base", "L_legacy_selector_base")
 REPEAT_FRACTION = 0.10
 SEED = 13
 DEFAULT_MAX_ERROR_RATE = 0.05
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 class TracedGenerator(Protocol):
@@ -64,6 +65,16 @@ def _sha256_bytes(value: bytes) -> str:
 
 def _sha256_file(path: Path) -> str:
     return _sha256_bytes(path.read_bytes())
+
+
+def _git_commit() -> str:
+    return subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=REPO_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
 
 
 def _canonical_bytes(value: object) -> bytes:
@@ -510,12 +521,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "schema_version": "full-flow-a002-run-manifest-v1",
             "status": "COMPLETE",
             "script_sha256": _sha256_file(Path(__file__)),
-            "git_commit": subprocess.run(
-                ["git", "rev-parse", "HEAD"],
-                check=True,
-                capture_output=True,
-                text=True,
-            ).stdout.strip(),
+            "git_commit": _git_commit(),
             "queries": len(generated_rows),
             "selector_changed_queries": sum(
                 bool(row["selector_changed"]) for row in generated_rows

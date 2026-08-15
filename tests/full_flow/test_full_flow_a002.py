@@ -151,3 +151,7 @@ def test_runtime_command_does_not_accept_gold() -> None:
                 "gold.jsonl",
             ]
         )
+
+
+def test_git_identity_is_resolved_from_the_repository() -> None:
+    assert len(a002._git_commit()) == 40
