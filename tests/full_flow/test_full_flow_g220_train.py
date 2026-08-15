@@ -83,6 +83,21 @@ def test_encode_example_rejects_length_instead_of_truncating() -> None:
         g220.encode_example(_Tokenizer(), "question", "answer", max_length=10)
 
 
+def test_smoke_selection_uses_longest_gm_query() -> None:
+    short = _case()
+    short["query_id"] = "short"
+    long = _case()
+    long["query_id"] = "long"
+    variants = long["variants"]
+    assert isinstance(variants, dict)
+    for index, name in enumerate(g220.VARIANT_NAMES, start=1):
+        variants[name]["target"] = f"{'x' * 100} [{index}]."
+
+    selected = g220.select_longest_smoke_cases([short, long], _Tokenizer(), 1)
+
+    assert [row["query_id"] for row in selected] == ["long"]
+
+
 def test_data_manifest_must_be_complete_and_hash_bound(tmp_path: Path) -> None:
     train = tmp_path / "train.jsonl"
     validation = tmp_path / "validation.jsonl"

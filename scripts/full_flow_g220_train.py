@@ -27,6 +27,7 @@ from full_flow_g200 import VARIANT_NAMES
 
 Arm = Literal["gc", "gm"]
 RunKind = Literal["smoke", "formal"]
+SmokeSelection = Literal["longest"]
 ALLOWED_SEEDS = (13, 42, 73)
 LORA_R = 8
 LORA_ALPHA = 16
@@ -180,6 +181,22 @@ def example_length(tokenizer: Any, prompt: str, target: str) -> int:
     return len(prompt_ids) + len(target_ids) + 1
 
 
+def select_longest_smoke_cases(
+    cases: Sequence[Mapping[str, Any]], tokenizer: Any, max_queries: int
+) -> list[Mapping[str, Any]]:
+    if max_queries <= 0:
+        raise ValueError("smoke max queries must be positive")
+    scored: list[tuple[int, str, Mapping[str, Any]]] = []
+    for row in _validated_cases(cases):
+        query_id = str(row["query_id"])
+        examples = training_examples([row], "gm")
+        maximum = max(example_length(tokenizer, item.prompt, item.target) for item in examples)
+        scored.append((maximum, query_id, row))
+    return [row for _length, _query_id, row in sorted(scored, key=lambda x: (-x[0], x[1]))][
+        :max_queries
+    ]
+
+
 def encode_example(
     tokenizer: Any, prompt: str, target: str, *, max_length: int
 ) -> tuple[list[int], list[int]]:
@@ -305,16 +322,19 @@ def train(
     validation_cases_path: Path,
     output_dir: Path,
     max_queries: int | None = None,
+    smoke_selection: SmokeSelection | None = None,
 ) -> dict[str, object]:
     _require_empty(output_dir, "G220 training")
     if seed not in ALLOWED_SEEDS:
         raise ValueError(f"seed must be one of {ALLOWED_SEEDS}")
     if max_length <= 0:
         raise ValueError("max length must be positive")
-    if run_kind == "formal" and max_queries is not None:
-        raise ValueError("formal G220 training cannot use --max-queries")
-    if run_kind == "smoke" and (max_queries is None or max_queries <= 0):
-        raise ValueError("smoke G220 training requires positive --max-queries")
+    if run_kind == "formal" and (max_queries is not None or smoke_selection is not None):
+        raise ValueError("formal G220 training cannot use smoke query selection")
+    if run_kind == "smoke" and (
+        max_queries is None or max_queries <= 0 or smoke_selection != "longest"
+    ):
+        raise ValueError("smoke G220 training requires positive longest-query selection")
     data_manifest = _load_data_manifest(
         data_manifest_path=data_manifest_path,
         train_cases_path=train_cases_path,
@@ -335,15 +355,16 @@ def train(
 
     cases = _validated_cases(_jsonl(train_cases_path))
     validation = _validated_cases(_jsonl(validation_cases_path))
-    if max_queries is not None:
-        cases = cases[:max_queries]
-        validation = validation[: min(max_queries, len(validation))]
-    examples = training_examples(cases, arm)
-    random.Random(seed).shuffle(examples)
-
     tokenizer = transformers.AutoTokenizer.from_pretrained(
         str(model_snapshot.resolve()), local_files_only=True
     )
+    if max_queries is not None:
+        cases = select_longest_smoke_cases(cases, tokenizer, max_queries)
+        validation = select_longest_smoke_cases(
+            validation, tokenizer, min(max_queries, len(validation))
+        )
+    examples = training_examples(cases, arm)
+    random.Random(seed).shuffle(examples)
     lengths = [example_length(tokenizer, item.prompt, item.target) for item in examples]
     over_length = sum(value > max_length for value in lengths)
     if over_length:
@@ -447,6 +468,9 @@ def train(
         "train_cases_sha256": _sha256(train_cases_path),
         "validation_cases_sha256": _sha256(validation_cases_path),
         "full_data_train_queries": int(data_manifest["train_queries"]),
+        "smoke_selection": smoke_selection,
+        "selected_train_query_ids": [str(row["query_id"]) for row in cases],
+        "selected_validation_query_ids": [str(row["query_id"]) for row in validation],
         "queries": len(cases),
         "training_examples": len(examples),
         "validation_queries": len(validation),
@@ -506,6 +530,7 @@ def _parser() -> argparse.ArgumentParser:
     fit.add_argument("--validation-cases", required=True, type=Path)
     fit.add_argument("--output-dir", required=True, type=Path)
     fit.add_argument("--max-queries", type=int)
+    fit.add_argument("--smoke-selection", choices=("longest",))
     return parser
 
 
@@ -531,6 +556,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             validation_cases_path=args.validation_cases,
             output_dir=args.output_dir.resolve(),
             max_queries=args.max_queries,
+            smoke_selection=args.smoke_selection,
         )
     print(json.dumps(report, ensure_ascii=True, sort_keys=True))
     return 0
