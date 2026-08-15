@@ -782,6 +782,83 @@ what ultimately trusts (or doesn't) the retrieved caption.
 
 ---
 
+## Open questions at handover
+
+Everything below is known, measured where it could be, and deliberately left. Each item says
+what is unknown, why it matters, and what would settle it — so that picking one up does not
+require reconstructing why it was put down. Items marked **not ours** belong to another group
+or to the shared layer; they are listed because they bound what this module's numbers mean.
+
+**In flight at the time of writing.**
+
+1. **Does the ranking transmission survive a real generator?** Every system-level number in
+   this report was produced with the `extractive` generator, which reports whether the answer
+   text was *delivered*, not whether a model would use it. Ledger R8 is pre-registered for
+   exactly this and is running now. Until it lands, treat every downstream figure here as
+   "evidence arrived", not "the system answered". Settles it: R8's four arms against R7's.
+2. **Does the chain hold for the shipped Hybrid RRF?** Ledger R17 answers half — under pure
+   dense retrieval the split penalty survives — and its hybrid baseline arm timed out and was
+   rerun. Settles it: R17's hybrid within-retriever gap.
+
+**Known and not pursued, with the reason.**
+
+3. **Where the lost half actually ranks.** Ledger R16 found that 69.7% of conditional misses
+   have no answer-bearing chunk in the top-50 pool at all, but the pool is truncated at 50, so
+   how far below that they sit is unmeasured. This decides whether raising `top_k` is a viable
+   fix or a hopeless one — ranks near 60 and ranks near 5000 imply opposite engineering. Not
+   done because the fix it would inform (aligning the retrieval unit with the passage) is a
+   larger change than this module was going to make. Settles it: rerun retrieval at a much
+   larger `top_k` and read the answer-bearing chunk's rank per case.
+4. **The second pathway for the split penalty.** R17 showed the penalty survives a retriever
+   that needs no verbatim query terms, so query-term separation is not the whole mechanism. A
+   candidate second path — a 60-word half being a thinner context for the embedding — was
+   identified and **deliberately not tested**. The reason is on record: it would refine the
+   explanation without changing any recommendation, since production stays at 120/20 either
+   way and the rule "never chunk below the corpus's native passage length" holds under both.
+   Worth doing only if someone actually changes the retrieval unit.
+5. **The passage-length threshold on a second corpus.** The rule rests on one corpus, dpr-w100,
+   whose fixed 100-word passages make the threshold unusually crisp (chunk counts 1.000 against
+   2.002 per document). It has not been reproduced on a second pre-chunked corpus with a
+   different native length. Settles it: the same four-point sweep on such a corpus, predicting
+   the cliff at *its* passage length rather than at 100.
+6. **The naive scan's residual super-linearity beyond 10×.** R5 left this open and it is still
+   open: R13 measured the *inverted index* that replaced the full scan, not the full scan
+   itself, so R5's question was superseded rather than answered.
+
+**Limits on the metric, which bound every number above.**
+
+7. **`answer_match` only discriminates in the middle of its range.** On NQ with dense or hybrid
+   retrieval every arm scores above 0.9 and the metric saturates; on 2Wiki with a real generator
+   the pre-registered risk is the mirror, a floor. The summariser now warns on the ceiling case.
+   The practical consequence is stronger than it looks: declaring that only *differences* are
+   compared does not license a cross-condition comparison, because two differences still assume
+   a shared scale. R17 published no cross-retriever ratio for this reason.
+8. **`answer_match` is unusable on 2Wiki's yes/no questions**, 209 of its 2000. `no` scores 52
+   of 54 correct because "no" is an ordinary word in Wikipedia prose; `yes` scores 5 of 155
+   because the extractive generator can never produce it; and the generator emits no verdict
+   either way. Arm-to-arm deltas on 2Wiki are diluted by roughly 11.7% without changing sign.
+   Settles it: exclude those questions, or score them with a metric that reads a verdict.
+
+**Not ours, but they bound what the numbers mean.**
+
+9. **The selector reachable from a config is `top-k` and nothing else.** The implementations in
+   `selector/` cannot be selected from an experiment config, so every system-level number here
+   ran through pure truncation. R16's four-class split *defines* "not selected" as "ranked past
+   `max_selected`", which is exact only under truncation and would need redefining under a
+   gated selector. The generator side closed the same gap in G9 and is a usable precedent.
+   Whoever owns the selector decides this: its constructor takes `safe_threshold` and
+   `max_delete` with no defaults, and a run-scoped `ScoreTable` the factory has no path to.
+10. **Dense retrieval re-embeds the corpus on every run.** Shared plan §4.4 fixed for v1 that no
+    FAISS-style numeric structures are persisted and the index is rebuilt from the snapshot.
+    That was written when only BM25 existed, where rebuilding costs seconds. `GraniteDense`
+    re-encodes every chunk at construction: R17's 200k-chunk arm spent roughly five hours there,
+    and repeats it each run. The code follows the plan; the plan's assumption no longer holds.
+    The shared layer decides whether persisted vectors are now in scope.
+11. **The hallucinated-caption risk on the ingestion side** — see "The open question" above. Still
+    unmeasured, still cross-module.
+
+---
+
 ## Current work — addressing latest feedback (Bharat Arora, 2026-07-26)
 
 - **Bringing actual numbers next time:** done. R2 is a full 3-dataset × 8-variant matrix with
