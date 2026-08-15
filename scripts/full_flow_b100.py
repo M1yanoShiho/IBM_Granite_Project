@@ -682,6 +682,45 @@ def _trace_empty_reason(value: object, generation: GenerationResult) -> str:
     return reason or "unclassified_empty"
 
 
+def _trace_details(value: object) -> tuple[str, tuple[str, ...]]:
+    if not isinstance(value, Mapping):
+        return "missing_trace", ()
+    trace = value.get("trace")
+    if not isinstance(trace, Mapping):
+        return "missing_trace", ()
+    draft = trace.get("draft")
+    splitter_status = "missing_draft"
+    if isinstance(draft, Mapping):
+        splitter = draft.get("splitter")
+        splitter_status = (
+            str(splitter.get("status", "missing_status"))
+            if isinstance(splitter, Mapping)
+            else "not_run"
+        )
+    claims = trace.get("claims")
+    dispositions = tuple(
+        str(claim.get("final_disposition", "missing_disposition"))
+        for claim in claims
+        if isinstance(claim, Mapping)
+    ) if isinstance(claims, list) else ()
+    return splitter_status, dispositions
+
+
+def _normalized_text(value: str) -> str:
+    return " ".join(re.sub(r"[^a-z0-9]+", " ", value.casefold()).split())
+
+
+def _reference_text_visible(
+    evidence: Sequence[EvidenceCandidate], references: Sequence[str]
+) -> bool:
+    context = _normalized_text(" ".join(item.text for item in evidence))
+    return any(
+        normalized and normalized in context
+        for reference in references
+        if (normalized := _normalized_text(reference))
+    )
+
+
 def _mean(values: Iterable[float | None]) -> float | None:
     scored = [value for value in values if value is not None]
     return None if not scored else sum(scored) / len(scored)
@@ -748,6 +787,8 @@ def score_rows(
                 if not visible_support
                 else len(cited_documents & visible_support) / len(visible_support)
             )
+            reference_visible = _reference_text_visible(candidates, references)
+            splitter_status, claim_dispositions = _trace_details(arm_row)
             metrics_by_arm[arm] = {
                 "answer": generation.answer,
                 "cited_evidence_ids": list(generation.cited_evidence_ids),
@@ -757,7 +798,14 @@ def score_rows(
                 "visible_support_citation_recall": citation_recall,
                 "visible_support_documents": len(visible_support),
                 "support_present_but_wrong": bool(visible_support and matched == 0.0),
+                "reference_text_visible": reference_visible,
+                "reference_text_visible_but_wrong": bool(
+                    reference_visible and matched == 0.0
+                ),
                 "final_empty_reason": _trace_empty_reason(arm_row, generation),
+                "splitter_status": splitter_status,
+                "claim_dispositions": list(claim_dispositions),
+                "seconds": float(arm_row["seconds"]),
                 "error": arm_row.get("error"),
             }
         per_case_metrics[query_id] = metrics_by_arm
@@ -809,7 +857,13 @@ def score_rows(
                         "gold_document_citation_precision": None,
                         "visible_support_citation_recall": None,
                         "support_present_but_wrong": 0,
+                        "reference_text_visible": 0,
+                        "reference_text_visible_but_wrong": 0,
                         "final_empty_reasons": {},
+                        "splitter_status": {},
+                        "claim_dispositions": {},
+                        "seconds_total": 0.0,
+                        "seconds_mean": None,
                     }
                     for arm in ARMS
                 },
@@ -842,9 +896,31 @@ def score_rows(
                 "support_present_but_wrong": sum(
                     bool(item["support_present_but_wrong"]) for item in items
                 ),
+                "reference_text_visible": sum(
+                    bool(item["reference_text_visible"]) for item in items
+                ),
+                "reference_text_visible_but_wrong": sum(
+                    bool(item["reference_text_visible_but_wrong"]) for item in items
+                ),
                 "final_empty_reasons": dict(
                     sorted(Counter(str(item["final_empty_reason"]) for item in items).items())
                 ),
+                "splitter_status": dict(
+                    sorted(Counter(str(item["splitter_status"]) for item in items).items())
+                ),
+                "claim_dispositions": dict(
+                    sorted(
+                        Counter(
+                            str(disposition)
+                            for item in items
+                            for disposition in cast(
+                                Sequence[object], item["claim_dispositions"]
+                            )
+                        ).items()
+                    )
+                ),
+                "seconds_total": sum(cast(float, item["seconds"]) for item in items),
+                "seconds_mean": _mean(cast(float, item["seconds"]) for item in items),
             }
         comparisons: dict[str, object] = {}
         for label, after, before in PAIR_SPECS:
@@ -927,6 +1003,9 @@ def score_rows(
             "visible_support_citation_recall": (
                 "post-generation fraction of relevant documents visible in this arm that were cited"
             ),
+            "reference_text_visible": (
+                "conservative normalized exact reference-string containment in this arm's evidence"
+            ),
         },
     }
     return cases, report
@@ -944,7 +1023,7 @@ def _markdown(report: Mapping[str, Any]) -> str:
         "",
         "## All matched diagnostic queries",
         "",
-        "| Arm | Answer | Coverage | Gold-doc citation precision | Visible-support citation recall | Support present but wrong |",
+        "| Arm | Answer | Coverage | Gold-doc citation precision | Visible-support citation recall | Reference visible but wrong |",
         "|---|---:|---:|---:|---:|---:|",
     ]
     scope = report["all"]
@@ -954,7 +1033,7 @@ def _markdown(report: Mapping[str, Any]) -> str:
             f"| {arm} | {_pct(item['answer_match'])} | {_pct(item['coverage'])} | "
             f"{_pct(item['gold_document_citation_precision'])} | "
             f"{_pct(item['visible_support_citation_recall'])} | "
-            f"{item['support_present_but_wrong']} |"
+            f"{item['reference_text_visible_but_wrong']} |"
         )
     lines.extend(
         [
@@ -1168,6 +1247,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         report["runtime_contexts_sha256"] = _sha256_file(args.contexts)
         report["context_audit_sha256"] = _sha256_file(args.audit)
         report["gold_sha256"] = _sha256_file(args.gold)
+        report["scoring_git_commit"] = _git_commit()
+        report["scoring_script_sha256"] = _sha256_file(Path(__file__))
         _write_jsonl(args.output_cases, cases)
         _write_json(args.output_json, report)
         args.output_report.parent.mkdir(parents=True, exist_ok=True)

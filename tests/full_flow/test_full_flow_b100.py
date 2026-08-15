@@ -36,7 +36,11 @@ def _candidate(index: int, role: str) -> EvidenceCandidate:
         evidence_id=f"e{index}",
         document_id=document_id,
         chunk_id=f"c{index}",
-        text=f"{role} evidence {index}",
+        text=(
+            f"Ada Lovelace support evidence {index}"
+            if role == "support"
+            else f"{role} evidence {index}"
+        ),
         source_uri=source_uri,
         retrieval_score=float(11 - index),
         retrieval_rank=index,
@@ -236,6 +240,17 @@ def test_score_reports_oracle_and_noise_metrics() -> None:
     assert report["all"]["comparisons"]["OH_minus_OB"]["queries"] == 2
     assert report["errors_by_arm"] == dict.fromkeys(b100.ARMS, 0)
     assert report["single_support"]["queries"] == 0
+    oracle = report["all"]["aggregate"]["O_support_only"]
+    assert oracle["reference_text_visible"] == 2
+    assert oracle["splitter_status"] == {"unavailable": 2}
+    assert oracle["seconds_total"] >= 0.0
+
+
+def test_reference_visibility_is_normalized_but_not_semantic() -> None:
+    evidence = (_candidate(1, "support"),)
+
+    assert b100._reference_text_visible(evidence, ("Support evidence 1",))
+    assert not b100._reference_text_visible(evidence, ("unrelated paraphrase",))
 
 
 def test_runtime_parser_does_not_accept_gold() -> None:
