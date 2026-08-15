@@ -1,7 +1,7 @@
 # G200 evidence-to-draft 训练数据报告
 
-**日期：** 2026-08-15  
-**状态：** `COMPLETE / DATA CONSTRUCTION PASS`  
+**日期：** 2026-08-15
+**状态：** `COMPLETE / DATA CONSTRUCTION PASS`
 **正式服务器路径：** `/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G200-v1`
 
 ## 1. 本阶段完成了什么
