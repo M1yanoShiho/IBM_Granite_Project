@@ -952,7 +952,84 @@ hybrid 臂需同时持有 Granite embedder 与 granite-4.1-3b(fp16 约 6GB),在 
 免得一个申请 8 小时的作业跑到一半炸掉。
 **该偏离不影响任何测量:GPU 型号只改变可行性与速度,不进入指标。**
 
-**AFTER:** 待读数。<!-- 填:job id、四臂表、retriever 自检、decompose vs bm25 的配对 p、
+**AFTER — 确证:排序传导在真实 generator 上成立,三种替代结果一个都没命中
+[2026-08-15,job 18541857,四臂完成]**
+
+**自检先做(这次按预注册顺序,不像 R17 那样后补):**
+
+| 臂 | R7 MRR | R8 MRR | 差 |
+|---|---|---|---|
+| bm25 | 0.9434 | 0.9434 | **0.0000(精确)** |
+| strong-bm25 | 0.9580 | 0.9580 | **0.0000(精确)** |
+| hybrid-rrf | 0.9826 | 0.9831 | +0.0005 |
+| decompose | 0.5733 | 0.5702 | −0.0031 |
+
+CPU 两臂**逐位一致**;GPU 两臂落在预注册所述的实测偏差量级内(预期 hybrid ~0.0002、
+decompose ~0.0031)。**⇒ 检索链与 R7 完全相同,唯一变量确为 `[generator] name`,下游数字可读。**
+
+**四臂结果(n=2000/臂):**
+
+| 臂 | MRR | Recall | selRecall | selPrec | sysRecall | **answer** | citePrec |
+|---|---|---|---|---|---|---|---|
+| bm25 | 0.9434 | 0.7621 | — | — | — | **0.2400** | — |
+| strong-bm25 | 0.9580 | 0.7678 | 0.9015 | 0.3485 | 0.2590 | **0.2345** | 0.4417 |
+| hybrid-rrf | 0.9831 | 0.7997 | 0.9033 | 0.3610 | 0.2841 | **0.2720** | 0.5056 |
+| decompose | 0.5702 | 0.7610 | 0.6575 | 0.2336 | 0.1817 | **0.1340** | 0.3265 |
+
+`MRR span 0.4129` → `answer span 0.1380`。分段传导斜率:
+decompose→bm25 **0.284**;bm25→strong-bm25 **−0.376**;strong-bm25→hybrid **1.495**。
+(summarizer 拒绝报单一全跨度比值,理由沿用 R7:三段斜率相差四倍,一个数字会被读成不存在的常数。)
+
+**配对检验(`system.core.answer_match`,n=2000):**
+
+| 对照 | delta | p | 95% CI |
+|---|---|---|---|
+| decompose vs bm25 | **−0.1060** | 0.0001 | [−0.1250, −0.0870] |
+| bm25 vs strong-bm25 | +0.0055 | **0.5210** | [−0.0100, +0.0210] |
+| hybrid-rrf vs strong-bm25 | **+0.0375** | 0.0001 | [+0.0200, +0.0550] |
+
+**⇒ 三种预注册的替代结果一个都没命中,本条为确证:**
+- **(a) 未发生。** answer 并非"基本持平":跨臂 spread **+0.1380**,两个方向都有显著对照。
+  **⇒ 文档级检索指标不是下游所需之物的劣质代理。**
+- **(b) 未发生。** 序关系与 R7 一致。**⚠️ 点估计上 `bm25 > strong-bm25`(0.2400 对 0.2345)
+  看似与 R7 相反,读数当时一度被记为"局部翻转",但配对检验 p=0.5210 ——
+  那是噪声,不是翻转。此处如实记录该次过早判断。**
+- **(c) 未发生。** answer 落在 0.1340–0.2720,**既未触天花板也未触地板,指标有分辨力**
+  ⇒ 本条"解出来了",不是"未能分辨"。
+  (对照:同日 R17 在 NQ + dense/hybrid 上撞的是天花板,四臂 answer 均 >0.9,
+  summarizer 按 R7 的规则判为"did not resolve"。同一指标在两个数据集上的两端各撞一次。)
+
+**⇒ 本条的意义:R7 / R9 / R14 / R15 / R16 / R17 全部系统级数字都产自 `extractive` generator,
+其限制条款一律写着"测的是证据送到了没,不是模型会不会用"。本条把该限制解除
+—— 换上真实 Granite generator 后,排序传导依然成立,方向与量级关系不变。**
+
+**⚠️ 一处与 R7 的强复现,值得单独记:** R7 记录过"传导真实但**不敏感**——上游 MRR +0.0146
+显著,下游未达显著"。本条在**同一对臂**(bm25 → strong-bm25)、**同样的 +0.0146 MRR** 上,
+下游同样不显著(p=0.5210)。**⇒ 该性质不是 `extractive` 的产物,在真实 generator 上原样重现。**
+这直接支持报告里已有的那条建议:**StrongBM25 与 BM25 之间不是质量决策,是延迟决策**
+—— 现在它在系统级、真实 generator 上也成立。
+
+**绝对值按预注册预期下移。** R7 四臂为 0.3540–0.5610,本条为 0.1340–0.2720,约为其一半。
+预注册写明原因:"R7 的答案有约 900 词,包含容易;R8 只有一句话,模型换个说法就判负。
+故 R8 的绝对值是答案正确率的下界,且低估幅度大于 R7。"**⇒ 实测与该预期一致,
+本条全部判据均为臂间相对比较,不受影响。**
+
+**限制(须与结论同时声明):**
+1. **仅 2Wiki。** 传导在其余两个数据集上是否同样成立,未测。
+2. **仅 `top-k` selector**(那是 selector 的最终路线,见 R16 限制 3 的更正)。
+3. **`citation_validity` / `citePrec` 已记录但按预注册不作判据** ——
+   凡属 Generator 模块的度量,本条只保留数据,不解释、不下结论、不据以提建议。
+4. **`answer_match` 仍是 exact-string 包含。** 本条绝对值为下界(见上),
+   相对比较可信;2Wiki 的是非题伪影(R16)在此同样适用。
+5. **R7×R8 的逐条配对 2×2(证据里有无答案 × 模型答对与否)技术上可得,但按预注册不在本条范围。**
+   两轮 query_id 与检索链完全相同,数据在两轮的 per-case raw 里,Generator 组需要可自取。
+
+- raw:`results/r8-2wiki-{bm25,strong-bm25,hybrid-rrf,decompose}-per-case.json`
+  (四份,已 `git add -f` 拉回;剥离 `trace` 后 **323 MB → 8.5 MB**)。
+  **拉回后已复核:三个配对 delta 与 p 逐位一致(−0.1060 / p 0.0001、+0.0055 / p 0.5210、
+  +0.0375 / p 0.0001),四臂 MRR 亦复现 .9434 / .9580 / .9831 / .5702。**
+  **⇒ 与 R7 的 raw(`results/r7-2wiki-*-per-case.json`)并存,上述 2×2 可直接从 `results/` 做,
+  无需重跑、无需触碰 bp1。**<!-- 填:job id、四臂表、retriever 自检、decompose vs bm25 的配对 p、
 臂间序关系是否与 R7 一致、三种替代结果命中哪个、是否触发地板效应、
 R7 的检索建议是否依然成立 -->
 
@@ -5367,16 +5444,23 @@ passage"而写(防止 `independent_support` 把同源 passage 当成独立票数
    被切开的答案半块在语义空间里未必掉名次。**⇒ R9 / R14 / R15 / R16 这一整条链
    是否适用于生产的混合检索,完全未测,且有具体理由怀疑它不适用。**
    这是本链条目前最大的外部效度缺口,优先级应高于换语料复现(原 R17)。
-3. **⚠️ selector 侧是占位实现,而本条的判据直接建立在它之上 —— 这是本条最容易被误读的一点。**
-   `composition.build_selector` **只注册了 `top-k` 一个**,其余一律 `raise ValueError`;
-   仓库里 `selector/` 下的 `dual_head` / `nli_dual_head` / `risk_controlled` / `guidance`
-   **无法从 config 选到**,92 个实验 config 全部用 `top-k`。
-   本条据此把"没被选中"定义为"检索名次 > `max_selected`",**该等价仅在纯截断下成立**。
-   换成带门控的真实 selector,一个 case 可能因被门挡下而落选,与名次无关,
-   **四类划分届时必须重新定义,不可沿用本条的占比。**
-   **对照:generator 侧已在 G9 做过这件事** —— `verify-annotate`(项目的主方法)已注册进同一工厂,
-   其注释明确记着"在 G9 之前,config 驱动的 CLI 跑不了本项目要做的方法"。
-   **selector 侧尚未走完这一步,故其占位程度比 generator 侧更深:generator 至少选得到主方法。**
+3. **本条的判据建立在 `top-k` 纯截断之上,而那是 selector 的最终路线,不是占位。**
+   `composition.build_selector` 只注册 `top-k`,其余 `raise ValueError`;92 个实验 config 全部用它。
+   本条据此把"没被选中"定义为"检索名次 > `max_selected`" —— **该等价对冻结基线是性质,不是假设。**
+
+   **⚠️ 更正(2026-08-15,据 Selector 组答复):本条初稿把这一点写成"selector 侧是占位实现"
+   并与 generator 组的 G9 对照,推论反了 —— 代码事实无误,但那是结论,不是待修的缺口。**
+   Selector 模块 2026-08-12 收口,六条路线零上线(corroboration 门 / Graph 2.0 / Reliability-MIS /
+   Beam 三分类 / Adaptive conservative / Lean v3),`0c710e2 refactor(selector): retire failed
+   methods and keep TopK` 即该决定的落地。`SELECTOR_FINAL_REPORT.md` 明令
+   **"论文或报告不得声称 Selector 已经带来性能提升"** —— 把那几条自判为 FAIL 的路线注册进工厂,
+   等于让任何人从 config 选中一条已被判死的方法跑出数字。
+   **⇒ 不注册是设计,把它记成"等接线修复的挂起项"是错的。**
+   G9 的类比亦不成立:那边是把工厂已有的依赖接上主方法,而 selector 的六条路线**从未走过
+   `build_pipeline_from_config`**,它们有自己的 CLI(`cli/run_selector_lean.py` 等)与
+   `configs/selector/*.toml`,整条实验通路本来就在工厂外面。
+   **⇒ 本限制保留(它如实描述了判据的适用范围),但"届时必须重新定义"这句的前提
+   ——会有带门控的 selector 上线——按目前决定不成立。**
 4. 仍仅 `extractive` generator。真实 generator 可能从半块中重建答案,亦可能不能;未测。
    且换 generator 后"被选中 ≡ 被引用"的等价会破裂(依据见 R15 AFTER 主指标段)。
 5. **`sibling` / `other` 的划分依赖 `document_id` 相等。** 在 c60o10 下同一 passage 的两块
@@ -5671,7 +5755,7 @@ R16 的解释是"切开 passage 把答案与命中查询词的文本分到两半
 **限制(须与结论同时声明):**
 1. **混合对未完成,故"对生产配置(Hybrid RRF)是否成立"这一本条的原始问题尚未回答。**
    已回答的是它的一半:机制在纯稠密检索下部分存活。
-2. 仍仅 NQ、仍仅两个 chunk 点、仍仅 `extractive` generator、仍是占位 selector(与 R16 限制 3 同)。
+2. 仍仅 NQ、仍仅两个 chunk 点、仍仅 `extractive` generator、仍是 `top-k` selector(见 R16 限制 3)。
 3. "减半"未经检验(见上)。
 4. 稠密臂的绝对 `answer_match` 显著高于 bm25(.9540/.9795 对 .8350/.8815),
    **但这是检索强度差,不是本条的结论**;本条全部判据均为组内相对比较。
@@ -5727,7 +5811,7 @@ hybrid 120×5 `CMR .0000 / answer .9540 / eligible 1899`。
 三个臂各自的组内结论则均成立。**(该归一同样是指示性的,理由见核心对部分。)
 
 **限制(须与结论同时声明):**
-1. 仍仅 NQ、仍仅两个 chunk 点、仍仅 `extractive` generator、仍是占位 selector。
+1. 仍仅 NQ、仍仅两个 chunk 点、仍仅 `extractive` generator、仍是 `top-k` selector。
    **其中 `extractive` 那一条正由 R8 处理中(job 18541857)。**
 2. 三臂的 `answer_match` 中有两臂饱和(dense .9540/.9795、hybrid .9330/.9540),
    **仅 bm25 臂落在有分辨力的区间内**。若要可比的效应量,须按 summarizer 的建议
@@ -5812,8 +5896,9 @@ R16 的原话:**若那些块排在 60 名附近,把 `top_k` 提到 100 就能解
    ⇒ 本条量的是"切开 passage 这一失效模式下"的名次深度,不是生产配置下的检索损失。
 2. **仅 strong-bm25。** R17 已证实 split penalty 在 dense 与 hybrid 上同样存在(hybrid `+0.0386`,
    p 0.0001),但**名次分布本身未在生产检索器上测过**。本条不外推,若需要则另开一条。
-3. **仍是 `extractive` generator 与占位 selector。** R16 的四类划分把"没被选中"定义为
-   "检索名次 > `max_selected`",该等价只在纯截断下成立 —— 与交接文档第 9 条同一件事。
+3. **仍是 `extractive` generator,selector 仍是 `top-k`。** R16 的四类划分把"没被选中"定义为
+   "检索名次 > `max_selected`",该等价只在纯截断下成立 —— 而纯截断是 selector 的最终路线
+   (见 R16 限制 3 的更正),故这是适用范围的陈述,不是待接线的依赖。
 4. **`answer_match` 在 NQ 上对 dense/hybrid 已饱和**(R17 限制第 7 条)。本条只用 bm25 臂,
    落在有分辨力的区间内,故不受影响;但任何把本条与 R17 的 dense/hybrid 数字并排的读法都不成立。
 
@@ -5823,8 +5908,8 @@ R16 的原话:**若那些块排在 60 名附近,把 `top_k` 提到 100 就能解
 mkdir -p logs results runs && sbatch scripts/run_rank_depth.slurm
 ```
 
-**本条对应提交:** 见 `configs/experiments/chunk_nq_b-c60o10-topk1000.toml` 与
-`scripts/run_rank_depth.slurm` 引入的那个 commit(三件一起提交,提交后把 hash 补在本行)。
+**本条对应提交:** `f82a237`(`pre-register R18 -- how deep the lost answer half actually ranks`),
+三件一起提交:config、slurm 与本条。
 
 ### R18 AFTER — H18 成立,但真正的结果是 R16 的 69.7% 掉到 34.5%,且分类随池深改写 [2026-08-15,job 18547108,COMPLETED]
 
@@ -5890,3 +5975,137 @@ is near useless"的结论不受本条影响,但"提 `top_k` 即可解决"这一�
 
 **原始产物:** `results/r18-nq-c60o10-topk1000-classes.jsonl`(119 行);
 运行目录 `runs/chunk-nq-b-c60o10-topk1000`(bp1)。
+
+---
+
+## G-A12 — verification-oriented A1 prompt 与 robust A2 splitter 的 2×2 消融 [PRE-REGISTERED 2026-08-15]
+
+**状态:READY。** 本 BEFORE 在任何本实验输出产生之前写入。
+实验 runner `scripts/generator_a1_a2_ablation.py`、Slurm 脚本
+`scripts/run_generator_a1_a2_ablation.slurm` 与 CPU/FakeLLM 测试
+`tests/generator/test_a1_a2_ablation.py` 已实现；Python 3.11 定向测试 4 passed、ruff 通过。
+三件套已提交并在下方固定精确 commit hash,可以按预注册命令提交；提交前仍须在 BluePebble
+确认该 commit 已拉取、Python 3.11 环境与 ASQA/Granite 缓存可用。
+
+### BEFORE（预注册）
+
+**研究问题:** A1 的 verification-oriented draft prompt 是否把初稿变成更适合逐句核验的文本；
+A2 的 span-anchored splitter 修复是否在固定初稿上提高 claim 的原子性、事实覆盖、span 对齐与
+rewrite faithfulness？两项组合后是否优于优化前完整链？
+
+**版本边界（已由 Git 父子关系冻结）:**
+
+- old:`11c03849b3bcb21bf83447b4726714d4bc762725`（`eda7065` 的直接父提交）；
+- new:`eda7065d8005e317ce951e2730f58996cd4757ec`；
+- 只提取这两个提交中 `draft.py` 的 `DRAFT_PROMPT` 与 `claim_splitter.py` 的相关逻辑。
+  不把后续 `27e8280` 的公共 sentence rule 或 `e18d84d` 的 parse-failure degradation 算入
+  xzy 的 A2-new 效果。完整定位见 `docs/personal/A1-A2消融实验Git定位.md`。
+
+**四臂设计:**
+
+| arm | A1 | A2 | 解释 |
+|---|---|---|---|
+| `old_old` | old prompt | old splitter | 优化前基线 |
+| `new_old` | new prompt | old splitter | A1 单独变化 |
+| `old_new` | old prompt | new splitter | A2 单独变化（固定 old-A1 answer） |
+| `new_new` | new prompt | new splitter | 当前个人优化组合 |
+
+runner 必须另外把每一份 A1 answer 同时送入 old/new A2。A2 主比较只允许在**完全相同的
+`answer_text`**上配对:`old_old` vs `old_new`,以及 `new_old` vs `new_new`。不得把
+`old_old` vs `new_new` 的差异解释成 A2 单独效果。
+
+**数据与样本冻结:**
+
+- 只使用既有 Generator calibration 数据 ALCE/ASQA 的
+  `asqa_eval_gtr_top100.json`；不加载 QAMPARI、HotpotQA、RGB、MuSiQue-Full 或 FinanceBench。
+- 使用与 G3 相同的 `build_cases` 合格条件和 top-5 GTR evidence 构造；`seed=13`，先对 ASQA
+  索引做确定性 shuffle,取前 **50** 个合格 case。runner 必须导出所选 query IDs、数据文件
+  SHA-256、每题 evidence IDs/text hash 与 selection order，后续不得因输出难标而换题。
+- `QueryChecklist` 由同一 case 一次构造并被四臂共享。两个历史 A1 prompt 均不把 checklist
+  字段写进 prompt；它在本实验中只用于满足公共接口和保持真实输入形状,不作为 gold 泄漏通道。
+- 每题 top-5 selected evidence、顺序和文本在四臂间逐字一致。
+
+**模型与生成设置:**
+
+- `ibm-granite/granite-4.1-3b`；`max_new_tokens=256`；`temperature=0.0`；
+  `do_sample=False`；同一 tokenizer/model 实例；四臂在**同一个 Slurm job**中运行。
+- 运行顺序必须预先固定并写入 manifest；每个 case 保存所有原始 LLM response。G8 已证实 Granite
+  跨 job 不可作为严格配对对照,因此不同 job 的臂不得拼成主比较。失败重跑只能整组重跑,
+  并保留、记录所有 job；不得只补跑数字较差或失败较多的 arm。
+
+**假设与预期方向:**
+
+- **H1（A1）:** `new` 相对 `old` 提高人工盲标的 atomic、self-contained、independently
+  verifiable sentence rate，并降低 unresolved-pronoun rate；evidence-index 格式合规率不下降。
+- **H2（A2）:** 在固定 answer 上，`new` 相对 `old` 提高人工盲标的 source-fact coverage、
+  span-alignment accuracy 和 rewrite-faithfulness accuracy；缩写/小数/initialism 错切、同句后续
+  claim 丢失和错误 lexical deduplication 的计数下降。
+- **H3（组合）:** `new_new` 的 claim atomicity、self-containment、fact coverage 与 span
+  accuracy 均不低于 `old_old`，且至少一项预注册主指标提高。
+
+**主指标（人工盲标；先隐藏 arm 并确定性打乱）:**
+
+- A1:sentence atomicity、self-containment、independent verifiability、unresolved-pronoun rate；
+- A2:claim atomicity、claim self-containment、source-fact coverage、span-alignment accuracy、
+  rewrite faithfulness；
+- 标注单位、分母和无法判断项必须在 annotation guide 中先定义。由 xzy 完成全量盲标；若能取得
+  第二标注者,随机复核 20%,另报 agreement/Cohen's kappa,但第二标注者不是实验有效性的硬前置。
+
+**自动记录的守卫/次指标:**
+
+- A1 每题句数、词数、空答/`I don't know`率、evidence index 格式与越界率；
+- A2 每题 claim 数、structured split 完整成功率、split/faithfulness JSON failure、unlocatable
+  claim 数、duplicate 数及错误类型；
+- 所有比例同时报告原始分子/分母。A1 长度和拒答率必须与质量率一起报告,防止“少说所以比例更高”
+  被误写成无代价改进。
+
+**预注册证伪/收缩条件:**
+
+1. 若 A1-new 的三项质量率没有一致改善，或改善仅来自显著更短/更多拒答，则 H1 不成立；只能报告
+   prompt 改变了输出形状，不能声称提高验证准备度。
+2. 若在同一 answer 上 A2-new 的 fact coverage 或 span accuracy 下降，则 H2 不成立；即使 JSON
+   成功率更高，也不得称 A2 整体更可靠。
+3. 若 `new_new` 只改善格式而人工语义指标不改善，则 H3 不成立，论文结论收缩为工程健壮性修复。
+4. `faithful_to_answer` 是 splitter 自检输出,不是 gold。不得用该字段给自身打分；必须对真实
+   `answer_text[span.start:span.end]` 做人工判断。
+5. 本实验不测 NLI entailment、entity consistency、最终 citation precision/recall、A3-A5 repair
+   或最终 abstention；这些受 Generator B 影响,不得用作 A1/A2 个人贡献的主结论。
+
+**计划产物:**
+
+```text
+results/generator-a1-a2-ablation/
+  manifest.json
+  raw_responses.jsonl
+  cases.jsonl
+  outputs_by_arm.jsonl
+  annotation_blinded.csv
+  annotation_key.json
+  automatic_summary.json
+```
+
+`annotation_blinded.csv` 不含可见 arm；`annotation_key.json` 在标注完成前不得用于查看组别。
+raw 与 manifest 是正式证据,`.out` 只用于作业诊断,不能代替上述文件。
+
+**计划命令（脚本实现后必须逐字复核；当前不可执行）:**
+
+```bash
+mkdir -p logs results/generator-a1-a2-ablation
+sbatch scripts/run_generator_a1_a2_ablation.slurm \
+  results/generator-a1-a2-ablation
+```
+
+Slurm 内部冻结命令:
+
+```bash
+PYTHONPATH=src python scripts/generator_a1_a2_ablation.py \
+  --limit 50 \
+  --top-k 5 \
+  --seed 13 \
+  --model-id ibm-granite/granite-4.1-3b \
+  --output-dir results/generator-a1-a2-ablation
+```
+
+**实验代码 commit:** `c5ab67a`（`generator-add A1/A2 ablation experiment`）。
+
+**AFTER:** 未运行；不得填写。

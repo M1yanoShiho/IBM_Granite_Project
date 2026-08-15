@@ -1,0 +1,68 @@
+{
+  "schema_version": "full-flow-b100-execution-audit-v1",
+  "status": "PASS",
+  "formal_server_path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/B100-v1",
+  "code": {
+    "prepare_and_generation_git_commit": "f3bac13d5481bcfcd13b3465bc6dadc596be52c0",
+    "generation_script_sha256": "ebf93b5fad47ea30f29361d9b8249d4081871fd0e3a1c0d39bfab98d8a5671fe",
+    "scoring_git_commit": "c5cc3ca69bfc46956a1d800fa385412d0b2e3972",
+    "scoring_script_sha256": "22ada8e0699cd2d576f73bd3b2c5aca762484fb0641888075ab1608e6521e12c"
+  },
+  "models": {
+    "generator": {
+      "model_id": "ibm-granite/granite-4.1-3b",
+      "snapshot_revision": "c0650403e44e78ec0262dab1c90914c65b196c4e",
+      "config_sha256": "9a0e589b69e7d3ad9fb9fb2c844aa7d7156e052cb7ea4211de7de48ab7c8525c"
+    },
+    "claim_verifier": {
+      "model_id": "google/t5_xxl_true_nli_mixture",
+      "snapshot_revision": "aa6cfe1dd4257853bfdd772992045f41bfc14988",
+      "config_sha256": "69f089550c668f52d585adb6b482e771d8819a10c8c4ce2ca83f44c96178c6e9"
+    }
+  },
+  "inputs_sha256": {
+    "queries": "03cf4369197470f5b76872bd8c25050afd71aa15ce8435e8f75a8bee6aa6ccf1",
+    "candidate_pool": "89ede8249e0682568ea0a85d00eac4881323c992d8d16362016810bd8cb96ee3",
+    "roles": "93fe654a8a81ba65402dfae1f911f691a8dd07367e698fabf9dc63d5a3a58410",
+    "decision_trace": "37fac41a7fca29edc08741111222f9c720c051966b3f2cb91bba297d1b18ac21",
+    "gold_post_generation_only": "500115399a04405c71ebf8effdd8eb5aa63a3ce74476f7be60e79ff4747d22e7",
+    "runtime_contexts": "ca61dae50d0995d2212c8a1871c20ab61e379fba4cfb4d0b3913616fd77e0d6d",
+    "context_audit": "170e48e9ce1c6d599dd6a5cfd7caee6c1d9817adc77952c0bc54d62a6076119c"
+  },
+  "execution": {
+    "queries": 218,
+    "arms": 6,
+    "calls": 1308,
+    "errors": 0,
+    "trace_missing": 0,
+    "gold_loaded_at_runtime": false,
+    "same_process": true,
+    "shared_granite_and_true_instances": true,
+    "call_seconds_total": 6384.873509654775,
+    "call_seconds_mean": 4.881401765791113,
+    "trace_claims": 1487
+  },
+  "outputs_sha256": {
+    "generations_jsonl": "cae76fd5eb7664fca96d4d522558d318ac966fb1a57d4ad2fd0baefb50a08f20",
+    "cases_jsonl": "636ac09c14b4ce3053d67394e812e4a32a39ac519a7d1afeec721eba78689271",
+    "report_json": "38c8620f0ef53e11cce77b3367c6885f8a1ceaaa289d5b26989fb258e2bb79db"
+  },
+  "baseline_reproduction": {
+    "K_vs_A002_K": {
+      "queries": 218,
+      "answer_equal": 218,
+      "generation_result_equal": 218,
+      "trace_equal": 218
+    },
+    "S_vs_A002_L": {
+      "queries": 218,
+      "answer_equal": 218,
+      "generation_result_equal": 218,
+      "trace_equal": 218
+    }
+  },
+  "preserved_nonformal_runs": [
+    "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/B100-smoke-b8eefca",
+    "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/B100-preflight-b8eefca"
+  ]
+}

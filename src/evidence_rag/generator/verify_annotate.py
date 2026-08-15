@@ -79,6 +79,14 @@ from evidence_rag.generator.entity_check import (
 from evidence_rag.generator.granite import GraniteLLMClient, TextGenerator
 from evidence_rag.generator.models import Claim, DraftAnswer
 from evidence_rag.generator.nli import NLIModel, build_nli_model
+from evidence_rag.generator.trace import (
+    ClaimDisposition,
+    ClaimTrace,
+    DraftStageTrace,
+    FinalEmptyReason,
+    GeneratorTrace,
+    unavailable_draft_trace,
+)
 
 UNVERIFIED_MARKER = UNVERIFIED_ANNOTATION
 """Re-exported from ``contracts``: the label is now part of the GenerationResult
@@ -410,6 +418,7 @@ class VerifyAnnotateGenerator:
         nli: NLIModel | None = None,
         abstain_when_unverified: bool = False,
         entity_gate: EntityGateMode | bool = "observe",
+        trace_enabled: bool = False,
     ) -> None:
         self.abstain_when_unverified = abstain_when_unverified
         """The pre-lift behaviour, kept so the capped arm can be run as the
@@ -417,7 +426,10 @@ class VerifyAnnotateGenerator:
         shared_llm = llm
         if draft_generator is None:
             shared_llm = shared_llm or GraniteLLMClient()
-        self.draft_generator = draft_generator or DraftAnswerGenerator(llm=shared_llm)
+        self.trace_enabled = trace_enabled
+        self.draft_generator = draft_generator or DraftAnswerGenerator(
+            llm=shared_llm, trace_enabled=trace_enabled
+        )
         self.verifier = verifier or CitationRoutedVerifier(
             nli or build_nli_model(), entity_gate=entity_gate
         )
@@ -426,6 +438,7 @@ class VerifyAnnotateGenerator:
         """Routing for the most recent query, carrying each kept sentence and the
         citation actually verified for it. Scoring reads this so citation precision
         rests on the real per-sentence mapping rather than on an approximation."""
+        self.last_trace: GeneratorTrace | None = None
 
     @staticmethod
     def _sentence(text: str) -> str:
@@ -451,6 +464,7 @@ class VerifyAnnotateGenerator:
         checklist: QueryChecklist,
         selected: SelectedEvidenceSet,
     ) -> GenerationResult:
+        self.last_trace = None
         if query.query_id != checklist.query_id or query.query_id != selected.query_id:
             raise ValueError("query, checklist, and selected evidence query IDs differ")
 
@@ -499,13 +513,99 @@ class VerifyAnnotateGenerator:
         # annotations away, capping this policy at 4.8% of kept sentences. With
         # the invariant swapped, that answer is now legal and is emitted.
         if not parts or (self.abstain_when_unverified and not verified_any):
-            return GenerationResult(
+            result = GenerationResult(
                 query_id=query.query_id, answer="", cited_evidence_ids=()
             )
-        return GenerationResult(
+        else:
+            result = GenerationResult(
+                query_id=query.query_id,
+                answer=" ".join(parts),
+                cited_evidence_ids=tuple(citations),
+            )
+        if self.trace_enabled:
+            self.last_trace = self._build_trace(
+                query=query,
+                selected=selected,
+                draft=draft,
+                result=result,
+                verified_any=verified_any,
+            )
+        return result
+
+    def _build_trace(
+        self,
+        *,
+        query: Query,
+        selected: SelectedEvidenceSet,
+        draft: DraftAnswer,
+        result: GenerationResult,
+        verified_any: bool,
+    ) -> GeneratorTrace:
+        stage = getattr(self.draft_generator, "last_trace", None)
+        if not isinstance(stage, DraftStageTrace):
+            stage = unavailable_draft_trace(draft.answer_text)
+
+        routing_by_id = {routing.claim_id: routing for routing in self.last_routings}
+        claim_traces: list[ClaimTrace] = []
+        for claim in draft.claims:
+            routing = routing_by_id.get(claim.claim_id)
+            disposition: ClaimDisposition
+            if not claim.faithful_to_answer:
+                disposition = "skipped_unfaithful"
+            elif routing is None or not routing.sentence:
+                disposition = (
+                    "dropped_entity_conflict"
+                    if routing is not None
+                    and routing.outcome == "dropped_entity_conflict"
+                    else "skipped_empty_sentence"
+                )
+            elif routing.outcome == "verified":
+                disposition = "verified"
+            else:
+                disposition = "unverified"
+            claim_traces.append(
+                ClaimTrace(
+                    claim_id=claim.claim_id,
+                    claim_text=claim.text,
+                    span_start=claim.span.start,
+                    span_end=claim.span.end,
+                    faithful_to_answer=claim.faithful_to_answer,
+                    degraded_splitter_fallback=claim.degraded,
+                    final_disposition=disposition,
+                    routing_outcome=routing.outcome if routing else "",
+                    citation=routing.citation if routing else None,
+                    declared_indices=routing.declared_indices if routing else (),
+                    gated_outcome=routing.gated_outcome if routing else "",
+                    gated_citation=routing.gated_citation if routing else None,
+                    conflict_evidence_id=(
+                        routing.conflict_evidence_id if routing else None
+                    ),
+                    final_sentence=routing.sentence if routing else "",
+                )
+            )
+
+        empty_reason: FinalEmptyReason
+        if result.answer:
+            empty_reason = ""
+        elif not draft.answer_text.strip():
+            empty_reason = "empty_draft"
+        elif not draft.claims:
+            empty_reason = "splitter_no_claims"
+        elif all(not claim.faithful_to_answer for claim in draft.claims):
+            empty_reason = "all_claims_unfaithful"
+        elif self.abstain_when_unverified and not verified_any:
+            empty_reason = "capped_no_verified"
+        else:
+            empty_reason = "all_claims_removed_or_empty"
+
+        return GeneratorTrace(
             query_id=query.query_id,
-            answer=" ".join(parts),
-            cited_evidence_ids=tuple(citations),
+            selected_evidence_ids=tuple(item.evidence_id for item in selected.evidence),
+            draft=stage,
+            claims=tuple(claim_traces),
+            final_answer=result.answer,
+            final_cited_evidence_ids=result.cited_evidence_ids,
+            final_empty_reason=empty_reason,
         )
 
     def generate_with_guidance(
@@ -522,6 +622,7 @@ class VerifyAnnotateGenerator:
         continue through the frozen path.
         """
 
+        self.last_trace = None
         generate_guided = getattr(self.draft_generator, "generate_with_guidance", None)
         if generate_guided is None:
             if guidance is not None:
