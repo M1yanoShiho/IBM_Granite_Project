@@ -126,6 +126,92 @@ class GraniteLLMClient:
         return str(tokenizer.decode(new_tokens, skip_special_tokens=True)).strip()
 
 
+class PeftGraniteLLMClient(GraniteLLMClient):
+    """One Granite instance with named LoRA adapters and an explicit base view.
+
+    F006 adapts only key-fact extraction. ``generate_with_adapter`` enables the
+    requested LoRA for that call, while ordinary ``generate`` explicitly
+    disables every adapter so draft generation and claim splitting remain on
+    the frozen base model.
+    """
+
+    def __init__(
+        self,
+        *,
+        model_id: str,
+        adapters: dict[str, str],
+        config: GraniteGenerationConfig | None = None,
+        device: str | None = None,
+    ) -> None:
+        if not adapters:
+            raise ValueError("PeftGraniteLLMClient requires at least one adapter")
+        self.adapter_paths = dict(adapters)
+        super().__init__(model_id=model_id, config=config, device=device)
+
+    def _load_model(self) -> tuple[Any, Any]:
+        try:
+            peft = importlib.import_module("peft")
+            transformers = importlib.import_module("transformers")
+        except ImportError as exc:  # pragma: no cover - optional server dependency
+            raise RuntimeError("PeftGraniteLLMClient requires transformers and peft") from exc
+
+        token = os.getenv("HUGGINGFACE_API_KEY") or None
+        cache_dir = os.getenv("MODEL_CACHE_DIR") or None
+        tokenizer = transformers.AutoTokenizer.from_pretrained(
+            self.model_id,
+            token=token,
+            cache_dir=cache_dir,
+        )
+        base_model = transformers.AutoModelForCausalLM.from_pretrained(
+            self.model_id,
+            token=token,
+            cache_dir=cache_dir,
+            dtype="auto",
+            device_map="auto" if self.device == "auto" else None,
+        )
+        if self.device != "auto":
+            base_model = base_model.to(self.device)
+        first_name, first_path = next(iter(self.adapter_paths.items()))
+        model = peft.PeftModel.from_pretrained(
+            base_model,
+            first_path,
+            adapter_name=first_name,
+            is_trainable=False,
+        )
+        for name, path in list(self.adapter_paths.items())[1:]:
+            model.load_adapter(path, adapter_name=name, is_trainable=False)
+        model.eval()
+        return tokenizer, model
+
+    def _generate_current_model(self, prompt: str) -> str:
+        return super().generate(prompt)
+
+    def generate(self, prompt: str) -> str:
+        """Generate with the frozen base model by explicitly disabling adapters."""
+
+        with self._model.disable_adapter():
+            return self._generate_current_model(prompt)
+
+    def generate_with_adapter(self, prompt: str, adapter_name: str) -> str:
+        if adapter_name not in self.adapter_paths:
+            raise ValueError(f"unknown LoRA adapter: {adapter_name}")
+        self._model.set_adapter(adapter_name)
+        return self._generate_current_model(prompt)
+
+
+class NamedAdapterTextGenerator:
+    """TextGenerator view that activates one named LoRA for every call."""
+
+    def __init__(self, client: PeftGraniteLLMClient, adapter_name: str) -> None:
+        if adapter_name not in client.adapter_paths:
+            raise ValueError(f"unknown LoRA adapter: {adapter_name}")
+        self.client = client
+        self.adapter_name = adapter_name
+
+    def generate(self, prompt: str) -> str:
+        return self.client.generate_with_adapter(prompt, self.adapter_name)
+
+
 def parse_citation_output(raw: str) -> tuple[str, tuple[int, ...]]:
     text = raw.strip()
     if text.lower().startswith("answer:"):

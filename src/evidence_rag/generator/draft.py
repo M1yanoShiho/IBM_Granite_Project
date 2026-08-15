@@ -1,8 +1,19 @@
 from typing import Protocol
 
-from evidence_rag.contracts.models import Query, QueryChecklist, SelectedEvidenceSet
+from evidence_rag.contracts.models import (
+    Query,
+    QueryChecklist,
+    SelectedEvidenceSet,
+    SelectionGuidance,
+)
 from evidence_rag.generator.claim_splitter import ClaimSplitter
 from evidence_rag.generator.granite import GraniteLLMClient, TextGenerator
+from evidence_rag.generator.key_facts import (
+    GUIDED_DRAFT_PROMPT,
+    KeyFactNote,
+    KeyFactNoteExtractor,
+    render_key_fact_notes,
+)
 from evidence_rag.generator.models import Claim, DraftAnswer
 
 DRAFT_PROMPT = (
@@ -57,6 +68,17 @@ class DraftTextGenerator(Protocol):
 
 class ClaimsSplitter(Protocol):
     def split(self, answer_text: str) -> tuple[Claim, ...]: ...
+
+
+class DraftAnswerProducer(Protocol):
+    """Structural contract shared by the ordinary and notes-first draft paths."""
+
+    def generate(
+        self,
+        query: Query,
+        checklist: QueryChecklist,
+        selected: SelectedEvidenceSet,
+    ) -> DraftAnswer: ...
 
 
 class DraftGenerator:
@@ -126,3 +148,72 @@ class DraftAnswerGenerator:
             answer_text=answer_text,
             claims=claims,
         )
+
+
+class KeyFactDraftAnswerGenerator:
+    """Optional notes-first draft path used only by the F003B/F004 experiment.
+
+    ``guided=False`` is G1 (question + selected evidence only). ``guided=True``
+    is G2 (same notes call plus the runtime-safe Selector sidecar).  Both feed the
+    unchanged claim splitter and downstream verifier.
+    """
+
+    def __init__(
+        self,
+        llm: TextGenerator,
+        *,
+        guided: bool = False,
+        claim_splitter: ClaimsSplitter | None = None,
+        note_llm: TextGenerator | None = None,
+    ) -> None:
+        self.llm = llm
+        self.guided = guided
+        # F006 may adapt only the extraction call while keeping drafting and
+        # claim splitting on the frozen base model. Existing F003/F004 callers
+        # omit ``note_llm`` and preserve the original single-client behaviour.
+        self.note_extractor = KeyFactNoteExtractor(note_llm or llm, guided=guided)
+        self.claim_splitter = claim_splitter or ClaimSplitter(llm=llm)
+        self.last_notes: tuple[KeyFactNote, ...] = ()
+
+    def generate(
+        self,
+        query: Query,
+        checklist: QueryChecklist,
+        selected: SelectedEvidenceSet,
+        guidance: SelectionGuidance | None = None,
+    ) -> DraftAnswer:
+        if query.query_id != checklist.query_id or query.query_id != selected.query_id:
+            raise ValueError("query, checklist, and selected evidence query IDs differ")
+        self.last_notes = self.note_extractor.extract(query, selected, guidance)
+        if not self.last_notes:
+            answer_text = DraftGenerator(llm=self.llm).generate_answer(
+                query, checklist, selected
+            )
+        else:
+            context = "\n".join(
+                f"[{index}] ({item.evidence_id}) {item.text}"
+                for index, item in enumerate(selected.evidence, start=1)
+            )
+            answer_text = self.llm.generate(
+                GUIDED_DRAFT_PROMPT.format(
+                    key_fact_notes=render_key_fact_notes(self.last_notes, selected),
+                    context=context,
+                    question=query.text,
+                )
+            ).strip()
+            if answer_text.lower().strip(".!?\"' ") in UNKNOWN_ANSWERS:
+                answer_text = ""
+        return DraftAnswer(
+            query_id=query.query_id,
+            answer_text=answer_text,
+            claims=self.claim_splitter.split(answer_text),
+        )
+
+    def generate_with_guidance(
+        self,
+        query: Query,
+        checklist: QueryChecklist,
+        selected: SelectedEvidenceSet,
+        guidance: SelectionGuidance | None,
+    ) -> DraftAnswer:
+        return self.generate(query, checklist, selected, guidance)

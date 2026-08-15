@@ -169,6 +169,47 @@ class SelectedEvidenceSet(FrozenModel):
         return self
 
 
+class RetainedEvidenceGuidance(FrozenModel):
+    """Selector-originated runtime signals for one *retained* evidence item.
+
+    This is deliberately a narrow allowlist.  It can carry the Selector's own
+    scores and decision reason, but no evidence text, dropped evidence ID, gold
+    answer, required-document label or benchmark chain annotation.
+    """
+
+    schema_version: Literal["1.0"] = "1.0"
+    evidence_id: NonEmpty
+    retrieval_rank: PositiveRank
+    protect_signal: FiniteFloat | None = Field(default=None, ge=0.0, le=1.0)
+    harm_signal: FiniteFloat | None = Field(default=None, ge=0.0, le=1.0)
+    action: Literal["KEEP", "ABSTAIN_KEEP"]
+    reason: NonEmpty
+
+
+class SelectionGuidance(FrozenModel):
+    """Optional Selector→Generator sidecar containing runtime-safe signals only."""
+
+    schema_version: Literal["1.0"] = "1.0"
+    query_id: NonEmpty
+    selector_changed: bool
+    dropped_count: Annotated[int, Field(ge=0, le=3)]
+    retained: tuple[RetainedEvidenceGuidance, ...]
+
+    @model_validator(mode="after")
+    def retained_items_are_unique_and_ordered(self) -> "SelectionGuidance":
+        ids = tuple(item.evidence_id for item in self.retained)
+        ranks = tuple(item.retrieval_rank for item in self.retained)
+        if len(ids) != len(set(ids)):
+            raise ValueError("retained guidance evidence IDs must be unique")
+        if len(ranks) != len(set(ranks)):
+            raise ValueError("retained guidance retrieval ranks must be unique")
+        if ranks != tuple(sorted(ranks)):
+            raise ValueError("retained guidance must follow retrieval rank")
+        if self.selector_changed != (self.dropped_count > 0):
+            raise ValueError("selector_changed must equal dropped_count > 0")
+        return self
+
+
 UNVERIFIED_ANNOTATION = "[unverified]"
 """Marks a sentence the Generator kept but could not verify.
 

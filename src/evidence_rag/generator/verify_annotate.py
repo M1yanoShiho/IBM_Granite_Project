@@ -66,10 +66,11 @@ from evidence_rag.contracts.models import (
     Query,
     QueryChecklist,
     SelectedEvidenceSet,
+    SelectionGuidance,
     is_unverified_annotation,
     strip_unverified_annotation,
 )
-from evidence_rag.generator.draft import DraftAnswerGenerator
+from evidence_rag.generator.draft import DraftAnswerGenerator, DraftAnswerProducer
 from evidence_rag.generator.entity_check import (
     EntityChecker,
     EntityConsistencyChecker,
@@ -402,7 +403,7 @@ class VerifyAnnotateGenerator:
 
     def __init__(
         self,
-        draft_generator: DraftAnswerGenerator | None = None,
+        draft_generator: DraftAnswerProducer | None = None,
         verifier: CitationRoutedVerifier | None = None,
         *,
         llm: TextGenerator | None = None,
@@ -454,6 +455,14 @@ class VerifyAnnotateGenerator:
             raise ValueError("query, checklist, and selected evidence query IDs differ")
 
         draft = self.draft_generator.generate(query, checklist, selected)
+        return self._route_draft(query, selected, draft)
+
+    def _route_draft(
+        self,
+        query: Query,
+        selected: SelectedEvidenceSet,
+        draft: DraftAnswer,
+    ) -> GenerationResult:
         parts: list[str] = []
         citations: list[str] = []
         seen: set[str] = set()
@@ -498,6 +507,28 @@ class VerifyAnnotateGenerator:
             answer=" ".join(parts),
             cited_evidence_ids=tuple(citations),
         )
+
+    def generate_with_guidance(
+        self,
+        query: Query,
+        checklist: QueryChecklist,
+        selected: SelectedEvidenceSet,
+        guidance: SelectionGuidance | None,
+    ) -> GenerationResult:
+        """Use an optional guidance-aware draft generator, then unchanged routing.
+
+        The normal ``generate`` contract remains untouched.  Only the F003/F004
+        experimental draft generator accepts a fourth argument; ordinary callers
+        continue through the frozen path.
+        """
+
+        generate_guided = getattr(self.draft_generator, "generate_with_guidance", None)
+        if generate_guided is None:
+            if guidance is not None:
+                raise TypeError("draft generator does not accept SelectionGuidance")
+            return self.generate(query, checklist, selected)
+        draft = generate_guided(query, checklist, selected, guidance)
+        return self._route_draft(query, selected, draft)
 
     def _record(self, routing: ClaimRouting) -> None:
         self.stats.claims += 1
