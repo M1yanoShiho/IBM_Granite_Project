@@ -163,7 +163,7 @@ def build_decision(
         bool(_metric(case, oracle_arm, "reference_text_visible")) for case in b100_cases
     )
     source = _source_profile_summary(profiles)
-    primary_generator = len(oracle_failed) > source["support_absent"]
+    primary_generator = bool(oracle_failed)
     split_is_primary = splitter_zero_claims > len(oracle_failed) / 2
     return {
         "schema_version": "full-flow-b110-decision-v1",
@@ -219,6 +219,9 @@ def build_decision(
             "splitter_fallback_G210": "do_not_activate_as_primary_branch",
             "generator_draft_training_G200_G220": "unblocked_by_B110",
             "utility_selector_training_S300": "remains_blocked_until_generator_gate",
+            "primary_rule_trigger": (
+                "support-only still has post-generation answer failures"
+            ),
         },
         "interpretation_boundary": (
             "B110 routes the next experimental responsibility; it does not establish that a "
@@ -322,6 +325,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         b100_report=json.loads(args.b100_report.read_text(encoding="utf-8")),
         baseline_reproduction=reproduction,
     )
+    decision["decision_git_commit"] = b100._git_commit()
+    decision["input_sha256"] = {
+        "queries": b100._sha256_file(args.queries),
+        "candidate_pool": b100._sha256_file(args.candidate_pool),
+        "roles": b100._sha256_file(args.roles),
+        "decision_trace": b100._sha256_file(args.decision_trace),
+        "gold": b100._sha256_file(args.gold),
+        "b100_cases": b100._sha256_file(args.b100_cases),
+        "b100_audit": b100._sha256_file(args.b100_audit),
+        "b100_report": b100._sha256_file(args.b100_report),
+        "b100_generations": b100._sha256_file(args.b100_generations),
+        "a002_generations": b100._sha256_file(args.a002_generations),
+    }
     _write_json(args.output_json, decision)
     args.output_report.parent.mkdir(parents=True, exist_ok=True)
     args.output_report.write_text(_markdown(decision), encoding="utf-8")

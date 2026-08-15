@@ -147,6 +147,9 @@ def test_decision_routes_generator_and_does_not_promote_splitter() -> None:
     assert decision["routing"]["primary"] == (
         "generator_evidence_utilization_and_context_robustness"
     )
+    assert decision["routing"]["primary_rule_trigger"] == (
+        "support-only still has post-generation answer failures"
+    )
     assert decision["generator_context_robustness"][
         "benign_noise_correct_to_wrong"
     ] == 1
