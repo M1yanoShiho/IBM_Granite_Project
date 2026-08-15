@@ -1,10 +1,12 @@
 import json
 import re
+from dataclasses import dataclass
 
 from evidence_rag.contracts.models import sentence_spans
 from evidence_rag.generator.granite import GraniteLLMClient, TextGenerator
 from evidence_rag.generator.json_parsing import parse_json_object
 from evidence_rag.generator.models import Claim, ClaimSpan
+from evidence_rag.generator.trace import SplitterStatus, SplitterTrace
 
 SPLIT_PROMPT = (
     "Split the answer into atomic, self-contained factual claims that could each "
@@ -154,12 +156,29 @@ FAITHFULNESS_PROMPT = (
 )
 
 
+@dataclass
+class _SplitCapture:
+    split_raw_output: str | None = None
+    faithfulness_raw_output: str | None = None
+    raw_claim_count: int = 0
+    located_claim_count: int = 0
+    retained_claim_count: int = 0
+
+
 class ClaimSplitter:
     """Split a draft answer into atomic claims and independently check rewrites."""
 
-    def __init__(self, llm: TextGenerator | None = None, *, degrade_on_failure: bool = True) -> None:
+    def __init__(
+        self,
+        llm: TextGenerator | None = None,
+        *,
+        degrade_on_failure: bool = True,
+        trace_enabled: bool = False,
+    ) -> None:
         self.llm = llm or GraniteLLMClient()
         self.degrade_on_failure = degrade_on_failure
+        self.trace_enabled = trace_enabled
+        self.last_trace: SplitterTrace | None = None
         """Fall back to sentence-level claims when structured splitting fails.
 
         **The defect this addresses is not that parsing fails -- it is that a parse
@@ -181,14 +200,45 @@ class ClaimSplitter:
         """
 
     def split(self, answer_text: str) -> tuple[Claim, ...]:
+        self.last_trace = None
         if not answer_text.strip():
+            if self.trace_enabled:
+                self.last_trace = SplitterTrace(status="not_run_empty_draft")
             return ()
+        capture = _SplitCapture()
         try:
-            return self._split_structured(answer_text)
-        except (ValueError, KeyError, TypeError):
+            claims = self._split_structured(answer_text, capture)
+        except (ValueError, KeyError, TypeError) as exc:
+            status: SplitterStatus = (
+                "degraded_fallback" if self.degrade_on_failure else "failed"
+            )
+            claims = self._degrade_to_sentences(answer_text) if self.degrade_on_failure else ()
+            if self.trace_enabled:
+                self.last_trace = SplitterTrace(
+                    status=status,
+                    split_raw_output=capture.split_raw_output,
+                    faithfulness_raw_output=capture.faithfulness_raw_output,
+                    failure_type=type(exc).__name__,
+                    failure_message=str(exc),
+                    raw_claim_count=capture.raw_claim_count,
+                    located_claim_count=capture.located_claim_count,
+                    retained_claim_count=capture.retained_claim_count,
+                    output_claim_count=len(claims),
+                )
             if not self.degrade_on_failure:
                 raise
-            return self._degrade_to_sentences(answer_text)
+            return claims
+        if self.trace_enabled:
+            self.last_trace = SplitterTrace(
+                status="structured",
+                split_raw_output=capture.split_raw_output,
+                faithfulness_raw_output=capture.faithfulness_raw_output,
+                raw_claim_count=capture.raw_claim_count,
+                located_claim_count=capture.located_claim_count,
+                retained_claim_count=capture.retained_claim_count,
+                output_claim_count=len(claims),
+            )
+        return claims
 
     def _degrade_to_sentences(self, answer_text: str) -> tuple[Claim, ...]:
         """One claim per sentence, marked degraded.
@@ -210,13 +260,15 @@ class ClaimSplitter:
             if answer_text[start:end].strip()
         )
 
-    def _split_structured(self, answer_text: str) -> tuple[Claim, ...]:
-        split_data = self._load_json(
-            self.llm.generate(SPLIT_PROMPT.format(answer=answer_text))
-        )
+    def _split_structured(
+        self, answer_text: str, capture: _SplitCapture
+    ) -> tuple[Claim, ...]:
+        capture.split_raw_output = self.llm.generate(SPLIT_PROMPT.format(answer=answer_text))
+        split_data = self._load_json(capture.split_raw_output)
         raw_claims = split_data.get("claims")
         if not isinstance(raw_claims, list):
             raise ValueError("splitter output must contain a claims array")
+        capture.raw_claim_count = len(raw_claims)
         pending: list[tuple[str, str, str, ClaimSpan]] = []
         cursor = 0
         for index, item in enumerate(raw_claims, start=1):
@@ -241,11 +293,13 @@ class ClaimSplitter:
             located_source = answer_text[span.start : span.end]
             pending.append((claim_id, located_source, claim_text, span))
             cursor = span.end
+        capture.located_claim_count = len(pending)
 
         # suppress over-split claims BEFORE the faithfulness call: they are not
         # answers, so spending a check on them is waste, and letting them through
         # lengthens the answer and multiplies entity_check comparisons.
         pending = _drop_over_split(pending)
+        capture.retained_claim_count = len(pending)
         if not pending:
             return ()
 
@@ -256,9 +310,10 @@ class ClaimSplitter:
             ],
             ensure_ascii=False,
         )
-        check_data = self._load_json(
-            self.llm.generate(FAITHFULNESS_PROMPT.format(items=items))
+        capture.faithfulness_raw_output = self.llm.generate(
+            FAITHFULNESS_PROMPT.format(items=items)
         )
+        check_data = self._load_json(capture.faithfulness_raw_output)
         raw_results = check_data.get("results")
         if not isinstance(raw_results, list):
             raise ValueError("faithfulness output must contain a results array")
