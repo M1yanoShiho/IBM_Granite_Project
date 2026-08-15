@@ -10,6 +10,7 @@ system-held-out data.
 from __future__ import annotations
 
 import argparse
+import gc
 import hashlib
 import importlib
 import json
@@ -448,6 +449,32 @@ def train(
     weights_path = adapter_dir / "adapter_model.safetensors"
     if not weights_path.is_file():
         raise ValueError("G220 did not write adapter_model.safetensors")
+    weights_sha256 = _sha256(weights_path)
+
+    # Prove that the persisted adapter, rather than only the in-memory training model, loads.
+    del optimizer
+    del model
+    gc.collect()
+    torch.cuda.empty_cache()
+    reload_base = transformers.AutoModelForCausalLM.from_pretrained(
+        str(model_snapshot.resolve()),
+        local_files_only=True,
+        dtype=torch.bfloat16,
+        device_map={"": 0},
+    )
+    reloaded = peft.PeftModel.from_pretrained(
+        reload_base, str(adapter_dir.resolve()), is_trainable=False
+    )
+    reload_trainable = sum(
+        parameter.numel() for parameter in reloaded.parameters() if parameter.requires_grad
+    )
+    reload_parameter_count = sum(parameter.numel() for parameter in reloaded.parameters())
+    if reload_trainable != 0 or reload_parameter_count != all_count:
+        raise ValueError("G220 persisted adapter reload changed parameter invariants")
+    del reloaded
+    del reload_base
+    gc.collect()
+    torch.cuda.empty_cache()
 
     manifest: dict[str, object] = {
         "schema_version": "full-flow-g220-training-manifest-v1",
@@ -498,7 +525,14 @@ def train(
         "validation_loss_by_variant": validation_losses,
         "elapsed_seconds": time.perf_counter() - started,
         "peak_cuda_memory_bytes": peak_allocated,
-        "adapter_weights_sha256": _sha256(weights_path),
+        "adapter_weights_sha256": weights_sha256,
+        "reload_check": {
+            "status": "PASS",
+            "fresh_base_loaded": True,
+            "persisted_adapter_loaded": True,
+            "is_trainable": False,
+            "all_parameters_with_adapter": reload_parameter_count,
+        },
         "versions": {
             "torch": torch.__version__,
             "transformers": transformers.__version__,
