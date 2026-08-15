@@ -933,10 +933,26 @@ R7 与 R8 的差别只有 generator 一项,故两者可直接配对比较,**证�
     configs/experiments/pipe8_2wiki_decompose.toml
   ```
   拉 raw 时**同样须剥离 `trace`**(R7 实测 342 MB → 8.0 MB),理由见 R7 的 AFTER。
-- Git commit:待本次改动提交后填;Seed:7;n=2000/臂;
+- Git commit:`0a7d956`(本条与四个 config 同批提交,2026-08-09);Seed:7;n=2000/臂;
   与 R7 唯一变量 = `[generator] name`。
 
-**AFTER:** 未运行。<!-- 填:job id、四臂表、retriever 自检、decompose vs bm25 的配对 p、
+**已提交 [2026-08-15,job 18541857]** —— 预注册后第六天。期间 R9→R17 的每一条系统级数字
+都建立在 `extractive` generator 上,本条正是那些条目限制里反复挂着的未测项。
+
+**出发前核对(照 R17 的做法,读数前先做):** 四个 `pipe8_2wiki_*.toml` 与 R7 的
+`pipe_2wiki_*.toml` 逐键比对,**差异仅 `[generator]`(`granite` 对 `extractive`)与 `[output]`**,
+四臂皆然 ⇒ 与 R7 的唯一变量成立,可比性无损。
+
+**⚠️ 一处偏离预注册命令,记录理由:实际提交用了 `--gres=gpu:rtx_3090:1`,
+而预注册写的是 `--gres=gpu:1`。**
+原因:`run_pipeline_eval.slurm` 自带 `#SBATCH --gres=gpu:rtx_3090:1`,而预注册那条命令
+**恰好会把这个默认放宽成任意 GPU**,包括风险 1 点名的那张 8GB rtx_2080 ——
+hybrid 臂需同时持有 Granite embedder 与 granite-4.1-3b(fp16 约 6GB),在 8GB 上大概率 OOM。
+风险 1 本就授权"改钉 rtx_3090 或 a100 并接受排队",此处只是**把它前置**,
+免得一个申请 8 小时的作业跑到一半炸掉。
+**该偏离不影响任何测量:GPU 型号只改变可行性与速度,不进入指标。**
+
+**AFTER:** 待读数。<!-- 填:job id、四臂表、retriever 自检、decompose vs bm25 的配对 p、
 臂间序关系是否与 R7 一致、三种替代结果命中哪个、是否触发地板效应、
 R7 的检索建议是否依然成立 -->
 
