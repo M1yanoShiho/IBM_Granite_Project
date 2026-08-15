@@ -160,6 +160,7 @@ def test_materialize_builds_equal_clean_and_mixed_draft_examples(tmp_path: Path)
         component_map_path=paths["components.jsonl"],
         selection_trace_path=paths["selection.jsonl"],
         qa2d_targets_path=paths["qa2d.jsonl"],
+        target_support_audit_path=None,
         output_dir=output,
     )
 
@@ -214,6 +215,7 @@ def test_materialize_rejects_component_crossing_splits(tmp_path: Path) -> None:
             component_map_path=paths["components.jsonl"],
             selection_trace_path=paths["selection.jsonl"],
             qa2d_targets_path=paths["qa2d.jsonl"],
+            target_support_audit_path=None,
             output_dir=tmp_path / "output",
         )
 
@@ -245,3 +247,40 @@ def test_qa2d_export_records_answer_preservation(tmp_path: Path) -> None:
     assert target_rows[0]["declarative"] == "The event happened in 2009."
     assert target_rows[0]["answer_preserved"] is True
     assert target_rows[1]["answer_preserved"] is False
+
+
+def test_answer_matching_requires_token_boundaries_and_rejects_unknown() -> None:
+    assert g200._contains_normalised("Heather West", "Heather West won.") is True
+    assert g200._contains_normalised("Heather West", "Sheather West won.") is False
+    assert g200._is_unknown_reference("unknown") is True
+    assert g200._is_unknown_reference("a known answer") is False
+
+
+def test_target_support_audit_records_true_scores(tmp_path: Path) -> None:
+    paths = _fixture(tmp_path)
+    preaudit = tmp_path / "preaudit"
+    g200.materialize(
+        queries_path=paths["queries.jsonl"],
+        candidate_pool_path=paths["candidate_sets.jsonl"],
+        gold_path=paths["gold_cases.jsonl"],
+        role_assignments_path=paths["roles.jsonl"],
+        component_map_path=paths["components.jsonl"],
+        selection_trace_path=paths["selection.jsonl"],
+        qa2d_targets_path=paths["qa2d.jsonl"],
+        target_support_audit_path=None,
+        output_dir=preaudit,
+    )
+
+    scores = iter((0.9, 0.4))
+    manifest = g200.audit_target_support(
+        train_cases_path=preaudit / "train_cases.jsonl",
+        validation_cases_path=preaudit / "validation_cases.jsonl",
+        candidate_pool_path=paths["candidate_sets.jsonl"],
+        true_snapshot=tmp_path / "true",
+        output_dir=tmp_path / "audit",
+        scorer=lambda _premise, _hypothesis: next(scores),
+    )
+
+    assert manifest["queries"] == 2
+    assert manifest["entailed"] == 1
+    assert manifest["not_entailed"] == 1

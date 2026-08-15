@@ -18,6 +18,7 @@ import argparse
 import hashlib
 import importlib
 import json
+import math
 import os
 import re
 import unicodedata
@@ -36,6 +37,7 @@ from evidence_rag.cli.export_qa2d import (
 )
 from evidence_rag.contracts.models import CandidateSet, EvidenceCandidate, Query
 from evidence_rag.generator.draft import DRAFT_PROMPT
+from evidence_rag.generator.nli import DEFAULT_BINARY_ENTAIL_THRESHOLD, TrueNLIModel
 from evidence_rag.selector.dual_head import load_dual_head_checkpoint
 from evidence_rag.selector.models import CandidateRiskScore
 from evidence_rag.selector.nli_dual_head import load_nli_dual_head_model
@@ -59,6 +61,15 @@ VARIANT_NAMES = (
     "support_first",
     "support_middle",
     "support_last",
+)
+UNKNOWN_REFERENCES = frozenset(
+    {
+        "unknown",
+        "not known",
+        "not available",
+        "n a",
+        "none",
+    }
 )
 
 
@@ -97,6 +108,18 @@ def _sha256_text(value: str) -> str:
 def _normalise(text: str) -> str:
     value = unicodedata.normalize("NFKC", text).casefold()
     return " ".join(re.findall(r"\w+", value))
+
+
+def _contains_normalised(needle: str, haystack: str) -> bool:
+    normalized_needle = _normalise(needle)
+    normalized_haystack = _normalise(haystack)
+    if not normalized_needle:
+        return False
+    return f" {normalized_needle} " in f" {normalized_haystack} "
+
+
+def _is_unknown_reference(answer: str) -> bool:
+    return _normalise(answer) in UNKNOWN_REFERENCES
 
 
 def _require_empty(output_dir: Path, label: str) -> None:
@@ -367,7 +390,7 @@ def export_qa2d_targets(
         sentence = normalise_terminal_space(str(raw_sentence).strip())
         if not sentence:
             raise ValueError(f"empty QA2D target for {query_id}")
-        answer_preserved = _normalise(gold[query_id]) in _normalise(sentence)
+        answer_preserved = _contains_normalised(gold[query_id], sentence)
         preserved += int(answer_preserved)
         role, component_id = roles[query_id]
         rows.append(
@@ -402,6 +425,7 @@ def export_qa2d_targets(
         "queries": len(rows),
         "answer_preserved": preserved,
         "answer_not_preserved": len(rows) - preserved,
+        "unknown_references": sum(_is_unknown_reference(answer) for answer in gold.values()),
         "input_sha256": {
             "queries": _sha256(queries_path),
             "gold": _sha256(gold_path),
@@ -530,6 +554,139 @@ def _load_targets(
     return targets
 
 
+TargetSupportScorer = Callable[[str, str], float]
+
+
+def _load_pre_audit_cases(
+    train_cases_path: Path, validation_cases_path: Path
+) -> list[Mapping[str, Any]]:
+    output: list[Mapping[str, Any]] = []
+    seen: set[str] = set()
+    for row in [*_jsonl(train_cases_path), *_jsonl(validation_cases_path)]:
+        query_id = str(row.get("query_id", ""))
+        if not query_id or query_id in seen:
+            raise ValueError(f"invalid or duplicate pre-audit G200 query: {query_id!r}")
+        if row.get("schema_version") != "full-flow-g200-case-v1":
+            raise ValueError(f"invalid pre-audit G200 schema for {query_id}")
+        seen.add(query_id)
+        output.append(row)
+    if not output:
+        raise ValueError("G200 target audit requires non-empty pre-audit cases")
+    return output
+
+
+def audit_target_support(
+    *,
+    train_cases_path: Path,
+    validation_cases_path: Path,
+    candidate_pool_path: Path,
+    true_snapshot: Path,
+    output_dir: Path,
+    scorer: TargetSupportScorer | None = None,
+) -> dict[str, object]:
+    """Audit that each frozen semantic target is entailed by its cited support."""
+
+    _require_empty(output_dir, "G200 target support audit")
+    cases = _load_pre_audit_cases(train_cases_path, validation_cases_path)
+    wanted = {str(row["query_id"]) for row in cases}
+    pools = _load_topk10(candidate_pool_path, wanted)
+    if scorer is None:
+        judge = TrueNLIModel(model_id=str(true_snapshot.resolve()))
+        scorer = lambda premise, hypothesis: judge.score(  # noqa: E731
+            premise=premise, hypothesis=hypothesis
+        )
+
+    rows: list[dict[str, object]] = []
+    entailed = 0
+    for index, row in enumerate(cases, start=1):
+        query_id = str(row["query_id"])
+        variants = row.get("variants")
+        if not isinstance(variants, Mapping):
+            raise ValueError(f"G200 case lacks variants for {query_id}")
+        support_only = variants.get("support_only")
+        if not isinstance(support_only, Mapping):
+            raise ValueError(f"G200 case lacks support_only for {query_id}")
+        evidence_id = str(support_only.get("support_evidence_id", ""))
+        candidate_by_id = {item.evidence_id: item for item in pools[query_id]}
+        candidate = candidate_by_id.get(evidence_id)
+        if candidate is None:
+            raise ValueError(f"G200 target audit cannot find support {evidence_id}")
+        target = str(row.get("semantic_target", "")).strip()
+        expected_hash = str(row.get("semantic_target_sha256", ""))
+        if not target or expected_hash != _sha256_text(target):
+            raise ValueError(f"G200 target hash disagrees for {query_id}")
+        score = float(scorer(candidate.text, target))
+        if not math.isfinite(score) or not 0.0 <= score <= 1.0:
+            raise ValueError(f"invalid TRUE score for {query_id}: {score}")
+        is_entailed = score >= DEFAULT_BINARY_ENTAIL_THRESHOLD
+        entailed += int(is_entailed)
+        rows.append(
+            {
+                "schema_version": "full-flow-g200-target-support-audit-row-v1",
+                "query_id": query_id,
+                "role": str(row.get("role", "")),
+                "component_id": str(row.get("component_id", "")),
+                "semantic_target_sha256": expected_hash,
+                "support_evidence_id": evidence_id,
+                "true_entailment_score": score,
+                "threshold": DEFAULT_BINARY_ENTAIL_THRESHOLD,
+                "entailed": is_entailed,
+            }
+        )
+        if index % 100 == 0 or index == len(cases):
+            print(f"[G200 target audit] {index}/{len(cases)}", flush=True)
+
+    audit_path = output_dir / "target_support_audit.jsonl"
+    _write_jsonl(audit_path, rows)
+    manifest: dict[str, object] = {
+        "schema_version": "full-flow-g200-target-support-audit-manifest-v1",
+        "status": "COMPLETE",
+        "judge": "google/t5_xxl_true_nli_mixture",
+        "judge_snapshot": str(true_snapshot.resolve()),
+        "threshold": DEFAULT_BINARY_ENTAIL_THRESHOLD,
+        "direction": "support evidence premise -> semantic target hypothesis",
+        "queries": len(rows),
+        "entailed": entailed,
+        "not_entailed": len(rows) - entailed,
+        "input_sha256": {
+            "train_cases": _sha256(train_cases_path),
+            "validation_cases": _sha256(validation_cases_path),
+            "candidate_pool": _sha256(candidate_pool_path),
+        },
+        "target_support_audit_sha256": _sha256(audit_path),
+    }
+    _write_json(output_dir / "target_support_audit_manifest.json", manifest)
+    return manifest
+
+
+def _load_target_support_audit(
+    path: Path, roles: Mapping[str, tuple[str, str]]
+) -> dict[str, Mapping[str, Any]]:
+    output: dict[str, Mapping[str, Any]] = {}
+    for row in _jsonl(path):
+        query_id = str(row.get("query_id", ""))
+        if query_id not in roles:
+            raise ValueError(f"target support audit contains non-G200 query: {query_id}")
+        score = row.get("true_entailment_score")
+        threshold = row.get("threshold")
+        entailed = row.get("entailed")
+        if (
+            not isinstance(score, (int, float))
+            or not math.isfinite(float(score))
+            or not isinstance(threshold, (int, float))
+            or float(threshold) != DEFAULT_BINARY_ENTAIL_THRESHOLD
+            or not isinstance(entailed, bool)
+            or entailed != (float(score) >= float(threshold))
+        ):
+            raise ValueError(f"invalid target support audit row for {query_id}")
+        if query_id in output:
+            raise ValueError(f"duplicate target support audit row: {query_id}")
+        output[query_id] = row
+    if not output:
+        raise ValueError("target support audit is empty")
+    return output
+
+
 def _ordered_by_rank(candidates: Iterable[EvidenceCandidate]) -> tuple[EvidenceCandidate, ...]:
     return tuple(sorted(candidates, key=lambda item: (item.retrieval_rank, item.evidence_id)))
 
@@ -546,7 +703,7 @@ def _variant_row(
         (index, item)
         for index, item in enumerate(candidates, start=1)
         if item.document_id in relevant_document_ids
-        and _normalise(answer) in _normalise(item.text)
+        and _contains_normalised(answer, item.text)
     ]
     if not carriers:
         return None
@@ -570,6 +727,7 @@ def materialize(
     component_map_path: Path,
     selection_trace_path: Path,
     qa2d_targets_path: Path,
+    target_support_audit_path: Path | None,
     output_dir: Path,
 ) -> dict[str, object]:
     """Join frozen offline labels to contexts and emit no model calls."""
@@ -583,6 +741,11 @@ def materialize(
     gold = _load_gold(gold_path, wanted)
     selected = _load_selection(selection_trace_path, roles=roles, pools=pools)
     targets = _load_targets(qa2d_targets_path, roles)
+    target_audit = (
+        _load_target_support_audit(target_support_audit_path, roles)
+        if target_support_audit_path is not None
+        else None
+    )
 
     counts: Counter[str] = Counter()
     rows: list[dict[str, object]] = []
@@ -597,6 +760,9 @@ def materialize(
         if str(target_row.get("answer", "")) != answer:
             raise ValueError(f"QA2D answer disagrees for {query_id}")
         declarative = str(target_row.get("declarative", "")).strip()
+        if _is_unknown_reference(answer):
+            counts["excluded_unknown_reference"] += 1
+            continue
         if not bool(target_row.get("answer_preserved")) or not declarative:
             counts["excluded_qa2d_answer_not_preserved"] += 1
             continue
@@ -624,7 +790,7 @@ def materialize(
         if not benign:
             counts["excluded_no_benign"] += 1
             continue
-        if not any(_normalise(answer) in _normalise(item.text) for item in support):
+        if not any(_contains_normalised(answer, item.text) for item in support):
             counts["excluded_no_exact_supported_answer"] += 1
             continue
 
@@ -667,6 +833,23 @@ def materialize(
         if len(variants) != len(VARIANT_NAMES):
             continue
 
+        if target_audit is not None:
+            audit_row = target_audit.get(query_id)
+            if audit_row is None:
+                raise ValueError(f"target support audit lacks eligible query {query_id}")
+            support_variant = variants["support_only"]
+            if str(audit_row.get("semantic_target_sha256", "")) != _sha256_text(
+                declarative
+            ):
+                raise ValueError(f"target support audit target disagrees for {query_id}")
+            if str(audit_row.get("support_evidence_id", "")) != str(
+                support_variant["support_evidence_id"]
+            ):
+                raise ValueError(f"target support audit evidence disagrees for {query_id}")
+            if not bool(audit_row.get("entailed")):
+                counts["excluded_true_not_entailed"] += 1
+                continue
+
         row = {
             "schema_version": "full-flow-g200-case-v1",
             "query_id": query_id,
@@ -698,7 +881,7 @@ def materialize(
     variants_per_query = len(VARIANT_NAMES)
     manifest: dict[str, object] = {
         "schema_version": "full-flow-g200-data-manifest-v1",
-        "status": "COMPLETE",
+        "status": "COMPLETE" if target_audit is not None else "PRE_AUDIT",
         "source_role": "NIAH train only",
         "sealed_or_heldout_read": False,
         "dev_read": False,
@@ -707,7 +890,8 @@ def materialize(
         "split_rule": "pre-existing component-grouped train-fit/train-modelval roles",
         "provenance_component_overlap": 0,
         "semantic_target": (
-            "frozen QA2D(question, single NIAH reference); answer-preserving rows only"
+            "frozen QA2D(question, single NIAH reference); answer-preserving"
+            + (" and TRUE-entailed" if target_audit is not None else "; TRUE audit pending")
         ),
         "qa2d": {
             "model": QA2D_MODEL_ID,
@@ -737,6 +921,11 @@ def materialize(
             "qa2d_targets": _sha256(qa2d_targets_path),
         },
     }
+    if target_support_audit_path is not None:
+        input_hashes = manifest["input_sha256"]
+        if not isinstance(input_hashes, dict):
+            raise AssertionError("G200 manifest input hashes are not mutable")
+        input_hashes["target_support_audit"] = _sha256(target_support_audit_path)
     _write_json(output_dir / "manifest.json", manifest)
     return manifest
 
@@ -764,6 +953,13 @@ def _parser() -> argparse.ArgumentParser:
     qa2d.add_argument("--revision", default=QA2D_REVISION)
     qa2d.add_argument("--batch-size", type=int, default=32)
 
+    audit = commands.add_parser("audit-targets")
+    audit.add_argument("--train-cases", required=True, type=Path)
+    audit.add_argument("--validation-cases", required=True, type=Path)
+    audit.add_argument("--candidate-pool", required=True, type=Path)
+    audit.add_argument("--true-snapshot", required=True, type=Path)
+    audit.add_argument("--output-dir", required=True, type=Path)
+
     data = commands.add_parser("materialize")
     data.add_argument("--queries", required=True, type=Path)
     data.add_argument("--candidate-pool", required=True, type=Path)
@@ -772,6 +968,7 @@ def _parser() -> argparse.ArgumentParser:
     data.add_argument("--component-map", required=True, type=Path)
     data.add_argument("--selection-trace", required=True, type=Path)
     data.add_argument("--qa2d-targets", required=True, type=Path)
+    data.add_argument("--target-support-audit", type=Path)
     data.add_argument("--output-dir", required=True, type=Path)
     return parser
 
@@ -799,6 +996,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             revision=args.revision,
             batch_size=args.batch_size,
         )
+    elif args.command == "audit-targets":
+        report = audit_target_support(
+            train_cases_path=args.train_cases,
+            validation_cases_path=args.validation_cases,
+            candidate_pool_path=args.candidate_pool,
+            true_snapshot=args.true_snapshot,
+            output_dir=args.output_dir.resolve(),
+        )
     else:
         report = materialize(
             queries_path=args.queries,
@@ -808,6 +1013,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             component_map_path=args.component_map,
             selection_trace_path=args.selection_trace,
             qa2d_targets_path=args.qa2d_targets,
+            target_support_audit_path=args.target_support_audit,
             output_dir=args.output_dir.resolve(),
         )
     print(json.dumps(report, ensure_ascii=True, sort_keys=True))
