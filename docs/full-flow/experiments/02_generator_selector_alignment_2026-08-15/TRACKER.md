@@ -1,7 +1,7 @@
 # Generator-first、Selector-aligned 执行跟踪表
 
-**对应计划：** [PLAN.md](PLAN.md)  
-**当前状态：** `A000-A002 COMPLETE / PASS; B100 IMPLEMENTATION IN PROGRESS`
+**对应计划：** [PLAN.md](PLAN.md)
+**当前状态：** `A000-B110 COMPLETE; G200 TODO / UNBLOCKED`
 **更新规则：** 未实际执行不得填写 PASS；每个 COMPLETE 项必须附 commit、input hash、run manifest 和结果路径。
 
 | Run | Milestone | 目的 | 主要输入 | 必须产物 | 优先级 | 状态 |
@@ -9,10 +9,10 @@
 | A000 | 协议冻结 | 冻结数据、Granite-centered 模型栈、主比较、统计门和 gold 边界 | 旧 query/provenance、system held-out、模型 snapshots | `A000_PROTOCOL.md`、data/model/power/server-audit manifest | MUST | COMPLETE / PASS |
 | A001 | Trace schema | 记录 draft→claims→faithfulness→routing 全链路 | 当前 Generator 代码 | schema、单测、逐题 trace | MUST | COMPLETE / PASS |
 | A002 | 基线/方差 | 复现基线并测同输入生成波动 | 已揭示 dev | baseline report、repeat report | MUST | COMPLETE / PASS |
-| B100 | Context matrix | 测 support-only、noise、position、Selected | changed + matched unchanged dev | cases JSONL、diagnostic report | MUST | IMPLEMENTATION IN PROGRESS |
-| B110 | Bottleneck decision | 将问题路由到 Retriever/Generator/Selector | B100 产物 | decision record | MUST | TODO |
-| G200 | Draft data | 构造可溯源的 evidence→draft targets | NIAH train、provenance groups | train/val cases、manifest | CONDITIONAL | BLOCKED BY B110 |
-| G210 | Split fallback | 只在 splitter 归因为主时增加降级路径 | A001/B100 trace | tests、implementation report | CONDITIONAL | BLOCKED BY B110 |
+| B100 | Context matrix | 测 support-only、noise、position、Selected | changed + matched unchanged dev | cases JSONL、diagnostic report | MUST | COMPLETE / DIAGNOSTIC PASS |
+| B110 | Bottleneck decision | 将问题路由到 Retriever/Generator/Selector | B100 产物 | decision record | MUST | COMPLETE |
+| G200 | Draft data | 构造可溯源的 evidence→draft targets | NIAH train、provenance groups | train/val cases、manifest | CONDITIONAL | TODO / UNBLOCKED BY B110 |
+| G210 | Split fallback | 只在 splitter 归因为主时增加降级路径 | A001/B100 trace | tests、implementation report | CONDITIONAL | NOT ACTIVATED BY B110 |
 | G220-S | Training smoke | 验证 draft adapter、loss mask、长度和显存 | 小样本 train cases | smoke manifest | CONDITIONAL | BLOCKED BY G200 |
 | G220-GC | Clean draft LoRA | 普通 draft 微调控制组 | clean/support-only contexts | 3-seed checkpoints/manifests | CONDITIONAL | BLOCKED BY SMOKE |
 | G220-GM | Mixed draft LoRA | 训练 TopK/Selected/noise/position 鲁棒性 | matched mixed contexts | 3-seed checkpoints/manifests | CONDITIONAL | BLOCKED BY SMOKE |
@@ -53,3 +53,11 @@
 - A000：服务器 `it097952` 实体审计 PASS；数据、模型、Selector checkpoint 与历史 manifest 的 SHA256 一致；system held-out 的准确边界为“schema/count + 每数据集每臂 3 条 pipeline dry-run，未保存答案、未评分”；产物位于 `artifacts/A000/`。
 - A001：默认关闭的逐题 Generator trace 已覆盖 raw draft、split/faithfulness、TRUE routing、claim disposition 与 final-empty reason；trace on/off 行为等价；全项目 `1646 passed, 20 skipped`；schema 位于 `artifacts/A001/`。
 - A002：739 题 Base Verify 基线逐题复现 F001；K=64.01%、L=63.60%，L-K=-0.41pp，CI [-1.31,+0.44]pp；74 题每臂同输入重复与 630 个 unchanged 平行调用均逐题完全一致；两臂各 813 次调用、0 错误、trace 零缺失；产物位于 `artifacts/A002/`。
+- B100：218 题六臂 context matrix 共 1308 次调用、0 错误、trace 零缺失；O support-only=68.81%，K=60.09%，O-K=+8.72pp，CI [+3.10,+14.69]pp；O 仍有 68 题失败，噪声与位置导致大量逐题翻转；产物位于 `artifacts/B100/`。
+- B110：主路线判定为 Generator evidence utilization/context robustness；全 dev 有 12/739 Retriever support-absent；7 个 K 对/S 错题的 8 条删除均为 harmful；G210 不激活，G200/G220 解锁，S300 继续等待 G230；产物位于 `artifacts/B110/`。
+
+## 已测吞吐
+
+- A002：1626 次调用、1892 个 trace claims，调用计时合计 8057.50 秒，平均 4.96 秒/调用；
+- B100：1308 次调用、1487 个 trace claims，调用计时合计 6384.87 秒，平均 4.88 秒/调用；
+- 环境：两张 RTX A4000 同时承载 Granite 4.1-3B 与 TRUE，单进程顺序执行各臂；上述计时用于后续预算，不外推到训练 steps。

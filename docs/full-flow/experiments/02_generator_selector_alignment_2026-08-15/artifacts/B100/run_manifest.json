@@ -1,0 +1,61 @@
+{
+  "schema_version": "full-flow-b100-run-manifest-v1",
+  "status": "COMPLETE",
+  "script_sha256": "ebf93b5fad47ea30f29361d9b8249d4081871fd0e3a1c0d39bfab98d8a5671fe",
+  "git_commit": "f3bac13d5481bcfcd13b3465bc6dadc596be52c0",
+  "queries": 218,
+  "attempts_by_arm": {
+    "K_topk": 218,
+    "S_legacy_selected": 218,
+    "O_support_only": 218,
+    "OB_support_benign": 218,
+    "OH_support_harmful": 218,
+    "OP_support_last": 218
+  },
+  "errors_by_arm": {
+    "K_topk": 0,
+    "S_legacy_selected": 0,
+    "O_support_only": 0,
+    "OB_support_benign": 0,
+    "OH_support_harmful": 0,
+    "OP_support_last": 0
+  },
+  "trace_missing_by_arm": {
+    "K_topk": 0,
+    "S_legacy_selected": 0,
+    "O_support_only": 0,
+    "OB_support_benign": 0,
+    "OH_support_harmful": 0,
+    "OP_support_last": 0
+  },
+  "gold_loaded_at_runtime": false,
+  "runtime_contexts_sha256": "ca61dae50d0995d2212c8a1871c20ab61e379fba4cfb4d0b3913616fd77e0d6d",
+  "prompt_sha256": {
+    "draft": "50acd572f7c57ec25b20898d317a72cfc14c7aa6647c684c08210ed0bd1bd8f3",
+    "split": "af3ba871bfe3691bfce18f8e65a6891511944c20995fca369a86ab3e86d9772e",
+    "faithfulness": "f2ea1cc09763dab5aaf6549704110bfc1ce0fa7a39f2be286d95cea98f8a7802"
+  },
+  "decode": {
+    "max_new_tokens": 256,
+    "temperature": 0.0,
+    "top_p": 1.0,
+    "do_sample": false
+  },
+  "arm_order": "seed-13 stable cyclic offset and direction over six arms",
+  "same_process": true,
+  "shared_granite_and_true_instances": true,
+  "environment": {
+    "python": "3.11.15 (main, Jun 11 2026, 15:20:16) [GCC 14.3.0]",
+    "platform": "Linux-5.15.0-139-generic-x86_64-with-glibc2.31",
+    "torch": "2.6.0+cu126",
+    "transformers": "4.57.6",
+    "cuda_available": true,
+    "cuda_runtime": "12.6",
+    "cudnn": 90501,
+    "gpu_names": [
+      "NVIDIA RTX A4000",
+      "NVIDIA RTX A4000"
+    ]
+  },
+  "generations_sha256": "cae76fd5eb7664fca96d4d522558d318ac966fb1a57d4ad2fd0baefb50a08f20"
+}
