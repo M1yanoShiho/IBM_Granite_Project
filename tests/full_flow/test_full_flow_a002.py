@@ -128,6 +128,27 @@ def test_score_separates_selector_effect_from_repeat_stability() -> None:
     assert report["same_input_cross_arm_unchanged"]["exact_answer"] == 1
 
 
+def test_score_reports_an_empty_stratum_without_dividing_by_zero() -> None:
+    rows = a002.run_cases(
+        _cases()[:1],
+        generator=FakeTracedGenerator(),
+        repeat_ids={"q1"},
+    )
+    gold = {
+        "q1": GoldCase(
+            query_id="q1",
+            relevant_document_ids=("d1",),
+            reference_answers=("right",),
+        )
+    }
+
+    report = a002.score_rows(rows, gold)
+
+    assert report["selector_changed"]["queries"] == 0
+    assert report["selector_changed"]["L_minus_K_answer"] is None
+    assert "changed (0)" in a002._markdown(report)
+
+
 def test_runtime_command_does_not_accept_gold() -> None:
     with pytest.raises(SystemExit):
         a002._parser().parse_args(

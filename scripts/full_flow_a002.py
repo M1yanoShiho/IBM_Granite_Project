@@ -274,6 +274,16 @@ def _scope_report(
     scores: Mapping[str, Mapping[str, float]],
 ) -> dict[str, object]:
     query_ids = [str(row["query_id"]) for row in rows]
+    if not query_ids:
+        return {
+            "queries": 0,
+            "by_arm": {
+                arm: {"answer_match": None, "coverage": None} for arm in ARMS
+            },
+            "L_minus_K_answer": None,
+            "L_minus_K_coverage": None,
+            "answer_transitions": {"wrong_to_right": 0, "right_to_wrong": 0},
+        }
     components = {str(row["query_id"]): str(row["component_id"]) for row in rows}
     by_arm = {
         arm: {
@@ -399,6 +409,9 @@ def score_rows(
 
 
 def _markdown(report: Mapping[str, Any]) -> str:
+    def pct(value: float | None) -> str:
+        return "-" if value is None else f"{100 * value:.2f}%"
+
     lines = [
         "# A002 Baseline And Variance Report",
         "",
@@ -415,8 +428,7 @@ def _markdown(report: Mapping[str, Any]) -> str:
             metrics = scope["by_arm"][arm]
             lines.append(
                 f"| {label} ({scope['queries']}) | {arm} | "
-                f"{100 * metrics['answer_match']:.2f}% | "
-                f"{100 * metrics['coverage']:.2f}% |"
+                f"{pct(metrics['answer_match'])} | {pct(metrics['coverage'])} |"
             )
     lines.extend(
         [
