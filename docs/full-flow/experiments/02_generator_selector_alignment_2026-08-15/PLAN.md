@@ -1,7 +1,7 @@
 # Generator-first、Selector-aligned：下一阶段执行计划 v1
 
 **日期：** 2026-08-15  
-**状态：** `EXECUTION STARTED / A000-G200 COMPLETE`
+**状态：** `EXECUTION STARTED / A000-G220-S COMPLETE`
 **上一阶段结论：** F005 `FINAL-NO-WIN`；sealed600 已退休  
 **研究主线：** Reliability across the full evidence flow  
 **对应跟踪表：** [TRACKER.md](TRACKER.md)

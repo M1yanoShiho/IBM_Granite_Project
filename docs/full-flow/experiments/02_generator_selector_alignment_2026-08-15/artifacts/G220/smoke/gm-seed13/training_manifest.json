@@ -1,0 +1,90 @@
+{
+  "schema_version": "full-flow-g220-training-manifest-v1",
+  "status": "COMPLETE",
+  "run_kind": "smoke",
+  "arm": "gm",
+  "seed": 13,
+  "source_role": "G200 COMPLETE NIAH train only",
+  "decision_dev_used": false,
+  "sealed_or_heldout_read": false,
+  "adapter_scope": "draft generation call only",
+  "key_fact_extraction_scope": "not used",
+  "claim_splitter_scope": "frozen Granite base with adapter disabled",
+  "true_scope": "frozen verifier; not trained",
+  "model_snapshot": "/scratch/fl25387/IBM_Granite_Project_latest/model-cache/models--ibm-granite--granite-4.1-3b/snapshots/c0650403e44e78ec0262dab1c90914c65b196c4e",
+  "model_snapshot_config_sha256": "9a0e589b69e7d3ad9fb9fb2c844aa7d7156e052cb7ea4211de7de48ab7c8525c",
+  "data_manifest_sha256": "acc376e31196952b0d195e397784dd6bc4ecc0887ecdb25c8157bb3ed698d25a",
+  "train_cases_sha256": "c045fc40495d4852fdb930663257970e000f4b597fd51522c8474f4b732ff5ed",
+  "validation_cases_sha256": "26db5bd771c37849a1018e154c69baccb66057afcafaa876114cacc5425eb9a2",
+  "full_data_train_queries": 515,
+  "smoke_selection": "longest",
+  "selected_train_query_ids": [
+    "11690",
+    "11193",
+    "10754",
+    "10134"
+  ],
+  "selected_validation_query_ids": [
+    "10127",
+    "10817",
+    "11335",
+    "11057"
+  ],
+  "queries": 4,
+  "training_examples": 32,
+  "validation_queries": 4,
+  "epochs": 1,
+  "max_length": 2304,
+  "observed_max_training_length": 2120,
+  "truncated_examples": 0,
+  "truncation_rate": 0.0,
+  "microbatch_size": 1,
+  "gradient_accumulation": 8,
+  "optimizer_steps": 4,
+  "learning_rate": 0.0001,
+  "lora": {
+    "r": 8,
+    "alpha": 16,
+    "dropout": 0.05,
+    "target_modules": [
+      "q_proj",
+      "k_proj",
+      "v_proj",
+      "o_proj",
+      "gate_proj",
+      "up_proj",
+      "down_proj"
+    ],
+    "bias": "none"
+  },
+  "trainable_parameters": 15564800,
+  "all_parameters_with_adapter": 3418401280,
+  "trainable_percent": 0.45532395775372514,
+  "mean_training_loss": 0.971600778568245,
+  "final_100_training_loss": 0.971600778568245,
+  "validation_loss_by_variant": {
+    "support_only": 0.8596597835421562,
+    "topk": 0.9614083841443062,
+    "legacy_selected": 1.0365218594670296,
+    "support_benign": 1.0240703374147415,
+    "support_harmful": 1.0851443596184254,
+    "support_first": 0.854973416775465,
+    "support_middle": 1.080526240170002,
+    "support_last": 0.8765503708273172
+  },
+  "elapsed_seconds": 70.569929221645,
+  "peak_cuda_memory_bytes": 10093442560,
+  "adapter_weights_sha256": "df2276d1c1c976a59718925e0fb09262be2128083570e22ba8da436734eb1b83",
+  "reload_check": {
+    "status": "PASS",
+    "fresh_base_loaded": true,
+    "persisted_adapter_loaded": true,
+    "is_trainable": false,
+    "all_parameters_with_adapter": 3418401280
+  },
+  "versions": {
+    "torch": "2.6.0+cu126",
+    "transformers": "4.57.6",
+    "peft": "0.20.0"
+  }
+}
