@@ -1,7 +1,7 @@
 # Generator-first、Selector-aligned 执行跟踪表
 
 **对应计划：** [PLAN.md](PLAN.md)  
-**当前状态：** `A000-A002 COMPLETE / PASS; B100 TODO`
+**当前状态：** `A000-A002 COMPLETE / PASS; B100 IMPLEMENTATION IN PROGRESS`
 **更新规则：** 未实际执行不得填写 PASS；每个 COMPLETE 项必须附 commit、input hash、run manifest 和结果路径。
 
 | Run | Milestone | 目的 | 主要输入 | 必须产物 | 优先级 | 状态 |
@@ -9,7 +9,7 @@
 | A000 | 协议冻结 | 冻结数据、Granite-centered 模型栈、主比较、统计门和 gold 边界 | 旧 query/provenance、system held-out、模型 snapshots | `A000_PROTOCOL.md`、data/model/power/server-audit manifest | MUST | COMPLETE / PASS |
 | A001 | Trace schema | 记录 draft→claims→faithfulness→routing 全链路 | 当前 Generator 代码 | schema、单测、逐题 trace | MUST | COMPLETE / PASS |
 | A002 | 基线/方差 | 复现基线并测同输入生成波动 | 已揭示 dev | baseline report、repeat report | MUST | COMPLETE / PASS |
-| B100 | Context matrix | 测 support-only、noise、position、Selected | changed + matched unchanged dev | cases JSONL、diagnostic report | MUST | TODO |
+| B100 | Context matrix | 测 support-only、noise、position、Selected | changed + matched unchanged dev | cases JSONL、diagnostic report | MUST | IMPLEMENTATION IN PROGRESS |
 | B110 | Bottleneck decision | 将问题路由到 Retriever/Generator/Selector | B100 产物 | decision record | MUST | TODO |
 | G200 | Draft data | 构造可溯源的 evidence→draft targets | NIAH train、provenance groups | train/val cases、manifest | CONDITIONAL | BLOCKED BY B110 |
 | G210 | Split fallback | 只在 splitter 归因为主时增加降级路径 | A001/B100 trace | tests、implementation report | CONDITIONAL | BLOCKED BY B110 |
