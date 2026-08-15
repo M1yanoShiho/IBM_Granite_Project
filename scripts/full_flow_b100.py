@@ -291,19 +291,19 @@ def build_profile(
 
 def _matching_cost(changed: CaseProfile, control: CaseProfile) -> int:
     cost = 0
-    cost += 100_000 * (changed.question_type != control.question_type)
-    cost += 50_000 * (changed.reference_shape != control.reference_shape)
-    cost += 25_000 * (
+    cost += 1_000_000 * (changed.question_type != control.question_type)
+    cost += 300_000 * (changed.reference_shape != control.reference_shape)
+    cost += 100_000 * (
         changed.chain_eligible_topk10 != control.chain_eligible_topk10
     )
-    cost += 25_000 * (bool(changed.support) != bool(control.support))
-    cost += 10_000 * (changed.support_bucket != control.support_bucket)
-    cost += 10_000 * (bool(changed.harmful) != bool(control.harmful))
-    cost += 5_000 * (bool(changed.benign) != bool(control.benign))
-    cost += 500 * abs(len(changed.support) - len(control.support))
-    cost += 500 * abs(len(changed.harmful) - len(control.harmful))
-    cost += 100 * abs(len(changed.benign) - len(control.benign))
-    cost += 25 * abs(changed.first_support_rank - control.first_support_rank)
+    cost += 500_000 * (bool(changed.support) != bool(control.support))
+    cost += 100_000 * (changed.support_bucket != control.support_bucket)
+    cost += 250_000 * (bool(changed.harmful) != bool(control.harmful))
+    cost += 100_000 * (bool(changed.benign) != bool(control.benign))
+    cost += 1_000 * abs(len(changed.support) - len(control.support))
+    cost += 1_000 * abs(len(changed.harmful) - len(control.harmful))
+    cost += 200 * abs(len(changed.benign) - len(control.benign))
+    cost += 50 * abs(changed.first_support_rank - control.first_support_rank)
     return cost
 
 

@@ -165,6 +165,26 @@ def test_matching_is_deterministic_unique_and_prefers_same_structure() -> None:
     assert len({right.case.query_id for _, right, _ in first}) == 2
 
 
+def test_matching_prioritizes_noise_visibility_over_a_small_count_difference() -> None:
+    changed = _profile("c", changed=True)
+    same_noise = _profile(
+        "u-noise",
+        changed=False,
+        roles=("support", "harmful") + ("benign",) * 8,
+    )
+    missing_harmful = _profile(
+        "u-no-harm",
+        changed=False,
+        roles=("support", "support") + ("benign",) * 8,
+    )
+
+    ((_, matched, _),) = b100.match_unchanged(
+        (changed,), (missing_harmful, same_noise)
+    )
+
+    assert matched.case.query_id == "u-noise"
+
+
 def test_prepare_runtime_rows_strip_gold_fields() -> None:
     runtime, audit, matching = b100.prepare_rows(
         [_profile("c1", changed=True), _profile("u1", changed=False)]
