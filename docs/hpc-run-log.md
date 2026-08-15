@@ -1022,7 +1022,14 @@ decompose→bm25 **0.284**;bm25→strong-bm25 **−0.376**;strong-bm25→hybrid 
 4. **`answer_match` 仍是 exact-string 包含。** 本条绝对值为下界(见上),
    相对比较可信;2Wiki 的是非题伪影(R16)在此同样适用。
 5. **R7×R8 的逐条配对 2×2(证据里有无答案 × 模型答对与否)技术上可得,但按预注册不在本条范围。**
-   两轮 query_id 与检索链完全相同,数据在两轮的 per-case raw 里,Generator 组需要可自取。<!-- 填:job id、四臂表、retriever 自检、decompose vs bm25 的配对 p、
+   两轮 query_id 与检索链完全相同,数据在两轮的 per-case raw 里,Generator 组需要可自取。
+
+- raw:`results/r8-2wiki-{bm25,strong-bm25,hybrid-rrf,decompose}-per-case.json`
+  (四份,已 `git add -f` 拉回;剥离 `trace` 后 **323 MB → 8.5 MB**)。
+  **拉回后已复核:三个配对 delta 与 p 逐位一致(−0.1060 / p 0.0001、+0.0055 / p 0.5210、
+  +0.0375 / p 0.0001),四臂 MRR 亦复现 .9434 / .9580 / .9831 / .5702。**
+  **⇒ 与 R7 的 raw(`results/r7-2wiki-*-per-case.json`)并存,上述 2×2 可直接从 `results/` 做,
+  无需重跑、无需触碰 bp1。**<!-- 填:job id、四臂表、retriever 自检、decompose vs bm25 的配对 p、
 臂间序关系是否与 R7 一致、三种替代结果命中哪个、是否触发地板效应、
 R7 的检索建议是否依然成立 -->
 
