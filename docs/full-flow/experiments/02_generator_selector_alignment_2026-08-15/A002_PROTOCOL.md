@@ -1,7 +1,8 @@
 # A002 基线复现与运行方差协议
 
 **日期：** 2026-08-15
-**状态：** `IMPLEMENTED / SERVER SMOKE PENDING / NOT RUN`
+**状态：** `COMPLETE / PASS`
+**结果：** [A002_RESULTS.md](A002_RESULTS.md)
 
 ## 1. 目的
 

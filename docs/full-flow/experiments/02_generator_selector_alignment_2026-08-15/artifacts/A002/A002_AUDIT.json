@@ -1,0 +1,91 @@
+{
+  "baseline_reproduction": {
+    "K_vs_F001_C": {
+      "answer_equal": 739,
+      "citation_equal": 739,
+      "generation_result_equal": 739,
+      "queries": 739
+    },
+    "L_vs_F001_D": {
+      "answer_equal": 739,
+      "citation_equal": 739,
+      "generation_result_equal": 739,
+      "queries": 739
+    }
+  },
+  "formal_commit": "8af44f7416c3abd11359e44643696f92fa4fe5c6",
+  "formal_run": {
+    "attempts_by_arm": {
+      "K_topk_base": 813,
+      "L_legacy_selector_base": 813
+    },
+    "errors_by_arm": {
+      "K_topk_base": 0,
+      "L_legacy_selector_base": 0
+    },
+    "generations_sha256": "d5ab417efeb448a5117bf25d887161077af6c6165ac586f55ac9c401823d7fc8",
+    "queries": 739,
+    "repeat_queries": 74,
+    "runtime_input_sha256": "bad751bde256d01e204cbae85de2d43ce8e865689b4a08a9fb83500843ea3805",
+    "selector_changed_queries": 109,
+    "server_path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/A002-v1"
+  },
+  "order_balance": {
+    "all": {
+      "K_first": 363,
+      "L_first": 376
+    },
+    "selector_changed": {
+      "K_first": 53,
+      "L_first": 56
+    }
+  },
+  "primary_trace_summary": {
+    "K_topk_base": {
+      "claim_dispositions": {
+        "skipped_empty_sentence": 6,
+        "skipped_unfaithful": 112,
+        "unverified": 110,
+        "verified": 641
+      },
+      "final_empty_reasons": {
+        "all_claims_removed_or_empty": 1,
+        "all_claims_unfaithful": 52,
+        "empty_draft": 15,
+        "nonempty": 650,
+        "splitter_no_claims": 21
+      },
+      "splitter_status": {
+        "degraded_fallback": 9,
+        "not_run_empty_draft": 15,
+        "structured": 715
+      }
+    },
+    "L_legacy_selector_base": {
+      "claim_dispositions": {
+        "skipped_empty_sentence": 5,
+        "skipped_unfaithful": 112,
+        "unverified": 114,
+        "verified": 635
+      },
+      "final_empty_reasons": {
+        "all_claims_removed_or_empty": 1,
+        "all_claims_unfaithful": 54,
+        "empty_draft": 13,
+        "nonempty": 646,
+        "splitter_no_claims": 25
+      },
+      "splitter_status": {
+        "degraded_fallback": 8,
+        "not_run_empty_draft": 13,
+        "structured": 718
+      }
+    }
+  },
+  "schema_version": "full-flow-a002-audit-v1",
+  "status": "PASS",
+  "trace_missing_by_arm_all_runs": {
+    "K_topk_base": 0,
+    "L_legacy_selector_base": 0
+  }
+}
