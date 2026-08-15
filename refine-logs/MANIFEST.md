@@ -15,8 +15,8 @@
 | [`EXPERIMENT_PLAN_AMENDMENT.md`](EXPERIMENT_PLAN_AMENDMENT.md) | 当前修订固定入口；指向已获批并冻结的 Lean v3 | current-v3-lean-L000-pass-not-run |
 | [`EXPERIMENT_PLAN_AMENDMENT_2026-08-12_R005AB_v3_LEAN.md`](EXPERIMENT_PLAN_AMENDMENT_2026-08-12_R005AB_v3_LEAN.md) | TopK10 内 NLI-aware 保守删除；只保留 train/dev/final 隔离、必要对照与一次盲测 | current-v3-lean-frozen-for-implementation-not-run |
 | [`EXPERIMENT_PLAN_AMENDMENT_2026-08-12_R005AB_v3_LEAN.json`](EXPERIMENT_PLAN_AMENDMENT_2026-08-12_R005AB_v3_LEAN.json) | Lean v3 数据、模型、阈值、统计与运行边界的机器合同 | current-v3-lean-contract-L000-pass-not-run |
-| [`EXPERIMENT_TRACKER_AMENDMENT.md`](EXPERIMENT_TRACKER_AMENDMENT.md) | 当前修订 tracker 固定入口；指向 Lean v3 tracker | current-v3-lean-L000-pass |
-| [`EXPERIMENT_TRACKER_AMENDMENT_2026-08-12_R005AB_v3_LEAN.md`](EXPERIMENT_TRACKER_AMENDMENT_2026-08-12_R005AB_v3_LEAN.md) | Lean v3 的 L000–L003 最小执行队列 | current-v3-lean-L000-pass-L001-next |
+| [`EXPERIMENT_TRACKER_AMENDMENT.md`](EXPERIMENT_TRACKER_AMENDMENT.md) | 当前修订 tracker 固定入口；Lean v3 已完成，证据门 PASS、答案门 FAIL | v3-lean-complete-keep-topk10 |
+| [`EXPERIMENT_TRACKER_AMENDMENT_2026-08-12_R005AB_v3_LEAN.md`](EXPERIMENT_TRACKER_AMENDMENT_2026-08-12_R005AB_v3_LEAN.md) | Lean v3 的 L000–L003 完整执行记录 | v3-lean-L003-complete-overall-fail |
 | [`EXPERIMENT_PLAN_AMENDMENT_2026-08-12_R005AB_v2.md`](EXPERIMENT_PLAN_AMENDMENT_2026-08-12_R005AB_v2.md) | 被 Lean v3 取代的重型 v2 计划；从未运行 | superseded-v2-draft-never-run |
 | [`EXPERIMENT_PLAN_AMENDMENT_2026-08-12_R005AB_v2.json`](EXPERIMENT_PLAN_AMENDMENT_2026-08-12_R005AB_v2.json) | 被 Lean v3 取代的 v2 机器合同；从未运行 | superseded-v2-draft-never-run |
 | [`EXPERIMENT_TRACKER_AMENDMENT_2026-08-12_R005AB_v2.md`](EXPERIMENT_TRACKER_AMENDMENT_2026-08-12_R005AB_v2.md) | 被 Lean v3 取代的 v2 tracker；从未运行 | superseded-v2-draft-never-run |

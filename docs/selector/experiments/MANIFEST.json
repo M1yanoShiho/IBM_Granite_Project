@@ -4,7 +4,7 @@
   "archive_root": "docs/selector/experiments",
   "unit_of_archive": "independent_method_or_experiment_route",
   "current_experiment_id": "08_r005ab_repair_current_2026-08-12",
-  "current_authorization_state": "V3_LEAN_FROZEN_L000_PASS_L001_NEXT",
+  "current_authorization_state": "V3_LEAN_COMPLETE_OVERALL_FAIL_KEEP_TOPK10",
   "production_default": "TopK10",
   "policies": {
     "historical_snapshots_are_execution_entrypoints": false,
@@ -95,12 +95,12 @@
       "ordinal": 8,
       "experiment_id": "08_r005ab_repair_current_2026-08-12",
       "directory": "08_r005ab_repair_current_2026-08-12",
-      "status": "V3 LEAN FROZEN / L000 PASS / L001 NEXT / NOT RUN / FINAL UNOPENED",
-      "execution_state": "L000_COMPLETE_L001_NOT_RUN",
-      "route_state": "CURRENT_V3_LEAN_IMPLEMENTATION_NEXT",
-      "gate_outcome": "L000_PASS",
-      "unrun_scope": ["L001", "L002", "L003"],
-      "conclusion": "Lean v3 is frozen; minimal implementation is next. v1/v2 were never run, final remains unopened, and TopK10 remains the default."
+      "status": "COMPLETE / EVIDENCE PASS / ANSWER FAIL / KEEP TOPK10",
+      "execution_state": "L000_L003_COMPLETE",
+      "route_state": "CLOSED_OVERALL_FAIL",
+      "gate_outcome": "EVIDENCE_PASS_ANSWER_FAIL",
+      "unrun_scope": [],
+      "conclusion": "NLI-aware conservative deletion reduced harmful evidence by about 13% with zero required recall/chain loss, but macro answer delta was -0.1353pp; TopK10 remains the default."
     }
   ]
 }

@@ -4,6 +4,73 @@ Notice: R1, R2, etc. are task numbers
 
 ---
 
+## Current recommendations (2026-08-14)
+
+Read this section if you consume the retriever rather than work on it. Everything here is a
+one-line summary of a numbered task below, which holds the evidence and the caveats. Several of
+these changed on 2026-08-11/12, and the older statements scattered through R2 and R4 are
+narrower or broader than what is now measured — where they disagree with this section, this
+section is current.
+
+**Every row must name where its evidence lives, and `scripts/check_recommendations.py` fails the
+build if one does not.** Write `R<n>` for an entry in this report and **`ledger R<n>`** for one in
+`docs/hpc-run-log.md` — the two documents number their entries independently and the numbers do
+*not* correspond (this report's R9 is the inverted index; the ledger's R9 is the chunk sweep).
+The check exists because these two documents drifted apart until a reconciliation on 2026-08-13
+found nine disagreements, one of them a recommendation contradicting a measurement taken three
+days earlier in our own ledger. It verifies that a reader can reach the evidence in one step; it
+cannot verify that the evidence supports the claim, which stays a human job.
+
+| Question | Answer | Evidence |
+|---|---|---|
+| Which retriever by default? | **Hybrid (RRF)** over strong-bm25 + granite-dense — the only arm measured significantly better at the *system* level, not just the retrieval level | R2 (all three datasets); ledger R7 (2Wiki, paired, +0.0425 p=0.0000 downstream); R6 (SciFact end to end, but two point estimates rather than a paired test) |
+| StrongBM25 or plain BM25? | **Not a quality decision — a latency one.** Pick StrongBM25 when query latency matters | R2 + NQ re-run: no MRR gain anywhere, *significantly worse* recall on NQ. R9: **1.8–3.1× faster** on real text depending on how many stopwords the query carries (an earlier "~900×" came from synthetic text and is retracted). **ledger R8: the +0.0146 MRR difference does not reach the answer either, under a real generator (p=0.5210), so this stays a latency call at the system level too** |
+| Decomposition? | **No on SciFact/2Wiki. On NQ it is a trade** — buys ~+1.2pp pool recall, costs top-rank precision, at N extra LLM calls per query. Worth it only if the downstream consumes pool depth | R4 Steps 3–6 |
+| If decomposing anyway | `include_original` **on, everywhere**. `fusion="best-rank"` only where the full-query ranking is already strong. Weighting the original arm never beats plain strong-bm25 | R4 Steps 2–4 |
+| Chunking | **Keep `word` (120/20).** The 2Wiki finding that 60×10 beats it by +2.2pp does **not** generalise: the same design on NQ puts the peak *at* 120 and 60×10 at **−4.65pp (p=0.0001)** — opposite sign, both significant. What does transfer is a rule about the corpus, not a number: **never set `chunk_size` below the corpus's native passage length**. dpr-w100 ships fixed 100-word passages, so 120 never splits one and 60 splits every one (chunk counts 1.000 vs 2.002 per document). Overlap remains irrelevant in 0–60. `section` keeps tables intact but its retrieval effect is **unmeasured** | R10, R7; ledger R14 (NQ, four points, paired, n=2000); ledger R15 (the threshold, with the chunk counts that fix it); **ledger R17 (holds on the shipped Hybrid RRF: +0.0386, p 0.0001)** |
+| If a chunk ends up smaller than the passage | **Do not reach for `max_selected` — it will not recover the loss.** Splitting separates the answer from the text matching the query, and the retriever ranks by query terms: 69.7% of the resulting misses have no answer-bearing chunk anywhere in the top-50 pool, and of the ones that do reach it only 30.6% sit within five ranks of the cut. The lever is aligning the retrieval unit with the passage, for which `materializer/source_parent.py` already holds a deterministic mapping | ledger R16 (NQ and 2Wiki, per-case classification of every conditional miss) |
+| Scale | **Query cost still grows faster than the corpus** — 16× the corpus gave 32.7× the latency on real NQ questions, so the inverted index bought a constant factor, not better asymptotics. Memory per chunk *is* flat: ≈ **5.0 GB per million chunks** on NQ, ≈ 7.8 on our own Markdown | R9, ledger R13 |
+
+**Cautions on reading the table.** Most downstream or "system-level" numbers here were
+produced with the **`extractive` generator**, which reports whether the answer string was
+*delivered* to the generator rather than whether a model would use it. **Ledger R8 has since run
+that check with a real Granite generator and the transmission holds** — the arm ordering is
+unchanged, the answer span across arms is +0.1380, and the metric discriminates at 0.1340–0.2720
+without touching either ceiling or floor. Absolute values roughly halve, as R8 predicted before
+running, so they remain a lower bound while arm-to-arm comparisons stand. Transmission is real
+but **not sensitive**, and that is now confirmed rather than suspected: the same +0.0146 upstream
+MRR gain that missed significance downstream under `extractive` misses it again under Granite,
+at p=0.5210. Retrieval deltas of that size should not be quoted to another group as system
+gains. The Hybrid and StrongBM25 rows rest on all three datasets;
+the decomposition row rests on one dataset, but on four independently sampled corpus sizes within
+it (R11), so it is robust there without being shown to generalise. The R9 latency and memory
+figures were from synthetic corpora; ledger R13 has since confirmed them on real NQ questions,
+and the confirmation was unfavourable — the inverted index bought a constant factor, not better
+asymptotics. Finally, **`answer_match` is not trustworthy on 2Wiki's yes/no comparison
+questions**, 209 of its 2000: `no` scores 52/54 correct because "no" is an ordinary word in
+Wikipedia prose, `yes` scores 5/155 because the extractive generator can never produce it, and
+the generator emits no verdict either way. Any 2Wiki system-level number quoted to another
+group carries that, diluting arm-to-arm deltas by roughly 11.7% without changing their sign
+(ledger R16). NQ is unaffected — its answers are entity spans.
+
+### Where to find what
+
+| | |
+|---|---|
+| Retriever variants and how to select them | R1 |
+| The 8 × 3 benchmark, its conclusions, and their independent reproduction | R2 |
+| Ingestion: PDF, images, DOCX/PPTX/HTML | R3 |
+| Decomposition: why it fails, what fixes it, and what that is worth | R4 |
+| Retrieval cost at corpus scale | R5, then R9 |
+| Connecting to the shared three-module pipeline | R6 |
+| Chunking as a configurable choice | R7 |
+| How big a chunk should be, and how much overlap | R10 |
+| The frozen baseline that had stopped reproducing | R8 |
+| The inverted index: latency, and memory | R9 |
+| Open questions and what is blocked on whom | "The open question", "Next steps" |
+
+---
+
 ## R1 - Retriever capability extensions
 
 The codebase previously had only a single baseline BM25 retriever. This task adds four new
@@ -64,9 +131,15 @@ output; SciFact table shown in full, NQ/2Wiki summarized (full tables in the lin
    StrongBM25 significantly on SciFact/NQ MRR but loses significantly on 2Wiki MRR (Δ −0.022,
    p<0.0001) while still winning on 2Wiki Recall@10 (Δ +0.011, p=0.0002).
 
-**Decision: Hybrid (RRF) is the strongest general-purpose retriever measured so far and is the
-recommended default when latency budget allows running two arms. Decompose should not be used on
-multi-hop-style corpora (see R4 for why, and for how far a fix gets).**
+**Decision at the time of R2: Hybrid (RRF) is the strongest general-purpose retriever measured so
+far and is the recommended default when latency budget allows running two arms. Decompose should
+not be used on multi-hop-style corpora (see R4 for why, and for how far a fix gets).**
+
+*Superseded in two places — see "Current recommendations" at the top.* The Hybrid half stands and
+has since been measured end to end (R6). The other half does not: "Decompose should not be used"
+was written before the NQ arm existed, and R4 Step 5 narrows it to SciFact and 2Wiki. And this
+line treats StrongBM25 purely as a quality choice, which R9 shows it is not — with an inverted
+index it is a large latency win regardless of its quality record.*
 
 **Independent reproduction of the NQ arm, and one correction to conclusion 1 (2026-08-11,
 job `18421897`, partial).** The NQ dataset R2 used was never committed, so it was re-materialised
@@ -312,9 +385,135 @@ ranking is already strong.**
 
 Two things to hold against this report's own earlier claims. A mid-analysis reading that
 decomposition "trades top-rank precision for pool coverage" — from SciFact recall 0.8683 vs 0.8624 —
-**did not survive the paired test** (p=0.5811) and is withdrawn. And the NQ arm never ran: its
-dataset (`runs/niah-base`) was not materialised, so generality was established on SciFact alone, not
-on the two datasets the pre-registration promised.
+**did not survive the paired test** (p=0.5811) and is withdrawn. And the NQ arm did not run at the
+time: its dataset (`runs/niah-base`) was not materialised, so generality rested on SciFact alone
+rather than on the two datasets the pre-registration promised. **That is now settled — see below.**
+
+**Step 4 — the NQ arm finally ran, and the original-query arm generalises to a third dataset
+(2026-08-12, job `18426837`, n=2000).**
+
+| Pair | MRR | R@10 | R@20 | Recall |
+|---|---|---|---|---|
+| decompose vs strong-bm25 | −0.0472 | −0.0426 | −0.0317 | −0.0178 |
+| **decompose-orig vs decompose** | **+0.0396** | **+0.0358** | **+0.0351** | **+0.0300** |
+
+Every cell above is p=0.0000. So the original-query arm is significant on all four metrics on
+SciFact, large on 2Wiki, and now significant on all four on NQ: **it is a real improvement to
+decomposition on every dataset we have**, not damage control peculiar to 2Wiki. The
+pre-registration's promise of two datasets is met, three over.
+
+The lower row also reproduces R2's conclusion 3 on NQ from the rebuilt dataset — decompose
+significantly underperforms StrongBM25 there on every metric — making it the third R2 finding to
+survive re-derivation.
+
+**Step 5 — and one result that qualifies this report's own headline conclusion.** On NQ,
+`decompose-orig` was observed leading StrongBM25 on total recall. Nothing had ever suggested any
+decompose arm could lead the base retriever on any metric, so the pair was not even wired into
+`retriever_significance.sh`. It is now, and it was tested on all four metrics:
+
+| Metric | decompose-orig | StrongBM25 | Δ | p | 95% CI |
+|---|---|---|---|---|---|
+| MRR | 0.8077 | 0.8153 | −0.0076 | 0.1157 | [−0.0170, +0.0020] |
+| R@10 | 0.7409 | 0.7476 | −0.0067 | 0.1185 | [−0.0151, +0.0018] |
+| R@20 | 0.8425 | 0.8391 | +0.0034 | 0.3955 | [−0.0042, +0.0112] |
+| **Recall (top-50)** | **0.9220** | **0.9098** | **+0.0122** | **0.0000** | **[+0.0061, +0.0187]** |
+
+The deficit shrinks monotonically with depth, crosses zero, and reaches significance only at the
+deepest measure.
+
+**Corrected 2026-08-13 by R11.** Written from this single corpus size, the reading above was
+"there is no measurable cost at the top (MRR and R@10 both non-significant) and a real gain in
+pool coverage". Repeating the pair at four corpus sizes shows the second half holds and **the
+first half does not**: 100k happens to be the point where the top-rank cost misses significance.
+
+| Corpus | Δ MRR | p | Δ Recall | p |
+|---|---|---|---|---|
+| 25k | −0.0170 | **0.0005** | +0.0105 | 0.0001 |
+| 50k | −0.0175 | **0.0001** | +0.0145 | 0.0001 |
+| 100k | −0.0076 | 0.1157 | +0.0122 | 0.0000 |
+| 200k | −0.0096 | 0.0509 | +0.0122 | 0.0013 |
+
+So the shape is a clean **trade, not a free gain**: top-rank precision is lost, pool coverage is
+bought, and on the two smallest corpora the loss is significant. Whether the trade is worth taking
+depends entirely on which metric the downstream consumes — with `top_k=50` feeding a selector that
+keeps 5, pool depth is what this architecture uses; a pipeline that reads rank 1 loses on it.
+
+That matters for this architecture specifically rather than as a curiosity. As noted in
+`scripts/retriever_significance.sh`, `top_k=50` feeds a selector that keeps 5, so **pool depth is
+the metric this pipeline actually consumes** — and it is the one metric that moved.
+
+It also partly vindicates a reading this report withdrew. A mid-analysis claim that decomposition
+"trades top-rank precision for pool coverage" was withdrawn above because the SciFact paired test
+gave p=0.5811. The withdrawal was correct *for SciFact*. On NQ the pool-coverage half of that claim
+is now significant with a confidence interval well clear of zero.
+
+**Stated carefully:** this is one significant result among four metrics on one dataset, so it is a
+qualification rather than a reversal. `p=0.0000` is the randomization test reporting no permutation
+at least as extreme, and the CI does not approach zero, so it is not a marginal finding — but
+SciFact and 2Wiki show nothing like it, and the mechanism (why *this* corpus) is not established.
+
+**Revised recommendation.** "Repaired, and still not worth it" was right on the evidence available
+then and is now too broad. More precisely:
+
+- On SciFact and 2Wiki, unchanged: no decompose configuration beats StrongBM25, and every query
+  costs N extra LLM calls and N extra retrievals to draw level at best.
+- On NQ, `decompose-orig` buys **+1.2pp of final pool recall, significant**, at no measurable cost
+  at rank 1. Whether that is worth N extra LLM calls per query is now a budget decision with a
+  measured benefit on one side of it, which is not what this report could say yesterday.
+- `include_original` remains the one switch worth turning on everywhere. `fusion="best-rank"` still
+  only pays off where the full-query ranking is already strong.
+
+**Step 6 — R11: the effect is not about corpus size, and it is not a fluke (2026-08-13, jobs
+`18431334`/`18431335`).** The obvious explanation for why NQ and only NQ was corpus scale: NQ has
+100k passages against SciFact's 5183, and if sub-queries work by broadening the pool then the more
+there is to miss the more they should help. Pre-registered, then swept at 25k/50k/100k/200k with
+queries, gold documents and every parameter held fixed.
+
+**The hypothesis is dead — the curve is flat.** Eight-fold more corpus moves the recall gain not at
+all (+0.0105, +0.0145, +0.0122, +0.0122), and all four points sit inside one another's confidence
+intervals. The design's control behaved as expected — StrongBM25's absolute recall falls
+monotonically as distractors are added (0.9307 → 0.9202 → 0.9098 → 0.8965) — so the corpora really
+did get harder; the paired difference simply does not care.
+
+**Step 7 — R12: the gain is confirmed absent on multi-hop, unknown on claim verification
+(2026-08-13, analysis only).** R11 pointed at question form, and testing that axis needed no
+machine time: the three datasets are three forms, and both arms already existed on all three.
+The pair had only ever been read on NQ, because nothing before had suggested it could be positive.
+Predicted first, then read:
+
+| Dataset | Question form | Δ Recall | p | n |
+|---|---|---|---|---|
+| NQ | single-hop factoid | **+0.0122** | **0.0001** | 2000 |
+| SciFact | claim verification | +0.0042 | 0.6781 | **300** |
+| 2Wiki | multi-hop | −0.0003 | 0.9155 | 2000 |
+
+Neither falsifying outcome occurred, so this is consistent with the gain being specific to
+single-hop factoid questions.
+
+**But one limitation the pre-registration did not anticipate caps what this can claim: SciFact's
+sample cannot rule out an NQ-sized effect.** At n=300 — a sixth of NQ's — the interval is roughly
+±0.016 by a same-variance scaling of NQ's ±0.0063, i.e. **wider than the whole effect being looked
+for**. SciFact's p=0.6781 is therefore *absence of evidence*, not evidence of absence. 2Wiki is a
+genuine null: n=2000 and Δ=−0.0003, no power problem.
+
+So the strongest honest statement is narrower than the prediction: **confirmed absent on multi-hop,
+unknown on claim verification, confirmed present on single-hop factoid.** And the gap cannot be
+closed by running more — SciFact's test split has 300 queries in total. Settling claim verification
+needs either a larger dataset of that form, or the experiment that was already named as the real
+successor: **vary question form within one corpus**, which fixes the power problem and the
+confounding at the same time.
+
+One detail that echoes Step 1: on 2Wiki, MRR, R@10 and R@20 are all significantly negative while
+total recall is exactly nothing (−0.0003, p=0.9155). That is the Step 1 diagnosis — a ranking
+failure with the candidate pool intact — showing up again on an independent arm.
+
+**What that buys is worth more than the hypothesis would have been.** The pre-registration's third
+falsifying outcome was "significant only at 100k, i.e. probably a fluke", and that is now firmly
+excluded: **the effect replicates significantly at four independently sampled corpus sizes.** A
+lone significant result became a robust one, and the explanation moves off scale and onto
+**question form** — NQ is single-hop factoid natural questions, SciFact is claim verification,
+2Wiki is multi-hop. That is where the next experiment on this belongs, and sweeping size further
+would be wasted machine time.
 
 ---
 
@@ -411,27 +610,167 @@ coverage on the same 8000-chunk corpus.
 the cost proportional to what the query actually asks for, and the linearity survives exactly
 to the extent that the query asks for common terms.
 
-**A consequence worth acting on: the analyzer is now a cost decision, not only a quality one.**
-Stopword filtering removes precisely the highest-coverage terms, so it should benefit far more
-from postings than plain tokenisation. Predicted, then measured on prose-like text (~45%
-stopwords, 8000 chunks, natural-language queries): BM25 **9.12 ms/query**, StrongBM25
-**0.01 ms/query** — roughly **900×**.
+**Corrected again 2026-08-13 by ledger R13, on real data at scale — and the correction goes
+further than the one above.** Everything in this section up to here was measured on synthetic
+corpora. Re-run on real NQ questions across a 16× span of a real corpus (12,500 → 200,000
+chunks, one node, one allocation):
 
-That reframes R2's verdict on StrongBM25. R2 found it is not a reliable *quality* win (and the
-NQ re-run above shows it is significantly worse on recall there). With an inverted index it is
-a large *latency* win on natural-language queries, because it never scores the stopword
-postings at all. Those are separate axes and should be recommended separately.
+| chunks | mean ms | p50 ms | p95 ms | ms / 1k chunks |
+|---|---|---|---|---|
+| 12,500 | 3.4 | 2.2 | 12.8 | 0.27 |
+| 50,000 | 17.9 | 8.3 | 61.9 | 0.36 |
+| 200,000 | 110.4 | 54.2 | 385.6 | **0.55** |
+
+16× the corpus gives **32.7×** the mean latency and 24.4× the median — an exponent near
+1.15–1.3, with cost per thousand chunks *doubling* across the span. **For a real workload the
+inverted index is not sub-linear; it is worse than linear.** The mechanism above is intact —
+cost does track posting coverage — but the inference drawn from it was wrong, because real
+questions carry high-coverage terms whose posting lists grow with the corpus, and the
+accumulator's cache behaviour degrades on top of that.
+
+**What survives is the constant factor, not the asymptotics.** That is still worth having, but
+it is a different claim from the one this section was built to make, and the section title's
+promise — "what it actually buys" — is answered by that sentence rather than by the synthetic
+tables above.
+
+Two further readings. **The tail degrades faster than the mean** (p95 12.8 → 385.6 ms, 30×,
+against the median's 24×), so at 200k chunks p95 is already near 0.4 s per query and any
+mean-only report hides it. And **memory behaves oppositely and well**: bytes per chunk are flat
+across the same span (5245 → 4949, −5.6%), so per-chunk extrapolation is sound where latency
+extrapolation is not.
+
+**A consequence worth acting on: the analyzer is now a cost decision, not only a quality one.**
+Stopword filtering removes precisely the highest-coverage terms, so it should benefit more from
+postings than plain tokenisation. The direction is right and the magnitude first reported was
+not.
+
+**Corrected 2026-08-13 on real text.** The first measurement used prose-*like* synthetic text —
+45% stopwords drawn from a 13-word list, so every stopword's postings covered essentially the
+whole corpus, while content terms were Pareto-drawn and therefore very rare. That is a
+manufactured extreme, and it produced BM25 9.12 ms/query against StrongBM25 0.01, "roughly
+900×". Re-run on the 121 real Markdown documents (1345 chunks), with two query styles to
+separate the corpus from the queries:
+
+| Query style | BM25 | StrongBM25 | Ratio |
+|---|---|---|---|
+| Real headings (few stopwords) | 0.42 ms | 0.24 ms | **1.8×** |
+| Natural questions (stopword-bearing) | 0.89 ms | 0.29 ms | **3.1×** |
+
+The mechanism survives — more stopwords in the query, bigger advantage — but the size is
+**1.8–3.1×, not ~900×**. The inverted index's own advantage over the full scan on the same real
+corpus is **3.9×** (BM25) and **5.7×** (StrongBM25), against the synthetic run's 1.4× for common
+terms and ~680× for rare ones: real queries fall between those manufactured extremes rather than
+near either.
+
+That still reframes R2's verdict on StrongBM25 — it is not a reliable *quality* win, and is
+significantly worse on NQ recall, while being a consistent if modest *latency* win — but "large"
+was the synthetic corpus talking. **Note also that 1345 chunks is small; the claim that rare-term
+cost is flat in corpus size has not been retested on real text at scale.**
 
 ### Limitations
 
 - Synthetic corpora only. The vocabulary is Pareto-distributed and the "prose" is generated,
   so the numbers size the effect and identify the mechanism; they are not SciFact or NQ
   figures. The R5 scaling harness on the cluster is where they should be confirmed.
-- Memory is again unmeasured. The postings are a transpose of the per-chunk counters they
-  replace rather than an addition to them, but Python's per-object overhead on
-  `tuple[tuple[int, int], ...]` is real and unquantified — the same gap R5 left open.
+- ~~Memory is again unmeasured.~~ **Measured 2026-08-12 — and the caution above was wrong
+  in the safe direction.** See below.
 - Nothing here changes index *build* time asymptotics; build was already linear and negligible
   against query cost (R5: 1.09 s to build against 7.7 s for fifty queries).
+
+### Memory, finally measured with an instrument that can see it
+
+This gap had been open twice: R5 estimated ~2.9 KB/chunk for the cached forward index from
+`sys.getsizeof`, then **withdrew the estimate** because peak RSS showed no rise at all on the
+real corpus — twice — and recorded the suspicion that peak RSS is the wrong instrument, being
+dominated by build-phase transients. R9 above could then only repeat "unmeasured".
+
+`scripts/retriever_memory.py` measures **retained** bytes instead of peak: `tracemalloc`
+snapshots either side of the build with `gc.collect()` before the second, so freed transients
+do not count and only what the retriever still holds does. Synthetic Zipf-like corpus,
+`chunk_size=180/overlap=30` — the same settings as the R5-era estimate, so the two are directly
+comparable.
+
+**First measured on a synthetic corpus, then corrected on real text — the synthetic answer was
+wrong by several fold, and the correction is the more useful result.** Postings cost scales with
+**distinct terms per chunk**, and that is precisely what a hand-tuned vocabulary gets wrong: the
+generator produced 13.6 distinct terms per chunk against **95.3** for real prose. Both measured at
+`chunk_size=180/overlap=30`, the settings of the R5-era estimate:
+
+| Corpus | distinct/chunk | Forward index | Inverted index | Saving |
+|---|---|---|---|---|
+| Synthetic (Pareto) | 13.6 | 6735 B/chunk | 1055 B/chunk | 6.3× |
+| **Real prose (121 Markdown docs)** | **95.3** | **12539 B/chunk** | **7787 B/chunk** | **1.6×** |
+
+**Use the second row.** The first understates the inverted index's memory by ~7× and overstates
+its advantage by ~4×, because `tokens` scales with *total* tokens per chunk while postings scale
+with *distinct* ones — so an unrealistically skewed vocabulary flatters postings specifically.
+
+What survives, and what does not:
+
+1. **The inverted index does save memory, but 1.6×, not 6.3×.** R9's original hedge — postings are
+   a transpose, but Python's per-object overhead is unquantified — turns out to have been closer
+   to right than the synthetic measurement that replaced it.
+2. **R5's withdrawn estimate was approximately correct, and an earlier version of this section
+   wrongly said it was too low.** R5 guessed ~2.9 KB/chunk **for `term_frequencies` alone**; on
+   real prose that component measures ~3.2 KB/chunk. The mistake here was comparing R5's
+   component estimate against the *whole* forward index (12.5 KB/chunk) measured on the *wrong*
+   corpus. R5's number was fine; what failed was peak RSS's ability to see it, which is exactly
+   what R5 itself concluded.
+3. **The extrapolation moves accordingly:** ~**7.8 GB** per million chunks, not ~1.06 GB. Memory
+   is a real constraint again at that scale, not a solved one.
+
+**Limitation, and it now has a measured size.** 121 Markdown documents are real prose but they are
+*our own technical documentation*, not SciFact or NQ. Given that the synthetic-to-real move
+changed the answer ~7×, dataset-to-dataset variation should be assumed material until measured:
+`scripts/retriever_memory.py --manifest …` on the cluster is the way to settle it. **The general
+lesson is worth more than the number: a synthetic corpus tuned by hand was off by several fold on
+a quantity that looked simple.**
+
+---
+
+## R10 - How big should a chunk be, and how much should chunks overlap
+
+Both were swept on 2Wiki and both are recorded in `docs/hpc-run-log.md` (its R9 and R10 — note
+the ledger numbers its entries independently of this report, so *its* R9 is the chunk sweep while
+*this* document's R9 is the inverted index). Summarised here because these are measured results
+that change a production setting, and until now they lived only in the ledger while this report is
+what the other groups read.
+
+**Chunk granularity: the production value is not optimal, and the obvious way to measure it gives
+the wrong sign.** The headline is methodological. Sweeping `chunk_size` while holding
+`max_selected` fixed also changes how much *text* reaches the generator — 300 words at 60×5 against
+2400 at 480×5 — so the two arms differ in more than granularity. Run both ways (job `18329959`):
+
+| Sweep | Direction of `answer_match` as `chunk_size` grows |
+|---|---|
+| Volume uncontrolled (fixed `max_selected`) | **+0.0730 — "bigger is better"** |
+| **Volume controlled** (`chunk_size × max_selected ≡ 600` words) | **−0.1260 — smaller is better** |
+
+The confound does not inflate the effect, it **reverses it**. Under the controlled design the
+result is monotone toward small chunks — 60×10 = 0.5405, 120×5 = 0.5185, 200×3 = 0.4700,
+300×2 = 0.4145 — with all three contrasts significant against production (60×10 **+0.0220,
+p=0.0008**). **So `chunk_size=120` is measurably not the best setting**, and the best point tested
+sits on the scan's lower boundary, so the true optimum may be smaller still and is untested.
+Mechanism: the gain travels through final document recall almost one-for-one — more, smaller
+chunks cover more distinct gold documents, and answer quality follows coverage rather than
+precision.
+
+**Overlap: irrelevant across the range anyone would use.** Sweeping overlap alone at
+`chunk_size=120` (job `18357155`), against the production value of 20: overlap 0 (`+0.0015`,
+p=0.6916), 40 (`−0.0005`, p=1.0000) and 60 (`−0.0035`, p=0.2979) are all **statistically
+indistinguishable**; only 80 is significantly worse (`−0.0125`, p=0.0018) *and* costs ~3× the
+chunks. Sensitivity to overlap is an order of magnitude below sensitivity to granularity (span
+0.014 against 0.126). **Granularity is the knob; overlap is not.**
+
+That negative has content beyond "leave it alone". Overlap exists to stop an answer being cut at a
+chunk boundary, and raising it from 0 to 60 buys nothing — so **boundary cutting is not a
+meaningful factor in this setting**, and the granularity effect above cannot be explained by it.
+It has to be a coverage effect instead, which narrows what R9's result can be said to show.
+
+**Why this report has not acted on it yet.** Changing `chunk_size` changes `corpus_signature`,
+hence every persisted index and every recorded number, and the measurement is from 2Wiki alone.
+Moving production off 120 deserves confirmation on a second dataset first. It is recorded here so
+the default is understood to be a *pending* choice rather than a validated one.
 
 ---
 
@@ -447,6 +786,88 @@ what ultimately trusts (or doesn't) the retrieved caption.
 
 ---
 
+## Open questions at handover
+
+Everything below is known, measured where it could be, and deliberately left. Each item says
+what is unknown, why it matters, and what would settle it — so that picking one up does not
+require reconstructing why it was put down. Items marked **not ours** belong to another group
+or to the shared layer; they are listed because they bound what this module's numbers mean.
+
+**In flight at the time of writing.**
+
+1. **Does the ranking transmission survive a real generator?** Every system-level number in
+   this report was produced with the `extractive` generator, which reports whether the answer
+   text was *delivered*, not whether a model would use it. Ledger R8 is pre-registered for
+   exactly this and is running now. Until it lands, treat every downstream figure here as
+   "evidence arrived", not "the system answered". Settles it: R8's four arms against R7's.
+2. **Does the chain hold for the shipped Hybrid RRF?** Ledger R17 answers half — under pure
+   dense retrieval the split penalty survives — and its hybrid baseline arm timed out and was
+   rerun. Settles it: R17's hybrid within-retriever gap.
+
+**Known and not pursued, with the reason.**
+
+3. **Where the lost half actually ranks — pre-registered as ledger R18.** R16 found that 69.7%
+   of conditional misses have no answer-bearing chunk in the top-50 pool at all, but the pool is
+   truncated at 50, so how far below they sit was unmeasured. It decides whether raising `top_k`
+   is a viable fix or a hopeless one, since ranks near 60 and ranks near 5000 imply opposite
+   engineering. No longer deferred: R18 reruns retrieval at a much larger `top_k` and reads the
+   answer-bearing chunk's rank per case.
+4. **The second pathway for the split penalty.** R17 showed the penalty survives a retriever
+   that needs no verbatim query terms, so query-term separation is not the whole mechanism. A
+   candidate second path — a 60-word half being a thinner context for the embedding — was
+   identified and **deliberately not tested**. The reason is on record: it would refine the
+   explanation without changing any recommendation, since production stays at 120/20 either
+   way and the rule "never chunk below the corpus's native passage length" holds under both.
+   Worth doing only if someone actually changes the retrieval unit.
+5. **The passage-length threshold on a second corpus.** The rule rests on one corpus, dpr-w100,
+   whose fixed 100-word passages make the threshold unusually crisp (chunk counts 1.000 against
+   2.002 per document). It has not been reproduced on a second pre-chunked corpus with a
+   different native length. Settles it: the same four-point sweep on such a corpus, predicting
+   the cliff at *its* passage length rather than at 100.
+6. **The naive scan's residual super-linearity beyond 10×.** R5 left this open and it is still
+   open: R13 measured the *inverted index* that replaced the full scan, not the full scan
+   itself, so R5's question was superseded rather than answered.
+
+**Limits on the metric, which bound every number above.**
+
+7. **`answer_match` only discriminates in the middle of its range.** On NQ with dense or hybrid
+   retrieval every arm scores above 0.9 and the metric saturates; on 2Wiki with a real generator
+   the pre-registered risk is the mirror, a floor. The summariser now warns on the ceiling case.
+   The practical consequence is stronger than it looks: declaring that only *differences* are
+   compared does not license a cross-condition comparison, because two differences still assume
+   a shared scale. R17 published no cross-retriever ratio for this reason.
+8. **`answer_match` is unusable on 2Wiki's yes/no questions**, 209 of its 2000. `no` scores 52
+   of 54 correct because "no" is an ordinary word in Wikipedia prose; `yes` scores 5 of 155
+   because the extractive generator can never produce it; and the generator emits no verdict
+   either way. Arm-to-arm deltas on 2Wiki are diluted by roughly 11.7% without changing sign.
+   Settles it: exclude those questions, or score them with a metric that reads a verdict.
+
+**Not ours, but they bound what the numbers mean.**
+
+9. **The selector is `top-k`, and that is a decision rather than a gap.** Every system-level
+   number here ran through pure truncation, so R16's four-class split — which *defines* "not
+   selected" as "ranked past `max_selected`" — is exact for the shipped configuration rather
+   than an assumption about it. This entry originally read the single registration as an
+   unwired module and said so; the selector group corrected it. Their module closed on
+   2026-08-12 with six routes tried and none shipped, `0c710e2` retired the failed methods and
+   kept TopK, and their final report forbids claiming the selector improved anything.
+   Registering the retired routes would let anyone select a method the team judged failed and
+   produce numbers with it. The G9 comparison does not hold either: those routes never ran
+   through `build_pipeline_from_config` at all, having their own CLI and `configs/selector/`
+   tree. What remains open is not the wiring but whether a gated selector ever ships; on the
+   current decision it does not, and this limitation stands as a scope statement rather than a
+   pending dependency.
+10. **Dense retrieval re-embeds the corpus on every run.** Shared plan §4.4 fixed for v1 that no
+    FAISS-style numeric structures are persisted and the index is rebuilt from the snapshot.
+    That was written when only BM25 existed, where rebuilding costs seconds. `GraniteDense`
+    re-encodes every chunk at construction: R17's 200k-chunk arm spent roughly five hours there,
+    and repeats it each run. The code follows the plan; the plan's assumption no longer holds.
+    The shared layer decides whether persisted vectors are now in scope.
+11. **The hallucinated-caption risk on the ingestion side** — see "The open question" above. Still
+    unmeasured, still cross-module.
+
+---
+
 ## Current work — addressing latest feedback (Bharat Arora, 2026-07-26)
 
 - **Bringing actual numbers next time:** done. R2 is a full 3-dataset × 8-variant matrix with
@@ -455,7 +876,9 @@ what ultimately trusts (or doesn't) the retrieved caption.
 - **Finding edge cases where retrieval fails:** done for the clearest one. Decompose on multi-hop is
   a measured, mechanistically explained failure with a quantified partial fix — not a hypothesis.
 - **Hallucinated-caption risk:** OCR path verified to work functionally (R3), but hallucination
-  *rate* on real documents is still unmeasured. Still needs a sync with the Generator student,
+  *rate* on real documents is **still unmeasured — the one item from this feedback round that has
+  not moved**, and the only one that cannot be moved by the retriever side alone. Needs a sync
+  with the Generator student,
   since the risk spans both modules. Reading the OCR raw did surface a concrete related defect: the
   OCR engine misread `2023 TO 2024` as `2023 T0 2024` on a clean synthetic figure while the Vision
   caption read it correctly, so one document can carry two contradictory readings of the same
@@ -464,11 +887,17 @@ what ultimately trusts (or doesn't) the retrieved caption.
   now the default, failures are logged rather than swallowed, and the parse path honours
   `on_error` — which it previously ignored, so a single corrupt file used to abort a whole
   ingest. Ids moved to relative paths so recursion cannot silently collide them.
-- **Performance at larger corpus sizes:** **done, with a fix landed** (2026-08-05/06, see R5).
-  Cost is linear in corpus size with no sub-linear region, which puts a million-document corpus
-  at roughly 29 s/query — measured, not guessed. The per-query constant has since been cut
-  **5.27–5.40×** with bit-for-bit identical output. What remains is the asymptotics, which only
-  an inverted index changes.
+- **Performance at larger corpus sizes:** **done** (R5, then R9). R5 measured the cost as linear
+  in corpus size with no sub-linear region — roughly 29 s/query at a million documents, measured
+  rather than guessed — and cut the per-query constant **5.27–5.40×** with bit-for-bit identical
+  output. R9 then built the inverted index R5 said was the only thing that could change the
+  asymptotics, **and corrected that premise**: it does not remove the linearity, it makes cost
+  proportional to the query's own postings, so the linearity survives exactly to the extent the
+  query asks for common terms. A consequence worth acting on came out of it — the analyzer is now
+  a cost decision as well as a quality one, with stopword filtering worth ~900× on prose queries.
+  Memory, which R5 flagged as unmeasured and then withdrew an estimate for, is now measured with
+  the right instrument: **~1.06 GB per million chunks**, and the inverted index turns out to use
+  ~6.3× *less* memory than the forward index it replaced, not more.
 
 ---
 
@@ -498,8 +927,43 @@ Supporting numbers from the same run: retriever MRR 0.7047 (R2 measured 0.707 fo
 separate `top_k=50` run — an independent reproduction to three decimals), R@5 0.8051, selector
 conditional document recall 0.9201, cited document precision 0.2647.
 
-The point worth drawing out is the second row rather than the first. **Essentially all of the
-+0.1149 retrieval gain survives to the system output (+0.1089)** — the selector does not eat it.
+The point worth drawing out is the second row rather than the first: essentially all of the
++0.1149 retrieval gain appears at the system output too (+0.1089), so the selector does not eat it.
+
+**Status of that comparison, stated honestly: these are two point estimates from two runs, not a
+paired test.** The ledger's practice for exactly this kind of claim is paired randomization over
+per-case scores, and this comparison did not get it — the BM25 figures are the ones recorded in
+the shared plan in July, and nothing paired them against the Hybrid run case by case. Both runs
+exist, so the test is a few seconds of work and should be done before this is quoted as a
+measured system-level gain rather than a consistent one.
+
+**And it is not the first time the question was asked.** `docs/hpc-run-log.md` R7 measured
+transmission properly on 2Wiki across four retriever arms, and its findings both support and
+qualify the row above:
+
+- **Transmission is real, and it travels through the *ranking* channel rather than coverage.**
+  The clean control is `decompose vs bm25`, where the candidate pools are statistically
+  indistinguishable (Recall Δ −0.0024, p=0.3797) but the ranking collapses (MRR −0.3701) — and
+  downstream evidence delivery falls **−15.4pp (p=0.0000)**. Ranking collapse alone costs that
+  much, with the pool held constant.
+- **The mechanism is the top-50 → top-5 gate, and it is rank-gated.** Survival from pool to
+  selection is 0.626 for decompose against 0.873–0.885 for the other three, while the ratio of
+  answer to selected-recall stays flat (0.744–0.793). The arms differ in what survives the gate,
+  not in what is done with it afterwards.
+- **A small upstream gain does not show up downstream.** `strong-bm25 vs bm25` is significant
+  upstream (MRR +0.0146, p=0.0000) and **not** downstream (+0.0105, p=0.0513). So transmission
+  being real does not license promising system gains from small retrieval improvements — a
+  caution that belongs next to any MRR delta quoted to another group.
+- **Hybrid (RRF) is the only arm significantly better at the system level** (+0.0425, p=0.0000),
+  which is what turns "strongest retriever" into "strongest system", and is a firmer basis for the
+  recommendation than the unpaired SciFact comparison above.
+
+**One scope limit applies to every downstream number in this report, and it is easy to miss.**
+R7's arms, and the SciFact run above, all use the **`extractive` generator** — a toy that reports
+whether the answer string was *delivered*, not whether a model would use it. Ledger R8 was
+designed to re-run those arms with a real generator precisely to check whether the ranking
+transmission survives, and it is **pre-registered but never ran**. Until it does, every
+"system-level" claim here means *evidence delivery*, not answer quality.
 A retriever improvement that dies downstream would show up here as a large first row and a flat
 second one; that is not what happened, so switching the reference pipeline's retriever is a real
 end-to-end gain rather than a local one. Answer match stays unscored on both arms, so this says
@@ -566,13 +1030,78 @@ does split the same table, so the justification is measured rather than assumed.
 Limitations, stated because they bound where this helps: Markdown only (ATX `#` headings,
 `|` table rows — reStructuredText, HTML tables and setext headings read as prose); an
 oversized table stays oversized (repeating the header row on each piece would be the fix, not
-implemented); and structural chunks do not overlap, so a fact spanning a section boundary is
-not duplicated into both.
+implemented); and structural chunks do not overlap, so a fact spanning a section boundary is not
+duplicated into both — though R10 below measured overlap to be irrelevant between 0 and 60 and
+boundary cutting not to be a meaningful factor, so on the closest evidence available this is
+probably not a real cost. The two boundary populations differ (a section break is a semantic
+break, an arbitrary word cut is not), so it is downgraded rather than dismissed.
 
-**Not yet measured.** Whether this improves retrieval is an open question, not a claim — it
-needs a corpus with real structure to show anything, and SciFact/2Wiki have none. The PDF
-ingestion path (`pdf_mode = "pages"`, which emits Markdown) is where it should first be
-compared against `word` on equal footing.
+**Structural damage measured on real documents (2026-08-13), and it does not support both
+halves of the justification above.** `scripts/chunker_structure_audit.py` counts, per chunker,
+how many tables end up split across chunks and how many headings end up separated from the
+section they title. Run over the 121 Markdown documents in `docs/` — real documents with real
+tables and real heading hierarchies, if not a customer corpus:
+
+| chunk_size | `word` splits tables | `word` severs headings | chunks: `section` vs `word` |
+|---|---|---|---|
+| 40 | 96.5% | 12.5% | 6403 vs 5713 (+12%) |
+| 60 | 82.1% | 2.5% | 4667 vs 3898 (+20%) |
+| **120 (default)** | **46.7%** | **0.0%** | 2790 vs 1971 (**+42%**) |
+| 240 | 13.9% | 0.0% | 1971 vs 1013 (+95%) |
+
+`section` splits no table and severs no heading at any setting, by construction. Three readings,
+and two of them go against this section's own case:
+
+1. **The table claim holds and is large.** At the default 120/20, a word window cuts **nearly
+   half of all tables** in real documents. That is not a corner case invented by a fixture.
+2. **The heading claim does not hold at the configuration actually in use.** Severance is
+   **0.0%** at 120 and 240, and only appears below ~60 words. A cut has to land in the few tokens
+   between a heading and its body, which at a 100-word step is rare. The synthetic fixture made
+   this look like a co-equal failure mode; on real documents at the default it is not one. Written
+   up as one of two justifications, it should have been one.
+3. **`section` is not free, and R7 above did not say so.** It produces **+42% more chunks** at the
+   default, and +95% at 240 — chunk count grows because structure, not a word budget, sets the
+   boundaries. More chunks means a larger index and more candidates competing for the same top-k.
+   That cost belongs next to the benefit.
+
+**~~And an obvious cheaper alternative was never compared.~~ Retracted the same day — it was
+never cheap, and it had already been measured.** The claim was that simply raising `chunk_size`
+to 240 takes table splitting from 46.7% to 13.9% with no new chunker. The rate is right; the
+recommendation was wrong, and it was wrong because I proposed it without checking our own ledger.
+
+`docs/hpc-run-log.md` R9 swept chunk granularity on 2Wiki (job `18329959`) **with evidence volume
+held constant**, which is the only way to read such a sweep — the same entry records that not
+controlling volume *reverses the sign* of the effect. At a fixed 600-word budget, end-to-end
+`answer_match` is **monotone toward smaller chunks**: 60×10 = 0.5405, 120×5 = 0.5185, 200×3 =
+0.4700, 300×2 = 0.4145, all three contrasts significant against the production value (60×10 is
+**+2.2pp, p=0.0008**), with the optimum sitting on the scan's lower boundary and therefore
+possibly smaller still. **Raising `chunk_size` is a measured-worse direction, not a free fix.**
+
+Putting that beside the audit above turns the argument around rather than weakening it:
+
+| chunk_size | `word` splits tables | Answer quality (R9, fixed budget) |
+|---|---|---|
+| 40 | 96.5% | better still (extrapolated) |
+| 60 | 82.1% | **best measured** |
+| 120 | 46.9% | production baseline |
+| 240 | 13.9% | significantly worse |
+
+**The direction that helps answers is exactly the direction that destroys tables.** At the
+empirically best granularity tested, a word window splits **82% of tables**. So `section` is not
+competing against "just tune the number" — tuning the number toward what actually helps makes the
+structural damage worse, and `section` is the only option here that takes small chunks *and* keeps
+tables whole, because its boundaries come from structure and an oversized table is left oversized
+rather than cut.
+
+Two honest limits on that synthesis: R9 was run on 2Wiki, which is prose with no tables, so it
+constrains the granularity direction but says nothing directly about structured corpora; and
+`section`'s +42% chunk-count cost above still stands and is still unpriced.
+
+**Retrieval quality remains unmeasured**, and this does not change that: structural damage is
+the mechanism, not the outcome. Quality needs queries and gold labels, which a directory of
+documents does not provide. The honest ordering is that the mechanism is now shown to be real
+at the default setting for tables, and that is the ground on which a quality experiment would
+be worth running — against `chunk_size=240`, not only against 120.
 
 ## R8 - The committed frozen baseline had stopped reproducing, and nothing noticed
 
@@ -613,54 +1142,49 @@ consistently carrying a signature no code could produce stayed green for three w
 
 ## Next steps
 
-1. ~~**Weight the original-query fusion arm instead of adding it at equal weight**~~ — **done and
-   answered 2026-08-10 (see R4)**: monotone climb, 77% of the MRR gap recovered at `w=5`, and no
-   finite weight exceeds strong-bm25 on any metric. The pre-registered negative. Original text kept
-   below for the pre-registration record. R4 shows the arm
-   recovers the top-20 but not rank 1, consistent with one vote diluted among N. **Mechanism landed
-   2026-08-05, result still pending**: run the `w{2,3,5}` sweep on SciFact (judging ground) with
-   2Wiki as corroboration, and pair against the `original_weight=1.0` arm. The pre-registered
-   question is **not** "does MRR rise" — that is near-structural, see above — but **whether any
-   finite weight beats plain strong-bm25**. Falsifying outcomes: all three weights
-   indistinguishable from `w=1` (the dilution account is wrong), or a monotone climb that never
-   crosses strong-bm25 (decomposition adds nothing). Both are publishable negatives.
-   **Analysis side is wired (2026-08-10)**: `scripts/retriever_significance.sh` now carries both
-   pair families — `w{2,3,5}` vs `decompose-orig` (does weight do anything) and `w{2,3,5}` vs
-   `strong-bm25` (the pre-registered bar). Only the cluster runs are outstanding:
-   ```
-   sbatch scripts/run_retriever_eval.slurm \
-     configs/experiments/retr_scifact_decompose-orig-w{2,3,5}.toml
-   sbatch scripts/run_retriever_eval.slurm \
-     configs/experiments/retr_2wiki_decompose-orig-w{2,3,5}.toml
-   scripts/retriever_significance.sh scifact   # then, on the login node
-   ```
-2. **Re-run the NQ arm** — the third dataset the R3 pre-registration promised and did not deliver,
-   blocked only on materialising `runs/niah-base`. Generality currently rests on SciFact alone, so a
-   second headroom-bearing dataset is what would actually settle it. The blocker is one login-node
-   command (dpr-w100 download, so it cannot run on a compute node):
-   ```
-   python -m evidence_rag.materializer.base_cli --split dev --output runs/niah-base \
-     --corpus-size 100000 --query-limit 2000 --seed 42
-   ```
-   Every `configs/experiments/retr_nq_*.toml` already points at `runs/niah-base/manifest.json`,
-   so the arms need no new configuration once it exists.
-3. **Measure hallucinated-caption rate on real (non-synthetic) documents** — the OCR-smoke PASS
-   proves the mechanism works, not that captions are trustworthy at scale; requires the
-   cross-module sync with Generator noted above.
-4. ~~**Build an inverted index**~~ — **built and measured 2026-08-11 (R9)**, with a correction
-   to the premise: it does not remove the linearity, it makes cost proportional to the query's
-   own postings, and the linearity survives for common terms. What remains is confirming the
-   synthetic numbers on a real corpus an order of magnitude larger than SciFact, which still
-   needs that corpus materialised.
-5. ~~Configurable chunking~~ — **done (R7)**: chunker selection landed 2026-08-10, and the
-   structure-aware `section` chunker on 2026-08-11. What remains is not implementation but
-   evidence: compare `section` against `word` on a corpus that actually has structure (the
-   Markdown-emitting PDF path), since neither SciFact nor 2Wiki can show a difference.
-6. ~~Broaden ingestion format coverage (docx/pptx/html via Docling)~~ — **done 2026-08-11
-   (see R3)**. What remains of this item is surfacing OCR quality signals instead of letting a
-   poor scan degrade silently, which is untouched.
-7. **Measure `section` against `word` on a genuinely structured corpus.** Now unblocked by the
-   two items above — the chunker exists and there is finally a loader that can produce a corpus
-   with headings and tables in it. Neither SciFact nor 2Wiki can show anything here, so this
-   needs a real DOCX/HTML corpus materialised first. Until then R7 is a mechanism with a
-   rationale, not a measured improvement, and should be described that way.
+Ordered by what each is *waiting on*, because most of what is left is not implementation. The
+authoritative pre-registrations live in `docs/hpc-run-log.md`; this list only points at them.
+
+### Waiting on us
+
+1. **Measure `section` against `word` on a genuinely structured corpus.** Both halves now exist —
+   the chunker (R7) and a loader that can produce Markdown with real headings and tables (R3) —
+   so nothing technical blocks this. What it needs is **~20 real DOCX/HTML documents** chosen from
+   the project's own material; neither SciFact nor 2Wiki can show anything here, because neither
+   has any structure to cut on. Until this runs, R7 is a mechanism with a rationale, not a
+   measured improvement, and should be described that way.
+2. **Surface OCR quality signals** instead of letting a poor scan degrade silently (the remaining
+   half of the old ingestion item). Implementable now; but **validating that it helps needs real
+   low-quality scans**, and the repository has none — the only PDF in the tree is a synthetic
+   smoke file.
+3. **Materialise a corpus an order of magnitude larger than SciFact.** R5's extrapolation past
+   5183 documents is an assumption, and R9's asymptotic claims were measured on synthetic data.
+
+### Waiting on machine time
+
+4. ~~**R11 — is the NQ decomposition win a function of corpus size?**~~ **Answered 2026-08-13: no.**
+   The curve is flat across 25k–200k, so the hypothesis is dead — but the effect replicates
+   significantly at all four sizes, which rules out the "probably a fluke" outcome and makes it
+   robust within NQ. **The successor experiment is on question form, not scale** (single-hop
+   factoid vs claim verification vs multi-hop); sweeping size further is wasted machine time.
+5. **Confirm R9's latency and memory figures on a real corpus.** Both harnesses take a manifest:
+   `scripts/retriever_scaling.py --manifest …` and `scripts/retriever_memory.py --manifest …`.
+   Until then those numbers size the effect and identify the mechanism, and are not SciFact or NQ
+   figures.
+
+### Waiting on another group
+
+6. **Hallucinated-caption rate on real documents.** The OCR-smoke PASS proves the mechanism works,
+   not that captions are trustworthy at scale. This is genuinely cross-module — a hallucinated
+   caption only does damage where something downstream trusts it as evidence — so it needs a sync
+   with the Generator group, and labelled data neither group has yet.
+
+### Closed, with where the result lives
+
+| Item | Outcome |
+|---|---|
+| Weight the original-query fusion arm | R4 — pre-registered negative: monotone climb, no finite weight beats strong-bm25, on two datasets |
+| Re-run the NQ arm | R2 and R4 — dataset rebuilt from scratch, three R2 conclusions reproduced, R4 Step 3 settled |
+| Build an inverted index | R9 — built, with a correction to R5's premise, plus the memory measurement R5 left open |
+| Configurable chunking | R7 — chunker selection and a structure-aware implementation; measurement is item 1 above |
+| Broaden ingestion formats | R3 — DOCX/PPTX/HTML; OCR quality signals are item 2 above |

@@ -1,0 +1,917 @@
+{"query_id": "001ad110086911ebbd5eac1f6bf848b6", "class": "retrieval", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "002e925e0bde11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["december 12 2012"]}
+{"query_id": "003f41f80bde11eba7f7acde48001122", "class": "other", "best_rank": 24, "reference_answers": ["united states"]}
+{"query_id": "00fc38720bb011ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["chimalpopoca"]}
+{"query_id": "0105676c0bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["hong kong"]}
+{"query_id": "016e72260bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["chris p\u00e9rez"]}
+{"query_id": "01a204d20bb011ebab90acde48001122", "class": "sibling", "best_rank": 14, "reference_answers": ["walter i lord of avesnes"]}
+{"query_id": "01c9f7960bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["maureen o sullivan"]}
+{"query_id": "01e2153c0bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["huntington s disease"]}
+{"query_id": "023251d8091a11ebbdaeac1f6bf848b6", "class": "other", "best_rank": 11, "reference_answers": ["danger valley"]}
+{"query_id": "0234f1ec0bde11eba7f7acde48001122", "class": "other", "best_rank": 41, "reference_answers": ["lao"]}
+{"query_id": "025359200bde11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["m\u00fcnchner"]}
+{"query_id": "036d9d900baf11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["matilda of brabant countess of artois"]}
+{"query_id": "042bf0e00bde11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["persia"]}
+{"query_id": "042bf49e0bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["philippines"]}
+{"query_id": "049fcfb60bb011ebab90acde48001122", "class": "other", "best_rank": 32, "reference_answers": ["r\u00f3\u017ca maria wodzicka"]}
+{"query_id": "05282bae0bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["southern germany"]}
+{"query_id": "067dd55a0bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["barcelona"]}
+{"query_id": "0745c7f20bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["mohsen makhmalbaf"]}
+{"query_id": "07630b680bde11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["egypt"]}
+{"query_id": "07cf32b508fe11ebbdadac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "07fce4900bde11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["sweden"]}
+{"query_id": "083c32760bde11eba7f7acde48001122", "class": "sibling", "best_rank": 23, "reference_answers": ["endenich"]}
+{"query_id": "0899a4880bde11eba7f7acde48001122", "class": "other", "best_rank": 22, "reference_answers": ["athens"]}
+{"query_id": "08a0a8ee0bdb11eba7f7acde48001122", "class": "sibling", "best_rank": 12, "reference_answers": ["mayrouba"]}
+{"query_id": "08ceb92e0bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["panamanian"]}
+{"query_id": "08de5d000baf11ebab90acde48001122", "class": "other", "best_rank": 11, "reference_answers": ["elizabeth of nevers"]}
+{"query_id": "08e7eb340bde11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["indianapolis indiana"]}
+{"query_id": "08f5c0bc0bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["toronto"]}
+{"query_id": "08ff4b6c0bde11eba7f7acde48001122", "class": "other", "best_rank": 25, "reference_answers": ["italian"]}
+{"query_id": "091c13b20bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["valpara\u00edso"]}
+{"query_id": "094dfa56086311ebbd5eac1f6bf848b6", "class": "other", "best_rank": 15, "reference_answers": ["yes"]}
+{"query_id": "0963c8b80bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["united kingdom"]}
+{"query_id": "099c20b80bde11eba7f7acde48001122", "class": "other", "best_rank": 22, "reference_answers": ["westminster"]}
+{"query_id": "09aa4e1a0bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["hollywood"]}
+{"query_id": "09c3e79c0bde11eba7f7acde48001122", "class": "other", "best_rank": 34, "reference_answers": ["mexican"]}
+{"query_id": "0ad6b76a08c611ebbd90ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "0b78b1e9087411ebbd67ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "0b91d3200bdb11eba7f7acde48001122", "class": "other", "best_rank": 23, "reference_answers": ["hamburg"]}
+{"query_id": "0bd60cfa0bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["xi an"]}
+{"query_id": "0c1dfa940bdb11eba7f7acde48001122", "class": "other", "best_rank": 16, "reference_answers": ["italian"]}
+{"query_id": "0c3675d40bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["m\u00fcnster"]}
+{"query_id": "0c97f4720bde11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["constantinople"]}
+{"query_id": "0cd1b9840bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["helsingfors"]}
+{"query_id": "0cd3bdea0bde11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["myanmar motion picture academy awards"]}
+{"query_id": "0d118fb00bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["westwood village memorial park cemetery"]}
+{"query_id": "0d232356091511ebbdadac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "0d5bc1440bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["national artist of the philippines"]}
+{"query_id": "0db2574e0bde11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["dimple kapadia"]}
+{"query_id": "0db28726087511ebbd67ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "0e161d6c084e11ebbd56ac1f6bf848b6", "class": "other", "best_rank": 38, "reference_answers": ["yes"]}
+{"query_id": "0e2082e408d111ebbd95ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "0e5e54c908c211ebbd8bac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "0ed0f5b00bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["marie lafor\u00eat"]}
+{"query_id": "0f1094ce086f11ebbd62ac1f6bf848b6", "class": "other", "best_rank": 38, "reference_answers": ["yes"]}
+{"query_id": "0f16160c0bde11eba7f7acde48001122", "class": "other", "best_rank": 11, "reference_answers": ["gostynin"]}
+{"query_id": "0fb0c2d00baf11ebab90acde48001122", "class": "sibling", "best_rank": 44, "reference_answers": ["herod the great"]}
+{"query_id": "102ac6120bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["national film board"]}
+{"query_id": "117eb3660bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["university of virginia"]}
+{"query_id": "11c51df808ed11ebbda7ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "12115e4a0bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["aquileia"]}
+{"query_id": "1223ff320bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["elizabeth rees williams"]}
+{"query_id": "12a3078c097f11ebbdb0ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "132a5430085d11ebbd5cac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "132d9b820bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["\u00e1guilas"]}
+{"query_id": "13c343840bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["madrid"]}
+{"query_id": "13d83dcc0bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["kingdom of italy"]}
+{"query_id": "13da47340bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["new york"]}
+{"query_id": "13f92f1e0bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["firing squad"]}
+{"query_id": "14108dd60bde11eba7f7acde48001122", "class": "other", "best_rank": 29, "reference_answers": ["new york"]}
+{"query_id": "141636ac0bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["branson missouri"]}
+{"query_id": "14552e680bda11eba7f7acde48001122", "class": "other", "best_rank": 18, "reference_answers": ["rome"]}
+{"query_id": "1460b7ac0bde11eba7f7acde48001122", "class": "other", "best_rank": 32, "reference_answers": ["hamburg"]}
+{"query_id": "15632a800bda11eba7f7acde48001122", "class": "other", "best_rank": 21, "reference_answers": ["new york"]}
+{"query_id": "164404960bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["warwickshire"]}
+{"query_id": "16d7d0560bde11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["newport"]}
+{"query_id": "16d7da20087911ebbd67ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "170b21e60bb011ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["john the baptist"]}
+{"query_id": "177e0eda0bde11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["gen\u00e8ve"]}
+{"query_id": "179836cc0baf11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["isabella duchess of lorraine"]}
+{"query_id": "180fa1400bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["7 august 2019"]}
+{"query_id": "1818a4600baf11ebab90acde48001122", "class": "other", "best_rank": 22, "reference_answers": ["joan de geneville 2nd baroness geneville"]}
+{"query_id": "185a906e0bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["long island"]}
+{"query_id": "1873dc3a0bb011ebab90acde48001122", "class": "other", "best_rank": 35, "reference_answers": ["henry iii"]}
+{"query_id": "1948b12e0bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["branson missouri"]}
+{"query_id": "19f438da0bdc11eba7f7acde48001122", "class": "other", "best_rank": 27, "reference_answers": ["10 august 1250"]}
+{"query_id": "1ae784860bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["shanghai"]}
+{"query_id": "1b053aca0bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["medell\u00edn"]}
+{"query_id": "1b7752be0bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["krak\u00f3w"]}
+{"query_id": "1bacbdfe0bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["k\u0131rklareli"]}
+{"query_id": "1bf41cb00bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["grammy award for best r b album"]}
+{"query_id": "1c1080380baf11ebab90acde48001122", "class": "other", "best_rank": 24, "reference_answers": ["frederick ii eugene duke of w\u00fcrttemberg"]}
+{"query_id": "1c1acbe708d111ebbd95ac1f6bf848b6", "class": "other", "best_rank": 15, "reference_answers": ["song of the eagle"]}
+{"query_id": "1c593ac008ae11ebbd83ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "1c7eb2640bb011ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["richilde"]}
+{"query_id": "1c8c6a080bdd11eba7f7acde48001122", "class": "other", "best_rank": 40, "reference_answers": ["south africa"]}
+{"query_id": "1ccc20e00bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["dortmund university of applied sciences and arts"]}
+{"query_id": "1cf4dbe80baf11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["stanis\u0142aw leszczy\u0144ski"]}
+{"query_id": "1d23f65e0bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["yale"]}
+{"query_id": "1d352a200bde11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["12 may 2005"]}
+{"query_id": "1d77753308bf11ebbd8aac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "1d7adec40bdb11eba7f7acde48001122", "class": "sibling", "best_rank": 32, "reference_answers": ["new york"]}
+{"query_id": "1d80ee9c0bde11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["ratna pathak"]}
+{"query_id": "1da55b2e0bde11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["central intelligence agency"]}
+{"query_id": "1da74c800bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["carolingian empire"]}
+{"query_id": "1dba599508b811ebbd88ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "1dc6c4e60bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["november 3 1867"]}
+{"query_id": "1e9c0bbb08a311ebbd7bac1f6bf848b6", "class": "other", "best_rank": 44, "reference_answers": ["yes"]}
+{"query_id": "1f8a41b60bde11eba7f7acde48001122", "class": "other", "best_rank": 13, "reference_answers": ["seville"]}
+{"query_id": "207cff740bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["winnipeg manitoba"]}
+{"query_id": "20d840a20bdb11eba7f7acde48001122", "class": "other", "best_rank": 14, "reference_answers": ["prenzlau"]}
+{"query_id": "214beb5e0bb011ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["rollo"]}
+{"query_id": "2189c22c0bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["toronto ontario"]}
+{"query_id": "21c90ee5085f11ebbd5cac1f6bf848b6", "class": "other", "best_rank": 21, "reference_answers": ["there s that woman again"]}
+{"query_id": "21e561520bde11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["gothenburg"]}
+{"query_id": "2227aa320bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["barcelona"]}
+{"query_id": "22f9ba0c0bde11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["norrk\u00f6ping"]}
+{"query_id": "22fb901e0bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["wexford"]}
+{"query_id": "231833260bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["nattarasankottai"]}
+{"query_id": "23ae34720bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["villupuram"]}
+{"query_id": "23f41cf20bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["birmingham"]}
+{"query_id": "240f079c0bdb11eba7f7acde48001122", "class": "other", "best_rank": 50, "reference_answers": ["stuttgart"]}
+{"query_id": "241213420bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["florida state"]}
+{"query_id": "241a9d0c0bde11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["son norway"]}
+{"query_id": "24489eaa0bde11eba7f7acde48001122", "class": "sibling", "best_rank": 16, "reference_answers": ["united kingdom"]}
+{"query_id": "249f782e0bde11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["sports direct"]}
+{"query_id": "24e2e9900bdb11eba7f7acde48001122", "class": "other", "best_rank": 26, "reference_answers": ["french"]}
+{"query_id": "24f101ba0bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["liverpool"]}
+{"query_id": "251db78c0bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["barkin ladi"]}
+{"query_id": "253e36700bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["rabat"]}
+{"query_id": "25dddf800bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["francis william thring"]}
+{"query_id": "26be950e08e111ebbda2ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "26c496b80bdc11eba7f7acde48001122", "class": "sibling", "best_rank": 19, "reference_answers": ["french"]}
+{"query_id": "26e684660bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["colorado"]}
+{"query_id": "27b8af06088e11ebbd70ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "27e8da800bb011ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["william christoph landgrave of hesse homburg"]}
+{"query_id": "27e926ca0bb011ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["ithobaal i"]}
+{"query_id": "281793980bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["astarabad"]}
+{"query_id": "282afcd60bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["dallas"]}
+{"query_id": "283419940bda11eba7f7acde48001122", "class": "other", "best_rank": 24, "reference_answers": ["may 2 1982"]}
+{"query_id": "284da54a08a511ebbd7dac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "285016800bda11eba7f7acde48001122", "class": "other", "best_rank": 15, "reference_answers": ["maureen o sullivan"]}
+{"query_id": "290458a20bda11eba7f7acde48001122", "class": "other", "best_rank": 17, "reference_answers": ["stamford bridge"]}
+{"query_id": "29306dfc0bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["kishore kumar"]}
+{"query_id": "2939f3220bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["juilliard"]}
+{"query_id": "29427eea0bdd11eba7f7acde48001122", "class": "sibling", "best_rank": 46, "reference_answers": ["liverpool"]}
+{"query_id": "294572a1087f11ebbd6bac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "29bddf900bb011ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["charlotte christine of brunswick l\u00fcneburg"]}
+{"query_id": "29e199bd084f11ebbd56ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "2a2f5af80bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["pucklechurch gloucestershire"]}
+{"query_id": "2a7d95fc0bdc11eba7f7acde48001122", "class": "other", "best_rank": 24, "reference_answers": ["paris"]}
+{"query_id": "2a98df6408d111ebbd95ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "2aac6b83085011ebbd56ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "2acf91800bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["foug\u00e8res"]}
+{"query_id": "2af021160bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["university of kansas"]}
+{"query_id": "2b8703320bde11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["august k\u00f6rling"]}
+{"query_id": "2b871cac0bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["\u0142\u00f3d\u017a"]}
+{"query_id": "2b8a51aa085111ebbd58ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "2b9f37500bdd11eba7f7acde48001122", "class": "other", "best_rank": 16, "reference_answers": ["dallas"]}
+{"query_id": "2bb730d9087411ebbd67ac1f6bf848b6", "class": "other", "best_rank": 21, "reference_answers": ["yes"]}
+{"query_id": "2bf61f58088a11ebbd6eac1f6bf848b6", "class": "other", "best_rank": 18, "reference_answers": ["my own true love"]}
+{"query_id": "2d06b81a0bde11eba7f7acde48001122", "class": "other", "best_rank": 37, "reference_answers": ["25 december 1147"]}
+{"query_id": "2d907ba60bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["new york"]}
+{"query_id": "2d94661c0bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["constantinople"]}
+{"query_id": "2db288200bde11eba7f7acde48001122", "class": "sibling", "best_rank": 49, "reference_answers": ["new york"]}
+{"query_id": "2df60be00bde11eba7f7acde48001122", "class": "other", "best_rank": 37, "reference_answers": ["county of barcelona"]}
+{"query_id": "2e13ff240bde11eba7f7acde48001122", "class": "other", "best_rank": 31, "reference_answers": ["wales"]}
+{"query_id": "2e17069c0bde11eba7f7acde48001122", "class": "other", "best_rank": 28, "reference_answers": ["tamil"]}
+{"query_id": "2e21e69e0bb011ebab90acde48001122", "class": "other", "best_rank": 18, "reference_answers": ["caecilia metella balearica"]}
+{"query_id": "2ee775700bde11eba7f7acde48001122", "class": "sibling", "best_rank": 11, "reference_answers": ["french"]}
+{"query_id": "2f08a3080bde11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["furman university"]}
+{"query_id": "2f3c0934087b11ebbd67ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "2f6c336a0bb011ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["emperor go saga"]}
+{"query_id": "2f8d8a780bde11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["italian"]}
+{"query_id": "2fa40dae0bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["weston super mare somerset"]}
+{"query_id": "2fe5bdc20bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["berlin"]}
+{"query_id": "2fe8e5620bde11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["portuguese"]}
+{"query_id": "3017c9dc0bb011ebab90acde48001122", "class": "other", "best_rank": 19, "reference_answers": ["margaret of ravensberg"]}
+{"query_id": "305e54500bde11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["benton harbor michigan"]}
+{"query_id": "3088aac60bb011ebab90acde48001122", "class": "sibling", "best_rank": 22, "reference_answers": ["boles\u0142aw ii duke of cieszyn"]}
+{"query_id": "30e023220bde11eba7f7acde48001122", "class": "other", "best_rank": 44, "reference_answers": ["gowran"]}
+{"query_id": "30e19d9008d611ebbd98ac1f6bf848b6", "class": "other", "best_rank": 11, "reference_answers": ["no"]}
+{"query_id": "30ee74680bde11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["villafranca del bierzo"]}
+{"query_id": "3129c91208f211ebbdaaac1f6bf848b6", "class": "other", "best_rank": 40, "reference_answers": ["yes"]}
+{"query_id": "314f72c20bde11eba7f7acde48001122", "class": "other", "best_rank": 11, "reference_answers": ["united states"]}
+{"query_id": "315872d20bde11eba7f7acde48001122", "class": "sibling", "best_rank": 22, "reference_answers": ["french"]}
+{"query_id": "3203b06209c111ebbdb0ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "327d52320bdd11eba7f7acde48001122", "class": "other", "best_rank": 21, "reference_answers": ["houston texas"]}
+{"query_id": "32ef13800bde11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["ath\u00e9n\u00e9e de luxembourg"]}
+{"query_id": "3390820c0bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["volker schl\u00f6ndorff"]}
+{"query_id": "33c0003a0bde11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["1564"]}
+{"query_id": "33d1a6d60bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["b v radha"]}
+{"query_id": "33d4446c087511ebbd67ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "33ef347c0bde11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["constantinople"]}
+{"query_id": "33f51d7e0bde11eba7f7acde48001122", "class": "other", "best_rank": 48, "reference_answers": ["chinese"]}
+{"query_id": "350112e4085b11ebbd5cac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "351a24b40bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["san diego"]}
+{"query_id": "356aee880bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["1 october 1993"]}
+{"query_id": "3581ccec0bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["serbian"]}
+{"query_id": "35aaea880bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["kottayam"]}
+{"query_id": "35b6f99208ee11ebbda8ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "35ecba540bdb11eba7f7acde48001122", "class": "other", "best_rank": 46, "reference_answers": ["new york"]}
+{"query_id": "361644f00bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["elberfeld"]}
+{"query_id": "36245ee00baf11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["raymond of burgundy"]}
+{"query_id": "378395b40bda11eba7f7acde48001122", "class": "other", "best_rank": 41, "reference_answers": ["milan"]}
+{"query_id": "37ff2e860bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["constantinople"]}
+{"query_id": "38fdf5420bda11eba7f7acde48001122", "class": "other", "best_rank": 14, "reference_answers": ["l a"]}
+{"query_id": "3972d2b60baf11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["jeanne d albret"]}
+{"query_id": "39befe640bde11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["hertfordshire"]}
+{"query_id": "3a148dcc0baf11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["aregund"]}
+{"query_id": "3a1dbb720bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["july 21 1946"]}
+{"query_id": "3b5e453a096611ebbdafac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "3b63d2fe089511ebbd75ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "3b88a62a0bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["beretty\u00f3\u00fajfalu"]}
+{"query_id": "3ba786da0bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["harby"]}
+{"query_id": "3c0091600bde11eba7f7acde48001122", "class": "other", "best_rank": 15, "reference_answers": ["gordonsville virginia"]}
+{"query_id": "3c10b1ba0bdb11eba7f7acde48001122", "class": "other", "best_rank": 40, "reference_answers": ["mecca"]}
+{"query_id": "3c1878420bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["kuopio"]}
+{"query_id": "3c72c8f40bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["murom"]}
+{"query_id": "3d1200fc0bde11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["krishna"]}
+{"query_id": "3dd351ff093c11ebbdaeac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "3de5f3d60bdd11eba7f7acde48001122", "class": "other", "best_rank": 29, "reference_answers": ["argentina"]}
+{"query_id": "3e0cebde0bd911eba7f7acde48001122", "class": "other", "best_rank": 23, "reference_answers": ["chinese"]}
+{"query_id": "3e1323ac0baf11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["aregund"]}
+{"query_id": "3e5ca16a0bd911eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["january 5 1979"]}
+{"query_id": "3eb6813c0baf11ebab90acde48001122", "class": "other", "best_rank": 50, "reference_answers": ["frederika louisa of hesse darmstadt"]}
+{"query_id": "3ede5a740bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["mary eaton"]}
+{"query_id": "3f1b7d3b086c11ebbd61ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "3f20ed380bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["venice"]}
+{"query_id": "3f5c3d7e0bb011ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["henry viii the sparrow"]}
+{"query_id": "3f635554096511ebbdafac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "406a4ee00bb011ebab90acde48001122", "class": "sibling", "best_rank": 12, "reference_answers": ["nanmadaw me nu"]}
+{"query_id": "40a0ab780bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["28 april 1076"]}
+{"query_id": "4175aadc0bdd11eba7f7acde48001122", "class": "other", "best_rank": 26, "reference_answers": ["stockholm"]}
+{"query_id": "418ce6000bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["coronel pringles"]}
+{"query_id": "42349102085611ebbd59ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "42a0e6420bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["new york"]}
+{"query_id": "42fb46240bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["siriraj hospital"]}
+{"query_id": "43208df60bde11eba7f7acde48001122", "class": "sibling", "best_rank": 12, "reference_answers": ["french"]}
+{"query_id": "437b71d80bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["23 december 1544"]}
+{"query_id": "437f3b9a0bdd11eba7f7acde48001122", "class": "other", "best_rank": 36, "reference_answers": ["hackney"]}
+{"query_id": "438a3de40bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["punjabi"]}
+{"query_id": "43a949ae0bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["english"]}
+{"query_id": "443c63f108a911ebbd80ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "444ad16c0bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["harlan iowa"]}
+{"query_id": "445f3df708b511ebbd88ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "449b7901088e11ebbd70ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "44d17fa408d711ebbd9aac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "45153f740bdb11eba7f7acde48001122", "class": "other", "best_rank": 37, "reference_answers": ["pakistan"]}
+{"query_id": "453f85040bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["okemah"]}
+{"query_id": "45709660095311ebbdaeac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "457464300bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["\u0142\u00f3d\u017a"]}
+{"query_id": "4575adae0bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["palencia"]}
+{"query_id": "45b45fc008dc11ebbd9cac1f6bf848b6", "class": "retrieval", "best_rank": null, "reference_answers": ["what a girl"]}
+{"query_id": "464cfa460bd911eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["brooklyn"]}
+{"query_id": "4772896e0bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["yuen siu tien"]}
+{"query_id": "47a9872a0bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["long island"]}
+{"query_id": "47c32ef1089511ebbd75ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "4800bb8a0bb011ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["anna feodorovna"]}
+{"query_id": "487552420bdd11eba7f7acde48001122", "class": "other", "best_rank": 11, "reference_answers": ["moscow"]}
+{"query_id": "48be5d560bde11eba7f7acde48001122", "class": "other", "best_rank": 25, "reference_answers": ["cannes"]}
+{"query_id": "48f484da092611ebbdaeac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "495c63980bd911eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["scottish"]}
+{"query_id": "49b22d0a0bde11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["siversky"]}
+{"query_id": "49e5edb60bde11eba7f7acde48001122", "class": "other", "best_rank": 17, "reference_answers": ["american"]}
+{"query_id": "49ea60960bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["santa barbara"]}
+{"query_id": "49f971420bde11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["isle of capri"]}
+{"query_id": "4a3edf720bdc11eba7f7acde48001122", "class": "other", "best_rank": 18, "reference_answers": ["22 september 1840"]}
+{"query_id": "4a3fda120bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["united states"]}
+{"query_id": "4aae6955095d11ebbdaeac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "4b6a56f00bb011ebab90acde48001122", "class": "sibling", "best_rank": 44, "reference_answers": ["zhang ao"]}
+{"query_id": "4bb64b540bde11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["order of the british empire"]}
+{"query_id": "4bc286620bde11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["missolonghi"]}
+{"query_id": "4be6b9060bde11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["calcutta"]}
+{"query_id": "4c319d400bde11eba7f7acde48001122", "class": "other", "best_rank": 15, "reference_answers": ["venice"]}
+{"query_id": "4d559f400bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["aditya bhattacharya"]}
+{"query_id": "4da009380bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["forest lawn memorial park"]}
+{"query_id": "4de007f40bdd11eba7f7acde48001122", "class": "other", "best_rank": 20, "reference_answers": ["11 august 1510"]}
+{"query_id": "4dec7e1c0bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["moscow"]}
+{"query_id": "4eab52b00bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["london"]}
+{"query_id": "4ec76c9c089111ebbd73ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "4ed186f00bde11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["macedonia"]}
+{"query_id": "4f81c5260bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["bernadette o farrell"]}
+{"query_id": "4facc3320bd911eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["petworth house"]}
+{"query_id": "4faf4b760bb011ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["louise d aumont"]}
+{"query_id": "4fb9d00c0bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["north london"]}
+{"query_id": "50008e080bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["548"]}
+{"query_id": "501028360bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["b\u00e9ziers"]}
+{"query_id": "505a04cc0baf11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["francesco d este"]}
+{"query_id": "50ba732e0bb011ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["queen uihye"]}
+{"query_id": "50bd90820bdc11eba7f7acde48001122", "class": "other", "best_rank": 15, "reference_answers": ["argentine"]}
+{"query_id": "50f1350208af11ebbd83ac1f6bf848b6", "class": "other", "best_rank": 17, "reference_answers": ["yes"]}
+{"query_id": "510b4f140bd911eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["david carr"]}
+{"query_id": "5112118e0baf11ebab90acde48001122", "class": "other", "best_rank": 44, "reference_answers": ["alice of normandy"]}
+{"query_id": "511af4e80baf11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["archduchess margarete sophie of austria"]}
+{"query_id": "519aee780baf11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["henrietta maria of france"]}
+{"query_id": "525947000bb011ebab90acde48001122", "class": "other", "best_rank": 16, "reference_answers": ["christian albert prince of hohenlohe langenburg"]}
+{"query_id": "52618be00bb011ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["catherine of braganza"]}
+{"query_id": "53dffe0c0bb011ebab90acde48001122", "class": "other", "best_rank": 17, "reference_answers": ["jobst of limburg"]}
+{"query_id": "53e08c32088611ebbd6dac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "547946240bde11eba7f7acde48001122", "class": "other", "best_rank": 38, "reference_answers": ["roman"]}
+{"query_id": "5490ad000bde11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["huntsville alabama"]}
+{"query_id": "5580e98b088b11ebbd6fac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "565785740bb011ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["crimthann nia n\u00e1ir"]}
+{"query_id": "565f05fc0bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["st john s college"]}
+{"query_id": "568af00c0bd911eba7f7acde48001122", "class": "sibling", "best_rank": 36, "reference_answers": ["d\u00fcsseldorf"]}
+{"query_id": "56c3a6c20bd911eba7f7acde48001122", "class": "other", "best_rank": 15, "reference_answers": ["filmfare award"]}
+{"query_id": "56f73ba60baf11ebab90acde48001122", "class": "other", "best_rank": 16, "reference_answers": ["margaret of bavaria"]}
+{"query_id": "571e337b091611ebbdaeac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "572898560bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["bagneux"]}
+{"query_id": "5750bfd20bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["jean harlow"]}
+{"query_id": "57abb4900bdd11eba7f7acde48001122", "class": "other", "best_rank": 27, "reference_answers": ["1251"]}
+{"query_id": "57dabdf1091c11ebbdaeac1f6bf848b6", "class": "other", "best_rank": 14, "reference_answers": ["yes"]}
+{"query_id": "57df2e7e0bb011ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["boite mac cin\u00e1eda"]}
+{"query_id": "57e0ae020bb011ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["princess luisa carlotta of naples and sicily"]}
+{"query_id": "57eb52620bb011ebab90acde48001122", "class": "other", "best_rank": 24, "reference_answers": ["julius beerbohm"]}
+{"query_id": "58e1e1aa0baf11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["luisa de guzm\u00e1n"]}
+{"query_id": "5937d2260bb011ebab90acde48001122", "class": "other", "best_rank": 12, "reference_answers": ["king xiang of zhou"]}
+{"query_id": "59603ef00bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["united states"]}
+{"query_id": "597a6ac20bd911eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["lviv"]}
+{"query_id": "59a16ade0baf11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["sextus aelius catus"]}
+{"query_id": "59b369fd08f611ebbdaaac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "59ecc1a908c811ebbd91ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "59fdaaf20bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["cahiers du cin\u00e9ma"]}
+{"query_id": "5a12bbd80bde11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["susannah wise"]}
+{"query_id": "5a34b04e0bd911eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["france"]}
+{"query_id": "5a4342620bde11eba7f7acde48001122", "class": "other", "best_rank": 27, "reference_answers": ["parkersburg west virginia"]}
+{"query_id": "5a7f3e9d08e711ebbda6ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "5af9cb300bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["saint petersburg conservatory"]}
+{"query_id": "5b008f3a08d111ebbd95ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "5b1e1f240bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["leopoldo torres r\u00edos"]}
+{"query_id": "5b2359b00bd911eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["klaus roehler"]}
+{"query_id": "5b43e68c086211ebbd5dac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "5bab48ec0bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["frankfurt"]}
+{"query_id": "5bfb989408f811ebbdaaac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "5c7ce15a0bde11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["ace award"]}
+{"query_id": "5c9ef1d80bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["venezuelan"]}
+{"query_id": "5cc7e4f20bd911eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["f\u00e5r\u00f6"]}
+{"query_id": "5cd23bea0bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["gura humorului"]}
+{"query_id": "5cd6974c0bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["daboo malik"]}
+{"query_id": "5d0eadd80bde11eba7f7acde48001122", "class": "sibling", "best_rank": 42, "reference_answers": ["akershus fortress"]}
+{"query_id": "5d6f28620bb011ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["pepin of herstal"]}
+{"query_id": "5d8037920bb011ebab90acde48001122", "class": "other", "best_rank": 17, "reference_answers": ["yi jiang"]}
+{"query_id": "5d98b35e08c611ebbd90ac1f6bf848b6", "class": "other", "best_rank": 14, "reference_answers": ["yes"]}
+{"query_id": "5da934fa099711ebbdb0ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "5db7e2d80bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["bratislava"]}
+{"query_id": "5e3bb8cc0bd911eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["l viv"]}
+{"query_id": "5e8240ea0bdd11eba7f7acde48001122", "class": "other", "best_rank": 19, "reference_answers": ["roma"]}
+{"query_id": "5ea18ece0bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["christiansburg"]}
+{"query_id": "5f1a91840bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["la f\u00e9mis"]}
+{"query_id": "6080c3080bb011ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["marie casimire louise de la grange d arquien"]}
+{"query_id": "608f6be20bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["hamburg"]}
+{"query_id": "60ac8f780bde11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["bang khonthi"]}
+{"query_id": "60b304900baf11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["fran\u00e7oise marie de bourbon"]}
+{"query_id": "60bb44320bd911eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["mahesh bhatt"]}
+{"query_id": "61082d440bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["kansas city"]}
+{"query_id": "618c39ce0bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["ren\u00e9e saint cyr"]}
+{"query_id": "61d4545708b111ebbd85ac1f6bf848b6", "class": "other", "best_rank": 12, "reference_answers": ["here is the beauty"]}
+{"query_id": "623ea4080bb011ebab90acde48001122", "class": "other", "best_rank": 33, "reference_answers": ["princess victoria melita of saxe coburg and gotha"]}
+{"query_id": "62a0531e0bde11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["pok\u00f3j"]}
+{"query_id": "62a9691e0bb011ebab90acde48001122", "class": "other", "best_rank": 40, "reference_answers": ["prince nikolaus wilhelm of nassau"]}
+{"query_id": "62ab4e000bb011ebab90acde48001122", "class": "other", "best_rank": 43, "reference_answers": ["prince archil of imereti"]}
+{"query_id": "62df628e0bde11eba7f7acde48001122", "class": "sibling", "best_rank": 30, "reference_answers": ["british"]}
+{"query_id": "636fc8380bde11eba7f7acde48001122", "class": "other", "best_rank": 20, "reference_answers": ["12 august 1704"]}
+{"query_id": "63a0ba880bd911eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["newport beach"]}
+{"query_id": "63b3b99e0bd911eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["austrian"]}
+{"query_id": "650ee40e0bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["victorville california"]}
+{"query_id": "657324f60baf11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["\u00e6lfthryth"]}
+{"query_id": "658f9a300bd911eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["pharnacia"]}
+{"query_id": "65d7e9e60bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["colorado"]}
+{"query_id": "660aa3cc0bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["bangalore"]}
+{"query_id": "6615041e0bb011ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["vladimir of novgorod"]}
+{"query_id": "66c00bf60bde11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["kimi"]}
+{"query_id": "66cc23c40bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["new york"]}
+{"query_id": "66eefd9e0bde11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["westwood village memorial park cemetery"]}
+{"query_id": "670894680baf11ebab90acde48001122", "class": "other", "best_rank": 27, "reference_answers": ["fujiwara no kamatari"]}
+{"query_id": "674a7b8a0bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["leominster"]}
+{"query_id": "678090620bdc11eba7f7acde48001122", "class": "other", "best_rank": 16, "reference_answers": ["dublin"]}
+{"query_id": "67ecf3100bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["pozna\u0144"]}
+{"query_id": "686c70060bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["hunsur"]}
+{"query_id": "690c1dec0bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["greater cincinnati airport"]}
+{"query_id": "6946f8d20baf11ebab90acde48001122", "class": "other", "best_rank": 24, "reference_answers": ["caroline of nassau saarbr\u00fccken"]}
+{"query_id": "695e0dcc0bde11eba7f7acde48001122", "class": "other", "best_rank": 43, "reference_answers": ["kingdom of iberia"]}
+{"query_id": "699da6fe0bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["parkinson"]}
+{"query_id": "69d22e9f08a711ebbd7fac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "6a70f6f80bb011ebab90acde48001122", "class": "other", "best_rank": 22, "reference_answers": ["alix"]}
+{"query_id": "6a8c06a00bb011ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["frederick v"]}
+{"query_id": "6a8f19480bde11eba7f7acde48001122", "class": "other", "best_rank": 20, "reference_answers": ["venice"]}
+{"query_id": "6abc594e087311ebbd66ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "6ad78d00086311ebbd5eac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "6b713cc60baf11ebab90acde48001122", "class": "other", "best_rank": 39, "reference_answers": ["arnulf"]}
+{"query_id": "6b842c400bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["japan"]}
+{"query_id": "6bb800f00bde11eba7f7acde48001122", "class": "other", "best_rank": 12, "reference_answers": ["irish"]}
+{"query_id": "6cf01adc0bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["coole park"]}
+{"query_id": "6d2f94300bb011ebab90acde48001122", "class": "other", "best_rank": 31, "reference_answers": ["timothy laurence"]}
+{"query_id": "6d8ff48a0bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["henry wellcome"]}
+{"query_id": "6d9b44ea0bd911eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["london"]}
+{"query_id": "6dd9acf20bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["yerevan"]}
+{"query_id": "6dff625e0bde11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["reggio calabria"]}
+{"query_id": "6ea141020baf11ebab90acde48001122", "class": "other", "best_rank": 24, "reference_answers": ["valdemar ii of denmark"]}
+{"query_id": "6efc1e6c0bda11eba7f7acde48001122", "class": "other", "best_rank": 29, "reference_answers": ["hong kong"]}
+{"query_id": "6f1c59360bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["ren\u00e9e saint cyr"]}
+{"query_id": "6ffa31bc0bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["kearney"]}
+{"query_id": "70041a1e0bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["maureen o sullivan"]}
+{"query_id": "702c4fee0baf11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["yohannes ii"]}
+{"query_id": "70ca60dd085b11ebbd5cac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "70f295e60bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["cahiers du cin\u00e9ma"]}
+{"query_id": "710f0893096c11ebbdafac1f6bf848b6", "class": "other", "best_rank": 20, "reference_answers": ["polleke"]}
+{"query_id": "71856e880bdd11eba7f7acde48001122", "class": "other", "best_rank": 11, "reference_answers": ["23 august 1641"]}
+{"query_id": "71e186ce0bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["petaluma california"]}
+{"query_id": "728d56420bdd11eba7f7acde48001122", "class": "other", "best_rank": 16, "reference_answers": ["hamburg"]}
+{"query_id": "72cfea12086711ebbd5eac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "73ab605a0bb011ebab90acde48001122", "class": "other", "best_rank": 11, "reference_answers": ["john ii prince of anhalt zerbst"]}
+{"query_id": "73cd7c960bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["viennese"]}
+{"query_id": "73ec0f28091811ebbdaeac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "745a5eac0bb011ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["catherine of braganza"]}
+{"query_id": "746a799c0bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["spanish"]}
+{"query_id": "748ac0e60bd911eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["delft"]}
+{"query_id": "74b171780bde11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["meara stiller"]}
+{"query_id": "74cb18460baf11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["mahmud ii"]}
+{"query_id": "751646c80bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["phnom penh"]}
+{"query_id": "753f68d40bde11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["naples"]}
+{"query_id": "75c64fb00bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["grammy award for best dance electronic album"]}
+{"query_id": "764446780bde11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["santa rosa"]}
+{"query_id": "76708e6a08b211ebbd85ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "76876db80bde11eba7f7acde48001122", "class": "other", "best_rank": 15, "reference_answers": ["hollywood"]}
+{"query_id": "769873ee0bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["13 march 1753"]}
+{"query_id": "77217c880bdd11eba7f7acde48001122", "class": "other", "best_rank": 27, "reference_answers": ["new york"]}
+{"query_id": "774fa4e20bdc11eba7f7acde48001122", "class": "sibling", "best_rank": 20, "reference_answers": ["21 june 1483"]}
+{"query_id": "77da5fc80bb011ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["ilay campbell"]}
+{"query_id": "77e657d80bb011ebab90acde48001122", "class": "sibling", "best_rank": 31, "reference_answers": ["j howard marshall iii"]}
+{"query_id": "77f4e0140bb011ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["william ix"]}
+{"query_id": "78bc5f540bb011ebab90acde48001122", "class": "other", "best_rank": 13, "reference_answers": ["guy ii count of soissons"]}
+{"query_id": "792c1e0c0bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["d\u00fcsseldorf"]}
+{"query_id": "7939c1460bd911eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["1 march 2012"]}
+{"query_id": "79f69dd80bda11eba7f7acde48001122", "class": "sibling", "best_rank": 12, "reference_answers": ["swellendam"]}
+{"query_id": "7a25a9f20bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["carcassonne"]}
+{"query_id": "7a57c5d2089111ebbd73ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "7a93fcee0bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["presidency college"]}
+{"query_id": "7ab285e60bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["delhi"]}
+{"query_id": "7b05f278087911ebbd67ac1f6bf848b6", "class": "other", "best_rank": 12, "reference_answers": ["down the road again"]}
+{"query_id": "7b163c8a0baf11ebab90acde48001122", "class": "sibling", "best_rank": 12, "reference_answers": ["jaber ii al sabah"]}
+{"query_id": "7bb996ce0bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["great pyramid of giza"]}
+{"query_id": "7bf264760bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["5 october 1763"]}
+{"query_id": "7c13a4500bdd11eba7f7acde48001122", "class": "sibling", "best_rank": 12, "reference_answers": ["january 30 1831"]}
+{"query_id": "7c1fb98e0bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["maywood illinois"]}
+{"query_id": "7d67307408ef11ebbda8ac1f6bf848b6", "class": "other", "best_rank": 39, "reference_answers": ["yes"]}
+{"query_id": "7d7229600bd911eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["bandar e anzali gilan iran"]}
+{"query_id": "7d89563c0bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["august 3 1927"]}
+{"query_id": "7d8986360bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["concordia university"]}
+{"query_id": "7d907b480bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["american university"]}
+{"query_id": "7de481100baf11ebab90acde48001122", "class": "other", "best_rank": 19, "reference_answers": ["lady frances manners"]}
+{"query_id": "7e3f262c0bd911eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["v\u00e4stervik"]}
+{"query_id": "7e77e30409bd11ebbdb0ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "7e85cec80bda11eba7f7acde48001122", "class": "other", "best_rank": 29, "reference_answers": ["american"]}
+{"query_id": "7f06ed8e0bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["18 january 1996"]}
+{"query_id": "8012a1e008af11ebbd83ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "80be09780bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["vincennes"]}
+{"query_id": "80befae80bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["caen"]}
+{"query_id": "811c9e520bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["alexander nevsky lavra"]}
+{"query_id": "812dccf40bb011ebab90acde48001122", "class": "other", "best_rank": 40, "reference_answers": ["albert ii prince of anhalt zerbst"]}
+{"query_id": "812e2ca9090d11ebbdadac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "8140e36c0baf11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["yejong"]}
+{"query_id": "8171f7920bda11eba7f7acde48001122", "class": "other", "best_rank": 25, "reference_answers": ["pneumonia"]}
+{"query_id": "81ffef24097b11ebbdb0ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "8316ee2c0bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["turner prize"]}
+{"query_id": "833a7b460bdd11eba7f7acde48001122", "class": "other", "best_rank": 41, "reference_answers": ["crimean"]}
+{"query_id": "835ec3be0bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["alena mihulov\u00e1"]}
+{"query_id": "844db8ce0bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["buenos aires"]}
+{"query_id": "84977c000bdd11eba7f7acde48001122", "class": "other", "best_rank": 14, "reference_answers": ["grammy award for best r b album"]}
+{"query_id": "84c529160bb011ebab90acde48001122", "class": "other", "best_rank": 44, "reference_answers": ["louis i"]}
+{"query_id": "84c9e4880bb011ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["sultan al dawla"]}
+{"query_id": "84d024380bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["hamburg germany"]}
+{"query_id": "85f535fa0bd911eba7f7acde48001122", "class": "other", "best_rank": 48, "reference_answers": ["norwegian"]}
+{"query_id": "860d90e60bd911eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["sweden"]}
+{"query_id": "8622d5700bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["illness"]}
+{"query_id": "867efe19097a11ebbdb0ac1f6bf848b6", "class": "other", "best_rank": 42, "reference_answers": ["yes"]}
+{"query_id": "86afde360bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["gura humorului"]}
+{"query_id": "87154f1e0bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["polish lithuanian commonwealth"]}
+{"query_id": "879d21e208fc11ebbdadac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "87a2f8e60bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["palm springs california"]}
+{"query_id": "87b061a20bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["\u0142\u00f3d\u017a"]}
+{"query_id": "87b30d140bb011ebab90acde48001122", "class": "other", "best_rank": 15, "reference_answers": ["prince alfonso"]}
+{"query_id": "87e4e1e0088b11ebbd6fac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "880bd3dc0baf11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["blanche of castile"]}
+{"query_id": "881866100baf11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["sextus varius marcellus"]}
+{"query_id": "885503ba0bda11eba7f7acde48001122", "class": "other", "best_rank": 42, "reference_answers": ["british"]}
+{"query_id": "8894ca2808e111ebbda2ac1f6bf848b6", "class": "other", "best_rank": 47, "reference_answers": ["before the jury"]}
+{"query_id": "88d450740bdb11eba7f7acde48001122", "class": "other", "best_rank": 31, "reference_answers": ["ekushey padak"]}
+{"query_id": "88e9d08c0bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["golden valley minnesota"]}
+{"query_id": "890017540bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["jasna \u017ealica"]}
+{"query_id": "890decf80bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["chattanooga"]}
+{"query_id": "8930ad3c0bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["helsingfors"]}
+{"query_id": "8942a532088511ebbd6dac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "895450680bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["r\u0113zekne"]}
+{"query_id": "8980fef608ab11ebbd82ac1f6bf848b6", "class": "other", "best_rank": 45, "reference_answers": ["yes"]}
+{"query_id": "899815760bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["houston texas"]}
+{"query_id": "89af0df60bd911eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["calcutta"]}
+{"query_id": "89c1ccb308cc11ebbd93ac1f6bf848b6", "class": "other", "best_rank": 12, "reference_answers": ["no"]}
+{"query_id": "8a6610400bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["madrid"]}
+{"query_id": "8a6ab1d80bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["nashville tennessee"]}
+{"query_id": "8a6eec600bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["poland"]}
+{"query_id": "8b5f752e0bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["deutscher filmpreis"]}
+{"query_id": "8b8aa85c0bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["grimma"]}
+{"query_id": "8bccf6360bdc11eba7f7acde48001122", "class": "other", "best_rank": 26, "reference_answers": ["leicester"]}
+{"query_id": "8bf901800bdd11eba7f7acde48001122", "class": "other", "best_rank": 11, "reference_answers": ["west branch iowa"]}
+{"query_id": "8bfd017c0bdd11eba7f7acde48001122", "class": "other", "best_rank": 27, "reference_answers": ["naples"]}
+{"query_id": "8c0e29200bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["royal military college sandhurst"]}
+{"query_id": "8c12ceba0bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["palos verdes"]}
+{"query_id": "8d15f16c0bd911eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["yapey\u00fa"]}
+{"query_id": "8d1e4c000bdd11eba7f7acde48001122", "class": "sibling", "best_rank": 19, "reference_answers": ["snape north yorkshire"]}
+{"query_id": "8d344f2e0bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["varangian guard"]}
+{"query_id": "8d3878060bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["new zealand"]}
+{"query_id": "8d3f96db095a11ebbdaeac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "8d9bf1c80bb011ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["grand duke michael pavlovich of russia"]}
+{"query_id": "8dc138ae08e311ebbda4ac1f6bf848b6", "class": "retrieval", "best_rank": null, "reference_answers": ["if i had to do it all over again"]}
+{"query_id": "8dfa2e9e0bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["porterville"]}
+{"query_id": "8e46a6ca0bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["rinki bhattacharya"]}
+{"query_id": "8e6e9b480bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["jafarganj cemetery"]}
+{"query_id": "8e83bdc40baf11ebab90acde48001122", "class": "other", "best_rank": 38, "reference_answers": ["valdemar ii of denmark"]}
+{"query_id": "8ebd30080bb011ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["elizabeth ashe"]}
+{"query_id": "8ef7260a0bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["parkinson"]}
+{"query_id": "8fbe05ec0bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["queensland"]}
+{"query_id": "8fd6a5000bb011ebab90acde48001122", "class": "other", "best_rank": 27, "reference_answers": ["henry iii"]}
+{"query_id": "909f2a1408a111ebbd79ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "90bad89e0bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["san juan puerto rico"]}
+{"query_id": "90bfa26c0bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["juilliard"]}
+{"query_id": "90fdcd120bda11eba7f7acde48001122", "class": "other", "best_rank": 16, "reference_answers": ["paris"]}
+{"query_id": "918af6480bd911eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["pala"]}
+{"query_id": "91d01af80bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["cancer"]}
+{"query_id": "91e810120bd911eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["bytom"]}
+{"query_id": "91ec5b380bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["polish"]}
+{"query_id": "922a629c0bb011ebab90acde48001122", "class": "other", "best_rank": 44, "reference_answers": ["henry ii duke of lorraine"]}
+{"query_id": "9248ce6c0bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["state university of new york at purchase"]}
+{"query_id": "925e59120bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["ireland"]}
+{"query_id": "926f4e660bdd11eba7f7acde48001122", "class": "other", "best_rank": 14, "reference_answers": ["lithuania"]}
+{"query_id": "931e0cac0bd911eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["hong kong baptist college"]}
+{"query_id": "934a55e60bd911eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["elberfeld"]}
+{"query_id": "936837b80bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["k\u00f6nigstein im taunus"]}
+{"query_id": "93c09bfa0bdb11eba7f7acde48001122", "class": "other", "best_rank": 37, "reference_answers": ["tisch"]}
+{"query_id": "93e6f2c60bdd11eba7f7acde48001122", "class": "other", "best_rank": 12, "reference_answers": ["segeberg"]}
+{"query_id": "941303a00bda11eba7f7acde48001122", "class": "sibling", "best_rank": 16, "reference_answers": ["nashville tennessee"]}
+{"query_id": "943b50b20bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["frsa"]}
+{"query_id": "94a6c8d20bdb11eba7f7acde48001122", "class": "other", "best_rank": 47, "reference_answers": ["japan"]}
+{"query_id": "94eba4ce0bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["li\u00e8ge"]}
+{"query_id": "9523a3df088911ebbd6eac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "955ddc6a0bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["oklahoma city oklahoma"]}
+{"query_id": "958dc314091911ebbdaeac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "9590d80a0bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["paris france"]}
+{"query_id": "95ab4cac0bdc11eba7f7acde48001122", "class": "other", "best_rank": 22, "reference_answers": ["z\u00fcrich"]}
+{"query_id": "960b5ec00bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["abilene"]}
+{"query_id": "964d1a520bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["krak\u00f3w"]}
+{"query_id": "96d29e2c0bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["roman empire"]}
+{"query_id": "980237060bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["vienna"]}
+{"query_id": "982f8e440bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["1886"]}
+{"query_id": "986625bc0bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["florence"]}
+{"query_id": "990357180bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["parkinson s disease"]}
+{"query_id": "990b1ed00bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["joy esther"]}
+{"query_id": "994bfa400bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["marchiennes"]}
+{"query_id": "99f883fc0bdb11eba7f7acde48001122", "class": "other", "best_rank": 26, "reference_answers": ["italian"]}
+{"query_id": "9a55ba400bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["churcher s college"]}
+{"query_id": "9ab545800bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["bakersfield"]}
+{"query_id": "9b659c320bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["ramla"]}
+{"query_id": "9b7d4e2c0bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["vienna"]}
+{"query_id": "9ba59c1a0bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["orlando florida"]}
+{"query_id": "9bd0c7e60bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["augsburg"]}
+{"query_id": "9c2946020bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["akron ohio"]}
+{"query_id": "9c3ff1040bdb11eba7f7acde48001122", "class": "other", "best_rank": 25, "reference_answers": ["french"]}
+{"query_id": "9c996f860bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["akhetaten"]}
+{"query_id": "9d6f4f4c0bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["london"]}
+{"query_id": "9d9306cc08c511ebbd8fac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "9e0009f60baf11ebab90acde48001122", "class": "sibling", "best_rank": 24, "reference_answers": ["athenais philostorgos i"]}
+{"query_id": "9e2fc7ef08c711ebbd91ac1f6bf848b6", "class": "other", "best_rank": 15, "reference_answers": ["yes"]}
+{"query_id": "9e506db00bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["k\u00e4bi laretei"]}
+{"query_id": "9e68b794091311ebbdadac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "9ec997120baf11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["louis the pious"]}
+{"query_id": "9ec9e3200baf11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["shahriyar"]}
+{"query_id": "9f4aac2a0bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["duchy of milan"]}
+{"query_id": "9f50e9de0bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["west sussex"]}
+{"query_id": "9f62be2008ac11ebbd83ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "9fdd38980baf11ebab90acde48001122", "class": "other", "best_rank": 12, "reference_answers": ["troilo i de rossi"]}
+{"query_id": "9ff14fea0baf11ebab90acde48001122", "class": "other", "best_rank": 49, "reference_answers": ["herleva"]}
+{"query_id": "a05cc87008a711ebbd7fac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "a079c1500bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["royal academy of dramatic art"]}
+{"query_id": "a11440c80bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["theresienstadt concentration camp"]}
+{"query_id": "a199ab840bdd11eba7f7acde48001122", "class": "sibling", "best_rank": 13, "reference_answers": ["tracadie prince edward island"]}
+{"query_id": "a1ca083c0bd911eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["\u010desk\u00e9 bud\u011bjovice"]}
+{"query_id": "a1d9a65c0bd911eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["detroit"]}
+{"query_id": "a1f388f80bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["s\u00e3o paulo"]}
+{"query_id": "a26bb3420bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["l\u00f6rrach"]}
+{"query_id": "a27849740bd911eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["mongol empire"]}
+{"query_id": "a27e91f1094811ebbdaeac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "a29726b40bd911eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["venezuelan"]}
+{"query_id": "a2e665000bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["1976"]}
+{"query_id": "a37ece260baf11ebab90acde48001122", "class": "other", "best_rank": 50, "reference_answers": ["konrad i of ole\u015bnica"]}
+{"query_id": "a37fc3a60bd911eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["melbourne"]}
+{"query_id": "a3d705460bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["rinki bhattacharya"]}
+{"query_id": "a400ea0a0bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["neuenburg castle"]}
+{"query_id": "a4a88027089411ebbd75ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "a57d9f9c0bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["m\u00e1laga"]}
+{"query_id": "a5b095c00bdd11eba7f7acde48001122", "class": "other", "best_rank": 22, "reference_answers": ["california"]}
+{"query_id": "a5bd56fc0bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["pinerolo"]}
+{"query_id": "a5bed06e0bdc11eba7f7acde48001122", "class": "other", "best_rank": 12, "reference_answers": ["byzantine"]}
+{"query_id": "a66836a00bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["jean claude deret"]}
+{"query_id": "a6689af208b911ebbd88ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "a6d397ea0bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["janowiec"]}
+{"query_id": "a6d861000bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["maurya dynasty"]}
+{"query_id": "a6fd9c120baf11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["robert i duke of normandy"]}
+{"query_id": "a702db460baf11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["princess elisabeth of saxe altenburg"]}
+{"query_id": "a703e1160bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["rimini"]}
+{"query_id": "a7419bf3092e11ebbdaeac1f6bf848b6", "class": "other", "best_rank": 11, "reference_answers": ["krishnarjuna"]}
+{"query_id": "a809d3720bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["smith college"]}
+{"query_id": "a8396b140bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["levo\u010da"]}
+{"query_id": "a84ba2780bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["alena mihulov\u00e1"]}
+{"query_id": "a86662fc0bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["united states"]}
+{"query_id": "a91307160bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["memphis tennessee"]}
+{"query_id": "a9bdb2a4099a11ebbdb0ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "a9d6c4e40bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["montreal"]}
+{"query_id": "a9ea9ef60bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["ayutthaya"]}
+{"query_id": "a9f16baa0bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["pneumonia"]}
+{"query_id": "aa5c2cb20bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["f\u00e5r\u00f6"]}
+{"query_id": "aa72cb6a0baf11ebab90acde48001122", "class": "sibling", "best_rank": 12, "reference_answers": ["agnes of p\u00e9rigord"]}
+{"query_id": "aa75b4ba0baf11ebab90acde48001122", "class": "other", "best_rank": 15, "reference_answers": ["countess palatine magdalene catherine of zweibr\u00fccken"]}
+{"query_id": "aaadd9f80baf11ebab90acde48001122", "class": "other", "best_rank": 32, "reference_answers": ["philip iii of france"]}
+{"query_id": "aaaeeb220baf11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["philip iii of france"]}
+{"query_id": "aaf3941c0bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["d\u00fcsseldorf"]}
+{"query_id": "ab17df260bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["buenos aires"]}
+{"query_id": "ab5beae00bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["newport wales"]}
+{"query_id": "ab95c9260bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["leopoldo torres r\u00edos"]}
+{"query_id": "abaff0940bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["mymensingh medical college"]}
+{"query_id": "abcb527c0bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["lani hall"]}
+{"query_id": "abf2f3de094a11ebbdaeac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "ac90d99c0bdb11eba7f7acde48001122", "class": "other", "best_rank": 34, "reference_answers": ["los angeles"]}
+{"query_id": "ac932fd80bdd11eba7f7acde48001122", "class": "sibling", "best_rank": 39, "reference_answers": ["barcelona"]}
+{"query_id": "acfdf12e0bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["imperial crypt"]}
+{"query_id": "acfe24b7096511ebbdafac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "ad5795f80bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["chattanooga"]}
+{"query_id": "ad5f66c60baf11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["king xiang of wei"]}
+{"query_id": "ad66091e0bdb11eba7f7acde48001122", "class": "other", "best_rank": 11, "reference_answers": ["southampton"]}
+{"query_id": "adf6e99108a011ebbd78ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "ae95e8e40baf11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["takhat"]}
+{"query_id": "aed7dc2d087111ebbd63ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "af07336e0bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["transylvania"]}
+{"query_id": "af16832e0bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["april 17 1947"]}
+{"query_id": "af356f7a0bd911eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["officer of the order of canada"]}
+{"query_id": "afcff22e0bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["komitas pantheon"]}
+{"query_id": "b0093fea0bdd11eba7f7acde48001122", "class": "other", "best_rank": 14, "reference_answers": ["hyderabad state"]}
+{"query_id": "b09b45600bd911eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["berlin"]}
+{"query_id": "b0b7f3700bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["cross plains"]}
+{"query_id": "b146f47c0bda11eba7f7acde48001122", "class": "other", "best_rank": 37, "reference_answers": ["viennese"]}
+{"query_id": "b1d520f2087011ebbd63ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "b1e64cc60bd911eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["france"]}
+{"query_id": "b20413b80bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["new brunswick"]}
+{"query_id": "b23a2b360baf11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["francis i holy roman emperor"]}
+{"query_id": "b249aa840bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["london"]}
+{"query_id": "b2a1b19e096e11ebbdb0ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "b2db6b6c0bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["johns hopkins"]}
+{"query_id": "b2fd3ef40bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["chumki chowdhury"]}
+{"query_id": "b3c4b3a80bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["august 7 2004"]}
+{"query_id": "b3cb2c6a0bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["united states"]}
+{"query_id": "b4254d4c0bda11eba7f7acde48001122", "class": "other", "best_rank": 42, "reference_answers": ["breda"]}
+{"query_id": "b4f63414088511ebbd6dac1f6bf848b6", "class": "other", "best_rank": 31, "reference_answers": ["yes"]}
+{"query_id": "b52a4d7e0bd911eba7f7acde48001122", "class": "other", "best_rank": 48, "reference_answers": ["london"]}
+{"query_id": "b53238960bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["west orange"]}
+{"query_id": "b56b1c6a0bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["warner bros"]}
+{"query_id": "b587d3d20bdd11eba7f7acde48001122", "class": "other", "best_rank": 20, "reference_answers": ["pinos puente"]}
+{"query_id": "b5f363360bdd11eba7f7acde48001122", "class": "sibling", "best_rank": 40, "reference_answers": ["rouen"]}
+{"query_id": "b67ef6380bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["l\u00fcbz"]}
+{"query_id": "b68527e40bdd11eba7f7acde48001122", "class": "other", "best_rank": 30, "reference_answers": ["lisbon"]}
+{"query_id": "b6afbad60bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["rossville"]}
+{"query_id": "b6b306fa0bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["ayyubid dynasty"]}
+{"query_id": "b6f2bce20baf11ebab90acde48001122", "class": "other", "best_rank": 33, "reference_answers": ["eadbald of kent"]}
+{"query_id": "b8133a100bdd11eba7f7acde48001122", "class": "other", "best_rank": 12, "reference_answers": ["london"]}
+{"query_id": "b82ce9420bdd11eba7f7acde48001122", "class": "other", "best_rank": 12, "reference_answers": ["dartmouth"]}
+{"query_id": "b87790aa0bdd11eba7f7acde48001122", "class": "other", "best_rank": 21, "reference_answers": ["vienna"]}
+{"query_id": "b9687149089811ebbd77ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "b9a3d70a0baf11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["prince albert of prussia"]}
+{"query_id": "ba289b440bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["h s rawail"]}
+{"query_id": "ba6e88c40bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["viennese"]}
+{"query_id": "ba9e5b1e08e711ebbda6ac1f6bf848b6", "class": "other", "best_rank": 47, "reference_answers": ["yes"]}
+{"query_id": "bab3b6d00bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["10 august 1960"]}
+{"query_id": "bac99ab40bd911eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["great pyramid of giza"]}
+{"query_id": "bafe95720bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["luoyang"]}
+{"query_id": "bc00399e0baf11ebab90acde48001122", "class": "other", "best_rank": 26, "reference_answers": ["odo ii count of blois"]}
+{"query_id": "bd9609880bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["peter townsend"]}
+{"query_id": "bda4c9080bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["preslav"]}
+{"query_id": "bde4185c097011ebbdb0ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "bde91bf60bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["khamag mongol"]}
+{"query_id": "be14b5420bdd11eba7f7acde48001122", "class": "other", "best_rank": 32, "reference_answers": ["berlin"]}
+{"query_id": "beaf107f089a11ebbd77ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "bedf588e0baf11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["elizabeth woodville"]}
+{"query_id": "bf5c81fa0bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["persia"]}
+{"query_id": "c001b9b40bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["coutances"]}
+{"query_id": "c03620360bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["monastery of rosazzo"]}
+{"query_id": "c03e86180bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["new york"]}
+{"query_id": "c0409500088f11ebbd72ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "c05e16a40bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["stroke"]}
+{"query_id": "c08c8b0c0baf11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["eleanor of castile"]}
+{"query_id": "c1aa9b640bdc11eba7f7acde48001122", "class": "other", "best_rank": 16, "reference_answers": ["bir\u00e1n"]}
+{"query_id": "c1b9c0ac0bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["23 february 1473"]}
+{"query_id": "c218f9d20bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["hollywood"]}
+{"query_id": "c231feaa0bdd11eba7f7acde48001122", "class": "other", "best_rank": 20, "reference_answers": ["pyramid of menkaure"]}
+{"query_id": "c241c2ac0bda11eba7f7acde48001122", "class": "other", "best_rank": 30, "reference_answers": ["rhinebeck cemetery"]}
+{"query_id": "c2afbfa60bd911eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["bernadette o farrell"]}
+{"query_id": "c2d94e500bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["lewiston"]}
+{"query_id": "c31b2d920bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["hawaii"]}
+{"query_id": "c33d0d5c0bd911eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["pegau"]}
+{"query_id": "c3e1ad9e090d11ebbdadac1f6bf848b6", "class": "other", "best_rank": 12, "reference_answers": ["a man on his knees"]}
+{"query_id": "c400306a0bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["new york"]}
+{"query_id": "c42bcfc0084911ebbd55ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "c44558940bd911eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["childwickbury manor"]}
+{"query_id": "c4f100380baf11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["sennacherib"]}
+{"query_id": "c4f161f80bdd11eba7f7acde48001122", "class": "other", "best_rank": 42, "reference_answers": ["england"]}
+{"query_id": "c4fd6fe80bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["tondo manila"]}
+{"query_id": "c511cef80baf11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["theophano"]}
+{"query_id": "c57f6be40bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["united states"]}
+{"query_id": "c58a7e3e0bdc11eba7f7acde48001122", "class": "other", "best_rank": 14, "reference_answers": ["helsinki"]}
+{"query_id": "c5ffa16a0bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["la riera de gai\u00e0"]}
+{"query_id": "c61541df084b11ebbd56ac1f6bf848b6", "class": "other", "best_rank": 44, "reference_answers": ["yes"]}
+{"query_id": "c6b4652c08c111ebbd8bac1f6bf848b6", "class": "other", "best_rank": 49, "reference_answers": ["yes"]}
+{"query_id": "c6d520840bda11eba7f7acde48001122", "class": "other", "best_rank": 11, "reference_answers": ["velsen"]}
+{"query_id": "c710cd820bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["university of maryland"]}
+{"query_id": "c7a79d2c0bdd11eba7f7acde48001122", "class": "other", "best_rank": 17, "reference_answers": ["toronto"]}
+{"query_id": "c807422a0bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["durban south africa"]}
+{"query_id": "c85f6a7a084e11ebbd56ac1f6bf848b6", "class": "other", "best_rank": 47, "reference_answers": ["yes"]}
+{"query_id": "c8c5f3ee0baf11ebab90acde48001122", "class": "other", "best_rank": 19, "reference_answers": ["uliana of tver"]}
+{"query_id": "c8ecc2800bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["santa barbara california"]}
+{"query_id": "c9983efa086511ebbd5eac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "cad698fe086311ebbd5eac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "cb035c3c0bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["lubbock texas"]}
+{"query_id": "cb2449d80baf11ebab90acde48001122", "class": "other", "best_rank": 49, "reference_answers": ["bernard de neufmarch\u00e9"]}
+{"query_id": "cc1013260bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["athens"]}
+{"query_id": "cc19962c0bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["mary eaton"]}
+{"query_id": "cc3587140bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["kingdom of hawai\u02bbi"]}
+{"query_id": "cc6b0e9e084e11ebbd56ac1f6bf848b6", "class": "retrieval", "best_rank": null, "reference_answers": ["being there"]}
+{"query_id": "cc6c68e4096511ebbdafac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "cce5bb160bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["overdose"]}
+{"query_id": "cd6b4d4e0bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["100 women"]}
+{"query_id": "cd791c8a0bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["constantinople"]}
+{"query_id": "ce471ffd086011ebbd5dac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "ce5bfc90086c11ebbd61ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "ce6bd0b008a411ebbd7dac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "ce9056ac085a11ebbd5cac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "cea4f9a60bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["fulbright scholarship"]}
+{"query_id": "cee7790e08cc11ebbd93ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "cf9a08f608c911ebbd92ac1f6bf848b6", "class": "other", "best_rank": 42, "reference_answers": ["what s your husband doing"]}
+{"query_id": "cfbc66400bd911eba7f7acde48001122", "class": "other", "best_rank": 25, "reference_answers": ["manhattan"]}
+{"query_id": "d03796320baf11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["jeanne d albret"]}
+{"query_id": "d057431e0bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["roman empire"]}
+{"query_id": "d0972df708e711ebbda6ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "d0c500e20bd911eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["forest lawn memorial park"]}
+{"query_id": "d17a04e60bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["823"]}
+{"query_id": "d1b9b6060bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["kabul"]}
+{"query_id": "d1c8b2a00bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["massachusetts"]}
+{"query_id": "d37ac8a40bdd11eba7f7acde48001122", "class": "other", "best_rank": 18, "reference_answers": ["m\u00fchlburg"]}
+{"query_id": "d3867189095111ebbdaeac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "d3c779240bdd11eba7f7acde48001122", "class": "sibling", "best_rank": 32, "reference_answers": ["tarzana"]}
+{"query_id": "d4708a220bd911eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["d\u00fcsseldorf"]}
+{"query_id": "d504bb68088511ebbd6dac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "d545acd20bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["westwood village memorial park cemetery"]}
+{"query_id": "d5bf657c0bdb11eba7f7acde48001122", "class": "other", "best_rank": 45, "reference_answers": ["england"]}
+{"query_id": "d60529440baf11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["yazathingyan"]}
+{"query_id": "d61d3fd20bd911eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["new york"]}
+{"query_id": "d61d801e0bd911eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["rudolf hausner"]}
+{"query_id": "d6488b040bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["argentina"]}
+{"query_id": "d70c254e0bdd11eba7f7acde48001122", "class": "sibling", "best_rank": 11, "reference_answers": ["lancashire"]}
+{"query_id": "d71f453b085811ebbd5bac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "d7309806085511ebbd59ac1f6bf848b6", "class": "other", "best_rank": 28, "reference_answers": ["yes"]}
+{"query_id": "d79cab940bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["sofia"]}
+{"query_id": "d7af391708bb11ebbd88ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "d7d4e6b20bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["encino"]}
+{"query_id": "d8a00ed40bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["francis william thring"]}
+{"query_id": "d8a042780bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["gujarati"]}
+{"query_id": "d8c06f220bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["buenos aires"]}
+{"query_id": "d8c1e2ac0bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["ohio"]}
+{"query_id": "d8df66240bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["columbia university graduate school of journalism"]}
+{"query_id": "d933980c0bdd11eba7f7acde48001122", "class": "other", "best_rank": 42, "reference_answers": ["lyon"]}
+{"query_id": "d93a1a7b08a311ebbd7cac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "d966c61208ab11ebbd82ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "d9976b0c0bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["bhubaneswar"]}
+{"query_id": "d9c894ec0bd911eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["denmark"]}
+{"query_id": "d9f5fd9a0bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["montreal quebec"]}
+{"query_id": "dac1f66e0bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["liverpool"]}
+{"query_id": "db10023c0bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["bakersfield california"]}
+{"query_id": "db10aea20bd911eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["west sussex"]}
+{"query_id": "db5310360bdd11eba7f7acde48001122", "class": "other", "best_rank": 17, "reference_answers": ["benrath"]}
+{"query_id": "db637b380bdd11eba7f7acde48001122", "class": "other", "best_rank": 12, "reference_answers": ["english"]}
+{"query_id": "db7b4a600bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["1574"]}
+{"query_id": "dba424900baf11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["isabella of france"]}
+{"query_id": "dc15d27e0bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["annam"]}
+{"query_id": "dc4754a80bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["bologna"]}
+{"query_id": "dc69969e0bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["montreal quebec"]}
+{"query_id": "dc6e054e0baf11ebab90acde48001122", "class": "other", "best_rank": 21, "reference_answers": ["barnim i"]}
+{"query_id": "dc6eff9e0baf11ebab90acde48001122", "class": "sibling", "best_rank": 11, "reference_answers": ["tairrdelbach ua conchobair"]}
+{"query_id": "dc77c1fc0bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["people s artist of the rsfsr"]}
+{"query_id": "dc90618e0baf11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["grand duchess anastasia mikhailovna of russia"]}
+{"query_id": "dcdda2c708af11ebbd83ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "dd0d5a360baf11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["princess alice of the united kingdom"]}
+{"query_id": "dd1b6eb6087e11ebbd6bac1f6bf848b6", "class": "other", "best_rank": 40, "reference_answers": ["yes"]}
+{"query_id": "dd3ca2fe0bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["caerphilly"]}
+{"query_id": "dd52f36a0bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["new jersey"]}
+{"query_id": "dd5d3c540bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["la riera de gai\u00e0"]}
+{"query_id": "dd88d85e0bdd11eba7f7acde48001122", "class": "other", "best_rank": 12, "reference_answers": ["canadian"]}
+{"query_id": "ddbb2c02088911ebbd6eac1f6bf848b6", "class": "other", "best_rank": 25, "reference_answers": ["this mad world"]}
+{"query_id": "de2a9a0a0baf11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["mahaut of ch\u00e2tillon"]}
+{"query_id": "de3a12da08b411ebbd88ac1f6bf848b6", "class": "other", "best_rank": 28, "reference_answers": ["yes"]}
+{"query_id": "de77cd6a0bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["cancer"]}
+{"query_id": "dec6d80c0baf11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["nasr ii"]}
+{"query_id": "deea8eb80bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["fitzalan chapel"]}
+{"query_id": "df212d0e0bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["arsuf"]}
+{"query_id": "df85733a0bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["mapy cort\u00e9s"]}
+{"query_id": "dfbc5f6e0bd911eba7f7acde48001122", "class": "other", "best_rank": 19, "reference_answers": ["al khor"]}
+{"query_id": "e053179a0bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["le blanc mesnil"]}
+{"query_id": "e104830e0bdb11eba7f7acde48001122", "class": "other", "best_rank": 23, "reference_answers": ["australia"]}
+{"query_id": "e10f53d00bd911eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["27 july 1995"]}
+{"query_id": "e171d29a0bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["national film board"]}
+{"query_id": "e172d3b20baf11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["oru\u00e7 reis"]}
+{"query_id": "e19960120bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["moscow"]}
+{"query_id": "e1abbba9098a11ebbdb0ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "e2381a480bda11eba7f7acde48001122", "class": "other", "best_rank": 14, "reference_answers": ["roman"]}
+{"query_id": "e29609520bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["warsaw"]}
+{"query_id": "e2a4192a0bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["mimar sinan university of fine arts"]}
+{"query_id": "e2e9a9560bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["orlando florida"]}
+{"query_id": "e3267290085311ebbd59ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "e43f26380bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["ren\u00e9e saint cyr"]}
+{"query_id": "e4e02a240bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["jacques cousteau"]}
+{"query_id": "e519fa3c0bae11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["kristen kvello"]}
+{"query_id": "e55600c6089e11ebbd78ac1f6bf848b6", "class": "other", "best_rank": 27, "reference_answers": ["yes"]}
+{"query_id": "e56744640bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["hong kong baptist college"]}
+{"query_id": "e5bc717c0bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["p\u00e8re lachaise cemetery"]}
+{"query_id": "e5c738900bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["new york"]}
+{"query_id": "e5e61c340bae11ebab90acde48001122", "class": "other", "best_rank": 17, "reference_answers": ["philibert margrave of baden baden"]}
+{"query_id": "e60a895208b611ebbd88ac1f6bf848b6", "class": "other", "best_rank": 28, "reference_answers": ["yes"]}
+{"query_id": "e66704f20bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["cahiers du cin\u00e9ma"]}
+{"query_id": "e668ce940baf11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["louis philippe ii duke of orl\u00e9ans"]}
+{"query_id": "e6802e620bdd11eba7f7acde48001122", "class": "other", "best_rank": 12, "reference_answers": ["flint michigan"]}
+{"query_id": "e6a74e020bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["memphis"]}
+{"query_id": "e6f8d00a089611ebbd76ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "e77b813e0bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["amman"]}
+{"query_id": "e7a0711208c211ebbd8cac1f6bf848b6", "class": "other", "best_rank": 22, "reference_answers": ["yes"]}
+{"query_id": "e7e127d00baf11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["nil\u00fcfer hatun"]}
+{"query_id": "e84c09e00bd911eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["hradec kr\u00e1lov\u00e9"]}
+{"query_id": "e9946c220baf11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["aregund"]}
+{"query_id": "ea3ca41f09b811ebbdb0ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "eae8b12c0bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["johannesburg south africa"]}
+{"query_id": "eb0908500bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["columbia"]}
+{"query_id": "eb22d73a0bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["heart attack"]}
+{"query_id": "eb27b5f80baf11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["philippe antoine d ornano"]}
+{"query_id": "eb30f33c086611ebbd5eac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "eb5e25ff094d11ebbdaeac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "eb66e5900bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["alexis roderick"]}
+{"query_id": "eb7ece320bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["stony brook university"]}
+{"query_id": "eb9a4b7c0bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["naples"]}
+{"query_id": "ebd650640bae11ebab90acde48001122", "class": "sibling", "best_rank": 14, "reference_answers": ["theobald ii count of bar"]}
+{"query_id": "ec3d39280bae11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["louis duke of montpensier"]}
+{"query_id": "ec697d900bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["loudon wainwright iii"]}
+{"query_id": "ee5147f60bd911eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["phnom penh"]}
+{"query_id": "ee51acb0091111ebbdadac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "ef42592c096c11ebbdafac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "ef48a3720baf11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["anthony duke of brabant"]}
+{"query_id": "efdee68e0bdc11eba7f7acde48001122", "class": "sibling", "best_rank": 45, "reference_answers": ["viennese"]}
+{"query_id": "f0faeb9a0bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["inder raj anand"]}
+{"query_id": "f166d402099611ebbdb0ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "f29525d60bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["jaffna sri lanka"]}
+{"query_id": "f2d520b00bdc11eba7f7acde48001122", "class": "other", "best_rank": 29, "reference_answers": ["19 december 1475"]}
+{"query_id": "f2d62e4b09b511ebbdb0ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "f31011fc0bdc11eba7f7acde48001122", "class": "other", "best_rank": 32, "reference_answers": ["new york"]}
+{"query_id": "f31d38460bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["peterhouse"]}
+{"query_id": "f32458660bae11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["fer corb"]}
+{"query_id": "f33eda240bae11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["herleva"]}
+{"query_id": "f343220e08d211ebbd96ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "f364ff4c0bae11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["edmund grey 1st earl of kent"]}
+{"query_id": "f418184a08be11ebbd8aac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "f48d94d00bd911eba7f7acde48001122", "class": "other", "best_rank": 12, "reference_answers": ["953"]}
+{"query_id": "f491b33e0bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["jean hersholt humanitarian award"]}
+{"query_id": "f4a66ac60bae11ebab90acde48001122", "class": "other", "best_rank": 27, "reference_answers": ["frederick ii eugene duke of w\u00fcrttemberg"]}
+{"query_id": "f4e4e862089011ebbd72ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "f557639c0bdd11eba7f7acde48001122", "class": "other", "best_rank": 44, "reference_answers": ["1439"]}
+{"query_id": "f5e3b9ca0bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["dean miller"]}
+{"query_id": "f64359840bae11ebab90acde48001122", "class": "sibling", "best_rank": 11, "reference_answers": ["nure sofi"]}
+{"query_id": "f654bd0c0bd911eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["september 10 1915"]}
+{"query_id": "f66993ce0bae11ebab90acde48001122", "class": "other", "best_rank": 31, "reference_answers": ["anna of eppstein k\u00f6nigstein"]}
+{"query_id": "f6721c9208fc11ebbdadac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "f6a2a90c0bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["varangian guard"]}
+{"query_id": "f6e119300bae11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["sorghaghtani beki"]}
+{"query_id": "f6e2b9280bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["china"]}
+{"query_id": "f6e996f00bae11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["charles iii william"]}
+{"query_id": "f6f9fbdc0bd911eba7f7acde48001122", "class": "other", "best_rank": 11, "reference_answers": ["italy"]}
+{"query_id": "f7156af40bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["armenti\u00e8res"]}
+{"query_id": "f775073c086b11ebbd60ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "f77f95da0bd911eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["arcadia"]}
+{"query_id": "f7b1002b099a11ebbdb0ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "f7b41d560bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["ogun state"]}
+{"query_id": "f99c20140bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["21 september 1559"]}
+{"query_id": "f9a3bf6a0bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["8 october 1876"]}
+{"query_id": "f9c8f8ab098711ebbdb0ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "f9fede580bdc11eba7f7acde48001122", "class": "other", "best_rank": 17, "reference_answers": ["paris"]}
+{"query_id": "fa16a7900bdc11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["23 october 1960"]}
+{"query_id": "fa960b58085911ebbd5bac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "faedda9a0bdb11eba7f7acde48001122", "class": "other", "best_rank": 18, "reference_answers": ["galveston texas"]}
+{"query_id": "fb25645c0bda11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["algeria"]}
+{"query_id": "fb6ff1e20bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["los angeles"]}
+{"query_id": "fb95c0000bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["vienna"]}
+{"query_id": "fbc3b82c0bae11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["philip iii of france"]}
+{"query_id": "fbfb55ac0bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["houston texas"]}
+{"query_id": "fc031d360baf11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["dedi iii margrave of lusatia"]}
+{"query_id": "fc42af9a098711ebbdb0ac1f6bf848b6", "class": "absent", "best_rank": null, "reference_answers": ["yes"]}
+{"query_id": "fc50265e0bae11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["frederick viii duke of schleswig holstein"]}
+{"query_id": "fcc52c000bdc11eba7f7acde48001122", "class": "sibling", "best_rank": 22, "reference_answers": ["september 14 1982"]}
+{"query_id": "fcd3ff500baf11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["p\u014dmare iv"]}
+{"query_id": "fd01278c0bdc11eba7f7acde48001122", "class": "other", "best_rank": 18, "reference_answers": ["berlin"]}
+{"query_id": "fd4096540bd911eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["winnipeg manitoba"]}
+{"query_id": "fe1327f00bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["united kingdom"]}
+{"query_id": "fe3c9f0e0bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["662"]}
+{"query_id": "fe41a8aa0bdd11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["jakarta"]}
+{"query_id": "fea547400bdb11eba7f7acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["delhi"]}
+{"query_id": "ffee28d80bae11ebab90acde48001122", "class": "retrieval", "best_rank": null, "reference_answers": ["isabella of aragon"]}

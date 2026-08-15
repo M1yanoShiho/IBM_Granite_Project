@@ -5,7 +5,7 @@
 ## 先看哪一份
 
 1. [历次实验总索引](experiments/README.md)：按时间查看每一次独立路线。
-2. [当前 R005A/R005B 修复路线](experiments/08_r005ab_repair_current_2026-08-12/README.md)：当前唯一仍可能继续的路线。
+2. [最近完成的 R005A/R005B 修复路线](experiments/08_r005ab_repair_current_2026-08-12/README.md)：证据层通过、答案层未通过的完整结论。
 3. [机器可读实验索引](experiments/MANIFEST.json)：供脚本核对八条路线和当前授权状态。
 4. [2026-08-10 阶段性最终报告](SELECTOR_FINAL_REPORT.md)：解释为什么当时回退到 TopK10。
 5. [refine-logs 总清单](../../refine-logs/MANIFEST.md)：近期冻结计划、机器合同、审计和正式结果的 canonical 索引。
@@ -14,7 +14,8 @@
 
 - 生产默认仍是 **TopK10**。
 - Adaptive-Risk 原路线已在 R005 正式失败，R006–R015 按门停止。
-- R005A/R005B recovery v2 仍在 `A000 WAITING APPROVAL`；A001、样本物化、训练和 held-out 读取均未执行。
+- R005A/R005B 的重型 v2 从未执行，随后由 Lean v3 取代。
+- Lean v3 已完成 L000–L003：证据层能保守删除 harmful evidence，但答案没有超过 TopK10，因此路线关闭。
 - `docs/selector/experiments/` 是方便人阅读的归档层，不替代 `refine-logs/`、`results/` 或 Git 历史中的原始证据。
 
 ## 归档原则

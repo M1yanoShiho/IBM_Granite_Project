@@ -1,0 +1,24 @@
+# R11 corpus-size sweep point. Identical to the 100k arm of the same name in every
+# respect except the corpus: same 2000 queries, same seed, same gold documents. The
+# materializer keeps every gold document and varies only how many distractors sit
+# around them, so corpus size is the one thing that moves.
+[dataset]
+manifest = "../../runs/niah-base-200k/manifest.json"
+
+[output]
+directory = "../../runs/retr-nq200k-strong-bm25"
+
+[retriever]
+name = "strong-bm25"
+parameters = { k1 = 0.9, b = 0.4 }
+
+[selector]
+name = "top-k"
+
+[generator]
+name = "extractive"
+
+[run]
+top_k = 50
+max_selected = 5
+seed = 7

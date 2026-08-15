@@ -1,0 +1,18 @@
+{
+  "cap": 2,
+  "checkpoint_sha256_by_seed": {
+    "13": "86622bd9ab6391c9eb560133b01b0cf3744c3706638ff8b0bd38925b84bf72bf",
+    "42": "c258a9b4794dcb01c17d1150c91d631e6a5bb91211676224e3a6258cee02d421"
+  },
+  "code_commit": "4fb68faaf9f2cf263bb4c45465cf5d3a4bf3ab63",
+  "development_projection_sha256": "f0da6329a75241de938e3061f4a12bd99ac47c726cdfd3ab35bed8fe70441049",
+  "final_input_sha256": "398c29992275a413925e91f7bf24f5eee11c6ed2c0823d0040288bafbf32f1bf",
+  "generator_sha256": "7767516666ba97c612c09ac91bf7bfa9d23d1a020657414ba9168dcede37e678",
+  "quantile": 0.99,
+  "schema_version": "selector-lean-frozen-policy-v1",
+  "thresholds_by_seed": {
+    "13": 0.9212157130241394,
+    "42": 0.8249509334564209
+  },
+  "variant": "NLI-base"
+}

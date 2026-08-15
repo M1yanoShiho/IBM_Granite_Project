@@ -1,0 +1,69 @@
+{
+  "schema_version": "full-flow-f004-topk-comparison-v1",
+  "status": "COMPLETE",
+  "scope": "same 109 F001 Selector-changed decision-dev queries",
+  "topk_arm": "C_topk_verify",
+  "gold_loaded_at_runtime": false,
+  "comparisons": {
+    "G1_notes": {
+      "topk_mean": 0.5871559633027523,
+      "arm_mean": 0.5779816513761468,
+      "paired": {
+        "mean_on": 0.5779816513761468,
+        "mean_off": 0.5871559633027523,
+        "delta": -0.00917431192660556,
+        "p_value": 1.0,
+        "ci_low": -0.0784313725490196,
+        "ci_high": 0.0625,
+        "n_paired": 109,
+        "n_queries": 109,
+        "n_clusters": 90,
+        "n_total": 109,
+        "n_unscored": 0
+      },
+      "transitions": {
+        "wrong_to_right": 7,
+        "right_to_wrong": 8,
+        "net": -1
+      },
+      "notes_active_subset": {
+        "queries": 37,
+        "topk_mean": 0.5945945945945946,
+        "arm_mean": 0.6216216216216216,
+        "wrong_to_right": 4,
+        "right_to_wrong": 3,
+        "net": 1
+      }
+    },
+    "G2_guided_notes": {
+      "topk_mean": 0.5871559633027523,
+      "arm_mean": 0.5779816513761468,
+      "paired": {
+        "mean_on": 0.5779816513761468,
+        "mean_off": 0.5871559633027523,
+        "delta": -0.00917431192660556,
+        "p_value": 1.0,
+        "ci_low": -0.08256880733944955,
+        "ci_high": 0.06666666666666667,
+        "n_paired": 109,
+        "n_queries": 109,
+        "n_clusters": 90,
+        "n_total": 109,
+        "n_unscored": 0
+      },
+      "transitions": {
+        "wrong_to_right": 8,
+        "right_to_wrong": 9,
+        "net": -1
+      },
+      "notes_active_subset": {
+        "queries": 38,
+        "topk_mean": 0.6052631578947368,
+        "arm_mean": 0.6052631578947368,
+        "wrong_to_right": 5,
+        "right_to_wrong": 5,
+        "net": 0
+      }
+    }
+  }
+}

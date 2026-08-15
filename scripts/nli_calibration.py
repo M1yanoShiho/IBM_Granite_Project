@@ -41,7 +41,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from evidence_rag.generator.nli import NLILabel, DebertaNLIModel
+from evidence_rag.generator.nli import DebertaNLIModel, NLILabel
 
 SCIFACT_URL = "https://scifact.s3-us-west-2.amazonaws.com/release/latest/data.tar.gz"
 
