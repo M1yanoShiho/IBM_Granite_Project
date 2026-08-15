@@ -4,7 +4,7 @@ Notice: R1, R2, etc. are task numbers
 
 ---
 
-## Current recommendations (2026-08-12)
+## Current recommendations (2026-08-14)
 
 Read this section if you consume the retriever rather than work on it. Everything here is a
 one-line summary of a numbered task below, which holds the evidence and the caveats. Several of
@@ -24,23 +24,34 @@ cannot verify that the evidence supports the claim, which stays a human job.
 | Question | Answer | Evidence |
 |---|---|---|
 | Which retriever by default? | **Hybrid (RRF)** over strong-bm25 + granite-dense — the only arm measured significantly better at the *system* level, not just the retrieval level | R2 (all three datasets); ledger R7 (2Wiki, paired, +0.0425 p=0.0000 downstream); R6 (SciFact end to end, but two point estimates rather than a paired test) |
-| StrongBM25 or plain BM25? | **Not a quality decision — a latency one.** Pick StrongBM25 when query latency matters | R2 + NQ re-run: no MRR gain anywhere, *significantly worse* recall on NQ. R9: **1.8–3.1× faster** on real text depending on how many stopwords the query carries (an earlier "~900×" came from synthetic text and is retracted) |
+| StrongBM25 or plain BM25? | **Not a quality decision — a latency one.** Pick StrongBM25 when query latency matters | R2 + NQ re-run: no MRR gain anywhere, *significantly worse* recall on NQ. R9: **1.8–3.1× faster** on real text depending on how many stopwords the query carries (an earlier "~900×" came from synthetic text and is retracted). **ledger R8: the +0.0146 MRR difference does not reach the answer either, under a real generator (p=0.5210), so this stays a latency call at the system level too** |
 | Decomposition? | **No on SciFact/2Wiki. On NQ it is a trade** — buys ~+1.2pp pool recall, costs top-rank precision, at N extra LLM calls per query. Worth it only if the downstream consumes pool depth | R4 Steps 3–6 |
 | If decomposing anyway | `include_original` **on, everywhere**. `fusion="best-rank"` only where the full-query ranking is already strong. Weighting the original arm never beats plain strong-bm25 | R4 Steps 2–4 |
-| Chunking | `word` (120/20) is still the default, but **it is not the best setting measured** — at a fixed evidence budget, 60×10 beats it by +2.2pp (p=0.0008) and the optimum may be smaller still. Overlap is irrelevant anywhere in 0–60. `section` keeps tables intact but its retrieval effect is **unmeasured** | R10, R7 |
+| Chunking | **Keep `word` (120/20).** The 2Wiki finding that 60×10 beats it by +2.2pp does **not** generalise: the same design on NQ puts the peak *at* 120 and 60×10 at **−4.65pp (p=0.0001)** — opposite sign, both significant. What does transfer is a rule about the corpus, not a number: **never set `chunk_size` below the corpus's native passage length**. dpr-w100 ships fixed 100-word passages, so 120 never splits one and 60 splits every one (chunk counts 1.000 vs 2.002 per document). Overlap remains irrelevant in 0–60. `section` keeps tables intact but its retrieval effect is **unmeasured** | R10, R7; ledger R14 (NQ, four points, paired, n=2000); ledger R15 (the threshold, with the chunk counts that fix it); **ledger R17 (holds on the shipped Hybrid RRF: +0.0386, p 0.0001)** |
+| If a chunk ends up smaller than the passage | **Do not reach for `max_selected` — it will not recover the loss.** Splitting separates the answer from the text matching the query, and the retriever ranks by query terms: 69.7% of the resulting misses have no answer-bearing chunk anywhere in the top-50 pool, and of the ones that do reach it only 30.6% sit within five ranks of the cut. The lever is aligning the retrieval unit with the passage, for which `materializer/source_parent.py` already holds a deterministic mapping | ledger R16 (NQ and 2Wiki, per-case classification of every conditional miss) |
 | Scale | **Query cost still grows faster than the corpus** — 16× the corpus gave 32.7× the latency on real NQ questions, so the inverted index bought a constant factor, not better asymptotics. Memory per chunk *is* flat: ≈ **5.0 GB per million chunks** on NQ, ≈ 7.8 on our own Markdown | R9, ledger R13 |
 
-**Three cautions on reading the table.** Every downstream or "system-level" number in this
-report was produced with the **`extractive` generator**, which reports whether the answer string
-was *delivered* to the generator, not whether a model would use it. The experiment written to
-check that the ranking transmission survives a real generator (ledger R8) is pre-registered and
-has never run. Relatedly: transmission is real but **not sensitive** — a small upstream MRR gain
-(+0.0146, significant) did not reach significance downstream, so retrieval deltas of that size
-should not be quoted to another group as system gains. The Hybrid and StrongBM25 rows rest on all three datasets;
+**Cautions on reading the table.** Most downstream or "system-level" numbers here were
+produced with the **`extractive` generator**, which reports whether the answer string was
+*delivered* to the generator rather than whether a model would use it. **Ledger R8 has since run
+that check with a real Granite generator and the transmission holds** — the arm ordering is
+unchanged, the answer span across arms is +0.1380, and the metric discriminates at 0.1340–0.2720
+without touching either ceiling or floor. Absolute values roughly halve, as R8 predicted before
+running, so they remain a lower bound while arm-to-arm comparisons stand. Transmission is real
+but **not sensitive**, and that is now confirmed rather than suspected: the same +0.0146 upstream
+MRR gain that missed significance downstream under `extractive` misses it again under Granite,
+at p=0.5210. Retrieval deltas of that size should not be quoted to another group as system
+gains. The Hybrid and StrongBM25 rows rest on all three datasets;
 the decomposition row rests on one dataset, but on four independently sampled corpus sizes within
-it (R11), so it is robust there without being shown to generalise. And the R9 latency
-and memory figures are from synthetic corpora: they size the effect and identify the mechanism,
-but the real-corpus confirmation is still outstanding.
+it (R11), so it is robust there without being shown to generalise. The R9 latency and memory
+figures were from synthetic corpora; ledger R13 has since confirmed them on real NQ questions,
+and the confirmation was unfavourable — the inverted index bought a constant factor, not better
+asymptotics. Finally, **`answer_match` is not trustworthy on 2Wiki's yes/no comparison
+questions**, 209 of its 2000: `no` scores 52/54 correct because "no" is an ordinary word in
+Wikipedia prose, `yes` scores 5/155 because the extractive generator can never produce it, and
+the generator emits no verdict either way. Any 2Wiki system-level number quoted to another
+group carries that, diluting arm-to-arm deltas by roughly 11.7% without changing their sign
+(ledger R16). NQ is unaffected — its answers are entity spans.
 
 ### Where to find what
 
@@ -772,6 +783,88 @@ messy documents. We don't yet know how often this happens on our actual corpus, 
 would inflate apparent retrieval quality on image-heavy documents versus just adding noise — this
 needs measurement, not assumption, and it's a cross-module question since the Generator stage is
 what ultimately trusts (or doesn't) the retrieved caption.
+
+---
+
+## Open questions at handover
+
+Everything below is known, measured where it could be, and deliberately left. Each item says
+what is unknown, why it matters, and what would settle it — so that picking one up does not
+require reconstructing why it was put down. Items marked **not ours** belong to another group
+or to the shared layer; they are listed because they bound what this module's numbers mean.
+
+**In flight at the time of writing.**
+
+1. **Does the ranking transmission survive a real generator?** Every system-level number in
+   this report was produced with the `extractive` generator, which reports whether the answer
+   text was *delivered*, not whether a model would use it. Ledger R8 is pre-registered for
+   exactly this and is running now. Until it lands, treat every downstream figure here as
+   "evidence arrived", not "the system answered". Settles it: R8's four arms against R7's.
+2. **Does the chain hold for the shipped Hybrid RRF?** Ledger R17 answers half — under pure
+   dense retrieval the split penalty survives — and its hybrid baseline arm timed out and was
+   rerun. Settles it: R17's hybrid within-retriever gap.
+
+**Known and not pursued, with the reason.**
+
+3. **Where the lost half actually ranks — pre-registered as ledger R18.** R16 found that 69.7%
+   of conditional misses have no answer-bearing chunk in the top-50 pool at all, but the pool is
+   truncated at 50, so how far below they sit was unmeasured. It decides whether raising `top_k`
+   is a viable fix or a hopeless one, since ranks near 60 and ranks near 5000 imply opposite
+   engineering. No longer deferred: R18 reruns retrieval at a much larger `top_k` and reads the
+   answer-bearing chunk's rank per case.
+4. **The second pathway for the split penalty.** R17 showed the penalty survives a retriever
+   that needs no verbatim query terms, so query-term separation is not the whole mechanism. A
+   candidate second path — a 60-word half being a thinner context for the embedding — was
+   identified and **deliberately not tested**. The reason is on record: it would refine the
+   explanation without changing any recommendation, since production stays at 120/20 either
+   way and the rule "never chunk below the corpus's native passage length" holds under both.
+   Worth doing only if someone actually changes the retrieval unit.
+5. **The passage-length threshold on a second corpus.** The rule rests on one corpus, dpr-w100,
+   whose fixed 100-word passages make the threshold unusually crisp (chunk counts 1.000 against
+   2.002 per document). It has not been reproduced on a second pre-chunked corpus with a
+   different native length. Settles it: the same four-point sweep on such a corpus, predicting
+   the cliff at *its* passage length rather than at 100.
+6. **The naive scan's residual super-linearity beyond 10×.** R5 left this open and it is still
+   open: R13 measured the *inverted index* that replaced the full scan, not the full scan
+   itself, so R5's question was superseded rather than answered.
+
+**Limits on the metric, which bound every number above.**
+
+7. **`answer_match` only discriminates in the middle of its range.** On NQ with dense or hybrid
+   retrieval every arm scores above 0.9 and the metric saturates; on 2Wiki with a real generator
+   the pre-registered risk is the mirror, a floor. The summariser now warns on the ceiling case.
+   The practical consequence is stronger than it looks: declaring that only *differences* are
+   compared does not license a cross-condition comparison, because two differences still assume
+   a shared scale. R17 published no cross-retriever ratio for this reason.
+8. **`answer_match` is unusable on 2Wiki's yes/no questions**, 209 of its 2000. `no` scores 52
+   of 54 correct because "no" is an ordinary word in Wikipedia prose; `yes` scores 5 of 155
+   because the extractive generator can never produce it; and the generator emits no verdict
+   either way. Arm-to-arm deltas on 2Wiki are diluted by roughly 11.7% without changing sign.
+   Settles it: exclude those questions, or score them with a metric that reads a verdict.
+
+**Not ours, but they bound what the numbers mean.**
+
+9. **The selector is `top-k`, and that is a decision rather than a gap.** Every system-level
+   number here ran through pure truncation, so R16's four-class split — which *defines* "not
+   selected" as "ranked past `max_selected`" — is exact for the shipped configuration rather
+   than an assumption about it. This entry originally read the single registration as an
+   unwired module and said so; the selector group corrected it. Their module closed on
+   2026-08-12 with six routes tried and none shipped, `0c710e2` retired the failed methods and
+   kept TopK, and their final report forbids claiming the selector improved anything.
+   Registering the retired routes would let anyone select a method the team judged failed and
+   produce numbers with it. The G9 comparison does not hold either: those routes never ran
+   through `build_pipeline_from_config` at all, having their own CLI and `configs/selector/`
+   tree. What remains open is not the wiring but whether a gated selector ever ships; on the
+   current decision it does not, and this limitation stands as a scope statement rather than a
+   pending dependency.
+10. **Dense retrieval re-embeds the corpus on every run.** Shared plan §4.4 fixed for v1 that no
+    FAISS-style numeric structures are persisted and the index is rebuilt from the snapshot.
+    That was written when only BM25 existed, where rebuilding costs seconds. `GraniteDense`
+    re-encodes every chunk at construction: R17's 200k-chunk arm spent roughly five hours there,
+    and repeats it each run. The code follows the plan; the plan's assumption no longer holds.
+    The shared layer decides whether persisted vectors are now in scope.
+11. **The hallucinated-caption risk on the ingestion side** — see "The open question" above. Still
+    unmeasured, still cross-module.
 
 ---
 

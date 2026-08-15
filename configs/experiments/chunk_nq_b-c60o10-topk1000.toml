@@ -1,0 +1,43 @@
+# R18: how far below the cut does the lost answer half actually rank?
+# Mirrors `chunk_nq_b-c60o10.toml` -- R16's arm -- word for word, and changes ONE key:
+# `top_k` 50 -> 1000. R16 classified 83 of its 119 conditional misses as `retrieval`
+# ("no answer-bearing candidate in the pool at all"), but its pool stopped at 50, so that
+# class is bounded by the instrument rather than measured. Ranks near 60 and ranks near
+# 5000 imply opposite engineering -- raise `top_k`, or align the retrieval unit with the
+# passage -- and R16 recorded that the choice must not be made before this is measured.
+#
+# Raising `top_k` cannot change what the system answers. `TopKSelector` takes a stable
+# prefix of the ranked list and `max_selected` stays 10, so the selected evidence, the
+# answer, and therefore the conditional-miss population are identical to R16's by
+# construction. That is the entry's structural self-check, not an expectation: the
+# population must come back as exactly 119, `absent` as 0, and `sibling`/`other` cases
+# already visible at top_k=50 must keep the ranks R16 read for them. Anything else means
+# the two runs are not the same experiment and nothing here may be read.
+#
+# `top_k = 1000` rather than 500: BM25 scores every chunk regardless, so depth costs
+# serialisation rather than compute, and 1000 both resolves more of the tail and leaves a
+# harder bound (">1000") on whatever it still cannot see.
+[dataset]
+manifest = "../../runs/niah-base/manifest.json"
+
+[output]
+directory = "../../runs/chunk-nq-b-c60o10-topk1000"
+
+[retriever]
+name = "strong-bm25"
+parameters = { k1 = 0.9, b = 0.4 }
+
+[selector]
+name = "top-k"
+
+[generator]
+name = "extractive"
+
+[chunker]
+chunk_size = 60
+overlap = 10
+
+[run]
+top_k = 1000
+max_selected = 10
+seed = 7
