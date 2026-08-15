@@ -1,7 +1,7 @@
 # Generator-first、Selector-aligned：下一阶段执行计划 v1
 
 **日期：** 2026-08-15  
-**状态：** `PLAN ONLY / NOT EXECUTED`  
+**状态：** `EXECUTION STARTED / A000 COMPLETE`
 **上一阶段结论：** F005 `FINAL-NO-WIN`；sealed600 已退休  
 **研究主线：** Reliability across the full evidence flow  
 **对应跟踪表：** [TRACKER.md](TRACKER.md)
@@ -127,7 +127,7 @@ F002/F005 同时表明：正确证据仍在时，Generator 会出现事实漏取
 | F005 sealed600 | 只读历史结果 | 任何新方法训练、选择、调参或再次最终测试 |
 | 2Wiki train/dev（3,000/2,000 题） | Generator 多证据泛化、Retriever 辅助验证；第一轮不混入主训练 | 代替 NIAH 估计 Selector 主效应；当前 Selector 在该任务几乎不动作 |
 | ASQA / QAMPARI（均已揭示） | Generator 与 citation regression | 新的独立最终结论 |
-| 新 held-out | 冻结方法后的唯一最终确认 | 在方法冻结前查看逐题标签或结果 |
+| 系统 held-out：HotpotQA 400、MuSiQue-Full 400 对、RGB 300；RGB-counterfactual 100 为次级分析 | 历史仅做 schema/count 检查及每数据集、每臂 3 条无保存答案/无评分的 pipeline dry-run；冻结方法后的唯一正式确认；三个主数据集分别报告、不 pooling | 在方法冻结前查看逐题答案/分数或重抽 `configs/heldout-sample.json` |
 
 主路线使用 NIAH，因为它同时提供支持证据、普通干扰和已知有害证据，能够直接测量 Selector–Generator 协同。2Wiki 只承担多文档泛化；SciFact/NQ 保留为 Retriever 模块基准，不进入第一轮 Generator–Selector 训练。
 
@@ -138,10 +138,10 @@ F002/F005 同时表明：正确证据仍在时，Generator 会出现事实漏取
 执行 A000 时必须：
 
 1. 建立所有旧 train、dev、sealed query ID 和 provenance group 的 denylist；
-2. 为新 held-out 确定此前未用于方法选择的数据来源；
+2. 绑定项目已预留、仅做过无指标 schema/count 检查和 3 条 pipeline dry-run 的 HotpotQA/RGB/MuSiQue-Full system held-out；
 3. 先写入 query/candidate/provenance hash，再开始方法开发；
 4. 将 held-out gold 放在运行脚本不可读取的独立评分路径；
-5. 如果找不到足够的新 held-out，允许继续开发，但禁止形成最终提升结论。
+5. 记录现有每数据集 300–400 题只能确认约 3–6pp 中等效应的 power 限制；CI 跨0不能解释成等价。
 
 ### 4.3 Gold 边界
 
@@ -175,9 +175,9 @@ selected evidence
 - 冻结运行环境、prompt 和解码配置；
 - 明确新 held-out 只运行一次。
 
-**必须产物：** `A000_PROTOCOL.md`、`A000_DATA_MANIFEST.json`、`A000_POWER.json`。
+**必须产物：** `A000_PROTOCOL.md`、`A000_DATA_MODEL_MANIFEST.json`、`A000_POWER.json`、`A000_SERVER_AUDIT.json`。
 
-**通过门：** 数据来源、split、hash、主要比较和判定门全部可复核。否则不得开始正式训练。
+**通过门：** 数据来源、split、hash、主要比较、判定门和服务器实体 hash 全部可复核。否则不得开始正式训练。
 
 ### A001：Generator 全链路 trace
 
@@ -485,9 +485,9 @@ Utility 对齐相对 legacy       = D - H
 
 所有臂是平行实验系统。正式部署仍然只有其中一个冻结系统生成一次答案。
 
-### I500：新 held-out 最终确认
+### I500：系统 held-out 最终确认
 
-只有 G230、S330 和 I410 都通过开发门，才运行新 held-out。
+只有 G230、S330 和 I410 都通过开发门，才一次性运行已冻结的 HotpotQA、MuSiQue-Full 和 RGB system held-out。RGB-counterfactual 只作次级分析；各主数据集分别报告，不 pooling。
 
 **主要比较：**
 

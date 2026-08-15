@@ -1,0 +1,203 @@
+{
+  "datasets": {
+    "niah_decision_dev": {
+      "final_claim_allowed": false,
+      "full_flow_queries": 739,
+      "legacy_selector_changed": 109,
+      "raw_pool_queries": 2000,
+      "role": [
+        "diagnosis",
+        "method_selection",
+        "ablation"
+      ],
+      "runtime_input_sha256": "bad751bde256d01e204cbae85de2d43ce8e865689b4a08a9fb83500843ea3805"
+    },
+    "niah_train": {
+      "candidate_pool_sha256": "09e8c9b4972f48a67661c8b06dcf220f178528156699da671a16dd8d08fb908f",
+      "final_claim_allowed": false,
+      "query_count": 2000,
+      "role": [
+        "generator_train",
+        "utility_labels",
+        "selector_train"
+      ],
+      "source_parent_sha256": "721c1b23668c5576d60cf80db592dcf3d6b4bc60ab2b282acce08a737f9582d5"
+    },
+    "sealed600": {
+      "candidate_pool_sha256": "777391fac4854448a47a7cdc9543cd77710b17f4e960084a26f4640f340ae590",
+      "dataset_signature": "57b89ef69e409623f38ac111311dddb47248c9c2ed84f4cdba0d4854ae5ec7bb",
+      "new_training_or_selection_allowed": false,
+      "query_count": 600,
+      "role": "RETIRED_READ_ONLY_HISTORY"
+    },
+    "system_heldout": {
+      "datasets": {
+        "hotpotqa": {
+          "population": 7405,
+          "sampled_records": 400,
+          "sha256": "1c1b822c8942b3e14979de187b63d06f5b64ebcdd2303cf5b6b56c9bea92755d"
+        },
+        "musique-full": {
+          "population": 4834,
+          "sampled_ids": 400,
+          "sampled_records": 800,
+          "sha256": "0769a0f611143ccf2ba763bec81586b3179f51ac6cc325c2bcba243585c10762"
+        },
+        "rgb": {
+          "population": 300,
+          "sampled_records": 300,
+          "sha256": "25ed22988cb9684a8de9fc74c603e79ef44792f0e3bfd4c3b9e74c2e2a301c87"
+        },
+        "rgb-counterfactual": {
+          "population": 100,
+          "sampled_records": 100,
+          "sha256": "4d2dbfd40cc3be2de45c64a59dccf19880832922fbbdb4058c585dc76560f672"
+        }
+      },
+      "headline_rules": {
+        "hotpotqa": "report separately",
+        "musique-full": "answerable is headline; unanswerable reports abstention",
+        "pooling": false,
+        "rgb": "report separately",
+        "rgb-counterfactual": "secondary analysis only"
+      },
+      "historical_exposure": {
+        "answer_text_persisted": false,
+        "arms": [
+          "baseline",
+          "verify-annotate-nogate"
+        ],
+        "final_sample_scores_observed": false,
+        "full_datasets_loaded_for": "schema and record-count checks",
+        "generated_records_per_dataset_per_arm": 3,
+        "metric_or_scorer_run": false
+      },
+      "role": "ONE_SHOT_FINAL_CONFIRMATION_AFTER_METHOD_FREEZE",
+      "sample_seed": 13,
+      "status": "RESERVED / SCHEMA_AND_PIPELINE_DRYRUN_ONLY / NEVER_SCORED"
+    }
+  },
+  "legacy_results": {
+    "f005_full_system_delta": 0.0,
+    "f005_queries": 600,
+    "f005_selector_deletion_precision": 0.9024390243902439,
+    "f006_adapter_scope": "key-fact extraction only",
+    "f006_train_queries": 1000,
+    "f006_validation_queries": 100
+  },
+  "models": {
+    "citation_evaluator": {
+      "model_id": "lytang/MiniCheck-Flan-T5-Large",
+      "revision": "96eafd01cee2d16cf81aaa2fb226b14f422a37b3",
+      "role": "independent post-generation evaluation only"
+    },
+    "claim_verifier": {
+      "model_id": "google/t5_xxl_true_nli_mixture",
+      "role": "frozen production verifier, excluded from judging"
+    },
+    "generator": {
+      "allowed_variants": [
+        "base",
+        "clean_draft_lora",
+        "mixed_draft_lora"
+      ],
+      "model": "ibm-granite/granite-4.1-3b@c0650403e44e78ec0262dab1c90914c65b196c4e",
+      "other_model_family_allowed": false,
+      "snapshot_config_sha256": "9a0e589b69e7d3ad9fb9fb2c844aa7d7156e052cb7ea4211de7de48ab7c8525c",
+      "snapshot_path_recorded_by_f006": "/scratch/fl25387/IBM_Granite_Project_latest/model-cache/models--ibm-granite--granite-4.1-3b/snapshots/c0650403e44e78ec0262dab1c90914c65b196c4e"
+    },
+    "retriever": {
+      "architecture": "Hybrid RRF: StrongBM25 + Granite dense",
+      "embedding_model": "ibm-granite/granite-embedding-english-r2",
+      "embedding_revision": "47ea694b257b703fee9253d75c2b1f2985180498",
+      "parameters_sha256": "67333c6f3fcf6567756b382048961bc150da0ee26af4f9cecc59f58f30b5d78d"
+    },
+    "selector_legacy": {
+      "cap": 2,
+      "checkpoint_sha256": "86622bd9ab6391c9eb560133b01b0cf3744c3706638ff8b0bd38925b84bf72bf",
+      "model_id": "cross-encoder/nli-deberta-v3-base",
+      "revision": "6c749ce3425cd33b46d187e45b92bbf96ee12ec7",
+      "safe_threshold": 0.9212157130241394
+    }
+  },
+  "runtime_gold_boundary": {
+    "formal_runtime": "Retriever -> Selector -> Generator -> one answer",
+    "generation_reads_gold": false,
+    "utility_labelling_reads_gold": "post-generation offline scoring only"
+  },
+  "schema_version": "full-flow-a000-freeze-v1",
+  "server_entity_verification": {
+    "audit_path": "docs/full-flow/experiments/02_generator_selector_alignment_2026-08-15/artifacts/A000/A000_SERVER_AUDIT.json",
+    "audit_schema_version": "full-flow-a000-server-audit-v1",
+    "audit_sha256": "a74b7a63cfac595a944c8fb15434ac6723608f0f74263807a6741d0f65bd0801",
+    "audited_at": "2026-08-15",
+    "heldout_exposure_boundary": {
+      "answer_text_persisted": false,
+      "arms": [
+        "baseline",
+        "verify-annotate-nogate"
+      ],
+      "final_sample_scores_observed": false,
+      "full_datasets_loaded_for": "schema and record-count checks",
+      "generated_records_per_dataset_per_arm": 3,
+      "metric_or_scorer_run": false,
+      "source": "docs/heldout-three-set-handover.md and scripts/heldout_dryrun.py"
+    },
+    "server": {
+      "hostname": "it097952",
+      "ssh_target": "fl25387@10.70.71.11"
+    },
+    "status": "PASS"
+  },
+  "source_files": {
+    "f000_input": {
+      "path": "docs/full-flow/experiments/01_selector_generator_bridge_2026-08-12/artifacts/F000_INPUT_MANIFEST.json",
+      "sha256": "808ee1394e7c7439cbdfeaefadba46b5cdf9d839e2cb06bab5943bab8f7f5b9a"
+    },
+    "f005_report": {
+      "path": "docs/full-flow/experiments/01_selector_generator_bridge_2026-08-12/artifacts/F005/eval/report.json",
+      "sha256": "2eed6326d63e340c559a8eb17350f7c37d3406622ac5f36ef381ab129c687174"
+    },
+    "f005_run": {
+      "path": "docs/full-flow/experiments/01_selector_generator_bridge_2026-08-12/artifacts/F005/eval/run_manifest.json",
+      "sha256": "ba669abf7c6a4c35b795deb6b83f7ff61b4450ffd256222299b4109fd8cf4e35"
+    },
+    "f005_selection": {
+      "path": "docs/full-flow/experiments/01_selector_generator_bridge_2026-08-12/artifacts/F005/selection/selection_manifest.json",
+      "sha256": "57fbe0f1aff52bff53e3a2a40f60032ac9d8fa3b57966db58b33d8f22f1335c5"
+    },
+    "f006_clean": {
+      "path": "docs/full-flow/experiments/01_selector_generator_bridge_2026-08-12/artifacts/F006/clean/training_manifest.json",
+      "sha256": "36a7188745730baa6bfdef0746b94c4e5f25b4753bb7a08cd197121337936d61"
+    },
+    "f006_data": {
+      "path": "docs/full-flow/experiments/01_selector_generator_bridge_2026-08-12/artifacts/F006/data/manifest.json",
+      "sha256": "44bb7e17f56c1066734cfc310c3a03bc916989f127fd701b8b3a1153a18ca878"
+    },
+    "f006_mixed": {
+      "path": "docs/full-flow/experiments/01_selector_generator_bridge_2026-08-12/artifacts/F006/mixed/training_manifest.json",
+      "sha256": "6a1319089317b6937801f00014399c8cd43677788d4121b306b5d6c1b334cb3e"
+    },
+    "niah_dev_pool": {
+      "path": "results/selector-beam-v1/m0/pools/niah-dev.json",
+      "sha256": "9d09806bcba8e5a1bcc636617a16be5e2ebe75a79da35a37a4507797154d5aa4"
+    },
+    "niah_train_pool": {
+      "path": "results/selector-beam-v1/m0/pools/niah-train.json",
+      "sha256": "5d92f36a7b694d95aaec0a6ea69e3cc8d1358322e4cca132dc72bbd7ba740db2"
+    },
+    "sealed600_pool": {
+      "path": "results/selector-beam-v1/m0/pools/sealed600.json",
+      "sha256": "720a1c477b0ea1bd2055cdd4d535c07fc810cf98504ac258275b1fa2545b54da"
+    },
+    "system_heldout_handover": {
+      "path": "docs/heldout-three-set-handover.md",
+      "sha256": "4c5fe94814c3b65e449466e3dc2068376f7c3407ddd366180cf1b3b71d1a6e1f"
+    },
+    "system_heldout_sample": {
+      "path": "configs/heldout-sample.json",
+      "sha256": "0936d80efdd315e9f03e58772bb87532c50f19592a3f1f722187f5dae4646b8d"
+    }
+  },
+  "status": "DEVELOPMENT_READY / FINAL_HELDOUT_RESERVED"
+}

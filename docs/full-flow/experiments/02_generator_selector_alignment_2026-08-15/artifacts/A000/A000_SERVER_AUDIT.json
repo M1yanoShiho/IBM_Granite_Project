@@ -1,0 +1,105 @@
+{
+  "audited_at": "2026-08-15",
+  "checks": {
+    "candidate_pools": {
+      "entities": {
+        "niah_decision_dev": {
+          "bytes": 36265904,
+          "path": "/home/fl25387/projects/IBM_Granite_Project_latest/runs/selector-beam-v1/pools/niah-dev/candidate_sets.jsonl",
+          "sha256": "89ede8249e0682568ea0a85d00eac4881323c992d8d16362016810bd8cb96ee3"
+        },
+        "niah_train": {
+          "bytes": 36283237,
+          "path": "/home/fl25387/projects/IBM_Granite_Project_latest/runs/selector-beam-v1/pools/niah-train/candidate_sets.jsonl",
+          "sha256": "09e8c9b4972f48a67661c8b06dcf220f178528156699da671a16dd8d08fb908f"
+        },
+        "sealed600_retired": {
+          "bytes": 10889278,
+          "path": "/home/fl25387/projects/IBM_Granite_Project_latest/runs/selector-reliability-mis/sealed600/pool/candidate_sets.jsonl",
+          "sha256": "777391fac4854448a47a7cdc9543cd77710b17f4e960084a26f4640f340ae590"
+        }
+      },
+      "status": "PASS"
+    },
+    "model_snapshots": {
+      "entities": {
+        "citation_evaluator": {
+          "config_sha256": "d8e91aa8739d845d2572fa8db9cb6523d06208c14fedb8f7623f49283a305653",
+          "model_id": "lytang/MiniCheck-Flan-T5-Large",
+          "revision": "96eafd01cee2d16cf81aaa2fb226b14f422a37b3"
+        },
+        "claim_verifier": {
+          "config_sha256": "69f089550c668f52d585adb6b482e771d8819a10c8c4ce2ca83f44c96178c6e9",
+          "model_id": "google/t5_xxl_true_nli_mixture",
+          "revision": "aa6cfe1dd4257853bfdd772992045f41bfc14988"
+        },
+        "generator": {
+          "config_sha256": "9a0e589b69e7d3ad9fb9fb2c844aa7d7156e052cb7ea4211de7de48ab7c8525c",
+          "model_id": "ibm-granite/granite-4.1-3b",
+          "revision": "c0650403e44e78ec0262dab1c90914c65b196c4e"
+        },
+        "retriever_embedding": {
+          "config_sha256": "bc4ad4e8cd50c0069292863117823f665da70bbbdea40fd4ea77d80609ade241",
+          "model_id": "ibm-granite/granite-embedding-english-r2",
+          "revision": "47ea694b257b703fee9253d75c2b1f2985180498"
+        },
+        "selector_base": {
+          "config_sha256": "897e756eb59d3183adb505952e7910e7cbc7750a43f3b3747a96b688d2b02a47",
+          "model_id": "cross-encoder/nli-deberta-v3-base",
+          "revision": "6c749ce3425cd33b46d187e45b92bbf96ee12ec7"
+        }
+      },
+      "status": "PASS"
+    },
+    "repo_sync": {
+      "all_pre_sync_dirty_files_matched_team_blobs": true,
+      "post_sync_head": "37c3b1e8",
+      "post_sync_status": "CLEAN",
+      "pre_sync_dirty_files": 23,
+      "pre_sync_head": "4fb68faaf9f2cf263bb4c45465cf5d3a4bf3ab63",
+      "protection_commit": "cf95d86b",
+      "status": "PASS",
+      "sync_merge_commit": "37c3b1e8",
+      "team_head_merged": "b9118059"
+    },
+    "selector_checkpoint": {
+      "bytes": 737731768,
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/selector-lean-v3/L002/NLI-base/seed13/model.safetensors",
+      "sha256": "86622bd9ab6391c9eb560133b01b0cf3744c3706638ff8b0bd38925b84bf72bf",
+      "status": "PASS"
+    },
+    "system_heldout_boundary": {
+      "current_server_search": {
+        "accessible_roots": [
+          "/home/fl25387",
+          "/scratch/fl25387"
+        ],
+        "heldout_cache_or_score_artifacts_found": false,
+        "historical_user_work_root_present": false
+      },
+      "historical_exposure": {
+        "answer_text_persisted": false,
+        "arms": [
+          "baseline",
+          "verify-annotate-nogate"
+        ],
+        "final_sample_scores_observed": false,
+        "full_datasets_loaded_for": "schema and record-count checks",
+        "generated_records_per_dataset_per_arm": 3,
+        "metric_or_scorer_run": false,
+        "source": "docs/heldout-three-set-handover.md and scripts/heldout_dryrun.py"
+      },
+      "status": "PASS"
+    }
+  },
+  "runtime": {
+    "git_repository": false,
+    "path": "/scratch/fl25387/IBM_Granite_Project_latest"
+  },
+  "schema_version": "full-flow-a000-server-audit-v1",
+  "server": {
+    "hostname": "it097952",
+    "ssh_target": "fl25387@10.70.71.11"
+  },
+  "status": "PASS"
+}

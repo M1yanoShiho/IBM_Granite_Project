@@ -1,12 +1,12 @@
 # Generator-first、Selector-aligned 执行跟踪表
 
 **对应计划：** [PLAN.md](PLAN.md)  
-**当前状态：** `PLAN ONLY / NO RUN AUTHORISED`  
+**当前状态：** `A000 COMPLETE / PASS; A001 TODO`
 **更新规则：** 未实际执行不得填写 PASS；每个 COMPLETE 项必须附 commit、input hash、run manifest 和结果路径。
 
 | Run | Milestone | 目的 | 主要输入 | 必须产物 | 优先级 | 状态 |
 |---|---|---|---|---|---|---|
-| A000 | 协议冻结 | 冻结数据、Granite-centered 模型栈、主比较、统计门和 gold 边界 | 旧 query/provenance 清单、新数据来源、模型 snapshots | `A000_PROTOCOL.md`、data/model/power manifest | MUST | TODO |
+| A000 | 协议冻结 | 冻结数据、Granite-centered 模型栈、主比较、统计门和 gold 边界 | 旧 query/provenance、system held-out、模型 snapshots | `A000_PROTOCOL.md`、data/model/power/server-audit manifest | MUST | COMPLETE / PASS |
 | A001 | Trace schema | 记录 draft→claims→faithfulness→routing 全链路 | 当前 Generator 代码 | schema、单测、逐题 trace | MUST | TODO |
 | A002 | 基线/方差 | 复现基线并测同输入生成波动 | 已揭示 dev | baseline report、repeat report | MUST | TODO |
 | B100 | Context matrix | 测 support-only、noise、position、Selected | changed + matched unchanged dev | cases JSONL、diagnostic report | MUST | TODO |
@@ -24,7 +24,7 @@
 | S330 | Selector dev gate | 验证 SU 是否提高同一 G* 的答案 | TopK/SL/SU + G* | answer/evidence/citation report | MUST AFTER TRAIN | BLOCKED BY S320 |
 | I400 | Retriever freeze | 用真实 Hybrid RRF 生成并冻结候选 | dev/new-held-out corpus/index | candidate pools、manifest | MUST | BLOCKED BY A000 |
 | I410 | 五臂联合 dev | 估计 Generator、Selector 和交互作用 | A/B/C/D/H | paired report、trace、CI | MUST | BLOCKED BY G230/S330/I400 |
-| I500 | Fresh held-out | 一次最终确认 | 冻结系统、新 held-out | final report、all manifests | MUST | BLOCKED BY I410 |
+| I500 | System held-out | HotpotQA/MuSiQue-Full/RGB 一次最终确认 | 冻结系统、冻结 query IDs | final report、all manifests | MUST | BLOCKED BY I410 |
 
 ## 每个 Run 的完成清单
 
@@ -47,3 +47,7 @@
 - runtime 多次 Generator 调用或读取 reference answer
 - 同时改动 Generator、Selector 和 Retriever 后只做单一前后比较
 - 未完成 A001/B100 就启动新 LoRA
+
+## 已完成记录
+
+- A000：服务器 `it097952` 实体审计 PASS；数据、模型、Selector checkpoint 与历史 manifest 的 SHA256 一致；system held-out 的准确边界为“schema/count + 每数据集每臂 3 条 pipeline dry-run，未保存答案、未评分”；产物位于 `artifacts/A000/`。
