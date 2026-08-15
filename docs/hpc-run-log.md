@@ -5910,3 +5910,136 @@ mkdir -p logs results runs && sbatch scripts/run_rank_depth.slurm
 
 **本条对应提交:** 见 `configs/experiments/chunk_nq_b-c60o10-topk1000.toml` 与
 `scripts/run_rank_depth.slurm` 引入的那个 commit(三件一起提交,提交后把 hash 补在本行)。
+
+---
+
+## G-A12 — verification-oriented A1 prompt 与 robust A2 splitter 的 2×2 消融 [PRE-REGISTERED 2026-08-15]
+
+**状态:CODE READY / NOT SUBMISSION READY。** 本 BEFORE 在任何本实验输出产生之前写入。
+实验 runner `scripts/generator_a1_a2_ablation.py`、Slurm 脚本
+`scripts/run_generator_a1_a2_ablation.slurm` 与 CPU/FakeLLM 测试
+`tests/generator/test_a1_a2_ablation.py` 已实现；Python 3.11 定向测试 4 passed、ruff 通过。
+当前仍**不得提交作业**：须先提交这三件套并将精确 commit hash 补入本条,方可 `sbatch`。
+
+### BEFORE（预注册）
+
+**研究问题:** A1 的 verification-oriented draft prompt 是否把初稿变成更适合逐句核验的文本；
+A2 的 span-anchored splitter 修复是否在固定初稿上提高 claim 的原子性、事实覆盖、span 对齐与
+rewrite faithfulness？两项组合后是否优于优化前完整链？
+
+**版本边界（已由 Git 父子关系冻结）:**
+
+- old:`11c03849b3bcb21bf83447b4726714d4bc762725`（`eda7065` 的直接父提交）；
+- new:`eda7065d8005e317ce951e2730f58996cd4757ec`；
+- 只提取这两个提交中 `draft.py` 的 `DRAFT_PROMPT` 与 `claim_splitter.py` 的相关逻辑。
+  不把后续 `27e8280` 的公共 sentence rule 或 `e18d84d` 的 parse-failure degradation 算入
+  xzy 的 A2-new 效果。完整定位见 `docs/personal/A1-A2消融实验Git定位.md`。
+
+**四臂设计:**
+
+| arm | A1 | A2 | 解释 |
+|---|---|---|---|
+| `old_old` | old prompt | old splitter | 优化前基线 |
+| `new_old` | new prompt | old splitter | A1 单独变化 |
+| `old_new` | old prompt | new splitter | A2 单独变化（固定 old-A1 answer） |
+| `new_new` | new prompt | new splitter | 当前个人优化组合 |
+
+runner 必须另外把每一份 A1 answer 同时送入 old/new A2。A2 主比较只允许在**完全相同的
+`answer_text`**上配对:`old_old` vs `old_new`,以及 `new_old` vs `new_new`。不得把
+`old_old` vs `new_new` 的差异解释成 A2 单独效果。
+
+**数据与样本冻结:**
+
+- 只使用既有 Generator calibration 数据 ALCE/ASQA 的
+  `asqa_eval_gtr_top100.json`；不加载 QAMPARI、HotpotQA、RGB、MuSiQue-Full 或 FinanceBench。
+- 使用与 G3 相同的 `build_cases` 合格条件和 top-5 GTR evidence 构造；`seed=13`，先对 ASQA
+  索引做确定性 shuffle,取前 **50** 个合格 case。runner 必须导出所选 query IDs、数据文件
+  SHA-256、每题 evidence IDs/text hash 与 selection order，后续不得因输出难标而换题。
+- `QueryChecklist` 由同一 case 一次构造并被四臂共享。两个历史 A1 prompt 均不把 checklist
+  字段写进 prompt；它在本实验中只用于满足公共接口和保持真实输入形状,不作为 gold 泄漏通道。
+- 每题 top-5 selected evidence、顺序和文本在四臂间逐字一致。
+
+**模型与生成设置:**
+
+- `ibm-granite/granite-4.1-3b`；`max_new_tokens=256`；`temperature=0.0`；
+  `do_sample=False`；同一 tokenizer/model 实例；四臂在**同一个 Slurm job**中运行。
+- 运行顺序必须预先固定并写入 manifest；每个 case 保存所有原始 LLM response。G8 已证实 Granite
+  跨 job 不可作为严格配对对照,因此不同 job 的臂不得拼成主比较。失败重跑只能整组重跑,
+  并保留、记录所有 job；不得只补跑数字较差或失败较多的 arm。
+
+**假设与预期方向:**
+
+- **H1（A1）:** `new` 相对 `old` 提高人工盲标的 atomic、self-contained、independently
+  verifiable sentence rate，并降低 unresolved-pronoun rate；evidence-index 格式合规率不下降。
+- **H2（A2）:** 在固定 answer 上，`new` 相对 `old` 提高人工盲标的 source-fact coverage、
+  span-alignment accuracy 和 rewrite-faithfulness accuracy；缩写/小数/initialism 错切、同句后续
+  claim 丢失和错误 lexical deduplication 的计数下降。
+- **H3（组合）:** `new_new` 的 claim atomicity、self-containment、fact coverage 与 span
+  accuracy 均不低于 `old_old`，且至少一项预注册主指标提高。
+
+**主指标（人工盲标；先隐藏 arm 并确定性打乱）:**
+
+- A1:sentence atomicity、self-containment、independent verifiability、unresolved-pronoun rate；
+- A2:claim atomicity、claim self-containment、source-fact coverage、span-alignment accuracy、
+  rewrite faithfulness；
+- 标注单位、分母和无法判断项必须在 annotation guide 中先定义。由 xzy 完成全量盲标；若能取得
+  第二标注者,随机复核 20%,另报 agreement/Cohen's kappa,但第二标注者不是实验有效性的硬前置。
+
+**自动记录的守卫/次指标:**
+
+- A1 每题句数、词数、空答/`I don't know`率、evidence index 格式与越界率；
+- A2 每题 claim 数、structured split 完整成功率、split/faithfulness JSON failure、unlocatable
+  claim 数、duplicate 数及错误类型；
+- 所有比例同时报告原始分子/分母。A1 长度和拒答率必须与质量率一起报告,防止“少说所以比例更高”
+  被误写成无代价改进。
+
+**预注册证伪/收缩条件:**
+
+1. 若 A1-new 的三项质量率没有一致改善，或改善仅来自显著更短/更多拒答，则 H1 不成立；只能报告
+   prompt 改变了输出形状，不能声称提高验证准备度。
+2. 若在同一 answer 上 A2-new 的 fact coverage 或 span accuracy 下降，则 H2 不成立；即使 JSON
+   成功率更高，也不得称 A2 整体更可靠。
+3. 若 `new_new` 只改善格式而人工语义指标不改善，则 H3 不成立，论文结论收缩为工程健壮性修复。
+4. `faithful_to_answer` 是 splitter 自检输出,不是 gold。不得用该字段给自身打分；必须对真实
+   `answer_text[span.start:span.end]` 做人工判断。
+5. 本实验不测 NLI entailment、entity consistency、最终 citation precision/recall、A3-A5 repair
+   或最终 abstention；这些受 Generator B 影响,不得用作 A1/A2 个人贡献的主结论。
+
+**计划产物:**
+
+```text
+results/generator-a1-a2-ablation/
+  manifest.json
+  raw_responses.jsonl
+  cases.jsonl
+  outputs_by_arm.jsonl
+  annotation_blinded.csv
+  annotation_key.json
+  automatic_summary.json
+```
+
+`annotation_blinded.csv` 不含可见 arm；`annotation_key.json` 在标注完成前不得用于查看组别。
+raw 与 manifest 是正式证据,`.out` 只用于作业诊断,不能代替上述文件。
+
+**计划命令（脚本实现后必须逐字复核；当前不可执行）:**
+
+```bash
+mkdir -p logs results/generator-a1-a2-ablation
+sbatch scripts/run_generator_a1_a2_ablation.slurm \
+  results/generator-a1-a2-ablation
+```
+
+Slurm 内部冻结命令:
+
+```bash
+PYTHONPATH=src python scripts/generator_a1_a2_ablation.py \
+  --limit 50 \
+  --top-k 5 \
+  --seed 13 \
+  --model-id ibm-granite/granite-4.1-3b \
+  --output-dir results/generator-a1-a2-ablation
+```
+
+**实验代码 commit:** `TBD — runner、Slurm、测试提交后补齐；未补齐前禁止 sbatch`。
+
+**AFTER:** 未运行；不得填写。
