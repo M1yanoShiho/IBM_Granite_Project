@@ -79,6 +79,7 @@ MAX_ERROR_RATE = 0.05
 COVERAGE_NONINFERIORITY_MARGIN = -0.01
 SUBSTANTIVE_FAILURE_REDUCTION = -0.01
 REPO_ROOT = Path(__file__).resolve().parents[1]
+GENERATOR_SOURCE_ROOT = REPO_ROOT / "src" / "evidence_rag" / "generator"
 
 
 @dataclass(frozen=True, slots=True)
@@ -546,6 +547,16 @@ def run(
             _canonical_bytes([_task_identity(task) for task in tasks])
         ),
         "source_sha256": {
+            "g230_script": _sha256(Path(__file__)),
+            "draft_source": _sha256(GENERATOR_SOURCE_ROOT / "draft.py"),
+            "granite_source": _sha256(GENERATOR_SOURCE_ROOT / "granite.py"),
+            "claim_splitter_source": _sha256(
+                GENERATOR_SOURCE_ROOT / "claim_splitter.py"
+            ),
+            "verify_annotate_source": _sha256(
+                GENERATOR_SOURCE_ROOT / "verify_annotate.py"
+            ),
+            "nli_source": _sha256(GENERATOR_SOURCE_ROOT / "nli.py"),
             "queries": _sha256(queries_path),
             "candidate_pool": _sha256(candidate_pool_path),
             "roles": _sha256(roles_path),
