@@ -648,9 +648,15 @@ def run(
         )
         for arm in expected_arms
     }
+    broken = {
+        arm: errors[arm] / len(rows)
+        for arm in expected_arms
+        if rows and errors[arm] / len(rows) > MAX_ERROR_RATE
+    }
+    invalid_runtime = bool(broken or any(trace_missing.values()))
     manifest: dict[str, object] = {
         "schema_version": "full-flow-g230-run-manifest-v1",
-        "status": "COMPLETE",
+        "status": "INVALID_RUNTIME" if invalid_runtime else "COMPLETE",
         "git_commit": _git_commit(),
         "mode": mode,
         "seed": seed,
@@ -672,12 +678,7 @@ def run(
         "environment": _runtime_environment(),
     }
     _write_json(manifest_path, manifest)
-    broken = {
-        arm: errors[arm] / len(rows)
-        for arm in expected_arms
-        if rows and errors[arm] / len(rows) > MAX_ERROR_RATE
-    }
-    if broken or any(trace_missing.values()):
+    if invalid_runtime:
         _write_json(
             output_dir / "INVALID_RUNTIME.json",
             {"excess_errors": broken, "trace_missing": trace_missing},
