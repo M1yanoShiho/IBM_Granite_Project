@@ -1,0 +1,58 @@
+{
+  "schema_version": "full-flow-g230-run-spec-v1",
+  "mode": "draft-pair",
+  "seed": 42,
+  "arms": [
+    "GC",
+    "GM"
+  ],
+  "tasks": 1829,
+  "formal": true,
+  "task_identity_sha256": "02282d9d5fbbeaa4993960128a5093eb7fb4ca01425d8babcb7fa5f971ce2be6",
+  "source_sha256": {
+    "g230_script": "271a65c57d6c9cda4002d61aedd13a48e8ebd6bb9a4c08bd5b4b70b4eee8d03a",
+    "draft_source": "7811e6a43ee11a4a567ac468e8bc0dd76a196f656c9794babad6e0e80133b984",
+    "granite_source": "218b2ec652d60f426cadacb34062e5e981689716ad8cb0c3834b7a395c42fe1e",
+    "claim_splitter_source": "9115cf12e86e9c18ae4a26c38a4a56358311fe4158d1db55e02a838f8ca5c78a",
+    "verify_annotate_source": "ef289c33c1b2e000a8b5a4f80469fce0db350b0c92432ee842d37a934732f0eb",
+    "nli_source": "01d50104d9cf81d3654101a8eb4c43db7ccf8759951a79f7f2e6e704dcdb94aa",
+    "queries": "03cf4369197470f5b76872bd8c25050afd71aa15ce8435e8f75a8bee6aa6ccf1",
+    "candidate_pool": "89ede8249e0682568ea0a85d00eac4881323c992d8d16362016810bd8cb96ee3",
+    "roles": "93fe654a8a81ba65402dfae1f911f691a8dd07367e698fabf9dc63d5a3a58410",
+    "decision_trace": "37fac41a7fca29edc08741111222f9c720c051966b3f2cb91bba297d1b18ac21",
+    "stress_contexts": "ca61dae50d0995d2212c8a1871c20ab61e379fba4cfb4d0b3913616fd77e0d6d",
+    "a002_manifest": "074c6dce335acff4130e2dff7949050c02c2347f8713bc5fdcce062e21d79b8b",
+    "b100_manifest": "e935b4607e58f7a9ff0cdb6f6acbcbea9a643f1ca8fd719100aa4f83656db316",
+    "granite_config": "9a0e589b69e7d3ad9fb9fb2c844aa7d7156e052cb7ea4211de7de48ab7c8525c",
+    "true_config": "69f089550c668f52d585adb6b482e771d8819a10c8c4ce2ca83f44c96178c6e9"
+  },
+  "adapter_audit": {
+    "gc": {
+      "run_dir": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G220-v1/formal/gc-seed42",
+      "training_manifest_sha256": "74112a6b072bb9bad39d96ac2229ba88c571ccdbb2e7279d1ef7833a55a34af4",
+      "adapter_config_sha256": "5635de3cba7c447090dba50f78854582be60a2e17ab525f43be9788944536c06",
+      "adapter_weights_sha256": "51a6afe919493ad4762f44a0cbad27abc4581801e315e4222ab7182ed2036db9"
+    },
+    "gm": {
+      "run_dir": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G220-v1/formal/gm-seed42",
+      "training_manifest_sha256": "ac70988603ecb48093c09f3c5f0a5b74a35995cb92524f7188969b0042390432",
+      "adapter_config_sha256": "74ecd8536b336196c64b4d3d51204d26c39b2ed8bfb76fb1dc6623cab43ad767",
+      "adapter_weights_sha256": "6da8e49a56c7b623d895310d66b8ea6bcf3eaec06050298303cb1af36e1ad882"
+    }
+  },
+  "prompt_sha256": {
+    "draft": "50acd572f7c57ec25b20898d317a72cfc14c7aa6647c684c08210ed0bd1bd8f3",
+    "split": "af3ba871bfe3691bfce18f8e65a6891511944c20995fca369a86ab3e86d9772e",
+    "faithfulness": "f2ea1cc09763dab5aaf6549704110bfc1ce0fa7a39f2be286d95cea98f8a7802"
+  },
+  "decode": {
+    "max_new_tokens": 256,
+    "temperature": 0.0,
+    "top_p": 1.0,
+    "do_sample": false
+  },
+  "gold_loaded_at_runtime": false,
+  "adapter_scope": "draft generation call only",
+  "claim_splitter_scope": "frozen Granite base with adapters disabled",
+  "true_scope": "frozen verifier"
+}

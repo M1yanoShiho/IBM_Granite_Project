@@ -1,7 +1,7 @@
 # Generator-first、Selector-aligned：下一阶段执行计划 v1
 
 **日期：** 2026-08-15  
-**状态：** `EXECUTION STARTED / A000-G220 COMPLETE; G230 UNBLOCKED`
+**状态：** `A000-G230 COMPLETE; G230 NO CANDIDATE; S300 NOT ACTIVATED`
 **上一阶段结论：** F005 `FINAL-NO-WIN`；sealed600 已退休  
 **研究主线：** Reliability across the full evidence flow  
 **对应跟踪表：** [TRACKER.md](TRACKER.md)
@@ -361,6 +361,8 @@ O、噪声和位置均稳定，但 S 失败
 开发门只决定是否值得训练 Selector，不形成最终结论。
 
 **停止条件：** 如果 GM/GC 都不能让 support-only 可靠性和空答案优于 G0，停止 Selector utility 训练，继续定位 Generator，不把不可靠 Generator 当教师。
+
+**执行结果（2026-08-17）：** GC 和 GM 均通过 citation 前的 family gate；GM 未通过三个 seed 全部 stress contexts 优于 GC 的 mixed-context robustness 门，故 citation 前候选回退为 GC。GC 三个 seed 的独立 MiniCheck citation precision/recall 配对 CI 下界均低于 -2pp 非劣边界，最终 `NO CANDIDATE`。不得冻结 GC/GM 为 `G*`，S300 和后续 utility-label 路线未解锁。完整结果见 [G230_RESULTS.md](G230_RESULTS.md)。
 
 ---
 
