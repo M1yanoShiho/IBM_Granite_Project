@@ -6203,7 +6203,9 @@ R11 的预注册里写了一句免责声明:
   (逐位可复现已由 R7×R8 的 CPU 两臂 `0.0000(精确)` 实证)。**基线固定正是配对设计的意图。**
 - **签名必须钉住。** 本条走 pipeline,受 `source_tree_signature` 闸控,而该签名哈希
   `src/evidence_rag/` 下**每一个** `.py`(`experiment.py` 的 `_source_tree_signature`),
-  故即使只改 generator 也会翻。**钉在 commit `1219c66`;两轮跑完之前 HPC 工作树不得 `git pull`。**
+  故即使只改 generator 也会翻。**实际钉在 commit `2a6ffd1`**(HPC 工作树的位置;本条起草时写的是 `1219c66`,提交后核对 `results/r20-pinned-commit.txt` 发现工作树只 `fetch` 未 `pull`,故如实更正)。
+**该差异不影响本条:`2a6ffd1`→`53debac` 之间只动 `docs/hpc-run-log.md`,而签名只哈希 `src/evidence_rag/`,两者签名逐字相同。**
+**两轮跑完之前 HPC 工作树不得 `git pull`。**
   `scripts/` 与 `docs/` 不进签名,拉它们无妨。
 - **两轮之间必须归档产物**:`prepare` 对已存在输出目录做严格校验,直接重交会失败
   (同 job 18380601、R14 首次重交)。
@@ -6264,6 +6266,8 @@ done
    本条不改变这一点,只在每个点上各加两次观测。
 3. **两轮同签名。** 不覆盖跨代码版本的差异;那是另一个量,若出现见"读法钉死"。
 4. **不重测 R8 / R17。** 理由见 R19 的范围声明,此处不重复。
+
+**第一轮已提交 [2026-08-18,job 18620260,四个 config 单次提交]。**
 
 **AFTER:** 未运行;不得填写。
 
