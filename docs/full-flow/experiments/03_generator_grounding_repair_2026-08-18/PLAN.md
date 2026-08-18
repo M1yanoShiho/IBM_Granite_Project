@@ -2,7 +2,7 @@
 
 **路线：** `03_generator_grounding_repair_2026-08-18`
 **日期：** 2026-08-18
-**修订状态：** `G221 PRE-SAMPLE PASS / G212R5 NEXT / NO TRAINING STARTED`
+**修订状态：** `G212R5 LENGTH PASS / G212M5 NEXT / NO TRAINING STARTED`
 **修订原因：** 明确旧 Selector 的数据与外推边界；把模块资格、强统计结论和完整系统资格分开；将 Generator-aware Selector 纳入同一条交替冻结路线
 **上一阶段：** G230 `COMPLETE / NO CANDIDATE`
 **主生成模型：** `ibm-granite/granite-4.1-3b@c0650403...`
@@ -470,6 +470,8 @@ G221 修订边界：
 - 只有新的 freeze readiness 为 PASS，才允许进入 G300。
 
 G221 已完成保守隔离并达到 pre-sample pass：新增 `scripts/full_flow_g221_targeted_sample_failure_repair.py`，不改写 target，只隔离 G212M4 固定样本判定失败的 10 条 case，并对 2 条失败的 2Wiki train answerable case 同步隔离 unsupported counterpart。修订后 train/validation cases 为 2,374/303，NIAH train/model-val 为 511/207，2Wiki train/model-val 为 817/96，unsupported groups 为 1,046，unsupported update ratio 为 11.3461%，split overlap=0，pre-sample gates 全部通过。这个 `96` 是样本隔离后的实际内部 screen size，不是 TRUE 阈值变化；后续报告必须声明该 screen size 较原 `>=100` 保护更弱。G221 仍不能解锁 G300；下一步必须执行 G212R5 length/sample review 和 G212M5 固定样本判定。报告见 [G221_TARGETED_SAMPLE_FAILURE_REPAIR_REPORT.md](G221_TARGETED_SAMPLE_FAILURE_REPAIR_REPORT.md)。
+
+G212R5 已对 G221 bundle 重跑 length/sample prepare：更新 `scripts/full_flow_g212_manual_length_audit.py` 以接受 G221 manifest schema；长度审计覆盖 2,677 cases / 11,148 examples，`max_length=2304`，over max length 为 0，最大长度 2,120，truncation rate 为 0。固定样本为 100 条，5 个 stratum 各 20 条，全部仍为待判定状态。因此 G212R5 只达到 `LENGTH PASS / SAMPLE PENDING`，不能解锁 G300；下一步为 G212M5 fixed sample adjudication。报告见 [G212R5_LENGTH_SAMPLE_AUDIT_REPORT.md](G212R5_LENGTH_SAMPLE_AUDIT_REPORT.md)。
 
 ### G300：训练实现
 

@@ -28,8 +28,15 @@ SCHEMA_PRE_MANUAL = "full-flow-g210-v2-final-manifest-v1"
 SCHEMA_G214_REPAIR = "full-flow-g214-length-repair-manifest-v1"
 SCHEMA_G216_REPAIR = "full-flow-g216-sample-review-repair-manifest-v1"
 SCHEMA_G220_REPAIR = "full-flow-g220-conservative-filter-manifest-v1"
+SCHEMA_G221_REPAIR = "full-flow-g221-targeted-sample-failure-repair-manifest-v1"
 ACCEPTED_PRE_MANUAL_SCHEMAS = frozenset(
-    {SCHEMA_PRE_MANUAL, SCHEMA_G214_REPAIR, SCHEMA_G216_REPAIR, SCHEMA_G220_REPAIR}
+    {
+        SCHEMA_PRE_MANUAL,
+        SCHEMA_G214_REPAIR,
+        SCHEMA_G216_REPAIR,
+        SCHEMA_G220_REPAIR,
+        SCHEMA_G221_REPAIR,
+    }
 )
 SCHEMA_LENGTH_AUDIT = "full-flow-g212-length-audit-v1"
 SCHEMA_MANUAL_SAMPLE_ROW = "full-flow-g212-manual-sample-row-v1"
@@ -122,7 +129,9 @@ def _load_bundle(
 ) -> tuple[Mapping[str, Any], list[Mapping[str, Any]], list[Mapping[str, Any]]]:
     manifest = _json(manifest_path)
     if manifest.get("schema_version") not in ACCEPTED_PRE_MANUAL_SCHEMAS:
-        raise ValueError("G212 expects a G210R2, G214, G216, or G220 pre-manual manifest schema")
+        raise ValueError(
+            "G212 expects a G210R2, G214, G216, G220, or G221 pre-manual manifest schema"
+        )
     if manifest.get("status") != "PRE_MANUAL_PASS":
         raise ValueError("G212 requires a PRE_MANUAL_PASS input bundle")
     if manifest.get("training_started") is not False:
