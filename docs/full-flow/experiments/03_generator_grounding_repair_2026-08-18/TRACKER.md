@@ -2,9 +2,9 @@
 
 **日期：** 2026-08-18
 **计划：** [PLAN.md](PLAN.md)
-**当前状态：** `G100 COMPLETE / PASS / G110 READY / NO TRAINING STARTED`
+**当前状态：** `G110 COMPLETE / PASS / G130 READY / NO TRAINING STARTED`
 
-用户已确认本路线的边界和协同顺序。G000 冻结通过前，不允许启动新训练、utility generation 或 held-out。
+用户已确认本路线的边界和协同顺序。G110 已通过并条件激活 G130；G130/G200/G210 通过前，不允许启动新训练、utility generation 或 held-out。
 
 ## 阶段 G：Generator
 
@@ -13,10 +13,10 @@
 | G000 | Protocol freeze | 冻结数据、职责门、强结论门、预算和 fallback | frozen protocol、input manifest、denylist | COMPLETE / PASS |
 | G010 | Power/scope | 计算样本可分辨效应，不用 observed power | MDE/sensitivity report | COMPLETE / PASS |
 | G100 | Citation attribution | 定位 G230 citation 最早失败阶段 | claim-level attribution rows | COMPLETE / PASS |
-| G110 | Independent audit | 复核归因和 MiniCheck disagreement | audit report、route decision | READY / NOT RUN |
-| G120 | Splitter repair | 仅当 G110 证明 splitter 为主要断点 | tests、implementation report | CONDITIONAL |
-| G130 | Routing repair | 仅当 G110 证明 routing/attachment 为主要断点 | tests、implementation report | CONDITIONAL |
-| G200 | Data materialization | 构造 NIAH/2Wiki 原子 claim-citation 与 unsupported groups | train/model-val cases、manifest | BLOCKED BY G110 |
+| G110 | Independent audit | 复核归因和 MiniCheck disagreement | audit report、route decision | COMPLETE / PASS |
+| G120 | Splitter repair | 仅当 G110 证明 splitter 为主要断点 | tests、implementation report | NOT ACTIVATED |
+| G130 | Routing repair | 仅当 G110 证明 routing/attachment 为主要断点 | tests、implementation report | READY / CONDITIONAL |
+| G200 | Data materialization | 构造 NIAH/2Wiki 原子 claim-citation 与 unsupported groups | train/model-val cases、manifest | BLOCKED BY G130 |
 | G210 | Target audit | 审计 support、citation、split、人工样本并冻结数据 | audit、leakage report、hashes | BLOCKED BY G200 |
 | G300 | Training implementation | query-group loss、citation weighting、fresh/continuation | tests、smoke manifest | BLOCKED BY G210 |
 | G310 | Seed13 screen | 比较 GR-F 与 GR-C | two adapters、model-val report | BLOCKED BY G300 |
@@ -77,3 +77,4 @@
 - G000：协议、统计范围、预算、fallback、runtime gold 边界和 denylist 已冻结；服务器 `it097952` 上 repo/runtime/G200/G220/G230 实体核验 PASS；G230 gzip 归档解压 SHA256 与 runtime manifest 一致；sealed600 标记为 retired read-only，HotpotQA/MuSiQue-Full/RGB/RGB-counterfactual 只保留 ordered IDs/hash 且仍需 SystemF 后单独授权；未启动训练、utility labels 或 held-out。产物位于 `artifacts/G000/`，报告见 `G000_REPORT.md`；本阶段提交为包含本记录的 Git commit，push 后以 GitHub 历史为准。
 - G010：只使用 G230 archived answer/citation rows 和 G000 frozen sample sizes 做 simulation-style sensitivity；未计算 observed power，未放宽任何 gate/margin，未读取 held-out 内容。G230 full TopK 为 739 rows / 534 components，design effect 为 1.3839；按 G230 family mean discordance，`correct_and_cited` MDE 约 GC 6.15pp、GM 6.33pp。产物位于 `artifacts/G010/G010_POWER_SCOPE.json`，报告见 `G010_POWER_SCOPE.md`。
 - G100：只使用 G230 archived traces、answer rows 和 MiniCheck citation rows，生成自动 claim-level attribution candidates；共同 answered full TopK tasks 为 596，claim-level regression rows 为 501。自动分布为 TRUE/routing/attachment 268、MiniCheck evaluator disagreement 219、draft citation missing/wrong 8、splitter boundary/rewrite 6、unsupported draft 0；这不是最终修复决策，G110 必须独立审计后才能激活 G120/G130。产物位于 `artifacts/G100/`，报告见 `G100_ATTRIBUTION_REPORT.md`。
+- G110：按固定分层样本完成 120 条主审和 24 条双审；双审一致 22/24，agreement rate 91.67%。最终标签为 TRUE/routing/attachment 44、MiniCheck evaluator disagreement 37、splitter boundary/rewrite 22、draft citation missing/wrong 8、unsupported draft 9；因此条件激活 G130 routing/attachment repair，G120 不激活。G110 未启动训练、utility labels 或 held-out；产物位于 `artifacts/G110/`，报告见 `G110_AUDIT_REPORT.md`。

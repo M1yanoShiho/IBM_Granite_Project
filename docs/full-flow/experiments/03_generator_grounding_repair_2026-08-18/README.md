@@ -1,7 +1,7 @@
 # Generator 修复与 Selector 分阶段协同
 
 **日期：** 2026-08-18
-**状态：** `G100 COMPLETE / PASS / G110 READY / NO TRAINING STARTED`
+**状态：** `G110 COMPLETE / PASS / G130 READY / NO TRAINING STARTED`
 **详细计划：** [PLAN.md](PLAN.md)
 **执行跟踪：** [TRACKER.md](TRACKER.md)
 **原始方案快照：** [snapshots/PLAN_v1_generator_only_2026-08-18.md](snapshots/PLAN_v1_generator_only_2026-08-18.md)
@@ -15,6 +15,7 @@
 - F005 的 74/82、90.24% deletion precision 只证明 NIAH 风险代理上的高精度删除；
 - Legacy Selector 在 L003 的 1,000 个 2Wiki 问题上删除 0 条，不能据此声称跨数据 harmful filtering；
 - G230 的 GC/GM 提高回答率并减少空答案，但 citation precision/recall 下降约 6–8pp；
+- G110 独立审计通过，主要断点判为 TRUE routing/attachment，因此只条件激活一次共享 G130 runtime 修复；
 - 因此最终 Selector、最终 Generator 和完整新系统目前都不存在。
 
 ## 修订后的核心方法
@@ -58,4 +59,4 @@ CI 跨 0 不再自动淘汰职责合格组件，但也不能写成统计显著�
 - 不修改 Retriever、Legacy Selector 或历史结果；
 - 不使用 sealed600；
 - 不读取/评分 system held-out；
-- 不跳过 G010/G100/G110 直接进入训练。
+- 不跳过 G130/G200/G210 直接进入训练。
