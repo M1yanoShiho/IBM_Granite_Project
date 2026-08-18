@@ -2,7 +2,7 @@
 
 **路线：** `03_generator_grounding_repair_2026-08-18`
 **日期：** 2026-08-18
-**修订状态：** `G214 COMPLETE / PRE-MANUAL PASS / G212R NEXT / NO TRAINING STARTED`
+**修订状态：** `G212R LENGTH PASS / MANUAL REVIEW PENDING / NO TRAINING STARTED`
 **修订原因：** 明确旧 Selector 的数据与外推边界；把模块资格、强统计结论和完整系统资格分开；将 Generator-aware Selector 纳入同一条交替冻结路线
 **上一阶段：** G230 `COMPLETE / NO CANDIDATE`
 **主生成模型：** `ibm-granite/granite-4.1-3b@c0650403...`
@@ -397,6 +397,8 @@ G214 修订边界：
 - 如果 G212R 仍有超长或 manual review 不通过，G300 继续 blocked。
 
 G214 已按上述边界完成：修订后 train cases 为 2,394，validation cases 为 321；NIAH train/model-val 为 515/215，2Wiki train/model-val 为 827/106，unsupported groups 为 1,052，unsupported update ratio 为 11.3033%，split overlap=0，所有 revised pre-manual gates 仍通过。完整 revised cases 留在服务器 `/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G214-v1/data`；报告见 [G214_LENGTH_REPAIR_REPORT.md](G214_LENGTH_REPAIR_REPORT.md)。G300 仍 blocked until G212R PASS。
+
+G212R 已对 G214 bundle 重跑 length/manual packet prepare：全量 11,342 examples 中 over `max_length=2304` 的数量为 0，length gate 通过；manual sample 仍为固定 100 条，但所有 rows 均为 `review_decision=PENDING`，所以 G212R 不能写成 complete pass，也不能解锁 G300。下一步为 G212M manual review/adjudication；报告见 [G212R_LENGTH_AUDIT_REPORT.md](G212R_LENGTH_AUDIT_REPORT.md)。
 
 ### G300：训练实现
 
