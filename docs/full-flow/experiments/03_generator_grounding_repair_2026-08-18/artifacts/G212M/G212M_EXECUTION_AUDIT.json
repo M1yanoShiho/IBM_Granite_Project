@@ -1,0 +1,34 @@
+{
+  "artifacts": {
+    "freeze_readiness_manifest": {
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G212M-v2/review/freeze_readiness_manifest.json",
+      "sha256": "49385a8800abb4f8b20c8543e90e9e68edb2f9479a83732d04e0113bfc6124b5"
+    },
+    "ordered_review_ids": {
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G212M-v2/review/ordered_review_ids.json",
+      "sha256": "90b6914d280d12d020564a3d4fabec97fc03ba6a410c3a47557ecbbf4340eb0b"
+    },
+    "sample_review_rows": {
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G212M-v2/review/sample_review_rows.jsonl",
+      "sha256": "00f3f979f8ca0364226505da0dadb51f1a3d14c71c20724f88a9d0e803b91d6d"
+    },
+    "sample_review_summary": {
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G212M-v2/review/sample_review_summary.json",
+      "sha256": "3893f2cdcbfa5923df6cc0b9fa089b8e523d57ecf29cf6d95d5026568c0326e8"
+    }
+  },
+  "command": "/scratch/fl25387/IBM_Granite_Project_latest/envs/selector_mis_py311/bin/python /scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G212M-v2/code/full_flow_g212m_sample_adjudication.py --manual-sample /scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G212R-v1/prepare/manual_sample.jsonl --prepare-manifest /scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G212R-v1/prepare/prepare_manifest.json --length-audit /scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G212R-v1/prepare/length_audit.json --output-dir /scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G212M-v2/review --fail ... --reviewer-label project_operator",
+  "created_unix": 1787075132,
+  "dev_read": false,
+  "fail": 8,
+  "pass": 92,
+  "sample_review_status": "FAIL_SAMPLE_REVIEW",
+  "schema_version": "full-flow-g212m-execution-audit-v1",
+  "script_sha256": "654150d2cca2b171757f6e8163ffbc4dc17d032f686ce7a062890f86f83377e3",
+  "sealed_or_heldout_read": false,
+  "stage": "G212M",
+  "status": "NOT_FREEZE_READY_SAMPLE_REVIEW_FAILED",
+  "training_started": false,
+  "uncertain": 0,
+  "utility_labels_started": false
+}
