@@ -1,0 +1,90 @@
+{
+  "case_counts": {
+    "2wiki:train-fit:twowiki_evidence_chain:case_entailed": 683,
+    "2wiki:train-fit:twowiki_evidence_chain:case_not_entailed": 392,
+    "2wiki:train-modelval:twowiki_evidence_chain:case_entailed": 76,
+    "2wiki:train-modelval:twowiki_evidence_chain:case_not_entailed": 60,
+    "niah:train-modelval:niah_qa2d_single_claim:case_entailed": 215,
+    "niah:train-modelval:niah_qa2d_single_claim:case_not_entailed": 92
+  },
+  "failed_pair_relation_counts_top25": {
+    "2wiki:train-fit:twowiki_evidence_chain:cause of death": 4,
+    "2wiki:train-fit:twowiki_evidence_chain:composer": 9,
+    "2wiki:train-fit:twowiki_evidence_chain:country": 53,
+    "2wiki:train-fit:twowiki_evidence_chain:country of citizenship": 93,
+    "2wiki:train-fit:twowiki_evidence_chain:country of origin": 39,
+    "2wiki:train-fit:twowiki_evidence_chain:date of birth": 38,
+    "2wiki:train-fit:twowiki_evidence_chain:date of death": 23,
+    "2wiki:train-fit:twowiki_evidence_chain:educated at": 6,
+    "2wiki:train-fit:twowiki_evidence_chain:father": 36,
+    "2wiki:train-fit:twowiki_evidence_chain:mother": 9,
+    "2wiki:train-fit:twowiki_evidence_chain:performer": 5,
+    "2wiki:train-fit:twowiki_evidence_chain:place of birth": 32,
+    "2wiki:train-fit:twowiki_evidence_chain:place of burial": 4,
+    "2wiki:train-fit:twowiki_evidence_chain:place of death": 15,
+    "2wiki:train-fit:twowiki_evidence_chain:publication date": 62,
+    "2wiki:train-fit:twowiki_evidence_chain:spouse": 10,
+    "2wiki:train-modelval:twowiki_evidence_chain:country": 16,
+    "2wiki:train-modelval:twowiki_evidence_chain:country of citizenship": 14,
+    "2wiki:train-modelval:twowiki_evidence_chain:country of origin": 6,
+    "2wiki:train-modelval:twowiki_evidence_chain:date of birth": 4,
+    "2wiki:train-modelval:twowiki_evidence_chain:date of death": 4,
+    "2wiki:train-modelval:twowiki_evidence_chain:performer": 3,
+    "2wiki:train-modelval:twowiki_evidence_chain:publication date": 16,
+    "2wiki:train-modelval:twowiki_evidence_chain:spouse": 3,
+    "niah:train-modelval:niah_qa2d_single_claim:<unparsed>": 92
+  },
+  "failure_samples_sha256": "3f628092d2f38db4d1a4b1357be32f08b1f618017450223bb22242da95d4d333",
+  "final_counts": {
+    "2wiki": {
+      "train-fit_answerable_groups": 683,
+      "train-fit_unsupported_groups": 1075,
+      "train-modelval_answerable_groups": 76
+    },
+    "niah": {
+      "train-fit_answerable_groups": 515,
+      "train-modelval_answerable_groups": 215
+    }
+  },
+  "final_failed_gates": {
+    "twowiki_modelval_groups": false
+  },
+  "final_manifest_status": "FAIL",
+  "gate_changed": false,
+  "input_sha256": {
+    "final_manifest": "fcbf810cab2ae976f642676990acf7425711b07e9847bed3b7dedec25f9ae4b0",
+    "structural_rows": "cc777f8759d45e555c290072183f845d73e22974bd0b73b0f35e6794859a96a9",
+    "true_audit_rows": "fa930e221d738605312c7623c59d9c520cbb98b3fa43dceebb04845bfc4a5075",
+    "true_worklist": "feaa287acee6c65f8f29e7b641862cc4eaad5c48785ca19ae986aaf4c68691bc"
+  },
+  "pair_counts": {
+    "2wiki:train-fit:twowiki_evidence_chain:entailed": 1722,
+    "2wiki:train-fit:twowiki_evidence_chain:not_entailed": 455,
+    "2wiki:train-modelval:twowiki_evidence_chain:entailed": 203,
+    "2wiki:train-modelval:twowiki_evidence_chain:not_entailed": 71,
+    "niah:train-modelval:niah_qa2d_single_claim:entailed": 215,
+    "niah:train-modelval:niah_qa2d_single_claim:not_entailed": 92
+  },
+  "sample_size": 80,
+  "schema_version": "full-flow-g210-failure-triage-summary-v1",
+  "score_bins": {
+    "2wiki:train-fit:twowiki_evidence_chain:[0.00,0.05)": 298,
+    "2wiki:train-fit:twowiki_evidence_chain:[0.05,0.25)": 81,
+    "2wiki:train-fit:twowiki_evidence_chain:[0.25,0.50)": 76,
+    "2wiki:train-fit:twowiki_evidence_chain:[0.50,0.75)": 140,
+    "2wiki:train-fit:twowiki_evidence_chain:[0.75,1.00]": 1582,
+    "2wiki:train-modelval:twowiki_evidence_chain:[0.00,0.05)": 42,
+    "2wiki:train-modelval:twowiki_evidence_chain:[0.05,0.25)": 17,
+    "2wiki:train-modelval:twowiki_evidence_chain:[0.25,0.50)": 12,
+    "2wiki:train-modelval:twowiki_evidence_chain:[0.50,0.75)": 16,
+    "2wiki:train-modelval:twowiki_evidence_chain:[0.75,1.00]": 187,
+    "niah:train-modelval:niah_qa2d_single_claim:[0.00,0.05)": 61,
+    "niah:train-modelval:niah_qa2d_single_claim:[0.05,0.25)": 19,
+    "niah:train-modelval:niah_qa2d_single_claim:[0.25,0.50)": 12,
+    "niah:train-modelval:niah_qa2d_single_claim:[0.50,0.75)": 15,
+    "niah:train-modelval:niah_qa2d_single_claim:[0.75,1.00]": 200
+  },
+  "status": "COMPLETE_DIAGNOSTIC_ONLY",
+  "threshold_changed": false,
+  "training_started": false
+}
