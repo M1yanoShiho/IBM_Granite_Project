@@ -1,0 +1,49 @@
+{
+  "artifacts": {
+    "length_audit": {
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G212-v1/prepare/length_audit.json",
+      "sha256": "48ed8aa209e01111789ffca1af65bc4eed73a2271b5838df351ec9089f8ef1b6"
+    },
+    "length_rows": {
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G212-v1/prepare/length_rows.jsonl",
+      "sha256": "153b624301e947c6b8bf5cdd48b85f68be0ad614f25250f7c44cbae4dc8fcbb9"
+    },
+    "manual_sample": {
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G212-v1/prepare/manual_sample.jsonl",
+      "sha256": "9434da2434ea10dad5e1fe7548ab54745e11820b4f325f5b1728bf0b4921bd58"
+    },
+    "manual_sample_summary": {
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G212-v1/prepare/manual_sample_summary.json",
+      "sha256": "fd58aa15b79d0090d155f7273e44387a9f269c7ae7137e9d14f88ff85f35b1a7"
+    }
+  },
+  "dev_read": false,
+  "elapsed_seconds": 32.66087818145752,
+  "input_counts": {
+    "manifest_train_cases": 2396,
+    "manifest_validation_cases": 321,
+    "train_cases": 2396,
+    "validation_cases": 321
+  },
+  "input_sha256": {
+    "pre_manual_manifest": "49a181f53a5f425ce104515462111fa2752f6bfa65c80fbe15b76686cef3284b",
+    "train_cases": "ffcf925178f5992401340da44310eb1e38e7b15081a7208efe246c22878d39fd",
+    "validation_cases": "cd2ba2309349ce99665701ac05077ed522c5cdbe1a1660dfd742a3d6a292a6e1"
+  },
+  "length_audit_pass": false,
+  "manual_review_complete": false,
+  "manual_review_required_before_training": true,
+  "max_length": 2304,
+  "model_snapshot": "/scratch/fl25387/IBM_Granite_Project_latest/model-cache/models--ibm-granite--granite-4.1-3b/snapshots/c0650403e44e78ec0262dab1c90914c65b196c4e",
+  "model_snapshot_config_sha256": "9a0e589b69e7d3ad9fb9fb2c844aa7d7156e052cb7ea4211de7de48ab7c8525c",
+  "sample_rows": 100,
+  "sample_seed": "G212-v1-fixed-stratified-sample",
+  "schema_version": "full-flow-g212-prepare-manifest-v1",
+  "sealed_or_heldout_read": false,
+  "status": "FAIL_LENGTH",
+  "training_started": false,
+  "utility_labels_started": false,
+  "versions": {
+    "transformers": "4.57.6"
+  }
+}

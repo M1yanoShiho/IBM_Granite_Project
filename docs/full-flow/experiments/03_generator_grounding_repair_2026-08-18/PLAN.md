@@ -2,7 +2,7 @@
 
 **路线：** `03_generator_grounding_repair_2026-08-18`
 **日期：** 2026-08-18
-**修订状态：** `G210R2 COMPLETE / PRE-MANUAL PASS / MANUAL+LENGTH PENDING / NO TRAINING STARTED`
+**修订状态：** `G212 FAIL / LENGTH / CONTROLLED LENGTH REPAIR NEXT / NO TRAINING STARTED`
 **修订原因：** 明确旧 Selector 的数据与外推边界；把模块资格、强统计结论和完整系统资格分开；将 Generator-aware Selector 纳入同一条交替冻结路线
 **上一阶段：** G230 `COMPLETE / NO CANDIDATE`
 **主生成模型：** `ibm-granite/granite-4.1-3b@c0650403...`
@@ -385,6 +385,16 @@ G210R-v1 structural audit 已失败：25 个 2Wiki answerable case 未通过 ans
 G200R2 已完成 answer-alias-preserving materialization：NIAH train/model-val 为 515/307，2Wiki train/model-val 为 1,053/133，unsupported groups 为 1,053，unsupported update ratio 为 10.0881%，split overlap=0。G200R2 只达到 `PRE-AUDIT PASS`，必须进入 G210R2 审计；报告见 [G200R2_DATA_MATERIALIZATION_REPORT.md](G200R2_DATA_MATERIALIZATION_REPORT.md)。
 
 G210R2 已完成 structural audit、TRUE audit 和 pre-manual finalize：structural 3,061 cases 全部通过，TRUE worklist 2,708 rows 中 2,338 entailed、370 not entailed。剔除 TRUE 不通过 case 后，NIAH train/model-val 为 515/215，2Wiki train/model-val 为 828/106，unsupported groups 为 1,053，unsupported update ratio 为 11.3068%，split overlap=0；自动数据门均通过，包括 2Wiki model-val `106 >= 100`。这证明 G215 授权的数据修订有积极信号，但 G210R2 manifest 仍明确 `manual_audit_required_before_training=true`，所以数据尚未正式冻结，G300 仍 blocked。下一步为 G212 manual/length audit；报告见 [G210R2_TARGET_AUDIT_REPORT.md](G210R2_TARGET_AUDIT_REPORT.md)。
+
+G212 已完成训练前 length/manual packet prepare，但长度审计失败：全量 11,348 个 examples 中有 4 个超过冻结 `max_length=2304`，全部来自同一个 2Wiki train answerable case `2wiki::b779ecdc08c411ebbd8eac1f6bf848b6` 的 4 个长 context variants；validation、NIAH 和 unsupported examples 均无超长。manual sample 已按 5 个 stratum 各抽 20 条，但因 length gate 失败未进入 reviewer 判定。G212 不能解锁 G300；下一步只能执行 G214 controlled length repair，成组排除该 overlength train group 及其 unsupported counterpart 后重跑 G212R。报告见 [G212_LENGTH_AUDIT_REPORT.md](G212_LENGTH_AUDIT_REPORT.md)。
+
+G214 修订边界：
+
+- 只允许排除 `group_id=b779ecdc08c411ebbd8eac1f6bf848b6` 的 2 个 train cases：answerable case 与对应 unsupported case；
+- 不允许提高 `max_length=2304`；
+- 不允许改变 TRUE checkpoint、TRUE threshold、manual sample 规则或 held-out/dev 边界；
+- 修订后必须重新写 train/validation cases、manifest、ordered IDs、SHA256，并重跑 G212R length/manual audit；
+- 如果 G212R 仍有超长或 manual review 不通过，G300 继续 blocked。
 
 ### G300：训练实现
 
