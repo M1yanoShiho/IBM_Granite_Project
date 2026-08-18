@@ -2,7 +2,7 @@
 
 **路线：** `03_generator_grounding_repair_2026-08-18`
 **日期：** 2026-08-18
-**修订状态：** `G212R3 LENGTH PASS / SAMPLE PENDING / NO TRAINING STARTED`
+**修订状态：** `G212M3 FAIL / G219 NEXT / NO TRAINING STARTED`
 **修订原因：** 明确旧 Selector 的数据与外推边界；把模块资格、强统计结论和完整系统资格分开；将 Generator-aware Selector 纳入同一条交替冻结路线
 **上一阶段：** G230 `COMPLETE / NO CANDIDATE`
 **主生成模型：** `ibm-granite/granite-4.1-3b@c0650403...`
@@ -432,6 +432,17 @@ G218 修订边界：
 G218 已完成系统性 target 修复和冻结前自动审计：新增 `scripts/full_flow_g218_target_repair.py`，对 2Wiki answerable target 做 deterministic title/subject anchoring，并只过滤 1 条可检测的 NIAH QA2D title truncation case `niah-new-modelval::1015`。G218 materialization 后 train/validation cases 为 2,388/315；structural audit 2,703/2,703 通过，TRUE worklist 2,078 rows 中 2,074 entailed、4 not entailed。Finalize 剔除 4 个 TRUE 不通过的 2Wiki train case 后，train/validation cases 为 2,384/315；NIAH train/model-val 为 515/212，2Wiki train/model-val 为 820/103，unsupported groups 为 1,049，unsupported update ratio 为 11.3173%，split overlap=0，自动数据门仍全部通过。G218 只达到 pre-sample pass；G300 仍 blocked。下一步必须执行 G212R3 length/sample review；报告见 [G218_SYSTEMATIC_TARGET_REPAIR_REPORT.md](G218_SYSTEMATIC_TARGET_REPAIR_REPORT.md)。
 
 G212R3 已对 G218 pre-sample bundle 重跑 length/sample prepare：覆盖 2,699 cases / 11,268 examples，`max_length=2304`，over max length 为 0，最大长度 2,120，truncation rate 为 0。固定样本为 100 条，5 个 stratum 各 20 条，全部仍为待判定状态。因此 G212R3 只达到 `LENGTH PASS / SAMPLE PENDING`，不能解锁 G300；下一步为 G212M3 sample review/adjudication。报告见 [G212R3_LENGTH_SAMPLE_AUDIT_REPORT.md](G212R3_LENGTH_SAMPLE_AUDIT_REPORT.md)。
+
+G212M3 已完成 G212R3 固定 100 条 sample review/adjudication：91 PASS / 9 FAIL / 0 UNCERTAIN，forced structural failures=0。unsupported 层 20/20 通过；失败集中在 2Wiki answerable target self-containment（国家/国籍/出生地/影片来源关系没有写清楚）和 NIAH QA2D target malformation（标题或词序导致句子不再是干净 claim）。该结果仍是积极信号，但不能解锁 G300。freeze readiness 为 `NOT_FREEZE_READY_SAMPLE_REVIEW_FAILED`；下一步为 G219 controlled target repair。报告见 [G212M3_SAMPLE_REVIEW_REPORT.md](G212M3_SAMPLE_REVIEW_REPORT.md)。
+
+G219 修订边界：
+
+- 只针对 G212M3 暴露的 9 条失败类型做系统性 target/QA2D 修复；
+- 2Wiki answerable 必须让 target 明确保留问题所需关系，例如国家/国籍/影片来源/出生地结论，不能只复制间接 evidence sentence；
+- NIAH QA2D 必须过滤或重写标题截断、实体截断和明显词序损坏的 claim；
+- 不改变 Retriever、TRUE 阈值、最终测试集边界、held-out/dev 禁读边界、sample 判定结果或训练入口；
+- G219 后必须重新写 train/validation cases、manifest、ordered IDs、SHA256，并重跑 structural、TRUE、length 和 sample gates；
+- 只有修复后 freeze readiness 为 PASS，才允许进入 G300。
 
 ### G300：训练实现
 

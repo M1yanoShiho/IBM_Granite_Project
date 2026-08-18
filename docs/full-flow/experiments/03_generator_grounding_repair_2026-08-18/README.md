@@ -1,7 +1,7 @@
 # Generator 修复与 Selector 分阶段协同
 
 **日期：** 2026-08-18
-**状态：** `G212R3 LENGTH PASS / SAMPLE PENDING / NO TRAINING STARTED`
+**状态：** `G212M3 FAIL / G219 NEXT / NO TRAINING STARTED`
 **详细计划：** [PLAN.md](PLAN.md)
 **执行跟踪：** [TRACKER.md](TRACKER.md)
 **原始方案快照：** [snapshots/PLAN_v1_generator_only_2026-08-18.md](snapshots/PLAN_v1_generator_only_2026-08-18.md)
@@ -33,6 +33,7 @@
 - G217 已按用户要求修订判定措辞：后续统一使用中性的 sample review/adjudication 或固定样本判定，不强调执行主体；积极信号导向受控修复，重复缺陷才阻止直接训练；
 - G218 已完成系统性 target 修复：2Wiki target 改为 title/subject anchored support sentence，NIAH 只过滤 1 条可检测 QA2D 标题截断；structural 2,703/2,703 通过，TRUE 2,074/2,078 通过；finalize 后 NIAH train/model-val 为 515/212，2Wiki train/model-val 为 820/103，unsupported ratio 为 11.3173%，split overlap 为 0；
 - G212R3 对 G218 bundle 重跑长度审计后通过：11,268 个 examples 中 0 个超过 2,304，最大长度为 2,120；新的固定 100 条 sample 已生成但仍未判定；
+- G212M3 对 G212R3 固定 100 条 sample 完成判定：91 条通过、9 条失败、0 条不确定；unsupported 层 20/20 通过，失败集中在 2Wiki answerable target 自洽性和 NIAH QA2D 句子构造；
 - 因此最终 Selector、最终 Generator 和完整新系统目前都不存在。
 
 ## 修订后的核心方法
@@ -80,13 +81,14 @@ CI 跨 0 不再自动淘汰职责合格组件，但也不能写成统计显著�
 
 ## 下一步
 
-下一步不是训练，而是执行 G212M3 sample review/adjudication：
+下一步不是训练，而是执行 G219 controlled target repair：
 
 ```text
-G212M3 sample review/adjudication
--> use G212R3 fixed sample
--> write review rows and freeze readiness manifest
+G219 controlled target repair
+-> use G218/G212R3/G212M3 artifacts
+-> repair only the observed target/QA2D construction failure classes
+-> rerun structural, TRUE, length, and sample gates
 -> 只有修复后 freeze readiness 通过才进入 G300
 ```
 
-G218/G212R3 说明当前路线有更强积极信号：系统性锚点修复后 TRUE 只剔除 4 个 train case，2Wiki model-val 仍保留 103 个，长度也通过。但这仍不是训练许可；不得跳过固定样本判定、降低 TRUE 阈值、改最终测试集边界、读取 held-out，或按已看到的结果临时改规则凑通过。
+G218/G212R3/G212M3 说明当前路线有更强积极信号：系统性锚点修复后 TRUE 只剔除 4 个 train case，2Wiki model-val 仍保留 103 个，长度通过，固定样本已有 91/100 通过。但这仍不是训练许可；不得跳过后续修复复核、降低 TRUE 阈值、改最终测试集边界、读取 held-out，或按已看到的结果临时改规则凑通过。
