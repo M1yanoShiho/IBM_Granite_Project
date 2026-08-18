@@ -1,7 +1,7 @@
 # Generator 修复与 Selector 分阶段协同
 
 **日期：** 2026-08-18
-**状态：** `G219 FAIL / G220 NEXT / NO TRAINING STARTED`
+**状态：** `G220 PRE-SAMPLE PASS / G212R4 NEXT / NO TRAINING STARTED`
 **详细计划：** [PLAN.md](PLAN.md)
 **执行跟踪：** [TRACKER.md](TRACKER.md)
 **原始方案快照：** [snapshots/PLAN_v1_generator_only_2026-08-18.md](snapshots/PLAN_v1_generator_only_2026-08-18.md)
@@ -35,6 +35,7 @@
 - G212R3 对 G218 bundle 重跑长度审计后通过：11,268 个 examples 中 0 个超过 2,304，最大长度为 2,120；新的固定 100 条 sample 已生成但仍未判定；
 - G212M3 对 G212R3 固定 100 条 sample 完成判定：91 条通过、9 条失败、0 条不确定；unsupported 层 20/20 通过，失败集中在 2Wiki answerable target 自洽性和 NIAH QA2D 句子构造；
 - G219 尝试系统修复这些失败，但 finalize 后 2Wiki model-val 只有 94，低于当前最低 100，因此 G219 失败且不能解锁训练；
+- G220 改用保守隔离：不再改写 target，只隔离 G212M3 固定样本失败的 9 条 case 以及 1 条对应 unsupported counterpart；修订后 NIAH train/model-val 为 512/211，2Wiki train/model-val 为 819/99，unsupported ratio 为 11.3432%，split overlap 为 0，达到 pre-sample pass；
 - 因此最终 Selector、最终 Generator 和完整新系统目前都不存在。
 
 ## 修订后的核心方法
@@ -82,14 +83,14 @@ CI 跨 0 不再自动淘汰职责合格组件，但也不能写成统计显著�
 
 ## 下一步
 
-下一步不是训练，而是执行 G220 conservative target repair review：
+下一步不是训练，而是执行 G212R4 length/sample review：
 
 ```text
-G220 conservative target repair review
--> use G219 failure triage
--> choose a more conservative repair/filter strategy
--> do not lower gates just to pass
--> 只有修复后 freeze readiness 通过才进入 G300
+G212R4 length/sample review
+-> use G220 conservative filtered bundle
+-> rerun length/truncation audit
+-> generate a new fixed 100-row sample packet
+-> G212M4 固定样本判定通过后才可能进入 G300
 ```
 
-G218/G212R3/G212M3/G219 说明当前路线仍有积极信号：长度、split、NIAH 和 unsupported ratio 都稳定，固定样本已有 91/100 通过。但 G219 也说明“把 target 写得更直白”会和 TRUE 支持性冲突，导致 2Wiki model-val 掉到 94。这仍不是训练许可；不得跳过后续修复复核、降低 TRUE 阈值、改最终测试集边界、读取 held-out，或按已看到的结果临时改规则凑通过。
+G218/G212R3/G212M3/G219/G220 说明当前路线仍有积极信号：长度、split、NIAH 和 unsupported ratio 都稳定，unsupported 固定样本层已经稳定通过，G220 也避免了 G219 的 TRUE 支持性冲突。但这仍不是训练许可；不得跳过后续长度检查和固定样本判定、降低 TRUE 阈值、改最终测试集边界、读取 held-out，或按已看到的结果临时改规则凑通过。

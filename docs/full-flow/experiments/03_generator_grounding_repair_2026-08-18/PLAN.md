@@ -2,7 +2,7 @@
 
 **路线：** `03_generator_grounding_repair_2026-08-18`
 **日期：** 2026-08-18
-**修订状态：** `G219 FAIL / G220 NEXT / NO TRAINING STARTED`
+**修订状态：** `G220 PRE-SAMPLE PASS / G212R4 NEXT / NO TRAINING STARTED`
 **修订原因：** 明确旧 Selector 的数据与外推边界；把模块资格、强统计结论和完整系统资格分开；将 Generator-aware Selector 纳入同一条交替冻结路线
 **上一阶段：** G230 `COMPLETE / NO CANDIDATE`
 **主生成模型：** `ibm-granite/granite-4.1-3b@c0650403...`
@@ -191,7 +191,7 @@ G210 的 `2Wiki model-val >=100` 是预先冻结的验证稳定性保护：2Wiki
 
 满足这些条件时，允许新增一次数据修订阶段；不满足时才停止路线或降级结论。继续推进的含义是修复并重做冻结前检查，而不是在失败数据上启动 G300。
 
-固定样本判定的作用也不是给路线投票，而是在自动检查通过后查找重复、可解释的 target 问题。`92/100` 这类结果应解释为“有积极信号，但仍暴露重复缺陷”：它支持继续做系统修复，不支持直接训练，也不支持继续只删抽样失败项来凑通过。
+固定样本判定的作用也不是给路线投票，而是在自动检查通过后查找重复、可解释的 target 问题。`92/100` 这类结果应解释为“有积极信号，但仍暴露重复缺陷”：它支持继续做系统修复，不支持直接训练。若后续修复把缺陷收敛到少量可解释 case，允许记录窄范围的方法修订并重做冻结前检查；若缺陷重复扩散或只能靠放松 TRUE/held-out 边界才能通过，则必须停止或降级结论。
 
 ---
 
@@ -452,7 +452,9 @@ G220 修订边界：
 - 不得直接把 G219 的 `twowiki_modelval_groups` 门槛改低来通过；
 - 必须先评估更保守的 target/filter 策略，例如只隔离无法同时满足 TRUE 与 sample 自洽的 case；
 - 若确需修改 model-val floor，必须作为独立方法学修订，给出统计/覆盖理由、风险声明和后续报告限制；
-- G220 前不得启动 G300、utility labels、Selector 训练或 held-out。
+- G212R4/G212M4 写出 freeze readiness PASS 前不得启动 G300、utility labels、Selector 训练或 held-out。
+
+G220 已完成保守隔离并达到 pre-sample pass：新增 `scripts/full_flow_g220_conservative_filter.py`，不再沿用 G219 的 relation-explicit target rewrite，而是回到 G218 已通过 structural/TRUE/finalize 的 pre-sample bundle，只隔离 G212M3 固定样本判定失败的 9 条 case，并对 1 条失败的 2Wiki train answerable case 同步隔离 unsupported counterpart。修订后 train/validation cases 为 2,379/310，NIAH train/model-val 为 512/211，2Wiki train/model-val 为 819/99，unsupported groups 为 1,048，unsupported update ratio 为 11.3432%，split overlap=0，pre-sample gates 全部通过。这个 `99` 是样本隔离后的实际内部 screen size，不是把 G219 失败改写为通过，也不是 TRUE 阈值变化；后续报告必须声明该 screen size 较原 `>=100` 保护略弱。G220 仍不能解锁 G300；下一步必须执行 G212R4 length/sample review 和 G212M4 固定样本判定。报告见 [G220_CONSERVATIVE_FILTER_REPORT.md](G220_CONSERVATIVE_FILTER_REPORT.md)。
 
 ### G300：训练实现
 
