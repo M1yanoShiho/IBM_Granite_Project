@@ -1,0 +1,50 @@
+{
+  "answerable_train_updates": 8220,
+  "counts": {
+    "2wiki": {
+      "train-fit_answerable_groups": 820,
+      "train-fit_unsupported_groups": 1049,
+      "train-modelval_answerable_groups": 103
+    },
+    "niah": {
+      "train-fit_answerable_groups": 515,
+      "train-modelval_answerable_groups": 212
+    }
+  },
+  "dev_read": false,
+  "excluded": {
+    "true_fail": 4
+  },
+  "gates": {
+    "niah_new_modelval_groups": true,
+    "niah_train_groups": true,
+    "split_component_overlap_zero": true,
+    "split_group_overlap_zero": true,
+    "twowiki_modelval_groups": true,
+    "twowiki_train_groups": true,
+    "unsupported_update_ratio": true
+  },
+  "input_sha256": {
+    "source_train_cases": "e8fa2fa0931b02fb56ace430fd2ef34471f619833f4c1883d93500830f9ba046",
+    "source_validation_cases": "3d8a168a7a8249e5611db1ccda428ca9e106accc7ed67a86c230f79c4366d810",
+    "structural_rows": "1960675ba2820941cb5870eca0d58a3ff2d1ee07fabce3522ff900892ebc90f5",
+    "true_audit_rows": "bcb1a402de80c2a72345dd62224b8729fb468a1085fdef25e7f3c7b2aa1d8786"
+  },
+  "manual_audit_required_before_training": true,
+  "ordered_ids_sha256": "7175aa296596e604b99293e698a44af8ba90ce27a57789b2c069ffa5749f09d4",
+  "schema_version": "full-flow-g210-v2-final-manifest-v1",
+  "sealed_or_heldout_read": false,
+  "split_leakage": {
+    "component_overlap": 0,
+    "group_overlap": 0
+  },
+  "status": "PRE_MANUAL_PASS",
+  "train_cases": 2384,
+  "train_cases_sha256": "1a6006e4466a62de9d2b81aeddf3976e523e27342383f13b576f9e66c3425172",
+  "training_started": false,
+  "true_rows": 2078,
+  "unsupported_update_ratio": 0.11317294206494767,
+  "unsupported_updates": 1049,
+  "validation_cases": 315,
+  "validation_cases_sha256": "3d8a168a7a8249e5611db1ccda428ca9e106accc7ed67a86c230f79c4366d810"
+}
