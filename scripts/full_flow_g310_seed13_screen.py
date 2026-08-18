@@ -889,11 +889,20 @@ def _screen_decision(aggregate: Mapping[str, Mapping[str, Mapping[str, float | i
         baseline_answerable = aggregate["validation_answerable"]["G0"]
         unsupported = aggregate["train_unsupported_safety"][arm]
         baseline_unsupported = aggregate["train_unsupported_safety"]["G0"]
-        if float(answerable.get("runtime_error", 0.0)) > 0:
+        if max(
+            float(answerable.get("runtime_error", 0.0)),
+            float(unsupported.get("runtime_error", 0.0)),
+        ) > 0:
             failures.append("runtime_error_nonzero")
-        if float(answerable.get("missing_trace", 0.0)) > 0:
+        if max(
+            float(answerable.get("missing_trace", 0.0)),
+            float(unsupported.get("missing_trace", 0.0)),
+        ) > 0:
             failures.append("missing_trace_nonzero")
-        if float(answerable.get("draft_invalid_citation", 0.0)) > 0:
+        if max(
+            float(answerable.get("draft_invalid_citation", 0.0)),
+            float(unsupported.get("draft_invalid_citation", 0.0)),
+        ) > 0:
             failures.append("invalid_citation_nonzero")
         if _delta(answerable, baseline_answerable, "minicheck_citation_precision") < -0.03:
             failures.append("citation_precision_regression_gt_3pp")

@@ -3,7 +3,7 @@
   "stage": "G310",
   "status": "IMPLEMENTATION_TEST_PASS_FORMAL_TRAINING_IN_PROGRESS",
   "date": "2026-08-18",
-  "source_commit_before_stage": "13dbf9f1482c51fc186a1e19b7a19c18c11b8147",
+  "source_commit_before_stage": "fd87b381eed1fada6a99e9a095a531999eba1640",
   "team_updates_merged_before_commit": [
     "4d7d7e2",
     "13dbf9f"
@@ -11,11 +11,11 @@
   "artifacts": {
     "script": {
       "path": "scripts/full_flow_g310_seed13_screen.py",
-      "sha256": "ac83ae5b0e70135bccaab35628ea8e06b5ef696d5a7d512d1d46761834bc2605"
+      "sha256": "1aae31c5eed5d0b073bbd1be96c57a0b118bbe1435f4f670374c84ed53c505d5"
     },
     "test": {
       "path": "tests/scripts/test_full_flow_g310_seed13_screen.py",
-      "sha256": "7da9a1c978665cb33c1d0092c074600e0c4bb408aa600642cf2572d3ce913163"
+      "sha256": "792cbe08708b6036f33dd17d8b79d749645efcca73f74b2fe20990d888493769"
     }
   },
   "screen_scoring": {
@@ -48,7 +48,7 @@
       "environment": "server",
       "command": "python -m pytest tests/scripts/test_full_flow_g310_seed13_screen.py",
       "status": "PASS",
-      "summary": "3 passed in 0.13s"
+      "summary": "3 passed in 0.12s"
     }
   ],
   "formal_training_state_at_manifest": {

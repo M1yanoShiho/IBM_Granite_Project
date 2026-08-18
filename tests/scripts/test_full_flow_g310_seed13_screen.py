@@ -95,6 +95,16 @@ def _arm(answer: str, cited: list[str]) -> dict[str, object]:
     }
 
 
+def _error_arm() -> dict[str, object]:
+    return {
+        "generation": _generation("", []),
+        "trace": None,
+        "routing": [],
+        "error": "RuntimeError: fixture failure",
+        "seconds": 0.1,
+    }
+
+
 def test_parse_prompt_evidence_builds_ordered_candidates() -> None:
     evidence = g310.parse_prompt_evidence(
         prompt=_prompt(),
@@ -154,7 +164,7 @@ def test_score_selects_surviving_recipe_with_tiebreak(tmp_path: Path) -> None:
         "arms": {
             "G0": _arm("", []),
             "GR-F": _arm("", []),
-            "GR-C": _arm("", []),
+            "GR-C": _error_arm(),
         },
     }
     generations = tmp_path / "generations.jsonl"
@@ -174,6 +184,9 @@ def test_score_selects_surviving_recipe_with_tiebreak(tmp_path: Path) -> None:
 
     assert report["status"] == "RECIPE_SELECTED"
     assert report["decision"]["recipe"] == "GR-F"
+    assert report["decision"]["decisions"]["GR-C"]["failures"] == [
+        "runtime_error_nonzero"
+    ]
     assert report["aggregate"]["validation_answerable"]["GR-F"]["correct_and_cited"] == 1.0
     assert (
         report["aggregate"]["validation_answerable"]["GR-F"][
