@@ -1,0 +1,69 @@
+{
+  "schema_version": "full-flow-g310-screen-implementation-manifest-v1",
+  "stage": "G310",
+  "status": "IMPLEMENTATION_TEST_PASS_FORMAL_TRAINING_IN_PROGRESS",
+  "date": "2026-08-18",
+  "source_commit_before_stage": "13dbf9f1482c51fc186a1e19b7a19c18c11b8147",
+  "team_updates_merged_before_commit": [
+    "4d7d7e2",
+    "13dbf9f"
+  ],
+  "artifacts": {
+    "script": {
+      "path": "scripts/full_flow_g310_seed13_screen.py",
+      "sha256": "ac83ae5b0e70135bccaab35628ea8e06b5ef696d5a7d512d1d46761834bc2605"
+    },
+    "test": {
+      "path": "tests/scripts/test_full_flow_g310_seed13_screen.py",
+      "sha256": "7da9a1c978665cb33c1d0092c074600e0c4bb408aa600642cf2572d3ce913163"
+    }
+  },
+  "screen_scoring": {
+    "arms": ["G0", "GR-F", "GR-C"],
+    "runtime_true_routing": true,
+    "post_generation_minicheck_citation_judge": true,
+    "correct_and_cited_requires_answer_match": true,
+    "correct_and_cited_requires_minicheck_precision_1": true,
+    "correct_and_cited_requires_minicheck_recall_1": true,
+    "screen_type": "full_generator_true_routed_minicheck_citation_screen"
+  },
+  "tests": [
+    {
+      "environment": "local",
+      "command": "python3 -m py_compile scripts/full_flow_g310_seed13_screen.py tests/scripts/test_full_flow_g310_seed13_screen.py",
+      "status": "PASS"
+    },
+    {
+      "environment": "local",
+      "command": "python3 -m pytest tests/scripts/test_full_flow_g310_seed13_screen.py",
+      "status": "NOT_RUN",
+      "reason": "local python has no pytest module"
+    },
+    {
+      "environment": "server",
+      "command": "python -m py_compile scripts/full_flow_g310_seed13_screen.py tests/scripts/test_full_flow_g310_seed13_screen.py",
+      "status": "PASS"
+    },
+    {
+      "environment": "server",
+      "command": "python -m pytest tests/scripts/test_full_flow_g310_seed13_screen.py",
+      "status": "PASS",
+      "summary": "3 passed in 0.13s"
+    }
+  ],
+  "formal_training_state_at_manifest": {
+    "status": "RUNNING",
+    "grf_screen": "g310_grf13",
+    "grc_screen": "g310_grc13",
+    "grf_output_dir": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G310-v1/formal-grf-seed13",
+    "grc_output_dir": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G310-v1/formal-grc-seed13"
+  },
+  "boundaries": {
+    "gold_loaded_at_runtime": false,
+    "score_uses_references_after_generation": true,
+    "sealed_or_heldout_read": false,
+    "utility_labels_started": false,
+    "recipe_selected": false,
+    "g320_unlocked": false
+  }
+}

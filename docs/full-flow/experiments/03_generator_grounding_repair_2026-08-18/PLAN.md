@@ -530,6 +530,8 @@ G300 已完成实现和 smoke：新增 `scripts/full_flow_g300_draft_lora_train.
 
 两者使用相同数据、updates、batch、model-val、splitter、TRUE 和 MiniCheck。只运行 seed13 screen。
 
+G310 screen implementation 已完成：新增 `scripts/full_flow_g310_seed13_screen.py` 和测试，固定比较 `G0`、`GR-F`、`GR-C`，运行时仍走 adapter draft、frozen-base splitter 和 frozen TRUE；生成完成后的 citation 判定使用 MiniCheck/ALCE-style sentence-citation scoring。服务器测试 3 passed。当前状态只是 `IMPLEMENTATION TEST PASS / FORMAL TRAINING IN PROGRESS`，尚未选择 recipe，也不解锁 G320。报告见 [G310_SCREEN_IMPLEMENTATION_REPORT.md](G310_SCREEN_IMPLEMENTATION_REPORT.md)。
+
 screen 硬排除：
 
 - runtime error、missing trace、invalid citation 不为 0；
