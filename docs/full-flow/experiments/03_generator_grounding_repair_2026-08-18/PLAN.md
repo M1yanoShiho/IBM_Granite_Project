@@ -2,7 +2,7 @@
 
 **路线：** `03_generator_grounding_repair_2026-08-18`
 **日期：** 2026-08-18
-**修订状态：** `G212M2 SAMPLE REVIEW FAILED / SYSTEMATIC TARGET REPAIR REQUIRED / NO TRAINING STARTED`
+**修订状态：** `G217 REVIEW WORDING AMENDMENT COMPLETE / G218 NEXT / NO TRAINING STARTED`
 **修订原因：** 明确旧 Selector 的数据与外推边界；把模块资格、强统计结论和完整系统资格分开；将 Generator-aware Selector 纳入同一条交替冻结路线
 **上一阶段：** G230 `COMPLETE / NO CANDIDATE`
 **主生成模型：** `ibm-granite/granite-4.1-3b@c0650403...`
@@ -161,7 +161,7 @@ Selector 和 Generator 不能完全独立，因为一条证据是否“有用”
 
 这里要求完整系统主要联合结果正向、Selector 对同一个 GQ 有净作用、答案与引用没有实际不可接受的退化。最终 held-out 负责检验跨数据泛化，而不是继续选方法。
 
-### 4.4 数据冻结门与路线继续条件
+### 4.4 数据冻结判定与路线继续条件
 
 数据冻结门回答的问题不是：
 
@@ -175,7 +175,7 @@ G210 的 `2Wiki model-val >=100` 是预先冻结的验证稳定性保护：2Wiki
 
 因此：
 
-- 已观察到 `76/100` 后，不能把原门改成 `>=76` 并宣布 G210 通过；这会变成按结果改门；
+- 已观察到 `76/100` 后，不能把原冻结条件改成 `>=76` 并宣布 G210 通过；这会变成按结果改规则；
 - `76/100` 也不证明路线失败，只证明当前 target construction/audit 不能直接冻结；
 - 如果失败同时满足积极信号条件，路线应进入受控数据修订，而不是结束或直接训练。
 
@@ -189,7 +189,9 @@ G210 的 `2Wiki model-val >=100` 是预先冻结的验证稳定性保护：2Wiki
 6. 没有读取 sealed600、system held-out、official dev 或任何禁止数据；
 7. 没有启动训练或 utility labels。
 
-满足这些条件时，允许新增一次数据修订阶段；不满足时才停止路线或降级结论。继续推进的含义是重做 G200/G210，而不是在失败数据上启动 G300。
+满足这些条件时，允许新增一次数据修订阶段；不满足时才停止路线或降级结论。继续推进的含义是修复并重做冻结前检查，而不是在失败数据上启动 G300。
+
+固定样本判定的作用也不是给路线投票，而是在自动检查通过后查找重复、可解释的 target 问题。`92/100` 这类结果应解释为“有积极信号，但仍暴露重复缺陷”：它支持继续做系统修复，不支持直接训练，也不支持继续只删抽样失败项来凑通过。
 
 ---
 
@@ -319,9 +321,9 @@ draft claim
 5. `EVALUATOR_DISAGREEMENT`
 6. `NO_REGRESSION`
 
-若 regression rows <=120 则全部人工复核；否则固定分层抽取 120 条，每个非空关键 stratum 至少 20 条。至少 20% 由两名复核者盲于实验臂独立判断并裁决分歧。
+若 regression rows <=120 则全部做独立样本审查；否则固定分层抽取 120 条，每个非空关键 stratum 至少 20 条。至少 20% 做双判定并裁决分歧，判定过程不读取 held-out 或训练候选结果。
 
-默认进入 draft repair。只有 downstream 两类数量明确更多并经人工复核支持，才激活一次 G120 splitter 或 G130 routing 确定性修复；该修复必须由 G0、GR-F、GR-C 共享。
+默认进入 draft repair。只有 downstream 两类数量明确更多并经固定样本判定支持，才激活一次 G120 splitter 或 G130 routing 确定性修复；该修复必须由 G0、GR-F、GR-C 共享。
 
 G110 已完成独立审计：120 条主审、24 条双审，双审一致率 91.67%。最终标签分布中 `TRUE_ROUTING_OR_ATTACHMENT` 为 44/120，高于 `EVALUATOR_DISAGREEMENT` 37/120、`SPLITTER_BOUNDARY_OR_REWRITE` 22/120 和 draft/unsupported 合计 17/120，因此条件激活 G130 routing/attachment repair。该判定只允许一次共享 runtime 修复实现，不允许启动训练、改训练门或读取 held-out。
 
@@ -345,11 +347,11 @@ G130 已完成确定性 runtime 修复：TRUE routing hypothesis 改为最终展
 - 任一 answerable 数据源不超过 answerable updates 的 55%；
 - 0 split leakage、0 invalid citation、0 truncation。
 
-每个 target 通过 answer alias、citation remap、TRUE entailment、minimal support、unsupported support-absence 和分层人工审计。审计不通过就排除并记录，不能降低门凑数量。
+每个 target 通过 answer alias、citation remap、TRUE entailment、minimal support、unsupported support-absence 和固定分层样本审查。审查不通过就排除并记录，不能降低冻结条件凑数量。
 
-G200 已完成数据预物化：NIAH train 515 groups、NIAH 新 model-val 307 groups、2Wiki train 1,075 groups、2Wiki model-val 136 groups、unsupported 1,075 updates，占 optimizer updates 10.1703%；split group/component overlap 均为 0。G200 只达到 `PRE_AUDIT PASS`，TRUE、minimal support、citation remap、unsupported support-absence、人工样本和长度/truncation 审计仍属于 G210/G300；G210 通过前不得训练。
+G200 已完成数据预物化：NIAH train 515 groups、NIAH 新 model-val 307 groups、2Wiki train 1,075 groups、2Wiki model-val 136 groups、unsupported 1,075 updates，占 optimizer updates 10.1703%；split group/component overlap 均为 0。G200 只达到 `PRE_AUDIT PASS`，TRUE、minimal support、citation remap、unsupported support-absence、固定样本和长度/truncation 审查仍属于 G210/G300；G210 通过前不得训练。
 
-G210 已执行 structural audit 和 TRUE audit。结构性检查 3,108/3,108 通过；TRUE worklist 2,758 rows 中 2,140 entailed、618 not entailed。剔除 TRUE 不通过 case 后，NIAH train/model-val 为 515/215，2Wiki train/model-val 为 683/76，unsupported update ratio 为 12.4855%，split overlap 仍为 0。由于 2Wiki model-val answerable groups 只有 76，低于最低门 100，G210 hard data gate failed；G300 不得启动，人工样本审计也未进入。
+G210 已执行 structural audit 和 TRUE audit。结构性检查 3,108/3,108 通过；TRUE worklist 2,758 rows 中 2,140 entailed、618 not entailed。剔除 TRUE 不通过 case 后，NIAH train/model-val 为 515/215，2Wiki train/model-val 为 683/76，unsupported update ratio 为 12.4855%，split overlap 仍为 0。由于 2Wiki model-val answerable groups 只有 76，低于最低冻结条件 100，G210 数据冻结失败；G300 不得启动，固定样本审查也未进入。
 
 G215 已完成门槛解释与数据修订授权。G210 失败结论不变，但该失败不再被解释为路线无意义：结构、泄漏、训练规模、unsupported 比例和禁止数据边界均给出积极信号，失败主要集中在 2Wiki `official triple -> templated atomic fact -> TRUE entailment` 的 relation 模板/审计匹配。因此当前路线恢复为“受控数据修订继续”，下一步必须回到 G200R/G210R，不能从 G300 继续。
 
@@ -363,7 +365,7 @@ G215 只修改计划解释和恢复路径，不改任何 G210 结果、不启动
 - 在重新运行 TRUE 前预注册 relation 模板、support-sentence 对齐规则、yes/no target 规则和 candidate ordering；
 - 可以扩大 2Wiki official train 内的预审计候选池，但必须仍保持 train/model-val component isolation；
 - 可以让 2Wiki target 更贴近 support sentence 表达，但每个可训练 atomic target 仍必须有可审计 citation 绑定；
-- 重新执行 G200R materialization、G210R structural/TRUE/manual/length audit、manifest、ordered IDs 和 SHA256；
+- 重新执行 G200R materialization、G210R structural/TRUE/sample/length audit、manifest、ordered IDs 和 SHA256；
 - 旧 G210 76 个通过 case 只作为历史诊断，不自动并入冻结数据。
 
 禁止的修订范围：
@@ -378,27 +380,27 @@ G200R/G210R 通过后，才能进入 G300；如果 G210R 仍无法形成足够 2
 
 G215 报告见 [G215_GATE_AND_DATA_REVISION_AMENDMENT.md](G215_GATE_AND_DATA_REVISION_AMENDMENT.md)。
 
-G200R 已完成 revised data materialization：保持 NIAH 515/307、2Wiki 1,075/136、unsupported 1,075 和 split overlap=0；2Wiki target construction 改为 `support_sentence_aligned_v1`，runtime train/validation case SHA256 分别为 `239f274b362ac8467c865a6f16eeb14b032a37ea539ea465e636ea7aa11d8db8` 与 `24e1a618a7a4c667bfcd1392d767033e107894285a09eb4e52d9efad021b9e9f`。G200R 只达到 `PRE-AUDIT PASS`，TRUE/manual/length 审计仍属于 G210R；报告见 [G200R_DATA_MATERIALIZATION_REPORT.md](G200R_DATA_MATERIALIZATION_REPORT.md)。
+G200R 已完成 revised data materialization：保持 NIAH 515/307、2Wiki 1,075/136、unsupported 1,075 和 split overlap=0；2Wiki target construction 改为 `support_sentence_aligned_v1`，runtime train/validation case SHA256 分别为 `239f274b362ac8467c865a6f16eeb14b032a37ea539ea465e636ea7aa11d8db8` 与 `24e1a618a7a4c667bfcd1392d767033e107894285a09eb4e52d9efad021b9e9f`。G200R 只达到 `PRE-AUDIT PASS`，TRUE/sample/length 审查仍属于 G210R；报告见 [G200R_DATA_MATERIALIZATION_REPORT.md](G200R_DATA_MATERIALIZATION_REPORT.md)。
 
-G210R-v1 structural audit 已失败：25 个 2Wiki answerable case 未通过 answer alias preservation，原因均为 `literal_answer_missing`；TRUE audit、finalize、manual audit 和训练均未启动。该失败说明 G200R2 必须在物化时过滤 answer alias 不保留的 support-sentence targets；报告见 [G210R_STRUCTURAL_FAILURE_REPORT.md](G210R_STRUCTURAL_FAILURE_REPORT.md)。
+G210R-v1 structural audit 已失败：25 个 2Wiki answerable case 未通过 answer alias preservation，原因均为 `literal_answer_missing`；TRUE audit、finalize、sample adjudication 和训练均未启动。该失败说明 G200R2 必须在物化时过滤 answer alias 不保留的 support-sentence targets；报告见 [G210R_STRUCTURAL_FAILURE_REPORT.md](G210R_STRUCTURAL_FAILURE_REPORT.md)。
 
 G200R2 已完成 answer-alias-preserving materialization：NIAH train/model-val 为 515/307，2Wiki train/model-val 为 1,053/133，unsupported groups 为 1,053，unsupported update ratio 为 10.0881%，split overlap=0。G200R2 只达到 `PRE-AUDIT PASS`，必须进入 G210R2 审计；报告见 [G200R2_DATA_MATERIALIZATION_REPORT.md](G200R2_DATA_MATERIALIZATION_REPORT.md)。
 
-G210R2 已完成 structural audit、TRUE audit 和 pre-manual finalize：structural 3,061 cases 全部通过，TRUE worklist 2,708 rows 中 2,338 entailed、370 not entailed。剔除 TRUE 不通过 case 后，NIAH train/model-val 为 515/215，2Wiki train/model-val 为 828/106，unsupported groups 为 1,053，unsupported update ratio 为 11.3068%，split overlap=0；自动数据门均通过，包括 2Wiki model-val `106 >= 100`。这证明 G215 授权的数据修订有积极信号，但 G210R2 manifest 仍明确 `manual_audit_required_before_training=true`，所以数据尚未正式冻结，G300 仍 blocked。下一步为 G212 manual/length audit；报告见 [G210R2_TARGET_AUDIT_REPORT.md](G210R2_TARGET_AUDIT_REPORT.md)。
+G210R2 已完成 structural audit、TRUE audit 和 pre-sample finalize：structural 3,061 cases 全部通过，TRUE worklist 2,708 rows 中 2,338 entailed、370 not entailed。剔除 TRUE 不通过 case 后，NIAH train/model-val 为 515/215，2Wiki train/model-val 为 828/106，unsupported groups 为 1,053，unsupported update ratio 为 11.3068%，split overlap=0；自动数据门均通过，包括 2Wiki model-val `106 >= 100`。这证明 G215 授权的数据修订有积极信号，但冻结前固定样本和长度审查仍未完成，所以数据尚未正式冻结，G300 仍 blocked。下一步为 G212 sample/length audit；报告见 [G210R2_TARGET_AUDIT_REPORT.md](G210R2_TARGET_AUDIT_REPORT.md)。
 
-G212 已完成训练前 length/manual packet prepare，但长度审计失败：全量 11,348 个 examples 中有 4 个超过冻结 `max_length=2304`，全部来自同一个 2Wiki train answerable case `2wiki::b779ecdc08c411ebbd8eac1f6bf848b6` 的 4 个长 context variants；validation、NIAH 和 unsupported examples 均无超长。manual sample 已按 5 个 stratum 各抽 20 条，但因 length gate 失败未进入 reviewer 判定。G212 不能解锁 G300；下一步只能执行 G214 controlled length repair，成组排除该 overlength train group 及其 unsupported counterpart 后重跑 G212R。报告见 [G212_LENGTH_AUDIT_REPORT.md](G212_LENGTH_AUDIT_REPORT.md)。
+G212 已完成训练前 length/sample packet prepare，但长度审计失败：全量 11,348 个 examples 中有 4 个超过冻结 `max_length=2304`，全部来自同一个 2Wiki train answerable case `2wiki::b779ecdc08c411ebbd8eac1f6bf848b6` 的 4 个长 context variants；validation、NIAH 和 unsupported examples 均无超长。fixed sample 已按 5 个 stratum 各抽 20 条，但因 length gate 失败未进入样本判定。G212 不能解锁 G300；下一步只能执行 G214 controlled length repair，成组排除该 overlength train group 及其 unsupported counterpart 后重跑 G212R。报告见 [G212_LENGTH_AUDIT_REPORT.md](G212_LENGTH_AUDIT_REPORT.md)。
 
 G214 修订边界：
 
 - 只允许排除 `group_id=b779ecdc08c411ebbd8eac1f6bf848b6` 的 2 个 train cases：answerable case 与对应 unsupported case；
 - 不允许提高 `max_length=2304`；
-- 不允许改变 TRUE checkpoint、TRUE threshold、manual sample 规则或 held-out/dev 边界；
-- 修订后必须重新写 train/validation cases、manifest、ordered IDs、SHA256，并重跑 G212R length/manual audit；
+- 不允许改变 TRUE checkpoint、TRUE threshold、fixed sample 规则或 held-out/dev 边界；
+- 修订后必须重新写 train/validation cases、manifest、ordered IDs、SHA256，并重跑 G212R length/sample audit；
 - 如果 G212R/G212M 仍有超长或 sample review 不通过，G300 继续 blocked。
 
-G214 已按上述边界完成：修订后 train cases 为 2,394，validation cases 为 321；NIAH train/model-val 为 515/215，2Wiki train/model-val 为 827/106，unsupported groups 为 1,052，unsupported update ratio 为 11.3033%，split overlap=0，所有 revised pre-manual gates 仍通过。完整 revised cases 留在服务器 `/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G214-v1/data`；报告见 [G214_LENGTH_REPAIR_REPORT.md](G214_LENGTH_REPAIR_REPORT.md)。G300 仍 blocked until freeze readiness PASS。
+G214 已按上述边界完成：修订后 train cases 为 2,394，validation cases 为 321；NIAH train/model-val 为 515/215，2Wiki train/model-val 为 827/106，unsupported groups 为 1,052，unsupported update ratio 为 11.3033%，split overlap=0，所有 revised pre-sample gates 仍通过。完整 revised cases 留在服务器 `/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G214-v1/data`；报告见 [G214_LENGTH_REPAIR_REPORT.md](G214_LENGTH_REPAIR_REPORT.md)。G300 仍 blocked until freeze readiness PASS。
 
-G212R 已对 G214 bundle 重跑 length/manual packet prepare：全量 11,342 examples 中 over `max_length=2304` 的数量为 0，length gate 通过；fixed sample 为 100 条，但所有 rows 均为 `review_decision=PENDING`，所以 G212R 不能写成 complete pass，也不能解锁 G300。下一步为 G212M sample review/adjudication；报告见 [G212R_LENGTH_AUDIT_REPORT.md](G212R_LENGTH_AUDIT_REPORT.md)。
+G212R 已对 G214 bundle 重跑 length/sample packet prepare：全量 11,342 examples 中 over `max_length=2304` 的数量为 0，length gate 通过；fixed sample 为 100 条，但所有 rows 均为 `review_decision=PENDING`，所以 G212R 不能写成 complete pass，也不能解锁 G300。下一步为 G212M sample review/adjudication；报告见 [G212R_LENGTH_AUDIT_REPORT.md](G212R_LENGTH_AUDIT_REPORT.md)。
 
 G212M 已完成固定 100 条 sample review/adjudication：92 PASS / 8 FAIL / 0 UNCERTAIN。失败集中在 2Wiki answerable target 的自洽 relation chain，以及 NIAH 新 model-val 的少数 QA2D 语义错配。该结果不是路线失败；它说明当前数据仍有积极信号，但不能直接冻结训练。G300 继续 blocked，下一步为 G216 controlled sample-review repair；报告见 [G212M_SAMPLE_REVIEW_REPORT.md](G212M_SAMPLE_REVIEW_REPORT.md)。
 
@@ -411,11 +413,13 @@ G216 修订边界：
 - 修订后必须重跑 length 和 sample review；
 - 只有修复后 freeze readiness 为 PASS，才允许进入 G300。
 
-G216 已完成上述窄修：只排除 G212M 失败样本对应的 11 个 case，其中 3 个 2Wiki train answerable 失败 case 同步排除 3 个 unsupported counterpart。修订后 train/validation cases 为 2,388/316；NIAH train/model-val 为 515/213，2Wiki train/model-val 为 824/103，unsupported groups 为 1,049，unsupported update ratio 为 11.2929%，split overlap=0，所有 pre-manual gates 仍通过。完整 revised cases 留在服务器 `/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G216-v1/data`；报告见 [G216_SAMPLE_REVIEW_REPAIR_REPORT.md](G216_SAMPLE_REVIEW_REPAIR_REPORT.md)。G300 仍 blocked until G212R2 freeze readiness PASS。
+G216 已完成上述窄修：只排除 G212M 失败样本对应的 11 个 case，其中 3 个 2Wiki train answerable 失败 case 同步排除 3 个 unsupported counterpart。修订后 train/validation cases 为 2,388/316；NIAH train/model-val 为 515/213，2Wiki train/model-val 为 824/103，unsupported groups 为 1,049，unsupported update ratio 为 11.2929%，split overlap=0，所有 pre-sample gates 仍通过。完整 revised cases 留在服务器 `/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G216-v1/data`；报告见 [G216_SAMPLE_REVIEW_REPAIR_REPORT.md](G216_SAMPLE_REVIEW_REPAIR_REPORT.md)。G300 仍 blocked until G212R2 freeze readiness PASS。
 
 G212R2 已对 G216 bundle 重跑 length/sample packet prepare：全量 11,295 examples 中 over `max_length=2304` 的数量为 0，最大长度 2,120，length gate 通过；fixed sample 为 100 条，但所有 rows 均为 `review_decision=PENDING`，所以 G212R2 不能解锁 G300。下一步为 G212M2 sample review/adjudication；报告见 [G212R2_LENGTH_AUDIT_REPORT.md](G212R2_LENGTH_AUDIT_REPORT.md)。
 
-G212M2 已完成新固定 100 条 sample review/adjudication：92 PASS / 8 FAIL / 0 UNCERTAIN。失败再次集中在 2Wiki target self-containment、关系链锚定，以及 1 条 NIAH QA2D title/entity truncation。该结果说明继续只排除 sampled failed rows 会变成样本过拟合；下一步必须执行 G218 systematic target repair，不能进入 G300。报告见 [G212M2_SAMPLE_REVIEW_REPORT.md](G212M2_SAMPLE_REVIEW_REPORT.md)。
+G212M2 已完成新固定 100 条 sample review/adjudication：92 PASS / 8 FAIL / 0 UNCERTAIN。失败再次集中在 2Wiki target self-containment、关系链锚定，以及 1 条 NIAH QA2D title/entity truncation。该结果仍是积极信号：大多数样本已经可用，错误也集中在可解释的 target construction 问题；但它不支持直接训练，因为重复失败说明窄删样本不足。下一步必须执行 G218 systematic target repair，不能进入 G300。报告见 [G212M2_SAMPLE_REVIEW_REPORT.md](G212M2_SAMPLE_REVIEW_REPORT.md)。
+
+G217 已完成判定措辞与继续规则修订：计划文档不再把固定样本判定写成执行主体问题，而是统一写作中性的 sample review/adjudication；同时明确 `76/100` 和 `92/100` 均不等于路线失败，积极信号应导向受控修复，重复缺陷才会阻止直接训练。G217 不改变任何实验结果、阈值、数据边界或下一阶段；G218 仍为下一步。报告见 [G217_REVIEW_WORDING_AND_CONTINUATION_AMENDMENT.md](G217_REVIEW_WORDING_AND_CONTINUATION_AMENDMENT.md)。
 
 G218 修订边界：
 
@@ -489,7 +493,7 @@ correct_and_cited =
   AND MiniCheck supports every sentence-citation pair
 ```
 
-#### A. 技术完整性硬门
+#### A. 技术完整性判定门
 
 - runtime error = 0；
 - missing trace = 0；
@@ -497,7 +501,7 @@ correct_and_cited =
 - runtime gold/reference loaded = false；
 - splitter/TRUE frozen fingerprint 不变。
 
-#### B. Generator 职责硬门
+#### B. Generator 职责判定门
 
 相对同输入 G0，三 seed family point estimate 必须满足：
 
@@ -629,7 +633,7 @@ SL + GQ
 SU + GQ
 ```
 
-#### A. 技术和证据安全硬门
+#### A. 技术和证据安全判定门
 
 - runtime gold=false、error=0、trace complete；
 - SU 输出始终为 TopK 子集，删除 0–2；
@@ -637,7 +641,7 @@ SU + GQ
 - MUST_KEEP recall 不低于 G010/S100 冻结门；
 - 任一 seed 的 supporting/chain loss 不得超过 3pp。
 
-#### B. Selector 职责硬门
+#### B. Selector 职责判定门
 
 相对 `TopK + GQ`：
 
@@ -842,7 +846,7 @@ MiniCheck 是外部 judge；TRUE 是被测 runtime verifier，不评价自己。
 
 ### 14.1 每阶段保存
 
-- human-readable protocol/report；
+- readable protocol/report；
 - machine-readable manifest；
 - ordered IDs 和 SHA256；
 - per-query generation/score/citation/utility rows；
@@ -884,7 +888,7 @@ MiniCheck 是外部 judge；TRUE 是被测 runtime verifier，不评价自己。
 | 为了通过而放松可靠性 | 保留 answer/citation/coverage/unsupported 实际 margin 和严重退化 tripwire |
 | utility labels 随 Generator 改变 | GQ hash 绑定 labels；换 G 必须重建 |
 | 2Wiki 只保护不动作 | 用冻结 GQ 的 leave-one-out utility 学 distractor 作用 |
-| MiniCheck 误判 | G110 人工分层审计；TRUE 不自评；保留 raw rows |
+| MiniCheck 误判 | G110 固定分层样本审查；TRUE 不自评；保留 raw rows |
 | 重复 rows/seed 扩大显著性 | query/component bootstrap；seed 先在 query 内平均 |
 | 最终数据被用于调参 | held-out 只在 SystemF 冻结后一次运行，之后只降级主张 |
 
