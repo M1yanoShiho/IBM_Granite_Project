@@ -1,7 +1,7 @@
 # Generator 修复与 Selector 分阶段协同
 
 **日期：** 2026-08-18
-**状态：** `G200R COMPLETE / PRE-AUDIT PASS / G210R READY / NO TRAINING STARTED`
+**状态：** `G210R-v1 FAIL / STRUCTURAL ANSWER_ALIAS / G200R2 REQUIRED / NO TRAINING STARTED`
 **详细计划：** [PLAN.md](PLAN.md)
 **执行跟踪：** [TRACKER.md](TRACKER.md)
 **原始方案快照：** [snapshots/PLAN_v1_generator_only_2026-08-18.md](snapshots/PLAN_v1_generator_only_2026-08-18.md)
@@ -20,6 +20,7 @@
 - G210 structural audit 通过，但 TRUE 过滤后 2Wiki model-val 只剩 76 个 answerable groups，低于最低门 100；
 - G215 已把这个失败解释为“当前数据不能冻结，但路线有积极诊断信号，可回到 G200R/G210R 做受控数据修订”，不是 Generator/Selector 路线失败；
 - G200R 已把 2Wiki target construction 改为 support-sentence-aligned，并重新物化为 2,665 个 train cases、443 个 validation cases，pre-audit gate 全部通过；
+- G210R-v1 structural audit 发现 25 个 2Wiki answerable case 没保留 answer alias，因此 TRUE 没有启动，必须回到 G200R2 过滤这些 case；
 - 因此最终 Selector、最终 Generator 和完整新系统目前都不存在。
 
 ## 修订后的核心方法
@@ -67,11 +68,12 @@ CI 跨 0 不再自动淘汰职责合格组件，但也不能写成统计显著�
 
 ## 下一步
 
-下一步不是训练，而是执行 G210R 目标审计：
+下一步不是训练，而是执行 G200R2 数据修订：
 
 ```text
-G210R revised target audit
--> 只有 G210R 通过后才进入 G300
+G200R2 answer-alias-preserving materialization
+-> G210R2 revised target audit
+-> 只有 G210R2 通过后才进入 G300
 ```
 
 这次修订只允许处理 2Wiki target construction/audit mismatch；不得降低 TRUE 阈值、改最终测试集边界、读取 held-out，或按已看到的结果临时改门凑通过。
