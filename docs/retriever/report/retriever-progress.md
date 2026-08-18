@@ -806,12 +806,28 @@ or to the shared layer; they are listed because they bound what this module's nu
 
 **Known and not pursued, with the reason.**
 
-3. **Where the lost half actually ranks — pre-registered as ledger R18.** R16 found that 69.7%
-   of conditional misses have no answer-bearing chunk in the top-50 pool at all, but the pool is
-   truncated at 50, so how far below they sit was unmeasured. It decides whether raising `top_k`
-   is a viable fix or a hopeless one, since ranks near 60 and ranks near 5000 imply opposite
-   engineering. No longer deferred: R18 reruns retrieval at a much larger `top_k` and reads the
-   answer-bearing chunk's rank per case.
+3. **Where the lost half actually ranks — answered by ledger R18, and the question was posed
+   wrongly here.** This item asked whether raising `top_k` is a viable fix or a hopeless one.
+   **That framing does not hold**: `TopKSelector` takes the first ten of the ranked list, so
+   deepening the candidate pool does not change which ten reach the generator. A chunk at rank
+   81 stays out of the context whether the pool stops at 50 or 1000. Pool depth and
+   `max_selected` are separate levers, and only the second decides what the generator sees.
+
+   R18 ran it anyway at `top_k=1000` and the depth answer is: **65.5% of the misses become
+   visible within 1000, median rank 81** (q1 28, q3 162, max 625), with 41 still beyond 1000.
+   Those ranks are **upper bounds** — the classifier reported the sibling's rank rather than the
+   shallowest answer-bearing rank, a defect R18 found and fixed with `shallowest_bearing_rank`.
+
+   Its larger result is a two-sided revision of R16, and both sides belong here. **R16's
+   headline share does not survive**: "the loss happens before the pool" holds only at depth 50,
+   where `retrieval` is 69.7%; at depth 1000 it is 34.5% and no longer the majority. **R16's
+   mechanism claim is strengthened instead**: `sibling`, the split passage, rises from 21.0% to
+   **53.8%**, and the fix R16 pointed at — aligning the retrieval unit with the passage, for
+   which `materializer/source_parent.py` already holds the mapping — targets exactly that class.
+   By class, the engineering reads: `sibling` 53.8% to passage alignment, deterministic and free
+   at query time; `retrieval` 34.5% out of reach of either lever; `other` 11.8% the only share a
+   reranker alone would address, which is why R18 concludes a reranker does not justify a new
+   line of work.
 4. **The second pathway for the split penalty.** R17 showed the penalty survives a retriever
    that needs no verbatim query terms, so query-term separation is not the whole mechanism. A
    candidate second path — a 60-word half being a thinner context for the embedding — was
