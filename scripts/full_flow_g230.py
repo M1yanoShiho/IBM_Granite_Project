@@ -329,9 +329,12 @@ def _routing_rows(generator: VerifyAnnotateGenerator) -> list[dict[str, object]]
             "sentence": item.sentence,
             "citation": item.citation,
             "claim_text": item.claim_text,
+            "routing_hypothesis": item.routing_hypothesis,
             "declared_indices": list(item.declared_indices),
             "declared_verified": item.declared_verified,
             "rescued_by_scan": item.rescued_by_scan,
+            "attachment_verified": item.outcome == "verified"
+            and item.citation is not None,
             "gated_outcome": item.gated_outcome,
             "gated_citation": item.gated_citation,
             "review_flagged": item.review_flagged,

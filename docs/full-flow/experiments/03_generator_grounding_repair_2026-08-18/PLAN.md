@@ -2,7 +2,7 @@
 
 **路线：** `03_generator_grounding_repair_2026-08-18`
 **日期：** 2026-08-18
-**修订状态：** `G110 COMPLETE / PASS / G130 READY / NO TRAINING STARTED`
+**修订状态：** `G130 COMPLETE / PASS / G200 READY / NO TRAINING STARTED`
 **修订原因：** 明确旧 Selector 的数据与外推边界；把模块资格、强统计结论和完整系统资格分开；将 Generator-aware Selector 纳入同一条交替冻结路线
 **上一阶段：** G230 `COMPLETE / NO CANDIDATE`
 **主生成模型：** `ibm-granite/granite-4.1-3b@c0650403...`
@@ -294,6 +294,8 @@ draft claim
 默认进入 draft repair。只有 downstream 两类数量明确更多并经人工复核支持，才激活一次 G120 splitter 或 G130 routing 确定性修复；该修复必须由 G0、GR-F、GR-C 共享。
 
 G110 已完成独立审计：120 条主审、24 条双审，双审一致率 91.67%。最终标签分布中 `TRUE_ROUTING_OR_ATTACHMENT` 为 44/120，高于 `EVALUATOR_DISAGREEMENT` 37/120、`SPLITTER_BOUNDARY_OR_REWRITE` 22/120 和 draft/unsupported 合计 17/120，因此条件激活 G130 routing/attachment repair。该判定只允许一次共享 runtime 修复实现，不允许启动训练、改训练门或读取 held-out。
+
+G130 已完成确定性 runtime 修复：TRUE routing hypothesis 改为最终展示给用户的 citation-stripped sentence；trace 与 G230 routing export 显式记录 `routing_hypothesis`、`declared_verified`、`rescued_by_scan`、`review_flagged` 和 `attachment_verified`；observe-only entity gate warning 保持非破坏性，不再被解释为 final attachment failure。TRUE 模型/阈值、Retriever、Selector、gold/reference runtime 边界、held-out 和训练均未改变。
 
 ### G200/G210：训练数据
 

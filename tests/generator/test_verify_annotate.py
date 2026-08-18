@@ -300,6 +300,56 @@ def test_routing_records_the_exact_sentence_to_citation_mapping() -> None:
     assert mapping[f"Costs fell sharply. {UNVERIFIED_MARKER}"] is None
 
 
+def test_runtime_routes_against_the_final_sentence_not_the_splitter_rewrite() -> None:
+    """G130 pins citation attachment to the sentence that reaches the user.
+
+    The splitter may normalize or expand a claim.  TRUE should attach evidence
+    to the final sentence, not to a splitter paraphrase that is never displayed.
+    """
+    draft = DraftAnswer(
+        query_id="q",
+        answer_text="Winston sponsored the first season [1].",
+        claims=(
+            _claim(
+                "claim-1",
+                "Winston Company provided sponsorship for season one.",
+                0,
+                38,
+            ),
+        ),
+    )
+    selected = SelectedEvidenceSet(
+        query_id="q",
+        evidence=(evidence("ev-1", "Winston sponsored the first season.", 1),),
+    )
+    nli = ScriptedNLI(
+        {
+            (
+                "Winston sponsored the first season.",
+                "Winston sponsored the first season.",
+            )
+        }
+    )
+    generator = VerifyAnnotateGenerator(
+        draft_generator=FixedDraft(draft),
+        verifier=CitationRoutedVerifier(nli, StubEntityChecker()),
+    )
+
+    result = generator.generate(
+        Query(query_id="q", text="who sponsored it?"),
+        QueryChecklist(query_id="q", focus="f", required_facts=()),
+        selected,
+    )
+
+    routing = generator.last_routings[0]
+    assert result.cited_evidence_ids == ("ev-1",)
+    assert routing.claim_text == "Winston Company provided sponsorship for season one."
+    assert routing.routing_hypothesis == "Winston sponsored the first season."
+    assert nli.calls == [
+        ("Winston sponsored the first season.", "Winston sponsored the first season.")
+    ]
+
+
 def test_entity_conflict_records_the_offending_evidence_for_audit() -> None:
     """Entity conflict is now the only path that destroys content, so the drop has
     to be auditable: which passage caused it, and which entities clashed."""

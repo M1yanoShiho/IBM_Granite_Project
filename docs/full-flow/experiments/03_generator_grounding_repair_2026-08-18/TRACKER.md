@@ -2,9 +2,9 @@
 
 **日期：** 2026-08-18
 **计划：** [PLAN.md](PLAN.md)
-**当前状态：** `G110 COMPLETE / PASS / G130 READY / NO TRAINING STARTED`
+**当前状态：** `G130 COMPLETE / PASS / G200 READY / NO TRAINING STARTED`
 
-用户已确认本路线的边界和协同顺序。G110 已通过并条件激活 G130；G130/G200/G210 通过前，不允许启动新训练、utility generation 或 held-out。
+用户已确认本路线的边界和协同顺序。G130 已通过；G200/G210 通过前，不允许启动新训练、utility generation 或 held-out。
 
 ## 阶段 G：Generator
 
@@ -15,8 +15,8 @@
 | G100 | Citation attribution | 定位 G230 citation 最早失败阶段 | claim-level attribution rows | COMPLETE / PASS |
 | G110 | Independent audit | 复核归因和 MiniCheck disagreement | audit report、route decision | COMPLETE / PASS |
 | G120 | Splitter repair | 仅当 G110 证明 splitter 为主要断点 | tests、implementation report | NOT ACTIVATED |
-| G130 | Routing repair | 仅当 G110 证明 routing/attachment 为主要断点 | tests、implementation report | READY / CONDITIONAL |
-| G200 | Data materialization | 构造 NIAH/2Wiki 原子 claim-citation 与 unsupported groups | train/model-val cases、manifest | BLOCKED BY G130 |
+| G130 | Routing repair | 仅当 G110 证明 routing/attachment 为主要断点 | tests、implementation report | COMPLETE / PASS |
+| G200 | Data materialization | 构造 NIAH/2Wiki 原子 claim-citation 与 unsupported groups | train/model-val cases、manifest | READY / NOT RUN |
 | G210 | Target audit | 审计 support、citation、split、人工样本并冻结数据 | audit、leakage report、hashes | BLOCKED BY G200 |
 | G300 | Training implementation | query-group loss、citation weighting、fresh/continuation | tests、smoke manifest | BLOCKED BY G210 |
 | G310 | Seed13 screen | 比较 GR-F 与 GR-C | two adapters、model-val report | BLOCKED BY G300 |
@@ -78,3 +78,4 @@
 - G010：只使用 G230 archived answer/citation rows 和 G000 frozen sample sizes 做 simulation-style sensitivity；未计算 observed power，未放宽任何 gate/margin，未读取 held-out 内容。G230 full TopK 为 739 rows / 534 components，design effect 为 1.3839；按 G230 family mean discordance，`correct_and_cited` MDE 约 GC 6.15pp、GM 6.33pp。产物位于 `artifacts/G010/G010_POWER_SCOPE.json`，报告见 `G010_POWER_SCOPE.md`。
 - G100：只使用 G230 archived traces、answer rows 和 MiniCheck citation rows，生成自动 claim-level attribution candidates；共同 answered full TopK tasks 为 596，claim-level regression rows 为 501。自动分布为 TRUE/routing/attachment 268、MiniCheck evaluator disagreement 219、draft citation missing/wrong 8、splitter boundary/rewrite 6、unsupported draft 0；这不是最终修复决策，G110 必须独立审计后才能激活 G120/G130。产物位于 `artifacts/G100/`，报告见 `G100_ATTRIBUTION_REPORT.md`。
 - G110：按固定分层样本完成 120 条主审和 24 条双审；双审一致 22/24，agreement rate 91.67%。最终标签为 TRUE/routing/attachment 44、MiniCheck evaluator disagreement 37、splitter boundary/rewrite 22、draft citation missing/wrong 8、unsupported draft 9；因此条件激活 G130 routing/attachment repair，G120 不激活。G110 未启动训练、utility labels 或 held-out；产物位于 `artifacts/G110/`，报告见 `G110_AUDIT_REPORT.md`。
+- G130：完成一次共享 deterministic routing/attachment 修复；TRUE hypothesis 现在使用最终展示给用户的 citation-stripped sentence，trace 和 G230 routing export 显式记录 `routing_hypothesis`、`declared_verified`、`rescued_by_scan`、`review_flagged` 和 `attachment_verified`。G110 revealed diagnostic 中 TRUE/routing 44 条拆分为 33 条真无附件、11 条已有附件但带 observe-only gate warning；修复不改变 TRUE 模型/阈值、Retriever、Selector、gold/reference runtime 边界、held-out 或训练。产物位于 `artifacts/G130/G130_ROUTING_REPAIR_SUMMARY.json`，报告见 `G130_ROUTING_REPAIR_REPORT.md`。

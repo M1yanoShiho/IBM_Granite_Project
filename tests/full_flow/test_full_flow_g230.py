@@ -4,6 +4,7 @@ import hashlib
 import json
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -153,6 +154,47 @@ def test_generator_construction_limits_adapter_to_the_frozen_call_scope() -> Non
         draft_stage = pair[arm].draft_generator
         assert draft_stage.draft_generator.llm.adapter_name == adapter_name
         assert draft_stage.claim_splitter.llm is pair_client
+
+
+def test_routing_rows_export_attachment_audit_fields() -> None:
+    generator = SimpleNamespace(
+        last_routings=[
+            SimpleNamespace(
+                claim_id="claim-1",
+                outcome="verified",
+                sentence="Revenue rose 8%.",
+                citation="ev-1",
+                claim_text="Revenue increased.",
+                routing_hypothesis="Revenue rose 8%.",
+                declared_indices=(1,),
+                declared_verified=True,
+                rescued_by_scan=False,
+                gated_outcome="dropped_entity_conflict",
+                gated_citation=None,
+                review_flagged=True,
+            )
+        ]
+    )
+
+    rows = g230._routing_rows(generator)
+
+    assert rows == [
+        {
+            "claim_id": "claim-1",
+            "outcome": "verified",
+            "sentence": "Revenue rose 8%.",
+            "citation": "ev-1",
+            "claim_text": "Revenue increased.",
+            "routing_hypothesis": "Revenue rose 8%.",
+            "declared_indices": [1],
+            "declared_verified": True,
+            "rescued_by_scan": False,
+            "attachment_verified": True,
+            "gated_outcome": "dropped_entity_conflict",
+            "gated_citation": None,
+            "review_flagged": True,
+        }
+    ]
 
 
 def test_failure_flags_distinguish_draft_claim_and_final_empty() -> None:
