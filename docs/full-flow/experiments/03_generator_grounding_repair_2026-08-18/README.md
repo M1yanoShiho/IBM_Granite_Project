@@ -1,7 +1,7 @@
 # Generator 修复与 Selector 分阶段协同
 
 **日期：** 2026-08-18
-**状态：** `G212M5 NOT FREEZE READY / G222 NEXT / NO TRAINING STARTED`
+**状态：** `G222 CONTROLLED CONTINUATION / G223 NEXT / NO TRAINING STARTED`
 **详细计划：** [PLAN.md](PLAN.md)
 **执行跟踪：** [TRACKER.md](TRACKER.md)
 **原始方案快照：** [snapshots/PLAN_v1_generator_only_2026-08-18.md](snapshots/PLAN_v1_generator_only_2026-08-18.md)
@@ -41,6 +41,7 @@
 - G221 对 G212M4 失败样本做保守隔离：共隔离 12 个 case；修订后 NIAH train/model-val 为 511/207，2Wiki train/model-val 为 817/96，unsupported ratio 为 11.3461%，split overlap 为 0，达到 pre-sample pass；
 - G212R5 对 G221 bundle 重跑长度审计后通过：11,148 个 examples 中 0 个超过 2,304，最大长度为 2,120；新的固定 100 条 sample 已生成但仍未判定；
 - G212M5 对 G212R5 固定 100 条 sample 完成判定：97 条通过、3 条失败、0 条不确定；unsupported、NIAH train 和 NIAH model-val 都是 20/20，通过失败只剩 2Wiki answerable 关系自洽；
+- G222 已把硬门解释修订为三档：100/100 是 clean freeze，97/100 且失败局部集中是 controlled continuation，只允许继续残余修复/隔离，不允许直接训练；
 - 因此最终 Selector、最终 Generator 和完整新系统目前都不存在。
 
 ## 修订后的核心方法
@@ -88,13 +89,13 @@ CI 跨 0 不再自动淘汰职责合格组件，但也不能写成统计显著�
 
 ## 下一步
 
-下一步不是训练，而是执行 G222 residual sample-failure continuation amendment：
+下一步不是训练，而是执行 G223 residual sample-failure quarantine or repair candidate：
 
 ```text
-G222 residual continuation amendment
--> use G212M5 97/100 result and 3 failure rows
--> decide controlled isolation/repair versus revised continuation gate
--> write an explicit no-training decision manifest before any G300
+G223 residual sample-failure quarantine or repair candidate
+-> use only the 3 G212M5 failed rows and existing manifests
+-> repair only if the cited evidence directly supports the relation
+-> otherwise quarantine and report model-val screen impact
 ```
 
-G218/G212R3/G212M3/G219/G220/G212R4/G212M4/G221/G212R5/G212M5 说明当前路线仍有积极信号：长度、split、NIAH 和 unsupported ratio 都稳定，unsupported 固定样本层已经稳定通过，最近一轮固定样本达到 97/100。但这仍不是训练许可；不得把失败样本改写为通过、降低 TRUE 阈值、改最终测试集边界、读取 held-out，或按已看到的结果临时改规则凑通过。
+G218/G212R3/G212M3/G219/G220/G212R4/G212M4/G221/G212R5/G212M5/G222 说明当前路线仍有积极信号：长度、split、NIAH 和 unsupported ratio 都稳定，unsupported 固定样本层已经稳定通过，最近一轮固定样本达到 97/100。但这仍不是训练许可；不得把失败样本改写为通过、降低 TRUE 阈值、改最终测试集边界、读取 held-out，或按已看到的结果临时改规则凑通过。

@@ -2,7 +2,7 @@
 
 **路线：** `03_generator_grounding_repair_2026-08-18`
 **日期：** 2026-08-18
-**修订状态：** `G212M5 NOT FREEZE READY / G222 NEXT / NO TRAINING STARTED`
+**修订状态：** `G222 CONTROLLED CONTINUATION / G223 NEXT / NO TRAINING STARTED`
 **修订原因：** 明确旧 Selector 的数据与外推边界；把模块资格、强统计结论和完整系统资格分开；将 Generator-aware Selector 纳入同一条交替冻结路线
 **上一阶段：** G230 `COMPLETE / NO CANDIDATE`
 **主生成模型：** `ibm-granite/granite-4.1-3b@c0650403...`
@@ -482,6 +482,16 @@ G222 修订边界：
 - 必须显式区分“100/100 硬门未达成”和“路线无积极信号”；
 - 可以提出受控隔离、窄 target 修复，或把 freeze/continuation gate 改为“局部缺陷可隔离、结论带限制”的规则，但必须写明统计风险、model-val screen 影响、报告限制和后续验证条件；
 - G222 后若仍无可审计的 continuation rule 或 freeze readiness，则继续 blocked，不得训练。
+
+G222 已完成 residual continuation amendment：把原 100/100 硬门拆成 clean freeze、controlled continuation 和 stop/fallback 三档。G212M5 不满足 clean freeze，但满足 controlled continuation：97/100 通过、0 uncertain、0 forced structural failures，unsupported/NIAH train/NIAH model-val 均为 20/20，剩余失败全部集中在 2Wiki answerable。G222 不解锁 G300；下一步为 G223 residual sample-failure quarantine or repair candidate。报告见 [G222_RESIDUAL_CONTINUATION_AMENDMENT.md](G222_RESIDUAL_CONTINUATION_AMENDMENT.md)。
+
+G223 修订边界：
+
+- 只围绕 G212M5 的 3 条失败 case 操作，不读取 held-out/sealed/dev；
+- 若引用证据直接支持缺失关系，只允许窄 target 修复；
+- 若引用证据不能直接支持缺失关系，必须隔离对应 case；train answerable 隔离时同步处理 counterpart，model-val 隔离时必须报告更小 screen size；
+- 不得把 G212M5 的失败改写为通过；
+- G223 仍不是最终测试，也不能产生强统计结论。
 
 ### G300：训练实现
 
