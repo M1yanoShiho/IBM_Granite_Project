@@ -2,9 +2,9 @@
 
 **日期：** 2026-08-18
 **计划：** [PLAN.md](PLAN.md)
-**当前状态：** `G223 CONTROLLED CONTINUATION READY / G300 LIMITED DRAFT NEXT / NO TRAINING STARTED`
+**当前状态：** `G300 IMPLEMENTATION SMOKE PASS / G310 SEED13 SCREEN NEXT / HELD-OUT BLOCKED`
 
-用户已确认本路线的边界和协同顺序。G210 数据冻结判定已失败；用户已进一步授权按积极信号原则修订计划。G215 将失败解释为“原数据冻结失败但路线可修”；G200R2 已完成 answer-alias-preserving materialization；G210R2 已完成 structural、TRUE 和 pre-sample finalize，自动数据门通过；G212 length gate 发现唯一 overlength train group；G214 已成组排除该 train group 并保持数据门通过；G212R length gate 已通过；G212M 固定 100 条 sample review/adjudication 为 92 PASS / 8 FAIL / 0 UNCERTAIN；G216 已排除失败样本对应 11 个 case，预冻结数据门仍通过；G212R2 length gate 已通过；G212M2 新固定 100 条 sample 仍为 92 PASS / 8 FAIL / 0 UNCERTAIN；G217 已把判定措辞改为中性 sample review/adjudication；G218 已完成系统性 target 修复、structural/TRUE 和 finalize，自动数据门仍通过；G212R3 length gate 已通过并生成新固定 100 条 sample；G212M3 sample review/adjudication 为 91 PASS / 9 FAIL / 0 UNCERTAIN；G219 controlled target repair 在 finalize 失败，2Wiki model-val 为 94，低于当前最低 100；G220 conservative filter 通过 pre-sample gates，2Wiki model-val 为 99；G212R4 length gate 已通过并生成新固定 100 条 sample；G212M4 sample review/adjudication 为 90 PASS / 10 FAIL / 0 UNCERTAIN；G221 targeted sample-failure repair 通过 pre-sample gates，2Wiki model-val 为 96；G212R5 length gate 已通过并生成新固定 100 条 sample；G212M5 sample review/adjudication 为 97 PASS / 3 FAIL / 0 UNCERTAIN；G222 已把该结果判为 controlled continuation，不是 clean freeze；G223 已隔离剩余失败并通过 controlled continuation gate。下一步为 G300 limited draft entry；仍不允许读取 held-out 或启动 Selector utility generation。
+用户已确认本路线的边界和协同顺序。G210 数据冻结判定已失败；用户已进一步授权按积极信号原则修订计划。G215 将失败解释为“原数据冻结失败但路线可修”；G200R2 已完成 answer-alias-preserving materialization；G210R2 已完成 structural、TRUE 和 pre-sample finalize，自动数据门通过；G212 length gate 发现唯一 overlength train group；G214 已成组排除该 train group 并保持数据门通过；G212R length gate 已通过；G212M 固定 100 条 sample review/adjudication 为 92 PASS / 8 FAIL / 0 UNCERTAIN；G216 已排除失败样本对应 11 个 case，预冻结数据门仍通过；G212R2 length gate 已通过；G212M2 新固定 100 条 sample 仍为 92 PASS / 8 FAIL / 0 UNCERTAIN；G217 已把判定措辞改为中性 sample review/adjudication；G218 已完成系统性 target 修复、structural/TRUE 和 finalize，自动数据门仍通过；G212R3 length gate 已通过并生成新固定 100 条 sample；G212M3 sample review/adjudication 为 91 PASS / 9 FAIL / 0 UNCERTAIN；G219 controlled target repair 在 finalize 失败，2Wiki model-val 为 94，低于当前最低 100；G220 conservative filter 通过 pre-sample gates，2Wiki model-val 为 99；G212R4 length gate 已通过并生成新固定 100 条 sample；G212M4 sample review/adjudication 为 90 PASS / 10 FAIL / 0 UNCERTAIN；G221 targeted sample-failure repair 通过 pre-sample gates，2Wiki model-val 为 96；G212R5 length gate 已通过并生成新固定 100 条 sample；G212M5 sample review/adjudication 为 97 PASS / 3 FAIL / 0 UNCERTAIN；G222 已把该结果判为 controlled continuation，不是 clean freeze；G223 已隔离剩余失败并通过 controlled continuation gate；G300 已完成训练入口实现、长度审计和 1-group smoke。下一步为 G310 seed13 screen；仍不允许读取 held-out 或启动 Selector utility generation。
 
 ## 阶段 G：Generator
 
@@ -43,8 +43,8 @@
 | G212M5 | Post-G221 sample adjudication | 对 G212R5 100 条 fixed sample 做判定并写 freeze readiness | review rows、adjudication、freeze readiness manifest | FAIL / 97 PASS / SAMPLE REVIEW |
 | G222 | Residual continuation amendment | 处理 G212M5 剩余 3 条失败和 100/100 硬门是否仍应阻断路线 | amendment report、decision manifest | COMPLETE / CONTROLLED CONTINUATION |
 | G223 | Residual sample-failure candidate | 对 G212M5 剩余 3 条失败做窄修或隔离，并记录 model-val screen 影响 | revised bundle 或 residual decision manifest | COMPLETE / CONTROLLED CONTINUATION READY |
-| G300 | Training implementation | query-group loss、citation weighting、fresh/continuation | tests、smoke manifest | NEXT / LIMITED DRAFT ENTRY |
-| G310 | Seed13 screen | 比较 GR-F 与 GR-C | two adapters、model-val report | BLOCKED BY G300 |
+| G300 | Training implementation | query-group loss、citation weighting、fresh/continuation | tests、smoke manifest | COMPLETE / SMOKE PASS |
+| G310 | Seed13 screen | 比较 GR-F 与 GR-C | two adapters、model-val report | NEXT / LIMITED SEED13 SCREEN |
 | G320 | Recipe freeze | 按 maximin 冻结唯一 Generator 配方 | recipe、tie-break trace | BLOCKED BY G310 |
 | G330 | Three-seed fit | 唯一配方训练 seeds 13/42/73 | adapters、training manifests | BLOCKED BY G320 |
 | G400 | Locked NIAH qualification | 生成 NIAH full/stress/unsupported | generations、answer report | BLOCKED BY G330 |
@@ -85,6 +85,7 @@
 - [ ] 不要求每个次级 slice 的 CI 都显著才能进入下一阶段。
 - [ ] 不挑单个最好 seed。
 - [ ] 不把 context/leave-one-out rows 当作独立问题。
+- [ ] 不把 G300 smoke adapter 当作正式 Generator 候选。
 - [ ] 不删除、还原或提交用户无关文件。
 - [ ] 不把 G210 的 76/100 改写为通过；只能作为 G200R/G210R 的诊断输入。
 
@@ -134,3 +135,4 @@
 - G212M5 post-G221 sample review/adjudication：对 G212R5 固定 100 条样本完成判定。结果为 97 PASS / 3 FAIL / 0 UNCERTAIN；unsupported、NIAH train 和 NIAH model-val 均为 20/20 通过，失败只剩 2Wiki answerable target relation self-containment。freeze readiness 为 `NOT_FREEZE_READY_SAMPLE_REVIEW_FAILED`，G300 仍 locked；下一步为 G222 residual continuation amendment。产物位于 `artifacts/G212M5/`，报告见 `G212M5_SAMPLE_REVIEW_REPORT.md`。
 - G222 residual continuation amendment：将 100/100 硬门拆成 clean freeze、controlled continuation 和 stop/fallback 三档。G212M5 不满足 clean freeze，但满足 controlled continuation；这允许继续做 G223 残余修复/隔离，但不允许直接训练、utility labels 或 held-out。产物位于 `artifacts/G222/`，报告见 `G222_RESIDUAL_CONTINUATION_AMENDMENT.md`。
 - G223 residual sample-failure candidate：新增 `scripts/full_flow_g223_residual_sample_failure_candidate.py`，对 G212M5 剩余 3 条失败做 deletion-only quarantine，并同步隔离 2 条 2Wiki train unsupported counterpart。修订后 train/validation cases 为 2,370/302；NIAH train/model-val 为 511/207，2Wiki train/model-val 为 815/95，unsupported groups 为 1,044，unsupported ratio 为 11.3392%，split overlap=0。G223 为 `CONTROLLED_CONTINUATION_READY`，只允许 G300 limited draft entry；不是 clean freeze。产物位于 `artifacts/G223/`，报告见 `G223_RESIDUAL_SAMPLE_FAILURE_CANDIDATE_REPORT.md`。
+- G300 training implementation：新增 `scripts/full_flow_g300_draft_lora_train.py` 和 `tests/scripts/test_full_flow_g300_draft_lora_train.py`，实现 G223-only controlled entry、query-group equalized loss、citation token weighting、GR-F fresh LoRA 和 GR-C continuation 入口。正式 runtime 为 `/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G300-v1`；长度审计覆盖 train 2,370 groups / 9,207 examples、validation 302 groups / 1,924 examples，0 个超过 2,304。GR-F seed13 的 1-group smoke 完成 adapter 保存和 fresh-base reload，显存峰值约 9.12GB，服务器测试 6 passed。G300 为 `COMPLETE / SMOKE PASS`，只证明训练入口可执行；不是 clean freeze、不是 Generator 效果结论，也不授权 held-out 或 Selector utility labels。产物位于 `artifacts/G300/`，报告见 `G300_TRAINING_IMPLEMENTATION_REPORT.md`。

@@ -2,7 +2,7 @@
 
 **路线：** `03_generator_grounding_repair_2026-08-18`
 **日期：** 2026-08-18
-**修订状态：** `G223 CONTROLLED CONTINUATION READY / G300 LIMITED DRAFT NEXT / NO TRAINING STARTED`
+**修订状态：** `G300 IMPLEMENTATION SMOKE PASS / G310 SEED13 SCREEN NEXT / HELD-OUT BLOCKED`
 **修订原因：** 明确旧 Selector 的数据与外推边界；把模块资格、强统计结论和完整系统资格分开；将 Generator-aware Selector 纳入同一条交替冻结路线
 **上一阶段：** G230 `COMPLETE / NO CANDIDATE`
 **主生成模型：** `ibm-granite/granite-4.1-3b@c0650403...`
@@ -518,6 +518,8 @@ prompt = 0
 ```
 
 每个 question group 的多个 context variants 合计等权，不能把 8 个变体当成 8 个独立问题。
+
+G300 已完成实现和 smoke：新增 `scripts/full_flow_g300_draft_lora_train.py` 和测试，正式 runtime 为 `/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G300-v1`。长度审计覆盖 train 2,370 groups / 9,207 examples、validation 302 groups / 1,924 examples，0 个超过 2,304；GR-F seed13 的 1-group smoke 完成 adapter 保存和 fresh-base reload，显存峰值约 9.12GB。G300 的结论只是不带 held-out 的可执行性通过；smoke adapter 不作为正式 Generator 候选，也不代表 Generator repair 成功。报告见 [G300_TRAINING_IMPLEMENTATION_REPORT.md](G300_TRAINING_IMPLEMENTATION_REPORT.md)。
 
 ### G310/G320：两个便宜配方选一个
 
