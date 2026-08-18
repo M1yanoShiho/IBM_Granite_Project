@@ -1,0 +1,47 @@
+{
+  "artifacts": {
+    "freeze_readiness_manifest": "8b15f60b184d4fa918d4f3a9682ba95b5585998dcc56193ca89ef68768c06b64",
+    "ordered_review_ids": "058ab92a1035612a7ac5dae613fb15a2c80dea93992a9137fd11022c9ac6ffeb",
+    "sample_review_rows": "a79756358e00338a9af3e7a97f23b031d84091ee7b90421e46568fb816206872",
+    "sample_review_summary": "e0b0c189cae4bb2ce620f5d55396a043ce7b40ef79accac7108bd0ca25be2e13"
+  },
+  "commands": {
+    "adjudicate": "scripts/full_flow_g212m_sample_adjudication.py --manual-sample G212R5-v1/manual_sample.jsonl --prepare-manifest G212R5-v1/prepare_manifest.json --length-audit G212R5-v1/length_audit.json --output-dir G212M5-v1/review --reviewer-label fixed_sample_adjudicator --fail indices 14,17,56",
+    "tests": "python -m pytest -q tests/scripts/test_full_flow_g212m_sample_adjudication.py"
+  },
+  "date": "2026-08-18",
+  "dev_read": false,
+  "fail_indices": [
+    14,
+    17,
+    56
+  ],
+  "input_sha256": {
+    "length_audit": "df7ac5f568c583298210a4123a7cd734a161d9e05d62a07905451c9925e1a978",
+    "manual_sample": "488483b1d6752d014b82b792e12925dbaac0ac9f6af1375aced963b2a7fc426f",
+    "prepare_manifest": "7f0c81e8a04e77592a825cd6459eff843d194fc5a22d414d228510887e22b6bb"
+  },
+  "results": {
+    "fail": 3,
+    "forced_structural_failures": 0,
+    "freeze_ready": false,
+    "g300_unlocked": false,
+    "length_audit_status": "PASS",
+    "next_stage": "G222 residual sample-failure continuation amendment",
+    "pass": 97,
+    "sample_review_status": "FAIL_SAMPLE_REVIEW",
+    "sample_rows": 100,
+    "uncertain": 0
+  },
+  "runtime_dir": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G212M5-v1/review",
+  "schema_version": "full-flow-g212m5-execution-audit-v1",
+  "script_sha256": "654150d2cca2b171757f6e8163ffbc4dc17d032f686ce7a062890f86f83377e3",
+  "sealed_or_heldout_read": false,
+  "server_repo_head_at_execution": "028be06c93eee83d6c8b839427f4a4321ad6f98e",
+  "source_head_before_stage": "028be06c93eee83d6c8b839427f4a4321ad6f98e",
+  "stage": "G212M5",
+  "status": "NOT_FREEZE_READY_SAMPLE_REVIEW_FAILED",
+  "test_sha256": "986def015da7649f012e69bc103f338199362fa3ba96fd0be20ca7e1bffbf9d9",
+  "training_started": false,
+  "utility_labels_started": false
+}

@@ -1,0 +1,66 @@
+{
+  "by_stratum": {
+    "2wiki:train-fit:twowiki_evidence_chain:answerable": {
+      "FAIL": 2,
+      "PASS": 18,
+      "UNCERTAIN": 0
+    },
+    "2wiki:train-fit:unsupported_support_removed:unsupported": {
+      "FAIL": 0,
+      "PASS": 20,
+      "UNCERTAIN": 0
+    },
+    "2wiki:train-modelval:twowiki_evidence_chain:answerable": {
+      "FAIL": 1,
+      "PASS": 19,
+      "UNCERTAIN": 0
+    },
+    "niah:train-fit:niah_qa2d_single_claim:answerable": {
+      "FAIL": 0,
+      "PASS": 20,
+      "UNCERTAIN": 0
+    },
+    "niah:train-modelval:niah_qa2d_single_claim:answerable": {
+      "FAIL": 0,
+      "PASS": 20,
+      "UNCERTAIN": 0
+    }
+  },
+  "dev_read": false,
+  "fail": 3,
+  "fail_or_uncertain_rows": [
+    {
+      "audit_id": "b4ba7020d1d1a3a4ddfa43bc",
+      "case_id": "2wiki::7e38489c0bda11eba7f7acde48001122",
+      "review_decision": "FAIL",
+      "review_reason": "Evidence only supports France Gall collaborating with Michel Berger; it does not state a spouse relationship.",
+      "sample_index": 14,
+      "sample_stratum": "2wiki:train-fit:twowiki_evidence_chain:answerable"
+    },
+    {
+      "audit_id": "b643b0718c6558240a586549",
+      "case_id": "2wiki::c083071908cf11ebbd95ac1f6bf848b6",
+      "review_decision": "FAIL",
+      "review_reason": "Jessica Birkel evidence gives nationality and birth date but not birthplace, so the same-birthplace answer is not directly supported.",
+      "sample_index": 17,
+      "sample_stratum": "2wiki:train-fit:twowiki_evidence_chain:answerable"
+    },
+    {
+      "audit_id": "165f1cf843ef6bdd1840ad40",
+      "case_id": "2wiki::23257d6e087c11ebbd69ac1f6bf848b6",
+      "review_decision": "FAIL",
+      "review_reason": "Rio Grande Band evidence only says it tours for an American singer-songwriter; it does not directly state the band origin country.",
+      "sample_index": 56,
+      "sample_stratum": "2wiki:train-modelval:twowiki_evidence_chain:answerable"
+    }
+  ],
+  "forced_structural_failures": 0,
+  "pass": 97,
+  "sample_rows": 100,
+  "schema_version": "full-flow-g212m-sample-review-summary-v1",
+  "sealed_or_heldout_read": false,
+  "status": "FAIL_SAMPLE_REVIEW",
+  "training_started": false,
+  "uncertain": 0,
+  "utility_labels_started": false
+}
