@@ -2,7 +2,7 @@
 
 **路线：** `03_generator_grounding_repair_2026-08-18`
 **日期：** 2026-08-18
-**修订状态：** `G220 PRE-SAMPLE PASS / G212R4 NEXT / NO TRAINING STARTED`
+**修订状态：** `G212R4 LENGTH PASS / G212M4 NEXT / NO TRAINING STARTED`
 **修订原因：** 明确旧 Selector 的数据与外推边界；把模块资格、强统计结论和完整系统资格分开；将 Generator-aware Selector 纳入同一条交替冻结路线
 **上一阶段：** G230 `COMPLETE / NO CANDIDATE`
 **主生成模型：** `ibm-granite/granite-4.1-3b@c0650403...`
@@ -455,6 +455,8 @@ G220 修订边界：
 - G212R4/G212M4 写出 freeze readiness PASS 前不得启动 G300、utility labels、Selector 训练或 held-out。
 
 G220 已完成保守隔离并达到 pre-sample pass：新增 `scripts/full_flow_g220_conservative_filter.py`，不再沿用 G219 的 relation-explicit target rewrite，而是回到 G218 已通过 structural/TRUE/finalize 的 pre-sample bundle，只隔离 G212M3 固定样本判定失败的 9 条 case，并对 1 条失败的 2Wiki train answerable case 同步隔离 unsupported counterpart。修订后 train/validation cases 为 2,379/310，NIAH train/model-val 为 512/211，2Wiki train/model-val 为 819/99，unsupported groups 为 1,048，unsupported update ratio 为 11.3432%，split overlap=0，pre-sample gates 全部通过。这个 `99` 是样本隔离后的实际内部 screen size，不是把 G219 失败改写为通过，也不是 TRUE 阈值变化；后续报告必须声明该 screen size 较原 `>=100` 保护略弱。G220 仍不能解锁 G300；下一步必须执行 G212R4 length/sample review 和 G212M4 固定样本判定。报告见 [G220_CONSERVATIVE_FILTER_REPORT.md](G220_CONSERVATIVE_FILTER_REPORT.md)。
+
+G212R4 已对 G220 bundle 重跑 length/sample prepare：更新 `scripts/full_flow_g212_manual_length_audit.py` 以接受 G220 manifest schema；长度审计覆盖 2,689 cases / 11,211 examples，`max_length=2304`，over max length 为 0，最大长度 2,120，truncation rate 为 0。固定样本为 100 条，5 个 stratum 各 20 条，全部仍为待判定状态。因此 G212R4 只达到 `LENGTH PASS / SAMPLE PENDING`，不能解锁 G300；下一步为 G212M4 sample adjudication。报告见 [G212R4_LENGTH_SAMPLE_AUDIT_REPORT.md](G212R4_LENGTH_SAMPLE_AUDIT_REPORT.md)。
 
 ### G300：训练实现
 

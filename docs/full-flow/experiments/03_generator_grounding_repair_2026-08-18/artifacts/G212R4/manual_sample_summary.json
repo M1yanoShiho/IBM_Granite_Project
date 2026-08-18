@@ -1,0 +1,18 @@
+{
+  "dev_read": false,
+  "review_rows_required": 100,
+  "sample_per_stratum": 20,
+  "sample_rows": 100,
+  "sample_seed": "G212R4-v1-fixed-stratified-sample",
+  "schema_version": "full-flow-g212-manual-sample-summary-v1",
+  "sealed_or_heldout_read": false,
+  "status": "MANUAL_REVIEW_PENDING",
+  "stratum_counts": {
+    "2wiki:train-fit:twowiki_evidence_chain:answerable": 20,
+    "2wiki:train-fit:unsupported_support_removed:unsupported": 20,
+    "2wiki:train-modelval:twowiki_evidence_chain:answerable": 20,
+    "niah:train-fit:niah_qa2d_single_claim:answerable": 20,
+    "niah:train-modelval:niah_qa2d_single_claim:answerable": 20
+  },
+  "training_started": false
+}
