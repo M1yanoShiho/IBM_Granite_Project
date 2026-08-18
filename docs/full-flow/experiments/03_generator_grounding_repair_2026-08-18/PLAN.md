@@ -2,7 +2,7 @@
 
 **路线：** `03_generator_grounding_repair_2026-08-18`
 **日期：** 2026-08-18
-**修订状态：** `G212R2 LENGTH PASS / G212M2 REQUIRED / NO TRAINING STARTED`
+**修订状态：** `G212M2 SAMPLE REVIEW FAILED / SYSTEMATIC TARGET REPAIR REQUIRED / NO TRAINING STARTED`
 **修订原因：** 明确旧 Selector 的数据与外推边界；把模块资格、强统计结论和完整系统资格分开；将 Generator-aware Selector 纳入同一条交替冻结路线
 **上一阶段：** G230 `COMPLETE / NO CANDIDATE`
 **主生成模型：** `ibm-granite/granite-4.1-3b@c0650403...`
@@ -414,6 +414,16 @@ G216 修订边界：
 G216 已完成上述窄修：只排除 G212M 失败样本对应的 11 个 case，其中 3 个 2Wiki train answerable 失败 case 同步排除 3 个 unsupported counterpart。修订后 train/validation cases 为 2,388/316；NIAH train/model-val 为 515/213，2Wiki train/model-val 为 824/103，unsupported groups 为 1,049，unsupported update ratio 为 11.2929%，split overlap=0，所有 pre-manual gates 仍通过。完整 revised cases 留在服务器 `/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G216-v1/data`；报告见 [G216_SAMPLE_REVIEW_REPAIR_REPORT.md](G216_SAMPLE_REVIEW_REPAIR_REPORT.md)。G300 仍 blocked until G212R2 freeze readiness PASS。
 
 G212R2 已对 G216 bundle 重跑 length/sample packet prepare：全量 11,295 examples 中 over `max_length=2304` 的数量为 0，最大长度 2,120，length gate 通过；fixed sample 为 100 条，但所有 rows 均为 `review_decision=PENDING`，所以 G212R2 不能解锁 G300。下一步为 G212M2 sample review/adjudication；报告见 [G212R2_LENGTH_AUDIT_REPORT.md](G212R2_LENGTH_AUDIT_REPORT.md)。
+
+G212M2 已完成新固定 100 条 sample review/adjudication：92 PASS / 8 FAIL / 0 UNCERTAIN。失败再次集中在 2Wiki target self-containment、关系链锚定，以及 1 条 NIAH QA2D title/entity truncation。该结果说明继续只排除 sampled failed rows 会变成样本过拟合；下一步必须执行 G218 systematic target repair，不能进入 G300。报告见 [G212M2_SAMPLE_REVIEW_REPORT.md](G212M2_SAMPLE_REVIEW_REPORT.md)。
+
+G218 修订边界：
+
+- 只针对 G212M/G212M2 重复暴露的 2Wiki target self-containment、relation anchor preservation、title truncation，以及 NIAH QA2D title/entity truncation；
+- 不允许降低 TRUE threshold、改变 TRUE checkpoint、读取 held-out/dev、提高 `max_length=2304` 或改最终测试边界；
+- 如果生成或改写 target text，必须重新执行 structural 和 TRUE inference；不能用 subset inheritance；
+- 修订后必须重新写 train/validation cases、manifest、ordered IDs、SHA256，并重跑 length 和 sample review；
+- 只有修复后 freeze readiness 为 PASS，才允许进入 G300。
 
 ### G300：训练实现
 

@@ -2,9 +2,9 @@
 
 **日期：** 2026-08-18
 **计划：** [PLAN.md](PLAN.md)
-**当前状态：** `G212R2 LENGTH PASS / G212M2 REQUIRED / NO TRAINING STARTED`
+**当前状态：** `G212M2 SAMPLE REVIEW FAILED / SYSTEMATIC TARGET REPAIR REQUIRED / NO TRAINING STARTED`
 
-用户已确认本路线的边界和协同顺序。G210 hard data gate 已失败；用户已进一步授权按积极信号原则修订计划。G215 将失败解释为“原数据冻结失败但路线可修”；G200R2 已完成 answer-alias-preserving materialization；G210R2 已完成 structural、TRUE 和 pre-manual finalize，自动数据门通过；G212 length gate 发现唯一 overlength train group；G214 已成组排除该 train group 并保持数据门通过；G212R length gate 已通过；G212M 固定 100 条 sample review/adjudication 为 92 PASS / 8 FAIL / 0 UNCERTAIN；G216 已排除失败样本对应 11 个 case，预冻结数据门仍通过；G212R2 length gate 已通过并生成新的固定 100 条 sample。下一步必须执行 G212M2 sample review/adjudication；仍不允许在 freeze readiness 通过前启动训练、utility generation 或 held-out。
+用户已确认本路线的边界和协同顺序。G210 hard data gate 已失败；用户已进一步授权按积极信号原则修订计划。G215 将失败解释为“原数据冻结失败但路线可修”；G200R2 已完成 answer-alias-preserving materialization；G210R2 已完成 structural、TRUE 和 pre-manual finalize，自动数据门通过；G212 length gate 发现唯一 overlength train group；G214 已成组排除该 train group 并保持数据门通过；G212R length gate 已通过；G212M 固定 100 条 sample review/adjudication 为 92 PASS / 8 FAIL / 0 UNCERTAIN；G216 已排除失败样本对应 11 个 case，预冻结数据门仍通过；G212R2 length gate 已通过；G212M2 新固定 100 条 sample 仍为 92 PASS / 8 FAIL / 0 UNCERTAIN。下一步必须执行 G218 systematic target repair；仍不允许在 freeze readiness 通过前启动训练、utility generation 或 held-out。
 
 ## 阶段 G：Generator
 
@@ -29,8 +29,9 @@
 | G212M | Sample review/adjudication | 对 G212R 100 条 fixed sample 做判定并写 freeze readiness | review rows、adjudication、freeze readiness manifest | FAIL / SAMPLE REVIEW |
 | G216 | Controlled sample-review repair | 修复或过滤 G212M 暴露的 2Wiki 自洽性问题与 NIAH QA2D 错配 | revised bundle、manifest、rerun audit | COMPLETE / PRE-MANUAL PASS |
 | G212R2 | Revised length/sample review | 对 G216 bundle 重跑长度审计并准备固定样本 | length report、sample packet、freeze readiness | LENGTH PASS / SAMPLE PENDING |
-| G212M2 | Revised sample review/adjudication | 对 G212R2 100 条 fixed sample 做判定并写 freeze readiness | review rows、adjudication、freeze readiness manifest | NEXT / NO TRAINING |
-| G300 | Training implementation | query-group loss、citation weighting、fresh/continuation | tests、smoke manifest | BLOCKED BY G212M2 PASS |
+| G212M2 | Revised sample review/adjudication | 对 G212R2 100 条 fixed sample 做判定并写 freeze readiness | review rows、adjudication、freeze readiness manifest | FAIL / SAMPLE REVIEW |
+| G218 | Systematic target repair | 系统修复 2Wiki target self-containment 与 NIAH QA2D 标题/实体截断 | revised materialization、audit、manifest | NEXT / NO TRAINING |
+| G300 | Training implementation | query-group loss、citation weighting、fresh/continuation | tests、smoke manifest | BLOCKED BY G218 + REVIEW PASS |
 | G310 | Seed13 screen | 比较 GR-F 与 GR-C | two adapters、model-val report | BLOCKED BY G300 |
 | G320 | Recipe freeze | 按 maximin 冻结唯一 Generator 配方 | recipe、tie-break trace | BLOCKED BY G310 |
 | G330 | Three-seed fit | 唯一配方训练 seeds 13/42/73 | adapters、training manifests | BLOCKED BY G320 |
@@ -107,3 +108,4 @@
 - G212M sample review/adjudication：新增 `scripts/full_flow_g212m_sample_adjudication.py` 并对 G212R 固定 100 条样本完成判定。结果为 92 PASS / 8 FAIL / 0 UNCERTAIN；失败集中在 2Wiki answerable target 的自洽 relation chain 和 NIAH 新 model-val 的少数 QA2D 语义错配。freeze readiness 为 `NOT_FREEZE_READY_SAMPLE_REVIEW_FAILED`，G300 仍 locked；下一步为 G216 controlled sample-review repair。产物位于 `artifacts/G212M/`，报告见 `G212M_SAMPLE_REVIEW_REPORT.md`。
 - G216 controlled sample-review repair：新增 `scripts/full_flow_g216_sample_review_repair.py`，只排除 G212M 失败样本对应 case；其中 2Wiki train answerable 失败 case 同步排除 unsupported counterpart。共排除 11 个 case，修订后 train/validation cases 为 2,388/316；NIAH train/model-val 为 515/213，2Wiki train/model-val 为 824/103，unsupported groups 为 1,049，unsupported update ratio 为 11.2929%，split group/component overlap=0，所有 pre-manual gates 仍通过。完整 revised cases 留在服务器 `/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G216-v1/data`，Git 小产物位于 `artifacts/G216/`，报告见 `G216_SAMPLE_REVIEW_REPAIR_REPORT.md`。G216 未启动训练、utility labels 或 held-out；下一步为 G212R2 revised length/sample review。
 - G212R2 revised length/sample audit：对 G216 bundle 重跑 G212 prepare。长度审计覆盖 2,704 cases / 11,295 examples，`max_length=2304`，over max length 为 0，最大长度 2,120；fixed sample 为 5 个 stratum 各 20 条，但全部 `review_decision=PENDING`，未进入 adjudication。产物位于 `artifacts/G212R2/`，报告见 `G212R2_LENGTH_AUDIT_REPORT.md`。G212R2 未启动训练、utility labels 或 held-out；G212M2 通过前仍不能进入 G300。
+- G212M2 revised sample review/adjudication：对 G212R2 固定 100 条样本完成判定。结果仍为 92 PASS / 8 FAIL / 0 UNCERTAIN；失败再次集中在 2Wiki target self-containment 和 1 条 NIAH QA2D title/entity truncation。该结果说明 G216 窄删不足以解决系统性 target construction 问题；G300 仍 locked，下一步为 G218 systematic target repair。产物位于 `artifacts/G212M2/`，报告见 `G212M2_SAMPLE_REVIEW_REPORT.md`。

@@ -1,0 +1,34 @@
+{
+  "artifacts": {
+    "freeze_readiness_manifest": {
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G212M2-v1/review/freeze_readiness_manifest.json",
+      "sha256": "091715a899c39121442014d698b4486314c4c1c19455baad56d640e4275c1056"
+    },
+    "ordered_review_ids": {
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G212M2-v1/review/ordered_review_ids.json",
+      "sha256": "de137df7d9675d8664450a5992386776ed3ecd0c256384b2cb1a00409125683e"
+    },
+    "sample_review_rows": {
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G212M2-v1/review/sample_review_rows.jsonl",
+      "sha256": "630f21acd3dfa2e89126bfb9dabf1a191a505b0b240ce0638ad11919bbc759ce"
+    },
+    "sample_review_summary": {
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G212M2-v1/review/sample_review_summary.json",
+      "sha256": "ff46b678a27834a723e2f172bedaeaaa7444a1d0ab1aea4df5881661b366cdbf"
+    }
+  },
+  "command": "cd /home/fl25387/projects/IBM_Granite_Project_latest; /scratch/fl25387/IBM_Granite_Project_latest/envs/selector_mis_py311/bin/python scripts/full_flow_g212m_sample_adjudication.py --manual-sample /scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G212R2-v1/prepare/manual_sample.jsonl --prepare-manifest /scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G212R2-v1/prepare/prepare_manifest.json --length-audit /scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G212R2-v1/prepare/length_audit.json --output-dir /scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G212M2-v1/review --fail ... --reviewer-label project_operator",
+  "created_unix": 1787076026,
+  "dev_read": false,
+  "fail": 8,
+  "pass": 92,
+  "sample_review_status": "FAIL_SAMPLE_REVIEW",
+  "schema_version": "full-flow-g212m2-execution-audit-v1",
+  "script_sha256": "654150d2cca2b171757f6e8163ffbc4dc17d032f686ce7a062890f86f83377e3",
+  "sealed_or_heldout_read": false,
+  "stage": "G212M2",
+  "status": "NOT_FREEZE_READY_SAMPLE_REVIEW_FAILED",
+  "training_started": false,
+  "uncertain": 0,
+  "utility_labels_started": false
+}
