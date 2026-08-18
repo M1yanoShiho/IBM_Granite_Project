@@ -1,0 +1,49 @@
+{
+  "artifacts": {
+    "length_audit": {
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G212R3-v1/length_audit.json",
+      "sha256": "9647c6301a8c4390ef6535c8420db1eab648ccab58b0667386093383be41ae0b"
+    },
+    "length_rows": {
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G212R3-v1/length_rows.jsonl",
+      "sha256": "78890d262272d4a6ab1d1c11620db757752a9e945c9ebdacf5aa9ca4fc25ffe0"
+    },
+    "manual_sample": {
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G212R3-v1/manual_sample.jsonl",
+      "sha256": "dbe12b9c7f240d4393b984195b0a20180971291ff249dd76fa070e2b5b89db29"
+    },
+    "manual_sample_summary": {
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G212R3-v1/manual_sample_summary.json",
+      "sha256": "f7ccf073c07a0486069ddb0720f3639b4ebaa5122443241c029bfa1939f192ac"
+    }
+  },
+  "dev_read": false,
+  "elapsed_seconds": 32.47784948348999,
+  "input_counts": {
+    "manifest_train_cases": 2384,
+    "manifest_validation_cases": 315,
+    "train_cases": 2384,
+    "validation_cases": 315
+  },
+  "input_sha256": {
+    "pre_manual_manifest": "a5c291e005ef1a9aa4d333079f583235e7a5c5f3ab4a87b9d073a59accdde2ca",
+    "train_cases": "1a6006e4466a62de9d2b81aeddf3976e523e27342383f13b576f9e66c3425172",
+    "validation_cases": "3d8a168a7a8249e5611db1ccda428ca9e106accc7ed67a86c230f79c4366d810"
+  },
+  "length_audit_pass": true,
+  "manual_review_complete": false,
+  "manual_review_required_before_training": true,
+  "max_length": 2304,
+  "model_snapshot": "/scratch/fl25387/IBM_Granite_Project_latest/model-cache/models--ibm-granite--granite-4.1-3b/snapshots/c0650403e44e78ec0262dab1c90914c65b196c4e",
+  "model_snapshot_config_sha256": "9a0e589b69e7d3ad9fb9fb2c844aa7d7156e052cb7ea4211de7de48ab7c8525c",
+  "sample_rows": 100,
+  "sample_seed": "G212R3-v1-fixed-stratified-sample",
+  "schema_version": "full-flow-g212-prepare-manifest-v1",
+  "sealed_or_heldout_read": false,
+  "status": "LENGTH_PASS_MANUAL_REVIEW_PENDING",
+  "training_started": false,
+  "utility_labels_started": false,
+  "versions": {
+    "transformers": "4.57.6"
+  }
+}
