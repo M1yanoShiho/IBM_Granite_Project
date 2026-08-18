@@ -22,9 +22,10 @@
 | [`experiments/02_generator_selector_alignment_2026-08-15/PLAN.md`](experiments/02_generator_selector_alignment_2026-08-15/PLAN.md) | Generator-aware Selector 对齐总路线与数据/held-out 边界 | G230-complete-no-candidate / S300-blocked |
 | [`experiments/02_generator_selector_alignment_2026-08-15/TRACKER.md`](experiments/02_generator_selector_alignment_2026-08-15/TRACKER.md) | A000–G230 实际执行状态及后续条件阶段 | current |
 | [`experiments/02_generator_selector_alignment_2026-08-15/G230_RESULTS.md`](experiments/02_generator_selector_alignment_2026-08-15/G230_RESULTS.md) | draft LoRA answer/empty 改善与 citation gate 失败 | complete-no-candidate |
-| [`experiments/03_generator_grounding_repair_2026-08-18/README.md`](experiments/03_generator_grounding_repair_2026-08-18/README.md) | 第 03 路线零基础入口与边界 | planned |
-| [`experiments/03_generator_grounding_repair_2026-08-18/PLAN.md`](experiments/03_generator_grounding_repair_2026-08-18/PLAN.md) | Generator grounding repair、跨数据训练、选择和统计执行计划 | draft-for-review |
-| [`experiments/03_generator_grounding_repair_2026-08-18/TRACKER.md`](experiments/03_generator_grounding_repair_2026-08-18/TRACKER.md) | R000–R500 条件执行表 | planned |
+| [`experiments/03_generator_grounding_repair_2026-08-18/README.md`](experiments/03_generator_grounding_repair_2026-08-18/README.md) | 第 03 路线零基础入口、旧 Selector 外推边界与协同顺序 | revised-plan |
+| [`experiments/03_generator_grounding_repair_2026-08-18/PLAN.md`](experiments/03_generator_grounding_repair_2026-08-18/PLAN.md) | Generator 修复、冻结教师、Utility Selector 和完整系统分阶段计划 | revised-draft-for-review |
+| [`experiments/03_generator_grounding_repair_2026-08-18/TRACKER.md`](experiments/03_generator_grounding_repair_2026-08-18/TRACKER.md) | G000–H100 条件执行表 | revised-planned |
+| [`experiments/03_generator_grounding_repair_2026-08-18/snapshots/PLAN_v1_generator_only_2026-08-18.md`](experiments/03_generator_grounding_repair_2026-08-18/snapshots/PLAN_v1_generator_only_2026-08-18.md) | 修订前的 Generator-only 严格资格门方案 | superseded-snapshot |
 
 ## 更新规则
 

@@ -1,47 +1,73 @@
-# Generator grounding repair 执行跟踪表
+# Generator 修复与 Selector 分阶段协同跟踪表
 
 **日期：** 2026-08-18
 **计划：** [PLAN.md](PLAN.md)
-**当前状态：** `PLANNED / WAITING FOR PLAN REVIEW`
+**当前状态：** `REVISED PLAN / WAITING FOR USER CONFIRMATION`
 
-计划写成不等于已经授权训练。只有 R000 冻结并通过后，才允许开始新的实现或服务器运行。
+计划写成不等于已经授权执行。用户确认计划且 G000 冻结通过前，不允许启动新训练、utility generation 或 held-out。
 
-| ID | 阶段 | 目的 | 主要输入 | 必需产物 | 状态 |
-|---|---|---|---|---|---|
-| R000 | Protocol freeze | 冻结边界、比较、数据角色、指标和预算 | G230、A000、现有 manifests | frozen protocol、input manifest、held-out denylist | TODO |
-| R010 | Power/scope audit | 计算现有样本可确认的 MDE，冻结主张强度 | G230 discordance、各 split 数量 | power/MDE report | TODO |
-| R100 | Citation attribution | 用已有 G230 trace 定位 citation 损失最早发生在哪一步 | G230 generations、routing、MiniCheck rows | claim-level attribution table | TODO |
-| R110 | Independent audit | 复核自动归因和 MiniCheck 误判风险 | R100 分层样本 | audit report、route decision | TODO |
-| R120 | Splitter repair | 仅当 R110 判定 downstream splitter 为主责任时修复 | R100/R110 | tests、implementation report | CONDITIONAL |
-| R130 | Routing repair | 仅当 R110 判定 TRUE routing/final attachment 为主责任时修复 | R100/R110 | tests、implementation report | CONDITIONAL |
-| R200 | Data materialization | 构造跨 NIAH/2Wiki 的 claim-citation 与 unsupported 训练组 | allowed train splits | train/model-val cases、manifest | BLOCKED BY R110 |
-| R210 | Target audit | 审计每个事实、引用和 split，冻结最终训练数据 | R200 | target audit、leakage report、data freeze | BLOCKED BY R200 |
-| R300 | Training implementation | 实现 query-group loss、citation token weighting 和 warm start | frozen R210 data | tests、smoke manifest | BLOCKED BY R210 |
-| R310 | Seed-13 screen | 比较 fresh joint training 与 G230 continuation | R210、Granite base、GM13 | two adapters、model-val report | BLOCKED BY R300 |
-| R320 | Recipe freeze | 在未打开 qualification bundle 前选择唯一训练配方 | R310 model-val only | frozen recipe、tie-break trace | BLOCKED BY R310 |
-| R330 | Three-seed fit | 使用唯一配方训练 seeds 13/42/73 | R320 | 3 adapters、training manifests | BLOCKED BY R320 |
-| R400 | Locked dev generation | 一次运行 NIAH qualification 与 stress matrix | R330、G0 frozen inputs | generations、answer/coverage report | BLOCKED BY R330 |
-| R410 | Cross-dataset gate | 一次运行 2Wiki 和已揭示 citation regressions | R330、frozen cross-data inputs | per-dataset reports | BLOCKED BY R330 |
-| R420 | Independent citation/statistics | MiniCheck、paired CI、McNemar 和 family-level gate | R400/R410 | citation rows、statistics、gate decision | BLOCKED BY R400/R410 |
-| R430 | Generator freeze | 通过全部门才安装唯一 `G*`；否则记录 no candidate | R420 | G* manifest 或 STOP report | BLOCKED BY R420 |
-| R500 | Existing-plan handoff | `G*` 通过后解锁第 02 路线 S300；不在本路线重写 Selector | R430 G* | handoff manifest | CONDITIONAL |
+## 阶段 G：Generator
+
+| ID | 阶段 | 目的 | 必需产物 | 状态 |
+|---|---|---|---|---|
+| G000 | Protocol freeze | 冻结数据、职责门、强结论门、预算和 fallback | frozen protocol、input manifest、denylist | TODO |
+| G010 | Power/scope | 计算样本可分辨效应，不用 observed power | MDE/sensitivity report | BLOCKED BY G000 |
+| G100 | Citation attribution | 定位 G230 citation 最早失败阶段 | claim-level attribution rows | BLOCKED BY G000 |
+| G110 | Independent audit | 复核归因和 MiniCheck disagreement | audit report、route decision | BLOCKED BY G100 |
+| G120 | Splitter repair | 仅当 G110 证明 splitter 为主要断点 | tests、implementation report | CONDITIONAL |
+| G130 | Routing repair | 仅当 G110 证明 routing/attachment 为主要断点 | tests、implementation report | CONDITIONAL |
+| G200 | Data materialization | 构造 NIAH/2Wiki 原子 claim-citation 与 unsupported groups | train/model-val cases、manifest | BLOCKED BY G110 |
+| G210 | Target audit | 审计 support、citation、split、人工样本并冻结数据 | audit、leakage report、hashes | BLOCKED BY G200 |
+| G300 | Training implementation | query-group loss、citation weighting、fresh/continuation | tests、smoke manifest | BLOCKED BY G210 |
+| G310 | Seed13 screen | 比较 GR-F 与 GR-C | two adapters、model-val report | BLOCKED BY G300 |
+| G320 | Recipe freeze | 按 maximin 冻结唯一 Generator 配方 | recipe、tie-break trace | BLOCKED BY G310 |
+| G330 | Three-seed fit | 唯一配方训练 seeds 13/42/73 | adapters、training manifests | BLOCKED BY G320 |
+| G400 | Locked NIAH qualification | 生成 NIAH full/stress/unsupported | generations、answer report | BLOCKED BY G330 |
+| G410 | Cross-data qualification | 生成 2Wiki 和已揭示 citation regression | per-dataset outputs | BLOCKED BY G330 |
+| G420 | Generator gate | 技术门、职责门、tripwire 与强结论分开判定 | statistics、gate report | BLOCKED BY G400/G410 |
+| G430 | Teacher freeze | 新候选通过则 GQ=new；否则 GQ=G0 fallback | teacher manifest | BLOCKED BY G420 |
+
+## 阶段 S：Utility Selector
+
+| ID | 阶段 | 目的 | 必需产物 | 状态 |
+|---|---|---|---|---|
+| S100 | Utility pilot | 用冻结 GQ 做 100 题 full/leave-one-out 一致性检查 | pilot labels、budget report | BLOCKED BY G430 |
+| S110 | Utility materialization | 扩展 NIAH/2Wiki MUST_KEEP/SAFE_DROP/NEUTRAL | utility dataset、manifest | BLOCKED BY S100 PASS |
+| S200 | Utility implementation | legacy safety + generator utility，cap 保持 2 | code、tests、smoke | BLOCKED BY S110 |
+| S210 | Seed13 screen | 只用 model-val 冻结唯一 utility 配方/阈值 | screen report、recipe | BLOCKED BY S200 |
+| S220 | Three-seed fit | 训练/复现 SU seeds 13/42/73 | checkpoints、manifests | BLOCKED BY S210 |
+| S300 | Selector qualification | 同一 GQ 下比较 TopK、SL、SU | evidence/answer/citation gate report | BLOCKED BY S220 |
+| S310 | Selector freeze | 主目标 SQ=SU；仅 SL 单独通过时 SQ=SL fallback；否则 STOP | selector manifest 或 no-candidate report | BLOCKED BY S300 |
+
+## 阶段 I/H：完整系统
+
+| ID | 阶段 | 目的 | 必需产物 | 状态 |
+|---|---|---|---|---|
+| I100 | Retriever input freeze | 从真实 frozen Retriever 入口产生共同候选 | pool manifest、visibility report | BLOCKED BY S310 SQ |
+| I200 | Locked full-flow dev | A=TopK+G0、B=TopK+GQ、C=SL+GQ、D=SQ+GQ；重复臂复用 | generations、scores | BLOCKED BY I100 |
+| I210 | System responsibility gate | 检查 D-A 总作用、D-B Selector 净作用和安全 | gate report | BLOCKED BY I200 |
+| I220 | System freeze | 冻结 Retriever+SQ+GQ 为 SystemF | SystemF manifest、all hashes | BLOCKED BY I210 PASS |
+| H100 | One-time heldout | 分别运行 HotpotQA、MuSiQue-Full、RGB | per-dataset results、claim matrix | CONDITIONAL / REQUIRES USER AUTHORIZATION |
 
 ## 当前禁止事项
 
 - [ ] 不使用 sealed600。
-- [ ] 不读取 HotpotQA、MuSiQue-Full、RGB 的逐题内容、答案或分数。
-- [ ] 不在 qualification bundle 上比较多个新配方。
+- [ ] 不在 SystemF 冻结前读取或评分 HotpotQA、MuSiQue-Full、RGB。
+- [ ] 不同时更新 Generator 和 Selector。
+- [ ] utility labels 生成后不修改 GQ。
+- [ ] 不把 Legacy Selector 的 NIAH harmful precision 写成跨数据能力。
+- [ ] 不把模块职责通过写成统计显著优越。
+- [ ] 不要求每个次级 slice 的 CI 都显著才能进入下一阶段。
 - [ ] 不挑单个最好 seed。
-- [ ] 不把重复上下文行当成独立样本扩大统计量。
-- [ ] 不同时改变 Retriever、Selector、draft、splitter 和 TRUE。
+- [ ] 不把 context/leave-one-out rows 当作独立问题。
 - [ ] 不删除、还原或提交用户无关文件。
 
 ## Git/GitHub 同步纪律
 
-每个可独立复核的阶段完成后：
+每个可独立复核阶段完成后：
 
-1. 先检查远端分支是否有团队新提交；如有，正常拉取并合并，不建立临时 worktree，不 reset/stash 覆盖用户文件；
-2. 只提交本阶段明确列出的代码、协议和归档产物；
-3. 运行相应测试和 artifact/hash 检查；
-4. 推送 `origin/refactor/three-module-baseline`；
-5. 在本 tracker 记录 commit、服务器 run root、产物 SHA256 和阶段判定。
+1. fetch 并核对远端；团队有新提交时正常 pull/merge；
+2. 不建立临时 worktree，不 reset/stash 覆盖用户文件；
+3. 只提交该阶段代码、协议和归档产物；
+4. tests、hash、报告一致后 push；
+5. 在本 tracker 记录 commit、server run root、SHA256 和阶段判定。
