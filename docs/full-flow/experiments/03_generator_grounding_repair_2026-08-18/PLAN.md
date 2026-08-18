@@ -2,7 +2,7 @@
 
 **路线：** `03_generator_grounding_repair_2026-08-18`
 **日期：** 2026-08-18
-**修订状态：** `G210 FAIL / HARD DATA GATE / G300 BLOCKED / NO TRAINING STARTED`
+**修订状态：** `G215 COMPLETE / POSITIVE-SIGNAL DATA REVISION AUTHORIZED / NO TRAINING STARTED`
 **修订原因：** 明确旧 Selector 的数据与外推边界；把模块资格、强统计结论和完整系统资格分开；将 Generator-aware Selector 纳入同一条交替冻结路线
 **上一阶段：** G230 `COMPLETE / NO CANDIDATE`
 **主生成模型：** `ibm-granite/granite-4.1-3b@c0650403...`
@@ -160,6 +160,36 @@ Selector 和 Generator 不能完全独立，因为一条证据是否“有用”
 > 冻结的 Retriever + Selector + Generator 是否值得进入一次性 system held-out？
 
 这里要求完整系统主要联合结果正向、Selector 对同一个 GQ 有净作用、答案与引用没有实际不可接受的退化。最终 held-out 负责检验跨数据泛化，而不是继续选方法。
+
+### 4.4 数据冻结门与路线继续条件
+
+数据冻结门回答的问题不是：
+
+> 这个研究方向有没有意义？
+
+而是：
+
+> 当前这批训练/验证 target 是否足够干净、足够大，可以作为正式 Generator 训练和配方选择数据？
+
+G210 的 `2Wiki model-val >=100` 是预先冻结的验证稳定性保护：2Wiki 负责多证据链、跨 relation citation 和 Generator 配方 maximin 选择；model-val 太小会让配方选择、错误分层和 chain/citation 退化判断过不稳定。它不是自然科学常数，也不是说 99 和 100 有本质差异；它是为了防止在小样本上把偶然点估计当成方法成功。
+
+因此：
+
+- 已观察到 `76/100` 后，不能把原门改成 `>=76` 并宣布 G210 通过；这会变成按结果改门；
+- `76/100` 也不证明路线失败，只证明当前 target construction/audit 不能直接冻结；
+- 如果失败同时满足积极信号条件，路线应进入受控数据修订，而不是结束或直接训练。
+
+积极信号条件是：
+
+1. structural audit 全部通过；
+2. train/model-val split group overlap 和 component overlap 仍为 0；
+3. train answerable groups 仍足够支撑训练；
+4. unsupported update ratio 仍在预算内；
+5. 失败集中在可解释、可修订的 target construction/audit mismatch，而不是随机大面积污染；
+6. 没有读取 sealed600、system held-out、official dev 或任何禁止数据；
+7. 没有启动训练或 utility labels。
+
+满足这些条件时，允许新增一次数据修订阶段；不满足时才停止路线或降级结论。继续推进的含义是重做 G200/G210，而不是在失败数据上启动 G300。
 
 ---
 
@@ -320,6 +350,33 @@ G130 已完成确定性 runtime 修复：TRUE routing hypothesis 改为最终展
 G200 已完成数据预物化：NIAH train 515 groups、NIAH 新 model-val 307 groups、2Wiki train 1,075 groups、2Wiki model-val 136 groups、unsupported 1,075 updates，占 optimizer updates 10.1703%；split group/component overlap 均为 0。G200 只达到 `PRE_AUDIT PASS`，TRUE、minimal support、citation remap、unsupported support-absence、人工样本和长度/truncation 审计仍属于 G210/G300；G210 通过前不得训练。
 
 G210 已执行 structural audit 和 TRUE audit。结构性检查 3,108/3,108 通过；TRUE worklist 2,758 rows 中 2,140 entailed、618 not entailed。剔除 TRUE 不通过 case 后，NIAH train/model-val 为 515/215，2Wiki train/model-val 为 683/76，unsupported update ratio 为 12.4855%，split overlap 仍为 0。由于 2Wiki model-val answerable groups 只有 76，低于最低门 100，G210 hard data gate failed；G300 不得启动，人工样本审计也未进入。
+
+G215 已完成门槛解释与数据修订授权。G210 失败结论不变，但该失败不再被解释为路线无意义：结构、泄漏、训练规模、unsupported 比例和禁止数据边界均给出积极信号，失败主要集中在 2Wiki `official triple -> templated atomic fact -> TRUE entailment` 的 relation 模板/审计匹配。因此当前路线恢复为“受控数据修订继续”，下一步必须回到 G200R/G210R，不能从 G300 继续。
+
+### G215/G200R/G210R：数据修订恢复路径
+
+G215 只修改计划解释和恢复路径，不改任何 G210 结果、不启动训练、不降低 TRUE 阈值。
+
+允许的修订范围：
+
+- 只针对 G210 triage 指出的 2Wiki relation target construction/audit mismatch；
+- 在重新运行 TRUE 前预注册 relation 模板、support-sentence 对齐规则、yes/no target 规则和 candidate ordering；
+- 可以扩大 2Wiki official train 内的预审计候选池，但必须仍保持 train/model-val component isolation；
+- 可以让 2Wiki target 更贴近 support sentence 表达，但每个可训练 atomic target 仍必须有可审计 citation 绑定；
+- 重新执行 G200R materialization、G210R structural/TRUE/manual/length audit、manifest、ordered IDs 和 SHA256；
+- 旧 G210 76 个通过 case 只作为历史诊断，不自动并入冻结数据。
+
+禁止的修订范围：
+
+- 不把 G210 的最低门从 100 降到 76；
+- 不改变 TRUE checkpoint、TRUE threshold 或 judge 角色来凑通过；
+- 不读取 sealed600、HotpotQA、MuSiQue-Full、RGB 或 2Wiki official dev 来选方法；
+- 不按 TRUE 结果临时挑题补足数量；
+- 不在 G210 failure 数据上训练 Generator、生成 utility labels 或推进 S/I/H。
+
+G200R/G210R 通过后，才能进入 G300；如果 G210R 仍无法形成足够 2Wiki model-val，则记录数据修订失败，并由用户另行决定是否只做探索性 pilot 或降级为 NIAH-focused Generator study。
+
+G215 报告见 [G215_GATE_AND_DATA_REVISION_AMENDMENT.md](G215_GATE_AND_DATA_REVISION_AMENDMENT.md)。
 
 ### G300：训练实现
 
