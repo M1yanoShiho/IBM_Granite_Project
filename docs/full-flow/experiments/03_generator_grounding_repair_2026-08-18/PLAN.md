@@ -2,7 +2,7 @@
 
 **路线：** `03_generator_grounding_repair_2026-08-18`
 **日期：** 2026-08-18
-**修订状态：** `G200 COMPLETE / PRE-AUDIT PASS / G210 READY / NO TRAINING STARTED`
+**修订状态：** `G210 FAIL / HARD DATA GATE / G300 BLOCKED / NO TRAINING STARTED`
 **修订原因：** 明确旧 Selector 的数据与外推边界；把模块资格、强统计结论和完整系统资格分开；将 Generator-aware Selector 纳入同一条交替冻结路线
 **上一阶段：** G230 `COMPLETE / NO CANDIDATE`
 **主生成模型：** `ibm-granite/granite-4.1-3b@c0650403...`
@@ -318,6 +318,8 @@ G130 已完成确定性 runtime 修复：TRUE routing hypothesis 改为最终展
 每个 target 通过 answer alias、citation remap、TRUE entailment、minimal support、unsupported support-absence 和分层人工审计。审计不通过就排除并记录，不能降低门凑数量。
 
 G200 已完成数据预物化：NIAH train 515 groups、NIAH 新 model-val 307 groups、2Wiki train 1,075 groups、2Wiki model-val 136 groups、unsupported 1,075 updates，占 optimizer updates 10.1703%；split group/component overlap 均为 0。G200 只达到 `PRE_AUDIT PASS`，TRUE、minimal support、citation remap、unsupported support-absence、人工样本和长度/truncation 审计仍属于 G210/G300；G210 通过前不得训练。
+
+G210 已执行 structural audit 和 TRUE audit。结构性检查 3,108/3,108 通过；TRUE worklist 2,758 rows 中 2,140 entailed、618 not entailed。剔除 TRUE 不通过 case 后，NIAH train/model-val 为 515/215，2Wiki train/model-val 为 683/76，unsupported update ratio 为 12.4855%，split overlap 仍为 0。由于 2Wiki model-val answerable groups 只有 76，低于最低门 100，G210 hard data gate failed；G300 不得启动，人工样本审计也未进入。
 
 ### G300：训练实现
 

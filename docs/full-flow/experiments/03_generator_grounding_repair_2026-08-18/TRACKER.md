@@ -2,9 +2,9 @@
 
 **日期：** 2026-08-18
 **计划：** [PLAN.md](PLAN.md)
-**当前状态：** `G200 COMPLETE / PRE-AUDIT PASS / G210 READY / NO TRAINING STARTED`
+**当前状态：** `G210 FAIL / HARD DATA GATE / G300 BLOCKED / NO TRAINING STARTED`
 
-用户已确认本路线的边界和协同顺序。G200 数据预物化已通过；G210 通过前，不允许启动新训练、utility generation 或 held-out。
+用户已确认本路线的边界和协同顺序。G210 hard data gate 已失败；不允许启动新训练、utility generation 或 held-out，除非用户明确批准新的数据修订计划。
 
 ## 阶段 G：Generator
 
@@ -17,8 +17,8 @@
 | G120 | Splitter repair | 仅当 G110 证明 splitter 为主要断点 | tests、implementation report | NOT ACTIVATED |
 | G130 | Routing repair | 仅当 G110 证明 routing/attachment 为主要断点 | tests、implementation report | COMPLETE / PASS |
 | G200 | Data materialization | 构造 NIAH/2Wiki 原子 claim-citation 与 unsupported groups | train/model-val cases、manifest | COMPLETE / PRE-AUDIT PASS |
-| G210 | Target audit | 审计 support、citation、split、人工样本并冻结数据 | audit、leakage report、hashes | READY / NOT RUN |
-| G300 | Training implementation | query-group loss、citation weighting、fresh/continuation | tests、smoke manifest | BLOCKED BY G210 |
+| G210 | Target audit | 审计 support、citation、split、人工样本并冻结数据 | audit、leakage report、hashes | FAIL / HARD DATA GATE |
+| G300 | Training implementation | query-group loss、citation weighting、fresh/continuation | tests、smoke manifest | BLOCKED BY G210 FAIL |
 | G310 | Seed13 screen | 比较 GR-F 与 GR-C | two adapters、model-val report | BLOCKED BY G300 |
 | G320 | Recipe freeze | 按 maximin 冻结唯一 Generator 配方 | recipe、tie-break trace | BLOCKED BY G310 |
 | G330 | Three-seed fit | 唯一配方训练 seeds 13/42/73 | adapters、training manifests | BLOCKED BY G320 |
@@ -80,3 +80,4 @@
 - G110：按固定分层样本完成 120 条主审和 24 条双审；双审一致 22/24，agreement rate 91.67%。最终标签为 TRUE/routing/attachment 44、MiniCheck evaluator disagreement 37、splitter boundary/rewrite 22、draft citation missing/wrong 8、unsupported draft 9；因此条件激活 G130 routing/attachment repair，G120 不激活。G110 未启动训练、utility labels 或 held-out；产物位于 `artifacts/G110/`，报告见 `G110_AUDIT_REPORT.md`。
 - G130：完成一次共享 deterministic routing/attachment 修复；TRUE hypothesis 现在使用最终展示给用户的 citation-stripped sentence，trace 和 G230 routing export 显式记录 `routing_hypothesis`、`declared_verified`、`rescued_by_scan`、`review_flagged` 和 `attachment_verified`。G110 revealed diagnostic 中 TRUE/routing 44 条拆分为 33 条真无附件、11 条已有附件但带 observe-only gate warning；修复不改变 TRUE 模型/阈值、Retriever、Selector、gold/reference runtime 边界、held-out 或训练。产物位于 `artifacts/G130/G130_ROUTING_REPAIR_SUMMARY.json`，报告见 `G130_ROUTING_REPAIR_REPORT.md`。
 - G200：完成新版数据预物化但仍为 pre-audit。复用旧 G200 已审计 NIAH train 515 groups；在旧 1,023 题之外按 parent-disjoint 规则构造 NIAH 新 model-val，310 个候选经冻结 QA2D 后 307 个 answer-preserved；2Wiki official train 物化 1,075 train / 136 model-val answerable groups；从 train split 生成 1,075 个 unsupported updates，比例 10.1703%。train/model-val group overlap=0、component overlap=0；完整 cases 留在服务器 `/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G200-v2/data`，Git 归档小产物位于 `artifacts/G200/`，报告见 `G200_DATA_MATERIALIZATION_REPORT.md`。G200 未启动训练、utility labels 或 held-out；G210 仍必须审计 TRUE/minimal support/citation/manual/length 后才能冻结数据。
+- G210：structural audit 3,108/3,108 case 通过，TRUE worklist 2,758 rows 中 2,140 entailed、618 not entailed。按 TRUE 过滤后，NIAH train/model-val 为 515/215，2Wiki train/model-val 为 683/76，unsupported update ratio 为 12.4855%，split overlap 仍为 0；但 2Wiki model-val answerable groups 低于最低门 100，因此 hard data gate failed。人工抽样审计未启动，因为硬门已失败；G300 和任何训练均 blocked。产物位于 `artifacts/G210/`，报告见 `G210_TARGET_AUDIT_REPORT.md`。
