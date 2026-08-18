@@ -2,9 +2,9 @@
 
 **日期：** 2026-08-18
 **计划：** [PLAN.md](PLAN.md)
-**当前状态：** `G210R-v1 FAIL / STRUCTURAL ANSWER_ALIAS / G200R2 REQUIRED / NO TRAINING STARTED`
+**当前状态：** `G200R2 COMPLETE / PRE-AUDIT PASS / G210R2 READY / NO TRAINING STARTED`
 
-用户已确认本路线的边界和协同顺序。G210 hard data gate 已失败；用户已进一步授权按积极信号原则修订计划。G215 将失败解释为“原数据冻结失败但路线可修”；G200R 已完成 revised data materialization，但 G210R-v1 structural audit 发现 25 个 2Wiki case 未保留 answer alias。下一步必须回到 G200R2 过滤这些 case；仍不允许在 G210R2 通过前启动训练、utility generation 或 held-out。
+用户已确认本路线的边界和协同顺序。G210 hard data gate 已失败；用户已进一步授权按积极信号原则修订计划。G215 将失败解释为“原数据冻结失败但路线可修”；G200R2 已完成 answer-alias-preserving materialization。下一步必须执行 G210R2 target audit；仍不允许在 G210R2 通过前启动训练、utility generation 或 held-out。
 
 ## 阶段 G：Generator
 
@@ -21,8 +21,8 @@
 | G215 | Gate/data amendment | 解释硬门依据，按积极信号授权受控数据修订 | amendment report、manifest | COMPLETE / PASS |
 | G200R | Revised data materialization | 修订 2Wiki target construction/audit candidate，重建数据 | train/model-val cases、manifest | COMPLETE / PRE-AUDIT PASS |
 | G210R-v1 | Revised target audit | 对 G200R-v1 重新执行 structural 审计 | structural rows、failure summary | FAIL / STRUCTURAL ANSWER_ALIAS |
-| G200R2 | Revised data materialization | 过滤 answer alias 不保留的 2Wiki support-sentence targets | train/model-val cases、manifest | AUTHORIZED / NEXT |
-| G210R2 | Revised target audit | 对 G200R2 重新执行 structural/TRUE/manual/length 审计并冻结 | audit、leakage report、hashes | BLOCKED BY G200R2 |
+| G200R2 | Revised data materialization | 过滤 answer alias 不保留的 2Wiki support-sentence targets | train/model-val cases、manifest | COMPLETE / PRE-AUDIT PASS |
+| G210R2 | Revised target audit | 对 G200R2 重新执行 structural/TRUE/manual/length 审计并冻结 | audit、leakage report、hashes | AUTHORIZED / NEXT |
 | G300 | Training implementation | query-group loss、citation weighting、fresh/continuation | tests、smoke manifest | BLOCKED BY G210R2 PASS |
 | G310 | Seed13 screen | 比较 GR-F 与 GR-C | two adapters、model-val report | BLOCKED BY G300 |
 | G320 | Recipe freeze | 按 maximin 冻结唯一 Generator 配方 | recipe、tie-break trace | BLOCKED BY G310 |
@@ -92,3 +92,4 @@
 - G215 gate/data amendment：用户要求区分“未达原硬门”和“路线无意义”，并授权适当修订计划。G215 保留 G210 hard fail，不把 76/100 改成通过；但根据 structural 3,108/3,108、split overlap=0、NIAH 515/215、2Wiki train 683、unsupported ratio 12.4855%、held-out/dev 未读取、训练未启动、失败集中于 2Wiki relation 模板等积极信号，授权回到 G200R/G210R 做受控数据修订。G300、Generator 训练、utility labels、S/I/H 仍 blocked until G210R PASS。报告见 `G215_GATE_AND_DATA_REVISION_AMENDMENT.md`，manifest 见 `artifacts/G215/gate_amendment_manifest.json`。
 - G200R revised data materialization：2Wiki target construction 改为 `support_sentence_aligned_v1`；NIAH train/model-val 为 515/307，2Wiki train/model-val 为 1,075/136，unsupported groups 为 1,075，unsupported update ratio 为 10.1703%，split group/component overlap=0；pre-audit gates 全部通过。完整 train/validation cases 留在服务器 `/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G200R-v1/data`，Git 归档小产物位于 `artifacts/G200R/`，报告见 `G200R_DATA_MATERIALIZATION_REPORT.md`。G200R 未启动训练、utility labels 或 held-out；G210R 仍必须审计 TRUE/manual/length 后才能冻结数据。
 - G210R-v1 structural failure：对 G200R-v1 运行 structural audit，3,108 cases 中 25 个 2Wiki answerable case 因 `literal_answer_missing` 失败；citation remap 和 split overlap 均无问题。TRUE audit、finalize、manual audit、训练和 held-out 均未启动。产物位于 `artifacts/G210R-v1/`，报告见 `G210R_STRUCTURAL_FAILURE_REPORT.md`。下一步为 G200R2，在物化时过滤 answer alias 不保留的 support-sentence targets。
+- G200R2 revised data materialization：在 2Wiki support-sentence target construction 后新增 answer-alias preservation 过滤。NIAH train/model-val 为 515/307，2Wiki train/model-val 为 1,053/133，unsupported groups 为 1,053，unsupported update ratio 为 10.0881%，split group/component overlap=0；pre-audit gates 全部通过。完整 train/validation cases 留在服务器 `/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G200R-v2/data`，Git 归档小产物位于 `artifacts/G200R2/`，报告见 `G200R2_DATA_MATERIALIZATION_REPORT.md`。G200R2 未启动训练、utility labels 或 held-out；G210R2 仍必须审计 TRUE/manual/length 后才能冻结数据。

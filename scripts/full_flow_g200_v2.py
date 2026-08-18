@@ -36,6 +36,7 @@ SCHEMA_CASE = "full-flow-g200-case-v2"
 SCHEMA_MANIFEST = "full-flow-g200r-data-manifest-v1"
 SCHEMA_NIAH_PREPARE = "full-flow-g200-v2-niah-modelval-prepare-v1"
 TWOWIKI_TARGET_CONSTRUCTION = "support_sentence_aligned_v1"
+YES_NO = frozenset({"yes", "no"})
 
 
 def _jsonl(path: Path) -> list[Mapping[str, Any]]:
@@ -639,6 +640,12 @@ def _twowiki_case(
             dedup_support.append(candidate)
             seen_support.add(evidence_id)
     support_evidence_ids = [str(item["evidence_id"]) for item in support_candidates]
+    semantic_target = " ".join(semantic_sentences)
+    normalized_answer = _normalise(answer)
+    if normalized_answer not in YES_NO and not _contains_normalised(answer, semantic_target):
+        return None
+    if normalized_answer in YES_NO and len(semantic_sentences) < 2:
+        return None
     variants = _support_context_variants(
         question=query_text,
         semantic_sentences=semantic_sentences,
@@ -647,7 +654,6 @@ def _twowiki_case(
         topk=topk,
         include_niah_noise=False,
     )
-    semantic_target = " ".join(semantic_sentences)
     return {
         "schema_version": SCHEMA_CASE,
         "case_id": f"2wiki::{query_id}",

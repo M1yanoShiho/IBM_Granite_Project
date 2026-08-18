@@ -2,7 +2,7 @@
 
 **路线：** `03_generator_grounding_repair_2026-08-18`
 **日期：** 2026-08-18
-**修订状态：** `G210R-v1 FAIL / STRUCTURAL ANSWER_ALIAS / G200R2 REQUIRED / NO TRAINING STARTED`
+**修订状态：** `G200R2 COMPLETE / PRE-AUDIT PASS / G210R2 READY / NO TRAINING STARTED`
 **修订原因：** 明确旧 Selector 的数据与外推边界；把模块资格、强统计结论和完整系统资格分开；将 Generator-aware Selector 纳入同一条交替冻结路线
 **上一阶段：** G230 `COMPLETE / NO CANDIDATE`
 **主生成模型：** `ibm-granite/granite-4.1-3b@c0650403...`
@@ -381,6 +381,8 @@ G215 报告见 [G215_GATE_AND_DATA_REVISION_AMENDMENT.md](G215_GATE_AND_DATA_REV
 G200R 已完成 revised data materialization：保持 NIAH 515/307、2Wiki 1,075/136、unsupported 1,075 和 split overlap=0；2Wiki target construction 改为 `support_sentence_aligned_v1`，runtime train/validation case SHA256 分别为 `239f274b362ac8467c865a6f16eeb14b032a37ea539ea465e636ea7aa11d8db8` 与 `24e1a618a7a4c667bfcd1392d767033e107894285a09eb4e52d9efad021b9e9f`。G200R 只达到 `PRE-AUDIT PASS`，TRUE/manual/length 审计仍属于 G210R；报告见 [G200R_DATA_MATERIALIZATION_REPORT.md](G200R_DATA_MATERIALIZATION_REPORT.md)。
 
 G210R-v1 structural audit 已失败：25 个 2Wiki answerable case 未通过 answer alias preservation，原因均为 `literal_answer_missing`；TRUE audit、finalize、manual audit 和训练均未启动。该失败说明 G200R2 必须在物化时过滤 answer alias 不保留的 support-sentence targets；报告见 [G210R_STRUCTURAL_FAILURE_REPORT.md](G210R_STRUCTURAL_FAILURE_REPORT.md)。
+
+G200R2 已完成 answer-alias-preserving materialization：NIAH train/model-val 为 515/307，2Wiki train/model-val 为 1,053/133，unsupported groups 为 1,053，unsupported update ratio 为 10.0881%，split overlap=0。G200R2 只达到 `PRE-AUDIT PASS`，必须进入 G210R2 审计；报告见 [G200R2_DATA_MATERIALIZATION_REPORT.md](G200R2_DATA_MATERIALIZATION_REPORT.md)。
 
 ### G300：训练实现
 

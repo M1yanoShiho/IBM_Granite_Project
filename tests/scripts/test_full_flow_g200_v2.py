@@ -298,3 +298,35 @@ def test_materialize_builds_g200_v2_manifest_and_unsupported_rows(tmp_path: Path
     assert "Film was directed by Alice" in twiki_train["variants"]["topk"]["target"]
     assert twiki_train["semantic_sentences"] == ["Film was directed by Alice.", "Alice is French."]
     assert twiki_train["target_construction"] == "support_sentence_aligned_v1"
+
+
+def test_twowiki_support_sentence_target_requires_answer_alias() -> None:
+    topk = _top10(
+        "tw-bad",
+        [
+            ("Film", "Film was directed by Carol."),
+            ("Carol", "Carol is French."),
+        ],
+    )
+
+    case = g200_v2._twowiki_case(
+        query_id="tw-bad",
+        role="train-fit",
+        component_id="component",
+        role_row={"chain_eligible_topk10": True},
+        query_text="Who directed the film?",
+        answer="Alice",
+        topk=topk["candidates"],
+        official_row={
+            "_id": "tw-bad",
+            "context": [
+                ["Film", ["Film was directed by Carol."]],
+                ["Carol", ["Carol is French."]],
+            ],
+            "supporting_facts": [["Film", 0], ["Carol", 0]],
+            "evidences": [["Film", "director", "Carol"], ["Carol", "country", "French"]],
+            "answer": "Alice",
+        },
+    )
+
+    assert case is None
