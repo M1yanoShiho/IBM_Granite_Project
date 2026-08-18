@@ -1,0 +1,16 @@
+{
+  "entailed": 2006,
+  "input_sha256": {
+    "true_worklist": "90ebdaf448eca0f2ce18e7ca15ea4c31f7bebff8d676437feb0e0bd12aa7a6e4"
+  },
+  "judge": "google/t5_xxl_true_nli_mixture",
+  "judge_snapshot": "/scratch/fl25387/IBM_Granite_Project_latest/model-cache/models--google--t5_xxl_true_nli_mixture/snapshots/aa6cfe1dd4257853bfdd772992045f41bfc14988",
+  "not_entailed": 63,
+  "schema_version": "full-flow-g210-v2-true-audit-manifest-v1",
+  "sealed_or_heldout_read": false,
+  "status": "COMPLETE",
+  "threshold": 0.5,
+  "training_started": false,
+  "true_audit_rows_sha256": "1e4149dde3cce6a4845576a0e671823755099d6b1ed74b0261ee985bff537e70",
+  "worklist_rows": 2069
+}

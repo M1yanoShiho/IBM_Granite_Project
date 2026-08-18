@@ -2,7 +2,7 @@
 
 **路线：** `03_generator_grounding_repair_2026-08-18`
 **日期：** 2026-08-18
-**修订状态：** `G212M3 FAIL / G219 NEXT / NO TRAINING STARTED`
+**修订状态：** `G219 FAIL / G220 NEXT / NO TRAINING STARTED`
 **修订原因：** 明确旧 Selector 的数据与外推边界；把模块资格、强统计结论和完整系统资格分开；将 Generator-aware Selector 纳入同一条交替冻结路线
 **上一阶段：** G230 `COMPLETE / NO CANDIDATE`
 **主生成模型：** `ibm-granite/granite-4.1-3b@c0650403...`
@@ -443,6 +443,16 @@ G219 修订边界：
 - 不改变 Retriever、TRUE 阈值、最终测试集边界、held-out/dev 禁读边界、sample 判定结果或训练入口；
 - G219 后必须重新写 train/validation cases、manifest、ordered IDs、SHA256，并重跑 structural、TRUE、length 和 sample gates；
 - 只有修复后 freeze readiness 为 PASS，才允许进入 G300。
+
+G219 已完成但失败：materialization 为 `PRE_AUDIT`，structural 2,695/2,695 通过，TRUE 为 2,006 entailed / 63 not entailed；finalize 后 train/validation cases 为 2,332/305，NIAH train/model-val 为 512/211，2Wiki train/model-val 为 771/94，unsupported ratio 为 11.6556%，split overlap=0。失败门为 `twowiki_modelval_groups=false`，因为 2Wiki model-val 低于当前最低 100。归因显示失败集中在 relation-explicit target 与 frozen TRUE 支持性之间的冲突。G219 不是路线失败，但不能解锁 G300，也不能简单把门槛改低。报告见 [G219_CONTROLLED_TARGET_REPAIR_FAILURE_REPORT.md](G219_CONTROLLED_TARGET_REPAIR_FAILURE_REPORT.md)。
+
+G220 修订边界：
+
+- 目标是处理 TRUE 支持性与 sample 自洽性的冲突，而不是训练；
+- 不得直接把 G219 的 `twowiki_modelval_groups` 门槛改低来通过；
+- 必须先评估更保守的 target/filter 策略，例如只隔离无法同时满足 TRUE 与 sample 自洽的 case；
+- 若确需修改 model-val floor，必须作为独立方法学修订，给出统计/覆盖理由、风险声明和后续报告限制；
+- G220 前不得启动 G300、utility labels、Selector 训练或 held-out。
 
 ### G300：训练实现
 

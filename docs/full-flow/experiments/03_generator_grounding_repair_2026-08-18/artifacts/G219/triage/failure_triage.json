@@ -1,0 +1,140 @@
+{
+  "dev_read": false,
+  "finalize_gates": {
+    "niah_new_modelval_groups": true,
+    "niah_train_groups": true,
+    "split_component_overlap_zero": true,
+    "split_group_overlap_zero": true,
+    "twowiki_modelval_groups": false,
+    "twowiki_train_groups": true,
+    "unsupported_update_ratio": true
+  },
+  "finalize_status": "FAIL",
+  "schema_version": "full-flow-g219-failure-triage-v1",
+  "sealed_or_heldout_read": false,
+  "stage": "G219",
+  "status": "FINALIZE_FAIL_TWOWIKI_MODELVAL_FLOOR",
+  "training_started": false,
+  "true_fail_by_dataset_role": {
+    "2wiki:train-fit": 49,
+    "2wiki:train-modelval": 9
+  },
+  "true_fail_cases": 58,
+  "true_fail_modes": {
+    "g218_anchor::unchanged_already_anchored": 8,
+    "relation_explicit::country_of_citizenship": 68,
+    "relation_explicit::country_of_origin": 24,
+    "relation_explicit::place_of_birth": 18
+  },
+  "twowiki_modelval_true_fail_cases": [
+    {
+      "answer": "no",
+      "case_id": "2wiki::15c309eb08ed11ebbda7ac1f6bf848b6",
+      "dataset": "2wiki",
+      "g219_modes": [
+        "relation_explicit::country_of_citizenship",
+        "relation_explicit::country_of_citizenship"
+      ],
+      "min_true_entailment_score": 0.10894505679607391,
+      "question": "Are Suzanne Muir and Robert Byington Mitchell both from the same country?",
+      "role": "train-modelval"
+    },
+    {
+      "answer": "no",
+      "case_id": "2wiki::23b5787a08e911ebbda7ac1f6bf848b6",
+      "dataset": "2wiki",
+      "g219_modes": [
+        "relation_explicit::country_of_origin",
+        "relation_explicit::country_of_origin"
+      ],
+      "min_true_entailment_score": 0.1212688758969307,
+      "question": "Did the movies Trương Ba'S Soul, Butcher'S Body (Film) and Hankyū Densha, originate from the same country?",
+      "role": "train-modelval"
+    },
+    {
+      "answer": "no",
+      "case_id": "2wiki::2b77650c086c11ebbd60ac1f6bf848b6",
+      "dataset": "2wiki",
+      "g219_modes": [
+        "relation_explicit::country_of_citizenship",
+        "relation_explicit::country_of_citizenship"
+      ],
+      "min_true_entailment_score": 0.08882028609514236,
+      "question": "Were Charles Mackesy and Heinz Linge from the same country?",
+      "role": "train-modelval"
+    },
+    {
+      "answer": "yes",
+      "case_id": "2wiki::5d8d318208e911ebbda7ac1f6bf848b6",
+      "dataset": "2wiki",
+      "g219_modes": [
+        "relation_explicit::country_of_citizenship",
+        "relation_explicit::country_of_citizenship"
+      ],
+      "min_true_entailment_score": 0.13072867691516876,
+      "question": "Are both Spurgeon Neel and Henry Holden Huss from the same country?",
+      "role": "train-modelval"
+    },
+    {
+      "answer": "no",
+      "case_id": "2wiki::7a6f25d2087411ebbd67ac1f6bf848b6",
+      "dataset": "2wiki",
+      "g219_modes": [
+        "relation_explicit::country_of_citizenship",
+        "relation_explicit::country_of_citizenship"
+      ],
+      "min_true_entailment_score": 0.03704717010259628,
+      "question": "Are Daniel Lemahieu and Beni Montresor of the same nationality?",
+      "role": "train-modelval"
+    },
+    {
+      "answer": "no",
+      "case_id": "2wiki::b9f471e008c211ebbd8cac1f6bf848b6",
+      "dataset": "2wiki",
+      "g219_modes": [
+        "relation_explicit::country_of_citizenship",
+        "relation_explicit::country_of_citizenship"
+      ],
+      "min_true_entailment_score": 0.07921033352613449,
+      "question": "Were Kanika Beckles and Pat Cannon of the same nationality?",
+      "role": "train-modelval"
+    },
+    {
+      "answer": "Madras",
+      "case_id": "2wiki::d5cff1720bda11eba7f7acde48001122",
+      "dataset": "2wiki",
+      "g219_modes": [
+        "g218_anchor::unchanged_already_anchored",
+        "relation_explicit::place_of_birth"
+      ],
+      "min_true_entailment_score": 0.006797531619668007,
+      "question": "What is the place of birth of the composer of film Raavan?",
+      "role": "train-modelval"
+    },
+    {
+      "answer": "no",
+      "case_id": "2wiki::e163e5f9085f11ebbd5dac1f6bf848b6",
+      "dataset": "2wiki",
+      "g219_modes": [
+        "relation_explicit::place_of_birth",
+        "relation_explicit::place_of_birth"
+      ],
+      "min_true_entailment_score": 0.004007288720458746,
+      "question": "Were both Alexander Nevsky (actor) and Bill Zeliff, born in the same place?",
+      "role": "train-modelval"
+    },
+    {
+      "answer": "yes",
+      "case_id": "2wiki::f99e50a908c911ebbd92ac1f6bf848b6",
+      "dataset": "2wiki",
+      "g219_modes": [
+        "relation_explicit::country_of_citizenship",
+        "relation_explicit::country_of_citizenship"
+      ],
+      "min_true_entailment_score": 0.027143433690071106,
+      "question": "Are both Yoshisada Yonezuka and Anthony Roberson from the same country?",
+      "role": "train-modelval"
+    }
+  ],
+  "utility_labels_started": false
+}
