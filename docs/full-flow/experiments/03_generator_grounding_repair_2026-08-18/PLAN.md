@@ -2,7 +2,7 @@
 
 **路线：** `03_generator_grounding_repair_2026-08-18`
 **日期：** 2026-08-18
-**修订状态：** `G222 CONTROLLED CONTINUATION / G223 NEXT / NO TRAINING STARTED`
+**修订状态：** `G223 CONTROLLED CONTINUATION READY / G300 LIMITED DRAFT NEXT / NO TRAINING STARTED`
 **修订原因：** 明确旧 Selector 的数据与外推边界；把模块资格、强统计结论和完整系统资格分开；将 Generator-aware Selector 纳入同一条交替冻结路线
 **上一阶段：** G230 `COMPLETE / NO CANDIDATE`
 **主生成模型：** `ibm-granite/granite-4.1-3b@c0650403...`
@@ -493,6 +493,8 @@ G223 修订边界：
 - 不得把 G212M5 的失败改写为通过；
 - G223 仍不是最终测试，也不能产生强统计结论。
 
+G223 已完成 residual sample-failure candidate：三条失败均无法由引用证据直接支持缺失关系，因此采用 deletion-only quarantine，隔离 2 个 2Wiki train answerable case、2 个对应 unsupported counterpart 和 1 个 2Wiki model-val answerable case。修订后 train/validation cases 为 2,370/302，NIAH train/model-val 为 511/207，2Wiki train/model-val 为 815/95，unsupported groups 为 1,044，unsupported ratio 为 11.3392%，split overlap=0。G223 按 G222 的 controlled continuation gate 通过，`g300_unlocked=true` 仅代表 limited draft entry；这不是 clean 100/100 freeze，后续报告必须声明 2Wiki model-val screen=95 的限制。报告见 [G223_RESIDUAL_SAMPLE_FAILURE_CANDIDATE_REPORT.md](G223_RESIDUAL_SAMPLE_FAILURE_CANDIDATE_REPORT.md)。
+
 ### G300：训练实现
 
 固定：
@@ -504,6 +506,8 @@ G223 修订边界：
 - TRUE frozen；
 - greedy decode；
 - loss 只作用于 assistant target。
+
+G300 当前入口：只能使用 G223 `CONTROLLED_CONTINUATION_READY` candidate 做 limited draft LoRA training。不得把该入口写成 clean freeze，不得启动 held-out，不得生成 Selector utility labels；训练实现和烟测产物必须记录 G223 manifest SHA256、2Wiki model-val screen=95 和 G222/G223 的限制。
 
 token 权重：
 
