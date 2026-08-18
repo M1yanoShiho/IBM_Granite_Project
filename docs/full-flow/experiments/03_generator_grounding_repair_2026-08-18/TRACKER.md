@@ -2,9 +2,9 @@
 
 **日期：** 2026-08-18
 **计划：** [PLAN.md](PLAN.md)
-**当前状态：** `G215 COMPLETE / POSITIVE-SIGNAL DATA REVISION AUTHORIZED / NO TRAINING STARTED`
+**当前状态：** `G200R COMPLETE / PRE-AUDIT PASS / G210R READY / NO TRAINING STARTED`
 
-用户已确认本路线的边界和协同顺序。G210 hard data gate 已失败；用户已进一步授权按积极信号原则修订计划。G215 将失败解释为“原数据冻结失败但路线可修”，下一步必须回到 G200R/G210R 做受控数据修订；仍不允许在原 G210 failure 数据上启动训练、utility generation 或 held-out。
+用户已确认本路线的边界和协同顺序。G210 hard data gate 已失败；用户已进一步授权按积极信号原则修订计划。G215 将失败解释为“原数据冻结失败但路线可修”；G200R 已完成 revised data materialization。下一步必须执行 G210R target audit；仍不允许在 G210R 通过前启动训练、utility generation 或 held-out。
 
 ## 阶段 G：Generator
 
@@ -19,8 +19,8 @@
 | G200 | Data materialization | 构造 NIAH/2Wiki 原子 claim-citation 与 unsupported groups | train/model-val cases、manifest | COMPLETE / PRE-AUDIT PASS |
 | G210 | Target audit | 审计 support、citation、split、人工样本并冻结数据 | audit、leakage report、hashes | FAIL / HARD DATA GATE |
 | G215 | Gate/data amendment | 解释硬门依据，按积极信号授权受控数据修订 | amendment report、manifest | COMPLETE / PASS |
-| G200R | Revised data materialization | 修订 2Wiki target construction/audit candidate，重建数据 | train/model-val cases、manifest | AUTHORIZED / NEXT |
-| G210R | Revised target audit | 对 G200R 重新执行 structural/TRUE/manual/length 审计并冻结 | audit、leakage report、hashes | BLOCKED BY G200R |
+| G200R | Revised data materialization | 修订 2Wiki target construction/audit candidate，重建数据 | train/model-val cases、manifest | COMPLETE / PRE-AUDIT PASS |
+| G210R | Revised target audit | 对 G200R 重新执行 structural/TRUE/manual/length 审计并冻结 | audit、leakage report、hashes | AUTHORIZED / NEXT |
 | G300 | Training implementation | query-group loss、citation weighting、fresh/continuation | tests、smoke manifest | BLOCKED BY G210R PASS |
 | G310 | Seed13 screen | 比较 GR-F 与 GR-C | two adapters、model-val report | BLOCKED BY G300 |
 | G320 | Recipe freeze | 按 maximin 冻结唯一 Generator 配方 | recipe、tie-break trace | BLOCKED BY G310 |
@@ -88,3 +88,4 @@
 - G210 failure triage：只读 G210 structural/TRUE rows 做诊断，不改变 gate、不重跑 TRUE、不训练。2Wiki model-val 136 个 case 中 76 个整链 TRUE 通过、60 个未通过；失败 pair 主要集中在 `country` 16、`publication date` 16、`country of citizenship` 14、`country of origin` 6 等 relation 模板。诊断产物位于 `artifacts/G210/failure-triage/`，报告见 `G210_FAILURE_TRIAGE_REPORT.md`；G210 hard fail 结论不变。
 - G210 stop packet：归档当前停止边界、禁止事项和任何恢复推进所需的单独授权条件。该 stop packet 不授权新数据修订，不改变 G210 hard fail，也不解锁 G300/S/I/H；报告见 `G210_STOP_PACKET.md`。
 - G215 gate/data amendment：用户要求区分“未达原硬门”和“路线无意义”，并授权适当修订计划。G215 保留 G210 hard fail，不把 76/100 改成通过；但根据 structural 3,108/3,108、split overlap=0、NIAH 515/215、2Wiki train 683、unsupported ratio 12.4855%、held-out/dev 未读取、训练未启动、失败集中于 2Wiki relation 模板等积极信号，授权回到 G200R/G210R 做受控数据修订。G300、Generator 训练、utility labels、S/I/H 仍 blocked until G210R PASS。报告见 `G215_GATE_AND_DATA_REVISION_AMENDMENT.md`，manifest 见 `artifacts/G215/gate_amendment_manifest.json`。
+- G200R revised data materialization：2Wiki target construction 改为 `support_sentence_aligned_v1`；NIAH train/model-val 为 515/307，2Wiki train/model-val 为 1,075/136，unsupported groups 为 1,075，unsupported update ratio 为 10.1703%，split group/component overlap=0；pre-audit gates 全部通过。完整 train/validation cases 留在服务器 `/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G200R-v1/data`，Git 归档小产物位于 `artifacts/G200R/`，报告见 `G200R_DATA_MATERIALIZATION_REPORT.md`。G200R 未启动训练、utility labels 或 held-out；G210R 仍必须审计 TRUE/manual/length 后才能冻结数据。

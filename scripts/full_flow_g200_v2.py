@@ -1,4 +1,4 @@
-"""Materialize the 2026-08-18 G200 v2 generator data pre-audit bundle.
+"""Materialize the 2026-08-18 G200/G200R generator data pre-audit bundle.
 
 This script does not train a model and does not read sealed/system-heldout data.
 It writes runtime-sized train/model-val case files plus small manifests that can
@@ -33,8 +33,9 @@ TRAIN_ROLE = "train-fit"
 VALIDATION_ROLE = "train-modelval"
 UNKNOWN_ANSWER = "I don't know."
 SCHEMA_CASE = "full-flow-g200-case-v2"
-SCHEMA_MANIFEST = "full-flow-g200-v2-data-manifest-v1"
+SCHEMA_MANIFEST = "full-flow-g200r-data-manifest-v1"
 SCHEMA_NIAH_PREPARE = "full-flow-g200-v2-niah-modelval-prepare-v1"
+TWOWIKI_TARGET_CONSTRUCTION = "support_sentence_aligned_v1"
 
 
 def _jsonl(path: Path) -> list[Mapping[str, Any]]:
@@ -617,13 +618,17 @@ def _twowiki_case(
             or title not in candidate_by_document
         ):
             return None
+        support_sentence = str(sentences[sentence_index]).strip()
+        if not support_sentence:
+            return None
         support_candidates.append(candidate_by_document[title])
-        semantic_sentences.append(_triple_sentence(triple))
+        semantic_sentences.append(support_sentence)
         supporting_fact_rows.append(
             {
                 "title": title,
                 "sentence_index": sentence_index,
-                "sentence": str(sentences[sentence_index]),
+                "sentence": support_sentence,
+                "official_evidence": list(triple) if isinstance(triple, Sequence) else triple,
             }
         )
     dedup_support: list[Mapping[str, Any]] = []
@@ -658,6 +663,8 @@ def _twowiki_case(
         "answer": answer,
         "semantic_target": semantic_target,
         "semantic_target_sha256": _sha256_text(semantic_target),
+        "semantic_sentences": semantic_sentences,
+        "target_construction": TWOWIKI_TARGET_CONSTRUCTION,
         "official_answer": answer,
         "official_evidences": evidences,
         "official_supporting_facts": supporting_fact_rows,
@@ -835,6 +842,7 @@ def materialize(
     twowiki_components_path: Path,
     twowiki_official_rows_path: Path,
     output_dir: Path,
+    stage: str = "G200R",
     min_niah_train_groups: int = 400,
     min_niah_modelval_groups: int = 100,
     min_twowiki_train_groups: int = 400,
@@ -925,7 +933,11 @@ def materialize(
     manifest: dict[str, object] = {
         "schema_version": SCHEMA_MANIFEST,
         "status": "PRE_AUDIT",
-        "stage": "G200",
+        "stage": stage,
+        "target_construction": {
+            "2wiki": TWOWIKI_TARGET_CONSTRUCTION,
+            "niah": "qa2d_single_claim_reuse_or_frozen_qa2d",
+        },
         "sealed_or_heldout_read": False,
         "dev_read": False,
         "gold_use": "offline target construction only; runtime prompts contain evidence text and question only",
@@ -997,6 +1009,7 @@ def _parser() -> argparse.ArgumentParser:
     data.add_argument("--twowiki-components", required=True, type=Path)
     data.add_argument("--twowiki-official-rows", required=True, type=Path)
     data.add_argument("--output-dir", required=True, type=Path)
+    data.add_argument("--stage", default="G200R")
     data.add_argument("--min-niah-train-groups", type=int, default=400)
     data.add_argument("--min-niah-modelval-groups", type=int, default=100)
     data.add_argument("--min-twowiki-train-groups", type=int, default=400)
@@ -1034,6 +1047,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             twowiki_components_path=args.twowiki_components,
             twowiki_official_rows_path=args.twowiki_official_rows,
             output_dir=args.output_dir.resolve(),
+            stage=args.stage,
             min_niah_train_groups=args.min_niah_train_groups,
             min_niah_modelval_groups=args.min_niah_modelval_groups,
             min_twowiki_train_groups=args.min_twowiki_train_groups,

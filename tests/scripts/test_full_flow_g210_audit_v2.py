@@ -85,6 +85,8 @@ def _fixture(tmp_path: Path) -> tuple[Path, Path, Path]:
         "answer": "no",
         "semantic_target": "A's country is France. B's country is Canada.",
         "semantic_target_sha256": _sha256_text("A's country is France. B's country is Canada."),
+        "semantic_sentences": ["A is in France.", "B is in Canada."],
+        "target_construction": "support_sentence_aligned_v1",
         "official_evidences": [["A", "country", "France"], ["B", "country", "Canada"]],
         "variants": {
             "support_only": _variant(
@@ -177,6 +179,12 @@ def test_structural_audit_builds_true_worklist_and_accepts_yes_no_chain(tmp_path
     assert by_case["niah-old::q-old"]["true_reuse"] == "G200-v1-target-audit"
     assert by_case["2wiki::q-train"]["answer_alias_mode"] == "twowiki_yes_no_evidence_chain"
     assert by_case["unsupported::2wiki::q-train"]["structural_pass"] is True
+    worklist = [
+        json.loads(line)
+        for line in (tmp_path / "structural/true_worklist.jsonl").read_text().splitlines()
+    ]
+    twiki_hypotheses = [row["hypothesis"] for row in worklist if row["case_id"] == "2wiki::q-train"]
+    assert twiki_hypotheses == ["A is in France.", "B is in Canada."]
 
 
 def test_true_audit_and_finalize_write_pre_manual_manifest(tmp_path: Path) -> None:

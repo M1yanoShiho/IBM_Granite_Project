@@ -280,6 +280,8 @@ def test_materialize_builds_g200_v2_manifest_and_unsupported_rows(tmp_path: Path
     )
 
     assert manifest["status"] == "PRE_AUDIT"
+    assert manifest["stage"] == "G200R"
+    assert manifest["target_construction"]["2wiki"] == "support_sentence_aligned_v1"
     assert manifest["gates"]["split_component_overlap_zero"] is True
     assert 0.10 <= manifest["unsupported_update_ratio"] <= 0.15
     train_rows = [
@@ -293,4 +295,6 @@ def test_materialize_builds_g200_v2_manifest_and_unsupported_rows(tmp_path: Path
     assert any(row["case_id"] == "unsupported::2wiki::tw-train" for row in train_rows)
     assert any(row["case_id"] == "2wiki::tw-val" for row in validation_rows)
     twiki_train = next(row for row in train_rows if row["case_id"] == "2wiki::tw-train")
-    assert "Film's director is Alice" in twiki_train["variants"]["topk"]["target"]
+    assert "Film was directed by Alice" in twiki_train["variants"]["topk"]["target"]
+    assert twiki_train["semantic_sentences"] == ["Film was directed by Alice.", "Alice is French."]
+    assert twiki_train["target_construction"] == "support_sentence_aligned_v1"

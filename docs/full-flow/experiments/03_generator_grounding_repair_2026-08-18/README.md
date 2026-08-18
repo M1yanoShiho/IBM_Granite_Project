@@ -1,7 +1,7 @@
 # Generator 修复与 Selector 分阶段协同
 
 **日期：** 2026-08-18
-**状态：** `G215 COMPLETE / POSITIVE-SIGNAL DATA REVISION AUTHORIZED / NO TRAINING STARTED`
+**状态：** `G200R COMPLETE / PRE-AUDIT PASS / G210R READY / NO TRAINING STARTED`
 **详细计划：** [PLAN.md](PLAN.md)
 **执行跟踪：** [TRACKER.md](TRACKER.md)
 **原始方案快照：** [snapshots/PLAN_v1_generator_only_2026-08-18.md](snapshots/PLAN_v1_generator_only_2026-08-18.md)
@@ -19,6 +19,7 @@
 - G200 已完成数据预物化：NIAH train 515、新 NIAH model-val 307、2Wiki train 1,075、2Wiki model-val 136、unsupported update ratio 10.17%，但 TRUE/minimal-support/manual/length 审计仍未完成；
 - G210 structural audit 通过，但 TRUE 过滤后 2Wiki model-val 只剩 76 个 answerable groups，低于最低门 100；
 - G215 已把这个失败解释为“当前数据不能冻结，但路线有积极诊断信号，可回到 G200R/G210R 做受控数据修订”，不是 Generator/Selector 路线失败；
+- G200R 已把 2Wiki target construction 改为 support-sentence-aligned，并重新物化为 2,665 个 train cases、443 个 validation cases，pre-audit gate 全部通过；
 - 因此最终 Selector、最终 Generator 和完整新系统目前都不存在。
 
 ## 修订后的核心方法
@@ -66,11 +67,10 @@ CI 跨 0 不再自动淘汰职责合格组件，但也不能写成统计显著�
 
 ## 下一步
 
-下一步不是把 `76/100` 当成通过，也不是结束路线，而是执行新的受控数据修订：
+下一步不是训练，而是执行 G210R 目标审计：
 
 ```text
-G200R revised data materialization
--> G210R revised target audit
+G210R revised target audit
 -> 只有 G210R 通过后才进入 G300
 ```
 

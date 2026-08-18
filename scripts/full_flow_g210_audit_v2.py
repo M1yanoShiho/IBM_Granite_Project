@@ -204,7 +204,13 @@ def _true_pairs(row: Mapping[str, Any]) -> list[dict[str, object]]:
         evidences = row.get("official_evidences")
         if not isinstance(evidences, list) or len(evidences) != len(support_ids):
             raise ValueError(f"2Wiki evidence/support count mismatch: {case_id}")
-        hypotheses = [_triple_sentence(item) for item in evidences]
+        semantic_sentences = row.get("semantic_sentences")
+        if isinstance(semantic_sentences, list) and len(semantic_sentences) == len(support_ids):
+            hypotheses = [str(item).strip() for item in semantic_sentences]
+            if any(not item for item in hypotheses):
+                raise ValueError(f"2Wiki semantic sentence is blank: {case_id}")
+        else:
+            hypotheses = [_triple_sentence(item) for item in evidences]
     else:
         raise ValueError(f"unknown answerable target kind: {row.get('target_kind')}")
     for index, (support_id, hypothesis) in enumerate(zip(support_ids, hypotheses, strict=True)):
