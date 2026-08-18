@@ -2,7 +2,7 @@
 
 **路线：** `03_generator_grounding_repair_2026-08-18`
 **日期：** 2026-08-18
-**修订状态：** `G212R4 LENGTH PASS / G212M4 NEXT / NO TRAINING STARTED`
+**修订状态：** `G212M4 FAIL / G221 NEXT / NO TRAINING STARTED`
 **修订原因：** 明确旧 Selector 的数据与外推边界；把模块资格、强统计结论和完整系统资格分开；将 Generator-aware Selector 纳入同一条交替冻结路线
 **上一阶段：** G230 `COMPLETE / NO CANDIDATE`
 **主生成模型：** `ibm-granite/granite-4.1-3b@c0650403...`
@@ -457,6 +457,17 @@ G220 修订边界：
 G220 已完成保守隔离并达到 pre-sample pass：新增 `scripts/full_flow_g220_conservative_filter.py`，不再沿用 G219 的 relation-explicit target rewrite，而是回到 G218 已通过 structural/TRUE/finalize 的 pre-sample bundle，只隔离 G212M3 固定样本判定失败的 9 条 case，并对 1 条失败的 2Wiki train answerable case 同步隔离 unsupported counterpart。修订后 train/validation cases 为 2,379/310，NIAH train/model-val 为 512/211，2Wiki train/model-val 为 819/99，unsupported groups 为 1,048，unsupported update ratio 为 11.3432%，split overlap=0，pre-sample gates 全部通过。这个 `99` 是样本隔离后的实际内部 screen size，不是把 G219 失败改写为通过，也不是 TRUE 阈值变化；后续报告必须声明该 screen size 较原 `>=100` 保护略弱。G220 仍不能解锁 G300；下一步必须执行 G212R4 length/sample review 和 G212M4 固定样本判定。报告见 [G220_CONSERVATIVE_FILTER_REPORT.md](G220_CONSERVATIVE_FILTER_REPORT.md)。
 
 G212R4 已对 G220 bundle 重跑 length/sample prepare：更新 `scripts/full_flow_g212_manual_length_audit.py` 以接受 G220 manifest schema；长度审计覆盖 2,689 cases / 11,211 examples，`max_length=2304`，over max length 为 0，最大长度 2,120，truncation rate 为 0。固定样本为 100 条，5 个 stratum 各 20 条，全部仍为待判定状态。因此 G212R4 只达到 `LENGTH PASS / SAMPLE PENDING`，不能解锁 G300；下一步为 G212M4 sample adjudication。报告见 [G212R4_LENGTH_SAMPLE_AUDIT_REPORT.md](G212R4_LENGTH_SAMPLE_AUDIT_REPORT.md)。
+
+G212M4 已完成固定 100 条样本判定：90 PASS / 10 FAIL / 0 UNCERTAIN，forced structural failures=0。unsupported 层 20/20 通过；失败集中在 2Wiki answerable target self-containment（出生地/国家/国籍关系没有直接写清或证据不足）和 NIAH QA2D semantic drift/direct support 问题。该结果仍是积极信号，但不能解锁 G300。freeze readiness 为 `NOT_FREEZE_READY_SAMPLE_REVIEW_FAILED`；下一步为 G221 targeted sample-failure repair review。报告见 [G212M4_SAMPLE_REVIEW_REPORT.md](G212M4_SAMPLE_REVIEW_REPORT.md)。
+
+G221 修订边界：
+
+- 只使用 G212M4 暴露的 10 条失败和既有 G220/G212R4 产物作为输入；
+- 不得把 G212M4 改写为通过，不得启动 G300、utility labels、Selector 训练或 held-out；
+- 优先选择保守过滤；只有在证据中能直接支持关系时才允许窄 target 修复；
+- 如果过滤导致内部 model-val screen 进一步缩小，必须如实记录统计风险和报告限制，不能写成与原 `>=100` 完全等价；
+- 修复后必须重新写 train/validation cases、manifest、ordered IDs、SHA256，并重跑 length 和固定样本判定；
+- 只有新的 freeze readiness 为 PASS，才允许进入 G300。
 
 ### G300：训练实现
 
