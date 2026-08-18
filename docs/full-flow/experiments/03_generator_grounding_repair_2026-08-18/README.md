@@ -1,7 +1,7 @@
 # Generator 修复与 Selector 分阶段协同
 
 **日期：** 2026-08-18
-**状态：** `G212M SAMPLE REVIEW FAILED / CONTROLLED REPAIR REQUIRED / NO TRAINING STARTED`
+**状态：** `G216 PRE-MANUAL PASS / G212R2 REQUIRED / NO TRAINING STARTED`
 **详细计划：** [PLAN.md](PLAN.md)
 **执行跟踪：** [TRACKER.md](TRACKER.md)
 **原始方案快照：** [snapshots/PLAN_v1_generator_only_2026-08-18.md](snapshots/PLAN_v1_generator_only_2026-08-18.md)
@@ -27,6 +27,7 @@
 - G214 已成组排除这个唯一超长 2Wiki train group 及其 unsupported counterpart；修订后 2Wiki train/model-val 为 827/106，unsupported ratio 为 11.3033%，split overlap 仍为 0；
 - G212R 对 G214 bundle 重跑长度审计后通过：11,342 个 examples 中 0 个超过 2,304；
 - G212M 已完成固定 100 条 sample review/adjudication：92 条通过、8 条失败、0 条不确定；失败集中在 2Wiki 目标句自洽性和 NIAH 新 model-val 的少数 QA2D 错配，因此不能冻结数据或启动训练；
+- G216 已执行受控修复：排除 8 条失败样本对应的 11 个 case；修复后 NIAH train/model-val 为 515/213，2Wiki train/model-val 为 824/103，unsupported ratio 为 11.2929%，split overlap 为 0，预冻结数据门仍通过；
 - 因此最终 Selector、最终 Generator 和完整新系统目前都不存在。
 
 ## 修订后的核心方法
@@ -74,12 +75,12 @@ CI 跨 0 不再自动淘汰职责合格组件，但也不能写成统计显著�
 
 ## 下一步
 
-下一步不是训练，而是执行 G216 controlled sample-review repair：
+下一步不是训练，而是执行 G212R2 revised length/sample review：
 
 ```text
-G216 controlled sample-review repair
--> rerun structural/TRUE/length/sample review
+G212R2 length/sample packet on G216
+-> G212M2 sample review/adjudication
 -> 只有修复后 freeze readiness 通过才进入 G300
 ```
 
-G212M 说明当前路线仍有积极信号，但当前数据不能直接冻结。不得跳过 sample review、降低 TRUE 阈值、改最终测试集边界、读取 held-out，或按已看到的结果临时改门凑通过。
+G216 说明当前路线仍有积极信号，并且窄修后数据规模仍满足最低门；但当前数据还没有重新通过 length/sample review。不得跳过 sample review、降低 TRUE 阈值、改最终测试集边界、读取 held-out，或按已看到的结果临时改门凑通过。

@@ -1,0 +1,57 @@
+{
+  "artifacts": {
+    "manifest": {
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G216-v1/data/manifest.json",
+      "sha256": "0782877816719e13f2caa1ce53fd38be38c2e2d18756df91ba9095b0a0301df0"
+    },
+    "ordered_ids": {
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G216-v1/data/ordered_ids.json",
+      "sha256": "99dab16a2b776a8466dee1edd5394c8a8ac99e3fef7e58bb3c3a966430fc6c9b"
+    },
+    "train_cases": {
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G216-v1/data/train_cases.jsonl",
+      "sha256": "a8d0cd236b912fefd42cc2f06e43ccc71ed31e6349a2d84642c76784ffb309d7"
+    },
+    "validation_cases": {
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G216-v1/data/validation_cases.jsonl",
+      "sha256": "fdbb9b4003dcfa2984ed42b91cdab55db47bd2dae9e7c8ee89490672359f4c6d"
+    }
+  },
+  "command": "/scratch/fl25387/IBM_Granite_Project_latest/envs/selector_mis_py311/bin/python /scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G216-v1/code/full_flow_g216_sample_review_repair.py --manifest /scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G214-v1/data/manifest.json --train-cases /scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G214-v1/data/train_cases.jsonl --validation-cases /scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G214-v1/data/validation_cases.jsonl --review-rows /scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G212M-v2/review/sample_review_rows.jsonl --review-summary /scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G212M-v2/review/sample_review_summary.json --output-dir /scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G216-v1/data",
+  "counts": {
+    "2wiki": {
+      "train-fit_answerable_groups": 824,
+      "train-fit_unsupported_groups": 1049,
+      "train-modelval_answerable_groups": 103
+    },
+    "niah": {
+      "train-fit_answerable_groups": 515,
+      "train-modelval_answerable_groups": 213
+    }
+  },
+  "created_unix": 1787075504,
+  "dev_read": false,
+  "excluded": {
+    "sample_review_rows": 8,
+    "total_cases": 11,
+    "train_cases": 6,
+    "validation_cases": 5
+  },
+  "gates": {
+    "niah_new_modelval_groups": true,
+    "niah_train_groups": true,
+    "split_component_overlap_zero": true,
+    "split_group_overlap_zero": true,
+    "twowiki_modelval_groups": true,
+    "twowiki_train_groups": true,
+    "unsupported_update_ratio": true
+  },
+  "schema_version": "full-flow-g216-execution-audit-v1",
+  "script_sha256": "4097db4e2936b8b8ae10ea520ea2b2661daa3570cab64163444ece51c2c8a8b7",
+  "sealed_or_heldout_read": false,
+  "stage": "G216",
+  "status": "PRE_MANUAL_PASS",
+  "training_started": false,
+  "unsupported_update_ratio": 0.11292927118096674,
+  "utility_labels_started": false
+}

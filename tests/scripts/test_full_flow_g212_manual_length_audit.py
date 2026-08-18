@@ -193,3 +193,24 @@ def test_prepare_marks_length_failure_without_training(tmp_path: Path) -> None:
     assert report["training_started"] is False
     length_audit = json.loads((tmp_path / "g212/length_audit.json").read_text(encoding="utf-8"))
     assert length_audit["over_max_length"] > 0
+
+
+def test_prepare_accepts_g216_repair_manifest(tmp_path: Path) -> None:
+    manifest, train, validation, model_snapshot = _bundle(tmp_path)
+    manifest_data = json.loads(manifest.read_text(encoding="utf-8"))
+    manifest_data["schema_version"] = g212.SCHEMA_G216_REPAIR
+    _write_json(manifest, manifest_data)
+
+    report = g212.prepare(
+        manifest_path=manifest,
+        train_cases_path=train,
+        validation_cases_path=validation,
+        model_snapshot=model_snapshot,
+        output_dir=tmp_path / "g212",
+        max_length=128,
+        sample_per_stratum=1,
+        tokenizer=TinyTokenizer(),
+    )
+
+    assert report["status"] == "LENGTH_PASS_MANUAL_REVIEW_PENDING"
+    assert report["length_audit_pass"] is True

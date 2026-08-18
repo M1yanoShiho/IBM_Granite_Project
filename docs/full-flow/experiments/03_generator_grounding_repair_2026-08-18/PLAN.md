@@ -2,7 +2,7 @@
 
 **路线：** `03_generator_grounding_repair_2026-08-18`
 **日期：** 2026-08-18
-**修订状态：** `G212M SAMPLE REVIEW FAILED / CONTROLLED REPAIR REQUIRED / NO TRAINING STARTED`
+**修订状态：** `G216 PRE-MANUAL PASS / G212R2 REQUIRED / NO TRAINING STARTED`
 **修订原因：** 明确旧 Selector 的数据与外推边界；把模块资格、强统计结论和完整系统资格分开；将 Generator-aware Selector 纳入同一条交替冻结路线
 **上一阶段：** G230 `COMPLETE / NO CANDIDATE`
 **主生成模型：** `ibm-granite/granite-4.1-3b@c0650403...`
@@ -407,8 +407,11 @@ G216 修订边界：
 - 只针对 G212M 暴露的 target self-containment、relation chain preservation 和 NIAH QA2D semantic mismatch；
 - 不允许降低 TRUE 阈值、改变 TRUE checkpoint、读取 held-out/dev、提高 `max_length=2304` 或改最终测试边界；
 - 可以过滤失败 case 及同类可检测高风险 target，也可以在不读取禁止数据的前提下重新生成自洽 target；
-- 修订后必须重新写 train/validation cases、manifest、ordered IDs、SHA256，并重跑 structural、TRUE、length 和 sample review；
+- 修订后必须重新写 train/validation cases、manifest、ordered IDs、SHA256；如果只做严格子集排除且不生成新 target，structural/TRUE 可通过 G214/G210R2 lineage 做子集继承核验，否则必须重跑 structural/TRUE；
+- 修订后必须重跑 length 和 sample review；
 - 只有修复后 freeze readiness 为 PASS，才允许进入 G300。
+
+G216 已完成上述窄修：只排除 G212M 失败样本对应的 11 个 case，其中 3 个 2Wiki train answerable 失败 case 同步排除 3 个 unsupported counterpart。修订后 train/validation cases 为 2,388/316；NIAH train/model-val 为 515/213，2Wiki train/model-val 为 824/103，unsupported groups 为 1,049，unsupported update ratio 为 11.2929%，split overlap=0，所有 pre-manual gates 仍通过。完整 revised cases 留在服务器 `/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G216-v1/data`；报告见 [G216_SAMPLE_REVIEW_REPAIR_REPORT.md](G216_SAMPLE_REVIEW_REPAIR_REPORT.md)。G300 仍 blocked until G212R2 freeze readiness PASS。
 
 ### G300：训练实现
 
