@@ -1,0 +1,352 @@
+{
+  "budget": {
+    "full_flow": {
+      "heldout_bundles_after_separate_authorization": 1,
+      "locked_development_bundles": 1
+    },
+    "generator": {
+      "conditional_downstream_fix_smoke_or_refit": 1,
+      "formal_fits": 3,
+      "grid_search_allowed": false,
+      "seed13_screens": 2
+    },
+    "selector": {
+      "formal_seeds": [
+        13,
+        42,
+        73
+      ],
+      "full_utility_materializations": 1,
+      "seed13_screens": 1,
+      "utility_pilot_queries": 100
+    }
+  },
+  "created_at_utc": "2026-08-18T13:48:55Z",
+  "data_scope": {
+    "g200_existing_niah": {
+      "dev_read": false,
+      "input_sha256": {
+        "candidate_pool": "09e8c9b4972f48a67661c8b06dcf220f178528156699da671a16dd8d08fb908f",
+        "component_map": "86be62b1fb6c25e335692ce1041284fbc8cc4341a30370224003ebf2872bc2ab",
+        "gold": "91af72dba9e8ccc97286f5933475bd21e43701a16727d0dfe0c442c55be90699",
+        "qa2d_targets": "2875bcd8fb19b8803bbe1eb85fe647f915b6e260b46c35d008f2fc6510955308",
+        "queries": "02af9b4ef8458ce35c9caf99833421d7098f07e704d2c1f534909ea2a64be1fe",
+        "role_assignments": "afcffc5ebe57bf6ec86843149977b1f2534092b717725e1ae638f6421405aa00",
+        "selection_trace": "227f014d82bc76fe65f1ce7075678ad18ea36a72e765a7bacab7bb3add948b08",
+        "target_support_audit": "af32dbbc781ceca4bb5efb0b1a529c72bf6e4710b04a35a2b7e0f5ac456689bc"
+      },
+      "role_assigned_queries": 1023,
+      "sealed_or_heldout_read": false,
+      "source_role": "NIAH train only",
+      "status": "COMPLETE",
+      "train_queries": 515,
+      "validation_queries": 62
+    },
+    "heldout": {
+      "datasets": {
+        "hotpotqa": {
+          "count": 400,
+          "ordered_ids_sha256": "1c1b822c8942b3e14979de187b63d06f5b64ebcdd2303cf5b6b56c9bea92755d"
+        },
+        "musique-full": {
+          "count": 800,
+          "ordered_ids_sha256": "0769a0f611143ccf2ba763bec81586b3179f51ac6cc325c2bcba243585c10762"
+        },
+        "rgb": {
+          "count": 300,
+          "ordered_ids_sha256": "25ed22988cb9684a8de9fc74c603e79ef44792f0e3bfd4c3b9e74c2e2a301c87"
+        },
+        "rgb-counterfactual": {
+          "count": 100,
+          "ordered_ids_sha256": "4d2dbfd40cc3be2de45c64a59dccf19880832922fbbdb4058c585dc76560f672"
+        }
+      },
+      "source": "configs/heldout-sample.json",
+      "status": "DENY_UNTIL_SYSTEMF_AND_SEPARATE_AUTHORIZATION"
+    },
+    "sealed600": {
+      "count": 600,
+      "ordered_ids_sha256": "f182b0ef0d66f62acaecf098a3f9e0ed5c7f4f6b6cfd94dcb51220ae4690cf00",
+      "status": "RETIRED_READ_ONLY_HISTORY"
+    }
+  },
+  "execution_order": [
+    "G",
+    "freeze GQ",
+    "S",
+    "freeze SQ",
+    "I"
+  ],
+  "frozen_components": {
+    "g230_gc_gm_history": {
+      "answer_report_status": "COMPLETE_PENDING_CITATION",
+      "archive_manifest_sha256": "53ddd20376db7478d91cbf1a20bfca20118df314c5b20c8cf98a992ae471f8be",
+      "citation_report_status": "COMPLETE",
+      "source_runtime": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G230-v1",
+      "status": "COMPLETE / NO CANDIDATE"
+    },
+    "generator_base_g0": {
+      "default_new_training_scope": "draft LoRA only",
+      "model": "ibm-granite/granite-4.1-3b@c0650403e44e78ec0262dab1c90914c65b196c4e",
+      "snapshot_config_sha256": "9a0e589b69e7d3ad9fb9fb2c844aa7d7156e052cb7ea4211de7de48ab7c8525c",
+      "status": "FROZEN_RELIABILITY_BASELINE_AND_FALLBACK_TEACHER"
+    },
+    "legacy_selector_sl": {
+      "cap": 2,
+      "checkpoint_sha256": "86622bd9ab6391c9eb560133b01b0cf3744c3706638ff8b0bd38925b84bf72bf",
+      "model_id": "cross-encoder/nli-deberta-v3-base",
+      "revision": "6c749ce3425cd33b46d187e45b92bbf96ee12ec7",
+      "role": "Legacy safety/risk baseline; not final Selector",
+      "status": "FROZEN_BASELINE_ONLY",
+      "threshold": 0.9212157130241394
+    },
+    "minicheck": {
+      "model_id": "lytang/MiniCheck-Flan-T5-Large",
+      "revision": "96eafd01cee2d16cf81aaa2fb226b14f422a37b3",
+      "status": "FROZEN_POST_GENERATION_EVALUATOR"
+    },
+    "retriever": {
+      "architecture": "Hybrid RRF: StrongBM25 + Granite dense",
+      "embedding_model": "ibm-granite/granite-embedding-english-r2",
+      "embedding_revision": "47ea694b257b703fee9253d75c2b1f2985180498",
+      "parameters_sha256": "67333c6f3fcf6567756b382048961bc150da0ee26af4f9cecc59f58f30b5d78d",
+      "status": "FROZEN"
+    },
+    "true": {
+      "model_id": "google/t5_xxl_true_nli_mixture",
+      "role": "runtime verifier; never evaluates itself",
+      "status": "FROZEN"
+    }
+  },
+  "g230_archive_verification": {
+    "archive_manifest_sha256": "53ddd20376db7478d91cbf1a20bfca20118df314c5b20c8cf98a992ae471f8be",
+    "generation_archives": {
+      "gn": {
+        "decompressed_sha256": "3c84b5dd55248a174b9c1c2aa4bcf534d2b8dca85594582f3d714193c898600d",
+        "expected_decompressed_sha256": "3c84b5dd55248a174b9c1c2aa4bcf534d2b8dca85594582f3d714193c898600d",
+        "expected_gzip_sha256": "e353c0d69ac127a347d87828578c50fc21484ae0402107051a665b3581712668",
+        "gzip_sha256": "e353c0d69ac127a347d87828578c50fc21484ae0402107051a665b3581712668",
+        "path": "docs/full-flow/experiments/02_generator_selector_alignment_2026-08-15/artifacts/G230/gn/generations.jsonl.gz",
+        "status": "PASS"
+      },
+      "seed13": {
+        "decompressed_sha256": "5dae0e4a775c7ae2a9a0f8433cf061f188eb64b12112fddb6197c1da8ed2012d",
+        "expected_decompressed_sha256": "5dae0e4a775c7ae2a9a0f8433cf061f188eb64b12112fddb6197c1da8ed2012d",
+        "expected_gzip_sha256": "0862d130b8860422892068d3e3c77f512d6ebe7054e9dc639bd0d677809422f8",
+        "gzip_sha256": "0862d130b8860422892068d3e3c77f512d6ebe7054e9dc639bd0d677809422f8",
+        "path": "docs/full-flow/experiments/02_generator_selector_alignment_2026-08-15/artifacts/G230/seed13/generations.jsonl.gz",
+        "status": "PASS"
+      },
+      "seed42": {
+        "decompressed_sha256": "9318a47af3fd5abbb37e05c022019d600d1ca77436e4be88eea3765ab764f6ed",
+        "expected_decompressed_sha256": "9318a47af3fd5abbb37e05c022019d600d1ca77436e4be88eea3765ab764f6ed",
+        "expected_gzip_sha256": "57dca00a67387d246f1d2373b95495534911c232e34eb530741b340c7bd223cc",
+        "gzip_sha256": "57dca00a67387d246f1d2373b95495534911c232e34eb530741b340c7bd223cc",
+        "path": "docs/full-flow/experiments/02_generator_selector_alignment_2026-08-15/artifacts/G230/seed42/generations.jsonl.gz",
+        "status": "PASS"
+      },
+      "seed73": {
+        "decompressed_sha256": "b93a3a996c68a05fc12344e2f30b3a107bd658583d3980687829c43c432f397b",
+        "expected_decompressed_sha256": "b93a3a996c68a05fc12344e2f30b3a107bd658583d3980687829c43c432f397b",
+        "expected_gzip_sha256": "851ae8a1addd3febd45aee734e8fc45af5ef5738b16e157eaae282f5064fc7cc",
+        "gzip_sha256": "851ae8a1addd3febd45aee734e8fc45af5ef5738b16e157eaae282f5064fc7cc",
+        "path": "docs/full-flow/experiments/02_generator_selector_alignment_2026-08-15/artifacts/G230/seed73/generations.jsonl.gz",
+        "status": "PASS"
+      }
+    },
+    "status": "PASS"
+  },
+  "gates_and_statistics": {
+    "bootstrap": "component-cluster paired bootstrap, 10000 resamples, seed=13",
+    "cluster_unit": "query provenance component",
+    "family_estimate": "average seed-level paired delta within query before component bootstrap",
+    "g010_input": "G230 paired discordance and component structure only; no new candidate effects",
+    "module_responsibility_gate": "core point estimates, margins, direction, and tripwires; not a significance claim",
+    "observed_power_forbidden": true,
+    "strong_claim_gate": "pre-registered primary CI lower bound > 0 with non-inferiority bounds"
+  },
+  "git": {
+    "branch": "refactor/three-module-baseline",
+    "dirty_allowed_because_stage_outputs_are_uncommitted": true,
+    "head": "907ab80b7ccecd7690bbc17f473f355a529557bc",
+    "head_equals_origin": true,
+    "origin_branch": "origin/refactor/three-module-baseline",
+    "origin_head": "907ab80b7ccecd7690bbc17f473f355a529557bc"
+  },
+  "heldout_authorization": "H requires separate user authorization after SystemF",
+  "plan_archive_commit": "907ab80b7ccecd7690bbc17f473f355a529557bc",
+  "route": "docs/full-flow/experiments/03_generator_grounding_repair_2026-08-18",
+  "runtime_contract": {
+    "formal_system": "Retriever -> Selector -> Generator -> one answer",
+    "generator_runtime_gold_loaded": false,
+    "gold_use_allowed": "offline target construction, utility labels after generation, and post-generation scoring only",
+    "parallel_arms_are_experimental_comparisons_only": true,
+    "reference_answers_loaded_at_runtime": false,
+    "retriever_runtime_gold_loaded": false,
+    "selector_runtime_gold_loaded": false
+  },
+  "schema_version": "full-flow-g000-input-manifest-v1",
+  "server_entity_verification": {
+    "audit_path": "docs/full-flow/experiments/03_generator_grounding_repair_2026-08-18/artifacts/G000/G000_SERVER_AUDIT.json",
+    "audit_sha256": "ca8f87d25a76cf773341befb17b52457608cfbf7bb8b9f22b42749de8137d9e3",
+    "audited_at_utc": "2026-08-18T13:48:55Z",
+    "checks": {
+      "g200_runtime_data": "PASS",
+      "g220_runtime_adapters": "PASS",
+      "g230_runtime_archive": "PASS",
+      "prior_a000_model_and_heldout_boundary": "PASS",
+      "repo_sync": "PASS",
+      "runtime_roots": "PASS"
+    },
+    "server": {
+      "hostname": "it097952",
+      "repo": "/home/fl25387/projects/IBM_Granite_Project_latest",
+      "runtime": "/scratch/fl25387/IBM_Granite_Project_latest",
+      "ssh_target": "fl25387@10.70.71.11"
+    },
+    "status": "PASS"
+  },
+  "source_files": {
+    "a000_manifest": {
+      "bytes": 8353,
+      "path": "docs/full-flow/experiments/02_generator_selector_alignment_2026-08-15/artifacts/A000/A000_DATA_MODEL_MANIFEST.json",
+      "sha256": "53c933f45bfcc35e962382a5bfb0873545c9157759b08591d8751ed7e64229e8"
+    },
+    "a000_server_audit": {
+      "bytes": 4092,
+      "path": "docs/full-flow/experiments/02_generator_selector_alignment_2026-08-15/artifacts/A000/A000_SERVER_AUDIT.json",
+      "sha256": "a74b7a63cfac595a944c8fb15434ac6723608f0f74263807a6741d0f65bd0801"
+    },
+    "claim_splitter_source": {
+      "bytes": 15414,
+      "path": "src/evidence_rag/generator/claim_splitter.py",
+      "sha256": "9115cf12e86e9c18ae4a26c38a4a56358311fe4158d1db55e02a838f8ca5c78a"
+    },
+    "g000_protocol": {
+      "bytes": 3892,
+      "path": "docs/full-flow/experiments/03_generator_grounding_repair_2026-08-18/G000_PROTOCOL.md",
+      "sha256": "ea6940e56b78a2b0828acfb2e07bb6638667b7edb10d943ab3dbd1730b4684d2"
+    },
+    "g000_script": {
+      "bytes": 36690,
+      "path": "scripts/full_flow_g000_freeze.py",
+      "sha256": "d10d5f1aeb4c3d42b9967800ba3b2847dd0860aa3dfde223346617ff18173546"
+    },
+    "g200_manifest": {
+      "bytes": 2583,
+      "path": "docs/full-flow/experiments/02_generator_selector_alignment_2026-08-15/artifacts/G200/data/manifest.json",
+      "sha256": "acc376e31196952b0d195e397784dd6bc4ecc0887ecdb25c8157bb3ed698d25a"
+    },
+    "g200_script": {
+      "bytes": 42031,
+      "path": "scripts/full_flow_g200.py",
+      "sha256": "a1cc5aa9c99bbde4ddb4d295bb4106522791b94ca0f171db036412df3e63cfd8"
+    },
+    "g220_train_script": {
+      "bytes": 23641,
+      "path": "scripts/full_flow_g220_train.py",
+      "sha256": "8126de1ccaf685dc07350d3421694d4188da6c4e06155cfc6ad48610351d622c"
+    },
+    "g220_training_report": {
+      "bytes": 4250,
+      "path": "docs/full-flow/experiments/02_generator_selector_alignment_2026-08-15/G220_TRAINING_REPORT.md",
+      "sha256": "cbb4e0266e49c1eb7dd0fdcf1d3357d07f2ff6b31929bf23b605a1b8e4084fbc"
+    },
+    "g230_answer_report": {
+      "bytes": 179957,
+      "path": "docs/full-flow/experiments/02_generator_selector_alignment_2026-08-15/artifacts/G230/score/answer_report.json",
+      "sha256": "37df7073a2cf481665323ddb542d671f29f9b9e6b74b31178d26f1b382ca2573"
+    },
+    "g230_archive_manifest": {
+      "bytes": 2297,
+      "path": "docs/full-flow/experiments/02_generator_selector_alignment_2026-08-15/artifacts/G230/ARCHIVE_MANIFEST.json",
+      "sha256": "53ddd20376db7478d91cbf1a20bfca20118df314c5b20c8cf98a992ae471f8be"
+    },
+    "g230_citation_report": {
+      "bytes": 88689,
+      "path": "docs/full-flow/experiments/02_generator_selector_alignment_2026-08-15/artifacts/G230/citation/citation_report.json",
+      "sha256": "f03ce347d10e3aa60da5ff086d6830db613c0eba45084ebbf01411ee4ee51c25"
+    },
+    "g230_citation_score_script": {
+      "bytes": 15724,
+      "path": "scripts/full_flow_g230_citation_score.py",
+      "sha256": "97fc35c6ddded8c665c244fe16842781dc3e903bcb64cfc79b9e514ccc3936d2"
+    },
+    "g230_results": {
+      "bytes": 5401,
+      "path": "docs/full-flow/experiments/02_generator_selector_alignment_2026-08-15/G230_RESULTS.md",
+      "sha256": "5c291daa2f7e04cd9018f32e2b25e7b34f120bf695713cf75fe1bf5ce2c32fa1"
+    },
+    "g230_run_script": {
+      "bytes": 44884,
+      "path": "scripts/full_flow_g230.py",
+      "sha256": "271a65c57d6c9cda4002d61aedd13a48e8ebd6bb9a4c08bd5b4b70b4eee8d03a"
+    },
+    "generator_draft_source": {
+      "bytes": 12101,
+      "path": "src/evidence_rag/generator/draft.py",
+      "sha256": "7811e6a43ee11a4a567ac468e8bc0dd76a196f656c9794babad6e0e80133b984"
+    },
+    "generator_granite_source": {
+      "bytes": 11568,
+      "path": "src/evidence_rag/generator/granite.py",
+      "sha256": "218b2ec652d60f426cadacb34062e5e981689716ad8cb0c3834b7a395c42fe1e"
+    },
+    "heldout_handover": {
+      "bytes": 6489,
+      "path": "docs/heldout-three-set-handover.md",
+      "sha256": "4c5fe94814c3b65e449466e3dc2068376f7c3407ddd366180cf1b3b71d1a6e1f"
+    },
+    "heldout_sample": {
+      "bytes": 52883,
+      "path": "configs/heldout-sample.json",
+      "sha256": "0936d80efdd315e9f03e58772bb87532c50f19592a3f1f722187f5dae4646b8d"
+    },
+    "legacy_selector_report": {
+      "bytes": 5656,
+      "path": "docs/full-flow/experiments/01_selector_generator_bridge_2026-08-12/artifacts/F005/eval/report.json",
+      "sha256": "2eed6326d63e340c559a8eb17350f7c37d3406622ac5f36ef381ab129c687174"
+    },
+    "legacy_selector_selection": {
+      "bytes": 846,
+      "path": "docs/full-flow/experiments/01_selector_generator_bridge_2026-08-12/artifacts/F005/selection/selection_manifest.json",
+      "sha256": "57fbe0f1aff52bff53e3a2a40f60032ac9d8fa3b57966db58b33d8f22f1335c5"
+    },
+    "legacy_selector_source": {
+      "bytes": 14398,
+      "path": "src/evidence_rag/selector/risk_controlled.py",
+      "sha256": "ed5634e8bfc864ef34a2e69c2239df275f60552c98be22097854035e2ab58421"
+    },
+    "retriever_hybrid_source": {
+      "bytes": 3415,
+      "path": "src/evidence_rag/retriever/hybrid.py",
+      "sha256": "0c15d8c76b4828dc133497907eb4cfd919e525fce4e8943dd8fd2505d7529394"
+    },
+    "route_plan": {
+      "bytes": 33318,
+      "path": "docs/full-flow/experiments/03_generator_grounding_repair_2026-08-18/PLAN.md",
+      "sha256": "80dbcbd2b8b450d71283ebceb4061c1cce2a6fc4ef2f824832e002cbcda2f2b4"
+    },
+    "route_readme": {
+      "bytes": 2992,
+      "path": "docs/full-flow/experiments/03_generator_grounding_repair_2026-08-18/README.md",
+      "sha256": "057362b119961b5fedb562dc04b9c29bf51dc4f939e00d7261985c7e366b7df4"
+    },
+    "route_tracker": {
+      "bytes": 5816,
+      "path": "docs/full-flow/experiments/03_generator_grounding_repair_2026-08-18/TRACKER.md",
+      "sha256": "81bdb4f3e97ae0340b243fe5ddf40a2f6b9fd6734d7334523a8216ebc437fc88"
+    },
+    "true_nli_source": {
+      "bytes": 13023,
+      "path": "src/evidence_rag/generator/nli.py",
+      "sha256": "01d50104d9cf81d3654101a8eb4c43db7ccf8759951a79f7f2e6e704dcdb94aa"
+    },
+    "verify_annotate_source": {
+      "bytes": 30867,
+      "path": "src/evidence_rag/generator/verify_annotate.py",
+      "sha256": "ef289c33c1b2e000a8b5a4f80469fce0db350b0c92432ee842d37a934732f0eb"
+    }
+  },
+  "status": "PASS"
+}

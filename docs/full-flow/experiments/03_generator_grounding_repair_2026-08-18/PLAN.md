@@ -2,7 +2,7 @@
 
 **路线：** `03_generator_grounding_repair_2026-08-18`
 **日期：** 2026-08-18
-**修订状态：** `REVISED DRAFT FOR USER REVIEW / NO NEW RUN AUTHORIZED`
+**修订状态：** `G000 COMPLETE / PASS / G010-G100 READY / NO TRAINING STARTED`
 **修订原因：** 明确旧 Selector 的数据与外推边界；把模块资格、强统计结论和完整系统资格分开；将 Generator-aware Selector 纳入同一条交替冻结路线
 **上一阶段：** G230 `COMPLETE / NO CANDIDATE`
 **主生成模型：** `ibm-granite/granite-4.1-3b@c0650403...`
@@ -780,16 +780,16 @@ MiniCheck 是外部 judge；TRUE 是被测 runtime verifier，不评价自己。
 
 ## 16. 用户批准前检查表
 
-- [ ] 用户确认旧 Selector 只作为有限范围的 safety/risk baseline。
-- [ ] 用户确认采用 G -> freeze -> S -> freeze -> I 的单循环协同。
-- [ ] 用户确认新 Generator 失败时允许 G0 作为 utility teacher。
-- [ ] 用户确认模块职责通过不等于统计显著优越。
-- [ ] 用户确认最终三个数据集只在 SystemF 冻结后运行一次。
-- [ ] G000 protocol 已从本修订快照为 frozen version。
-- [ ] G230、Legacy Selector 和全部输入 hash 可复算。
-- [ ] sealed600 与 system held-out denylist 生效。
+- [x] 用户确认旧 Selector 只作为有限范围的 safety/risk baseline。
+- [x] 用户确认采用 G -> freeze -> S -> freeze -> I 的单循环协同。
+- [x] 用户确认新 Generator 失败时允许 G0 作为 utility teacher。
+- [x] 用户确认模块职责通过不等于统计显著优越。
+- [x] 用户确认最终三个数据集只在 SystemF 冻结后运行一次。
+- [x] G000 protocol 已从本修订快照为 frozen version。
+- [x] G230、Legacy Selector 和全部输入 hash 可复算。
+- [x] sealed600 与 system held-out denylist 生效。
 - [ ] 新 NIAH/2Wiki split leakage 为 0。
-- [ ] 所有 gate、margin、预算和 fallback 在新结果前冻结。
-- [ ] GitHub/服务器实体已核对，用户无关文件未被 stage。
+- [x] 所有 gate、margin、预算和 fallback 在新结果前冻结。
+- [x] GitHub/服务器实体已核对，用户无关文件未被 stage。
 
 以上确认完成前，不启动训练、不生成新 utility labels、不运行 held-out。

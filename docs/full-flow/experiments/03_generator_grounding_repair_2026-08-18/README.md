@@ -1,7 +1,7 @@
 # Generator 修复与 Selector 分阶段协同
 
 **日期：** 2026-08-18
-**状态：** `REVISED PLAN / WAITING FOR USER CONFIRMATION / NO RUN AUTHORIZED`
+**状态：** `G000 COMPLETE / PASS / G010-G100 READY / NO TRAINING STARTED`
 **详细计划：** [PLAN.md](PLAN.md)
 **执行跟踪：** [TRACKER.md](TRACKER.md)
 **原始方案快照：** [snapshots/PLAN_v1_generator_only_2026-08-18.md](snapshots/PLAN_v1_generator_only_2026-08-18.md)
@@ -58,4 +58,4 @@ CI 跨 0 不再自动淘汰职责合格组件，但也不能写成统计显著�
 - 不修改 Retriever、Legacy Selector 或历史结果；
 - 不使用 sealed600；
 - 不读取/评分 system held-out；
-- 不在用户确认前冻结 G000 protocol。
+- 不跳过 G010/G100/G110 直接进入训练。
