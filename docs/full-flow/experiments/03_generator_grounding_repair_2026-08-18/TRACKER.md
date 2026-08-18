@@ -2,9 +2,9 @@
 
 **日期：** 2026-08-18
 **计划：** [PLAN.md](PLAN.md)
-**当前状态：** `G212 FAIL / LENGTH / CONTROLLED LENGTH REPAIR NEXT / NO TRAINING STARTED`
+**当前状态：** `G214 COMPLETE / PRE-MANUAL PASS / G212R NEXT / NO TRAINING STARTED`
 
-用户已确认本路线的边界和协同顺序。G210 hard data gate 已失败；用户已进一步授权按积极信号原则修订计划。G215 将失败解释为“原数据冻结失败但路线可修”；G200R2 已完成 answer-alias-preserving materialization；G210R2 已完成 structural、TRUE 和 pre-manual finalize，自动数据门通过；G212 length gate 发现唯一 overlength train group。下一步必须执行 G214 controlled length repair；仍不允许在 G212R 通过前启动训练、utility generation 或 held-out。
+用户已确认本路线的边界和协同顺序。G210 hard data gate 已失败；用户已进一步授权按积极信号原则修订计划。G215 将失败解释为“原数据冻结失败但路线可修”；G200R2 已完成 answer-alias-preserving materialization；G210R2 已完成 structural、TRUE 和 pre-manual finalize，自动数据门通过；G212 length gate 发现唯一 overlength train group；G214 已成组排除该 train group 并保持数据门通过。下一步必须执行 G212R revised manual/length audit；仍不允许在 G212R 通过前启动训练、utility generation 或 held-out。
 
 ## 阶段 G：Generator
 
@@ -24,8 +24,8 @@
 | G200R2 | Revised data materialization | 过滤 answer alias 不保留的 2Wiki support-sentence targets | train/model-val cases、manifest | COMPLETE / PRE-AUDIT PASS |
 | G210R2 | Revised target audit | 对 G200R2 重新执行 structural/TRUE/pre-manual finalize | audit、leakage report、hashes | COMPLETE / PRE-MANUAL PASS |
 | G212 | Manual/length audit | 对 G210R2 pre-manual 数据做人工样本、长度/truncation 和最终冻结前检查 | manual sample、length report、freeze readiness manifest | FAIL / LENGTH |
-| G214 | Controlled length repair | 成组排除 G212 发现的唯一 overlength 2Wiki train group 及对应 unsupported case | revised pre-manual bundle、manifest、ordered IDs | AUTHORIZED / NEXT |
-| G212R | Revised manual/length audit | 对 G214 bundle 重跑长度审计和 manual packet/review | length report、manual review、freeze readiness manifest | BLOCKED BY G214 |
+| G214 | Controlled length repair | 成组排除 G212 发现的唯一 overlength 2Wiki train group 及对应 unsupported case | revised pre-manual bundle、manifest、ordered IDs | COMPLETE / PRE-MANUAL PASS |
+| G212R | Revised manual/length audit | 对 G214 bundle 重跑长度审计和 manual packet/review | length report、manual review、freeze readiness manifest | AUTHORIZED / NEXT |
 | G300 | Training implementation | query-group loss、citation weighting、fresh/continuation | tests、smoke manifest | BLOCKED BY G212R PASS |
 | G310 | Seed13 screen | 比较 GR-F 与 GR-C | two adapters、model-val report | BLOCKED BY G300 |
 | G320 | Recipe freeze | 按 maximin 冻结唯一 Generator 配方 | recipe、tie-break trace | BLOCKED BY G310 |
@@ -98,3 +98,4 @@
 - G200R2 revised data materialization：在 2Wiki support-sentence target construction 后新增 answer-alias preservation 过滤。NIAH train/model-val 为 515/307，2Wiki train/model-val 为 1,053/133，unsupported groups 为 1,053，unsupported update ratio 为 10.0881%，split group/component overlap=0；pre-audit gates 全部通过。完整 train/validation cases 留在服务器 `/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G200R-v2/data`，Git 归档小产物位于 `artifacts/G200R2/`，报告见 `G200R2_DATA_MATERIALIZATION_REPORT.md`。G200R2 未启动训练、utility labels 或 held-out；G210R2 仍必须审计 TRUE/manual/length 后才能冻结数据。
 - G210R2 revised target audit：对 G200R2 执行 structural audit、TRUE audit 和 pre-manual finalize。Structural 3,061 cases 全部通过，TRUE worklist 2,708 rows 中 2,338 entailed、370 not entailed；过滤后 NIAH train/model-val 为 515/215，2Wiki train/model-val 为 828/106，unsupported groups 为 1,053，unsupported update ratio 为 11.3068%，split group/component overlap=0，自动数据门全部通过。完整 train/validation cases 留在服务器 `/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G210R-v2/pre-manual`，Git 归档小产物位于 `artifacts/G210R2/`，报告见 `G210R2_TARGET_AUDIT_REPORT.md`。G210R2 未启动训练、utility labels 或 held-out；manual audit 和 length/truncation audit 仍必须在 G212 完成后才能冻结数据。
 - G212 length/manual audit：新增 `scripts/full_flow_g212_manual_length_audit.py` 并在服务器 G212-v1 runtime 执行 prepare。长度审计覆盖 2,717 cases / 11,348 examples，`max_length=2304`；4 个 examples 超长，全部来自 `2wiki::b779ecdc08c411ebbd8eac1f6bf848b6` 的 train answerable variants，最大 2,528。manual sample 按 5 个 stratum 各 20 条生成，但未进入 reviewer 判定。G212 状态为 `FAIL / LENGTH / MANUAL REVIEW NOT STARTED`；产物位于 `artifacts/G212/`，报告见 `G212_LENGTH_AUDIT_REPORT.md`。下一步为 G214，且仍不得训练、生成 utility labels 或读取 held-out。
+- G214 controlled length repair：新增 `scripts/full_flow_g214_length_repair.py`，只根据 G212 length rows 成组排除 `group_id=b779ecdc08c411ebbd8eac1f6bf848b6` 的 1 个 answerable train case 和 1 个 unsupported counterpart。修订后 train/validation cases 为 2,394/321；NIAH train/model-val 为 515/215，2Wiki train/model-val 为 827/106，unsupported groups 为 1,052，unsupported update ratio 为 11.3033%，split group/component overlap=0，所有 gates 仍通过。完整 revised cases 留在服务器 `/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G214-v1/data`，Git 小产物位于 `artifacts/G214/`，报告见 `G214_LENGTH_REPAIR_REPORT.md`。G214 未启动训练、utility labels 或 held-out；G212R 仍必须通过后才能冻结数据。
