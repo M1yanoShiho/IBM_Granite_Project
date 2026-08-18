@@ -6167,6 +6167,108 @@ R13 原始 0.27 → 0.55(**×2.04**)。**⇒ 节点慢了四成,倍数几乎不�
 
 ---
 
+## R20 — R11 的"4/4 复现"来自单次运行,而 decompose 臂每条 query 都调 LLM [PRE-REGISTERED 2026-08-18]
+
+**与既有结论的关系:** 本条不提出新机制,检验的是既有读数在运行间方差下是否稳住,故须点名它悬在哪几条上。
+**R11** 是直接对象:它的价值恰在"效应在四个独立语料上 4/4 全部显著为正",即**排除侥幸**;
+用单次运行排除侥幸不闭合。**R12** 是下游:它是对 R11 产物的 login-node 重读,零新作业,
+**方差全部继承自 R11**,故本条的判定同时决定 R12 那三行的可信度,R12 不单独重跑。
+**R7** 与 **R8** 提供漂移的实测量级:两轮检索链完全相同、只换 generator,
+decompose 臂 MRR 仍差 **−0.0031**;这正是本条要对照的尺子。
+**R19** 是同一纪律的前一条(R13 的重复),其做法与判据形式照搬于此,
+但两者阻塞不同:R19 无签名闸,本条有。**R13** 与本条无内容关联,仅共享"单次运行不足以支撑
+推翻性结论"这一动机。
+
+### 为什么要跑
+
+R11 的预注册里写了一句免责声明:
+
+> **LLM 方差不是混淆项:** 生成为 greedy(`temperature=0.0` ⇒ `do_sample=False`),同一条 query
+> 在各 sweep 点得到**相同的子查询**,故点与点之间的差异不可能来自分解结果的抖动。
+
+**前半句已核实无误**(`composition.py` 为 decompose 臂构造 `GraniteLLMClient`;
+`granite.py` 中 `temperature=0.0` 走 `do_sample=False`),**但由它推出的"相同子查询"不成立**。
+本台账已三处写明相反的事实:
+
+> 贪心在算术上确定,在 GPU kernel 选择与归约顺序上不逐位确定,logit 接近平手处即翻转。
+
+且 R7→R8 给出了该漂移的实测量级:**decompose 臂 MRR −0.0031**。
+而 R11 的效应量是总召回 **+0.0105 ~ +0.0145** —— **同一数量级的零头**。
+**⇒ 用来"排除侥幸"的那条证据,本身没有排除运行间抖动。本条补上。**
+
+### 设计
+
+- **只重复 `decompose-orig` 臂,四个规模点(25k / 50k / 100k / 200k),跑两轮。**
+  `strong-bm25` 臂是纯 CPU 确定性链,不重复,直接复用既有产物做配对
+  (逐位可复现已由 R7×R8 的 CPU 两臂 `0.0000(精确)` 实证)。**基线固定正是配对设计的意图。**
+- **签名必须钉住。** 本条走 pipeline,受 `source_tree_signature` 闸控,而该签名哈希
+  `src/evidence_rag/` 下**每一个** `.py`(`experiment.py` 的 `_source_tree_signature`),
+  故即使只改 generator 也会翻。**钉在 commit `1219c66`;两轮跑完之前 HPC 工作树不得 `git pull`。**
+  `scripts/` 与 `docs/` 不进签名,拉它们无妨。
+- **两轮之间必须归档产物**:`prepare` 对已存在输出目录做严格校验,直接重交会失败
+  (同 job 18380601、R14 首次重交)。
+
+### 判据(读数前写定)
+
+对四个规模点各自计算 Δ(总召回, decompose-orig − strong-bm25):
+
+- **两轮在四个点上全部显著为正** ⇒ R11 的"4/4 复现"成立**且有方差支撑**,
+  其"排除侥幸"的作用第一次闭合;R12 一并加固。
+- **任一点在任一轮转为不显著** ⇒ R11 的"4/4"须改写为实际命中数,
+  或改写为"效应量与运行噪声同量级";**R12 的三行同时降级**,不得再作为"增益只在 NQ 出现"的支撑。
+
+**读法钉死(这一条比判据本身更容易出错):**
+**只比两轮新运行之间的差**,那是固定代码下的运行间方差,即本条要问的量。
+**不得拿新运行去减 2026-08-13 的 +0.0122 等值** —— R11 跑在 `6cc48d6` 前后,
+其后 `src/evidence_rag/` 已多次变动,两者之差混入了代码漂移。
+**若新的点估计明显偏离 08-13,那是另一个发现(代码漂移影响了检索链),须单独记录,
+不得并入方差讨论,亦不得当作本条的失败。**
+
+**必做的自检:** 两轮各自 `manifest.json` 里的 `source_tree_signature` **必须逐字相同**。
+不同即说明中间发生了 pull,两轮不是同一个实验,**本条数字一律作废,先查清再读** ——
+同 R18 证伪 A 的纪律。
+
+### 命令
+
+```bash
+# 记录钉住的提交(读数时要与 manifest 对拍)
+git rev-parse HEAD > results/r20-pinned-commit.txt
+
+# 归档既有产物(prepare 严格校验,不归档必失败)
+mkdir -p runs/_archive-$(date +%Y%m%d)-r20
+mv runs/retr-nq{25k,50k,200k}-decompose-orig runs/retr-nq-decompose-orig \
+   runs/_archive-$(date +%Y%m%d)-r20/
+
+# 第一轮
+sbatch scripts/run_retriever_eval.slurm \
+  configs/experiments/retr_nq25k_decompose-orig.toml \
+  configs/experiments/retr_nq50k_decompose-orig.toml \
+  configs/experiments/retr_nq_decompose-orig.toml \
+  configs/experiments/retr_nq200k_decompose-orig.toml
+
+# 第一轮完成后,挪走产物再交第二轮(同一命令)
+mkdir -p runs/_r20-rep1
+mv runs/retr-nq{25k,50k,200k}-decompose-orig runs/retr-nq-decompose-orig runs/_r20-rep1/
+
+# 读数(login node)
+for tag in nq25k nq50k nq nq200k; do
+  bash scripts/retriever_significance.sh $tag | grep "decompose-orig vs strong-bm25"
+done
+```
+
+### 已知限制(写在读数之前)
+
+1. **只重复 decompose 臂。** 本条测的是该臂的运行间方差,不是配对差的全部方差;
+   基线臂固定是设计,不是遗漏。
+2. **仅 NQ。** R11 原限制"各规模语料不是嵌套子集"原样继承 —— 曲线上的点之间本就有额外方差,
+   本条不改变这一点,只在每个点上各加两次观测。
+3. **两轮同签名。** 不覆盖跨代码版本的差异;那是另一个量,若出现见"读法钉死"。
+4. **不重测 R8 / R17。** 理由见 R19 的范围声明,此处不重复。
+
+**AFTER:** 未运行;不得填写。
+
+---
+
 ## G-A12 — verification-oriented A1 prompt 与 robust A2 splitter 的 2×2 消融 [PRE-REGISTERED 2026-08-15]
 
 **状态:READY。** 本 BEFORE 在任何本实验输出产生之前写入。
