@@ -2,7 +2,7 @@
 
 **日期：** 2026-08-18
 **计划：** [PLAN.md](PLAN.md)
-**当前状态：** `G000 COMPLETE / PASS / G010-G100 READY / NO TRAINING STARTED`
+**当前状态：** `G010 COMPLETE / PASS / G100 READY / NO TRAINING STARTED`
 
 用户已确认本路线的边界和协同顺序。G000 冻结通过前，不允许启动新训练、utility generation 或 held-out。
 
@@ -11,7 +11,7 @@
 | ID | 阶段 | 目的 | 必需产物 | 状态 |
 |---|---|---|---|---|
 | G000 | Protocol freeze | 冻结数据、职责门、强结论门、预算和 fallback | frozen protocol、input manifest、denylist | COMPLETE / PASS |
-| G010 | Power/scope | 计算样本可分辨效应，不用 observed power | MDE/sensitivity report | READY / NOT RUN |
+| G010 | Power/scope | 计算样本可分辨效应，不用 observed power | MDE/sensitivity report | COMPLETE / PASS |
 | G100 | Citation attribution | 定位 G230 citation 最早失败阶段 | claim-level attribution rows | READY / NOT RUN |
 | G110 | Independent audit | 复核归因和 MiniCheck disagreement | audit report、route decision | BLOCKED BY G100 |
 | G120 | Splitter repair | 仅当 G110 证明 splitter 为主要断点 | tests、implementation report | CONDITIONAL |
@@ -75,3 +75,4 @@
 ## 已完成记录
 
 - G000：协议、统计范围、预算、fallback、runtime gold 边界和 denylist 已冻结；服务器 `it097952` 上 repo/runtime/G200/G220/G230 实体核验 PASS；G230 gzip 归档解压 SHA256 与 runtime manifest 一致；sealed600 标记为 retired read-only，HotpotQA/MuSiQue-Full/RGB/RGB-counterfactual 只保留 ordered IDs/hash 且仍需 SystemF 后单独授权；未启动训练、utility labels 或 held-out。产物位于 `artifacts/G000/`，报告见 `G000_REPORT.md`；本阶段提交为包含本记录的 Git commit，push 后以 GitHub 历史为准。
+- G010：只使用 G230 archived answer/citation rows 和 G000 frozen sample sizes 做 simulation-style sensitivity；未计算 observed power，未放宽任何 gate/margin，未读取 held-out 内容。G230 full TopK 为 739 rows / 534 components，design effect 为 1.3839；按 G230 family mean discordance，`correct_and_cited` MDE 约 GC 6.15pp、GM 6.33pp。产物位于 `artifacts/G010/G010_POWER_SCOPE.json`，报告见 `G010_POWER_SCOPE.md`。

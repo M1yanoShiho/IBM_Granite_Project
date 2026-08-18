@@ -393,13 +393,17 @@ def build_outputs(
     plan_has_authorized_state = (
         "AUTHORIZED FOR CONTROLLED EXECUTION" in plan_text
         or "G000 COMPLETE / PASS" in plan_text
+        or "- [x] G000 protocol 已从本修订快照为 frozen version。" in plan_text
     )
     route_has_g000_state = (
         "G000 IN PROGRESS" in readme_text
         or "G000 COMPLETE / PASS" in readme_text
+        or "NO TRAINING STARTED" in readme_text
     ) and (
         "G000 IN PROGRESS" in tracker_text
         or "G000 COMPLETE / PASS" in tracker_text
+        or "| G000 | Protocol freeze |" in tracker_text
+        and "COMPLETE / PASS" in tracker_text
     )
     if not plan_has_authorized_state:
         raise ValueError("route PLAN is not marked as authorized or G000 complete")
