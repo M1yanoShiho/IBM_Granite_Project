@@ -1,0 +1,41 @@
+{
+  "artifacts": {
+    "length_audit": {
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G212R2-v1/prepare/length_audit.json",
+      "sha256": "6d3b1c04e2b9069139b78788ac637598cb5ffec1e272862e465700b49bd22d00"
+    },
+    "length_rows": {
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G212R2-v1/prepare/length_rows.jsonl",
+      "sha256": "41391b163eb2d18c5a7ee8e5a7bd1532ce8a2c81f12fa2d2667b80ee9bf502b7"
+    },
+    "manual_sample": {
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G212R2-v1/prepare/manual_sample.jsonl",
+      "sha256": "d920e49067ab95dd4a288aebd9a08fdd51c89d5b0ec024978bb9cb804d2a3bd1"
+    },
+    "manual_sample_summary": {
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G212R2-v1/prepare/manual_sample_summary.json",
+      "sha256": "33e291adcd223a856af50de199a0b7c6305e9f8fecb28afe7de11e08302f5a51"
+    },
+    "prepare_manifest": {
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G212R2-v1/prepare/prepare_manifest.json",
+      "sha256": "36437e47b4fed13a9ca852e6c5e2f1e780c2d67f5caff8a82238cd1701b2a464"
+    }
+  },
+  "command": "cd /home/fl25387/projects/IBM_Granite_Project_latest; /scratch/fl25387/IBM_Granite_Project_latest/envs/selector_mis_py311/bin/python scripts/full_flow_g212_manual_length_audit.py prepare --manifest /scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G216-v1/data/manifest.json --train-cases /scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G216-v1/data/train_cases.jsonl --validation-cases /scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G216-v1/data/validation_cases.jsonl --model-snapshot /scratch/fl25387/IBM_Granite_Project_latest/model-cache/models--ibm-granite--granite-4.1-3b/snapshots/c0650403e44e78ec0262dab1c90914c65b196c4e --output-dir /scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G212R2-v1/prepare --max-length 2304 --sample-per-stratum 20 --sample-seed G212R2-v1-fixed-stratified-sample",
+  "created_unix": 1787075754,
+  "dev_read": false,
+  "length_audit_pass": true,
+  "length_cases": 2704,
+  "length_examples": 11295,
+  "max_length": 2304,
+  "observed_max": 2120,
+  "over_max_length": 0,
+  "sample_rows": 100,
+  "schema_version": "full-flow-g212r2-execution-audit-v1",
+  "script_sha256": "7032860d1487844e3e7c9c2bcbb40024f2b1622deb70901544d643c385812c0b",
+  "sealed_or_heldout_read": false,
+  "stage": "G212R2",
+  "status": "LENGTH_PASS_MANUAL_REVIEW_PENDING",
+  "training_started": false,
+  "utility_labels_started": false
+}

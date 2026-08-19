@@ -1,6 +1,6 @@
 # Full-flow 文档清单
 
-**更新时间：** 2026-08-13
+**更新时间：** 2026-08-18
 
 | 文件 | 用途 | 状态 |
 |---|---|---|
@@ -19,6 +19,13 @@
 | [`experiments/01_selector_generator_bridge_2026-08-12/F006_RESULTS.md`](experiments/01_selector_generator_bridge_2026-08-12/F006_RESULTS.md) | Mixed-LoRA 开发集选择结果 | COMPLETE-DEV-PASS |
 | [`experiments/01_selector_generator_bridge_2026-08-12/F005_SELECTION_REPORT.md`](experiments/01_selector_generator_bridge_2026-08-12/F005_SELECTION_REPORT.md) | 独立集运行前冻结选择记录 | COMPLETE |
 | [`experiments/01_selector_generator_bridge_2026-08-12/F005_RESULTS.md`](experiments/01_selector_generator_bridge_2026-08-12/F005_RESULTS.md) | 独立 600 题最终答案、引用与失败归因 | COMPLETE-FINAL-NO-WIN |
+| [`experiments/02_generator_selector_alignment_2026-08-15/PLAN.md`](experiments/02_generator_selector_alignment_2026-08-15/PLAN.md) | Generator-aware Selector 对齐总路线与数据/held-out 边界 | G230-complete-no-candidate / S300-blocked |
+| [`experiments/02_generator_selector_alignment_2026-08-15/TRACKER.md`](experiments/02_generator_selector_alignment_2026-08-15/TRACKER.md) | A000–G230 实际执行状态及后续条件阶段 | current |
+| [`experiments/02_generator_selector_alignment_2026-08-15/G230_RESULTS.md`](experiments/02_generator_selector_alignment_2026-08-15/G230_RESULTS.md) | draft LoRA answer/empty 改善与 citation gate 失败 | complete-no-candidate |
+| [`experiments/03_generator_grounding_repair_2026-08-18/README.md`](experiments/03_generator_grounding_repair_2026-08-18/README.md) | 第 03 路线零基础入口、旧 Selector 外推边界与协同顺序 | revised-plan |
+| [`experiments/03_generator_grounding_repair_2026-08-18/PLAN.md`](experiments/03_generator_grounding_repair_2026-08-18/PLAN.md) | Generator 修复、冻结教师、Utility Selector 和完整系统分阶段计划 | revised-draft-for-review |
+| [`experiments/03_generator_grounding_repair_2026-08-18/TRACKER.md`](experiments/03_generator_grounding_repair_2026-08-18/TRACKER.md) | G000–H100 条件执行表 | revised-planned |
+| [`experiments/03_generator_grounding_repair_2026-08-18/snapshots/PLAN_v1_generator_only_2026-08-18.md`](experiments/03_generator_grounding_repair_2026-08-18/snapshots/PLAN_v1_generator_only_2026-08-18.md) | 修订前的 Generator-only 严格资格门方案 | superseded-snapshot |
 
 ## 更新规则
 

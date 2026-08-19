@@ -1,0 +1,79 @@
+{
+  "schema_version": "full-flow-g300-execution-audit-v1",
+  "stage": "G300",
+  "date": "2026-08-18",
+  "status": "COMPLETE_SMOKE_PASS",
+  "source_head_before_stage": "2f6463ebab1b8403ed033a7f5843009339473f3f",
+  "server_repo_head_at_execution": "2f6463ebab1b8403ed033a7f5843009339473f3f",
+  "code_runtime_dir": "/scratch/fl25387/IBM_Granite_Project_latest/tmp-g300-code",
+  "runtime_dir": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G300-v1",
+  "commands": {
+    "tests": "cd tmp-g300-code && python -m pytest tests/scripts/test_full_flow_g300_draft_lora_train.py",
+    "length_audit": "python scripts/full_flow_g300_draft_lora_train.py audit-lengths --model-snapshot granite-4.1-3b snapshot --data-manifest G223-v1/data/manifest.json --train-cases G223-v1/data/train_cases.jsonl --validation-cases G223-v1/data/validation_cases.jsonl --ordered-ids G223-v1/data/ordered_ids.json --output-json G300-v1/G300_LENGTH_AUDIT.json --max-length 2304",
+    "smoke": "CUDA_VISIBLE_DEVICES=0 python scripts/full_flow_g300_draft_lora_train.py train --recipe gr-f --run-kind smoke --seed 13 --model-snapshot granite-4.1-3b snapshot --data-manifest G223-v1/data/manifest.json --train-cases G223-v1/data/train_cases.jsonl --validation-cases G223-v1/data/validation_cases.jsonl --ordered-ids G223-v1/data/ordered_ids.json --output-dir G300-v1/smoke-grf-seed13-g1 --max-groups 1 --smoke-selection longest --max-length 2304"
+  },
+  "input_sha256": {
+    "g223_manifest": "9213eb32f1234290ac5d25c66c51756927adaff58ff4cd4cf2f70ece2312b30b",
+    "g223_train_cases": "88e5592ed796e756fb836c9faee22393a0fa56c57b50eae69c449bd78c438635",
+    "g223_validation_cases": "f896e8a92fe5e36757249f1a22d3c55f579233879beca229341833137f95cb67",
+    "g223_ordered_ids": "b3bd73290f9753ada6b6f79b7d6758d755b6eec1e42035936b76ceee90b5b283",
+    "granite_config": "9a0e589b69e7d3ad9fb9fb2c844aa7d7156e052cb7ea4211de7de48ab7c8525c"
+  },
+  "code_sha256": {
+    "script": "8973ac773c4da18dd1648c88de8ab316378ffb99eb59d080e170ac9767014b77",
+    "test": "ce2f54672a3dd7c7587df93a1cdf9fe147e8a4e238fbf2ac675dbc0b6dc0357b"
+  },
+  "artifacts": {
+    "length_audit": "1880d625f897453c0badcc1ffe76eeee970c601aa4f1d6a950af3b0649a35184",
+    "smoke_training_manifest": "c21a8a6369d65ab12789f6959f682fb884a5c4f097f3843deb9fdb8921a34f85",
+    "length_log": "d5fbc97e007d4874dc077ba3667b43cf3ea828db34b9f83eb161268b8d1042a5",
+    "smoke_log": "d9c00d8e4cb79761253e19886d9b9a72d72365315d46aa35716abc1de778fc6e",
+    "runtime_smoke_adapter_weights": "ad6f968728d817cd8aabf79f516b2590dca09d506e5afc08ae2c9a979b8b13ec",
+    "runtime_smoke_adapter_config": "eb24bc1c24ba55081bc7e3168d02a6a59e717d607912be75db0b331bb9f90c45"
+  },
+  "results": {
+    "entry_mode": "controlled_continuation_limited_internal_screen",
+    "clean_freeze_ready": false,
+    "g223_twowiki_modelval_groups": 95,
+    "length_status": "PASS",
+    "train_groups": 2370,
+    "train_examples": 9207,
+    "validation_groups": 302,
+    "validation_examples": 1924,
+    "train_max_length": 2120,
+    "validation_max_length": 2030,
+    "over_2304": 0,
+    "smoke_status": "COMPLETE",
+    "smoke_recipe": "gr-f",
+    "smoke_seed": 13,
+    "smoke_train_groups": 1,
+    "smoke_training_examples": 8,
+    "smoke_selected_train_case_ids": [
+      "niah-old::11690"
+    ],
+    "smoke_selected_validation_case_ids": [
+      "niah-new-modelval::1148"
+    ],
+    "smoke_optimizer_steps": 1,
+    "smoke_mean_group_weighted_loss": 3.691102609038353,
+    "smoke_validation_mean_group_weighted_loss": 2.535270197050912,
+    "smoke_peak_cuda_memory_bytes": 9118088192,
+    "adapter_reload_check": "PASS",
+    "trainable_parameters": 15564800,
+    "trainable_percent": 0.45532395775372514,
+    "test_result": "6 passed in 0.02s"
+  },
+  "boundaries": {
+    "adapter_scope": "draft generation call only",
+    "claim_splitter_scope": "frozen Granite base with adapters disabled",
+    "true_scope": "frozen verifier; not trained",
+    "decision_dev_used": false,
+    "dev_read": false,
+    "sealed_or_heldout_read": false,
+    "utility_labels_started": false,
+    "formal_candidate_training_started": false,
+    "smoke_training_started": true,
+    "heldout_requires_separate_authorization": true,
+    "not_a_generator_effect_claim": true
+  }
+}

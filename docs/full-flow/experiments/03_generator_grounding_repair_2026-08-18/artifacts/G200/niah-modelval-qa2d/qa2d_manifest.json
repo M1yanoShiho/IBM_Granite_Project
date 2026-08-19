@@ -1,0 +1,23 @@
+{
+  "schema_version": "full-flow-g200-qa2d-manifest-v1",
+  "status": "COMPLETE",
+  "role": "offline target construction only; not a runtime system component",
+  "model": "MarkS/bart-base-qa2d",
+  "revision": "94f286a9102dd7e178778d531d4aefcfbcbe5a07",
+  "input_template": "question: {question} answer: {answer}",
+  "decode": {
+    "do_sample": false,
+    "num_beams": 1,
+    "max_new_tokens": 64
+  },
+  "queries": 310,
+  "answer_preserved": 307,
+  "answer_not_preserved": 3,
+  "unknown_references": 0,
+  "input_sha256": {
+    "queries": "02af9b4ef8458ce35c9caf99833421d7098f07e704d2c1f534909ea2a64be1fe",
+    "gold": "91af72dba9e8ccc97286f5933475bd21e43701a16727d0dfe0c442c55be90699",
+    "role_assignments": "8c565a9b56d840b72af9ab572b0c66746426dcca9bb9ccda052391f677fd0da2"
+  },
+  "qa2d_targets_sha256": "b3cd30a922f9ae9e00d96c8c033b865f47c7aedef9e977bfd22e70fa283f7ea9"
+}

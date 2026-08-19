@@ -1,0 +1,232 @@
+{
+  "answerable_train_updates": 8191,
+  "counts": {
+    "2wiki": {
+      "train-fit_answerable_groups": 819,
+      "train-fit_unsupported_groups": 1048,
+      "train-modelval_answerable_groups": 99
+    },
+    "niah": {
+      "train-fit_answerable_groups": 512,
+      "train-modelval_answerable_groups": 211
+    }
+  },
+  "dev_read": false,
+  "excluded": {
+    "sample_review_rows": 9,
+    "total_cases": 10,
+    "train_cases": 5,
+    "validation_cases": 5
+  },
+  "excluded_cases": [
+    {
+      "answerable": true,
+      "case_id": "niah-old::10048",
+      "dataset": "niah",
+      "group_id": "10048",
+      "role": "train-fit",
+      "target_kind": "niah_qa2d_single_claim",
+      "variant_count": 8
+    },
+    {
+      "answerable": true,
+      "case_id": "niah-old::10517",
+      "dataset": "niah",
+      "group_id": "10517",
+      "role": "train-fit",
+      "target_kind": "niah_qa2d_single_claim",
+      "variant_count": 8
+    },
+    {
+      "answerable": true,
+      "case_id": "niah-old::10751",
+      "dataset": "niah",
+      "group_id": "10751",
+      "role": "train-fit",
+      "target_kind": "niah_qa2d_single_claim",
+      "variant_count": 8
+    },
+    {
+      "answerable": true,
+      "case_id": "2wiki::0b03d31b08a511ebbd7dac1f6bf848b6",
+      "dataset": "2wiki",
+      "group_id": "0b03d31b08a511ebbd7dac1f6bf848b6",
+      "role": "train-fit",
+      "target_kind": "twowiki_evidence_chain",
+      "variant_count": 5
+    },
+    {
+      "answerable": false,
+      "case_id": "unsupported::2wiki::0b03d31b08a511ebbd7dac1f6bf848b6",
+      "dataset": "2wiki",
+      "group_id": "0b03d31b08a511ebbd7dac1f6bf848b6",
+      "role": "train-fit",
+      "target_kind": "unsupported_support_removed",
+      "variant_count": 1
+    },
+    {
+      "answerable": true,
+      "case_id": "niah-new-modelval::1155",
+      "dataset": "niah",
+      "group_id": "1155",
+      "role": "train-modelval",
+      "target_kind": "niah_qa2d_single_claim",
+      "variant_count": 7
+    },
+    {
+      "answerable": true,
+      "case_id": "2wiki::23b5787a08e911ebbda7ac1f6bf848b6",
+      "dataset": "2wiki",
+      "group_id": "23b5787a08e911ebbda7ac1f6bf848b6",
+      "role": "train-modelval",
+      "target_kind": "twowiki_evidence_chain",
+      "variant_count": 5
+    },
+    {
+      "answerable": true,
+      "case_id": "2wiki::7a6f25d2087411ebbd67ac1f6bf848b6",
+      "dataset": "2wiki",
+      "group_id": "7a6f25d2087411ebbd67ac1f6bf848b6",
+      "role": "train-modelval",
+      "target_kind": "twowiki_evidence_chain",
+      "variant_count": 5
+    },
+    {
+      "answerable": true,
+      "case_id": "2wiki::d5cff1720bda11eba7f7acde48001122",
+      "dataset": "2wiki",
+      "group_id": "d5cff1720bda11eba7f7acde48001122",
+      "role": "train-modelval",
+      "target_kind": "twowiki_evidence_chain",
+      "variant_count": 5
+    },
+    {
+      "answerable": true,
+      "case_id": "2wiki::f99e50a908c911ebbd92ac1f6bf848b6",
+      "dataset": "2wiki",
+      "group_id": "f99e50a908c911ebbd92ac1f6bf848b6",
+      "role": "train-modelval",
+      "target_kind": "twowiki_evidence_chain",
+      "variant_count": 5
+    }
+  ],
+  "excluded_sample_review_rows": [
+    {
+      "case_id": "2wiki::0b03d31b08a511ebbd7dac1f6bf848b6",
+      "review_decision": "FAIL",
+      "review_reason": "Country-origin target for Metamorphoses is not self-contained; it does not clearly state the film country needed for the comparison.",
+      "sample_index": 8,
+      "sample_stratum": "2wiki:train-fit:twowiki_evidence_chain:answerable"
+    },
+    {
+      "case_id": "2wiki::f99e50a908c911ebbd92ac1f6bf848b6",
+      "review_decision": "FAIL",
+      "review_reason": "Nationality target is indirect; being a U.S. Olympic team coach does not clearly establish Yoshisada Yonezuka as from the same country as Anthony Roberson.",
+      "sample_index": 42,
+      "sample_stratum": "2wiki:train-modelval:twowiki_evidence_chain:answerable"
+    },
+    {
+      "case_id": "2wiki::d5cff1720bda11eba7f7acde48001122",
+      "review_decision": "FAIL",
+      "review_reason": "Birth-place target uses nickname Mozart of Madras rather than a birth-place statement, so the answer chain for Madras is not preserved.",
+      "sample_index": 45,
+      "sample_stratum": "2wiki:train-modelval:twowiki_evidence_chain:answerable"
+    },
+    {
+      "case_id": "2wiki::23b5787a08e911ebbda7ac1f6bf848b6",
+      "review_decision": "FAIL",
+      "review_reason": "Film-origin target is indirect; a Vietnamese tale and a story setting in Japan do not clearly establish the countries of origin of both films.",
+      "sample_index": 57,
+      "sample_stratum": "2wiki:train-modelval:twowiki_evidence_chain:answerable"
+    },
+    {
+      "case_id": "2wiki::7a6f25d2087411ebbd67ac1f6bf848b6",
+      "review_decision": "FAIL",
+      "review_reason": "Nationality target is indirect; United States army service does not clearly establish Daniel LeMahieu nationality for the comparison.",
+      "sample_index": 59,
+      "sample_stratum": "2wiki:train-modelval:twowiki_evidence_chain:answerable"
+    },
+    {
+      "case_id": "niah-old::10517",
+      "review_decision": "FAIL",
+      "review_reason": "QA2D target truncates Doctor Who to doctor, so the claim no longer matches the question entity cleanly.",
+      "sample_index": 64,
+      "sample_stratum": "niah:train-fit:niah_qa2d_single_claim:answerable"
+    },
+    {
+      "case_id": "niah-old::10048",
+      "review_decision": "FAIL",
+      "review_reason": "QA2D target is malformed with word-order corruption around Cuba Gooding, so the claim is not a clean supported statement.",
+      "sample_index": 66,
+      "sample_stratum": "niah:train-fit:niah_qa2d_single_claim:answerable"
+    },
+    {
+      "case_id": "niah-old::10751",
+      "review_decision": "FAIL",
+      "review_reason": "QA2D target is malformed; it says markers define for increased visibility rather than stating that raised markers protrude for increased visibility.",
+      "sample_index": 74,
+      "sample_stratum": "niah:train-fit:niah_qa2d_single_claim:answerable"
+    },
+    {
+      "case_id": "niah-new-modelval::1155",
+      "review_decision": "FAIL",
+      "review_reason": "QA2D target is malformed; it does not cleanly state that Marion Raven was Meat Loaf duet partner for It is All Coming Back to Me Now.",
+      "sample_index": 98,
+      "sample_stratum": "niah:train-modelval:niah_qa2d_single_claim:answerable"
+    }
+  ],
+  "gate_parameters": {
+    "min_niah_modelval_groups": 100,
+    "min_niah_train_groups": 400,
+    "min_twowiki_modelval_groups": 99,
+    "min_twowiki_train_groups": 400,
+    "unsupported_ratio_max": 0.15,
+    "unsupported_ratio_min": 0.1
+  },
+  "gates": {
+    "niah_new_modelval_groups": true,
+    "niah_train_groups": true,
+    "split_component_overlap_zero": true,
+    "split_group_overlap_zero": true,
+    "twowiki_modelval_groups": true,
+    "twowiki_train_groups": true,
+    "unsupported_update_ratio": true
+  },
+  "input_sha256": {
+    "g212m3_review_rows": "d47364c456e46fa2d0f826458f69c74da9b796cdfa58aaa64b2e4261299853b3",
+    "g212m3_review_summary": "937d79254249e1552dbc2164062b904803a44b0b19e21835185c4104771267ec",
+    "source_manifest": "a5c291e005ef1a9aa4d333079f583235e7a5c5f3ab4a87b9d073a59accdde2ca",
+    "source_train_cases": "1a6006e4466a62de9d2b81aeddf3976e523e27342383f13b576f9e66c3425172",
+    "source_validation_cases": "3d8a168a7a8249e5611db1ccda428ca9e106accc7ed67a86c230f79c4366d810"
+  },
+  "manual_audit_required_before_training": true,
+  "method_amendment": {
+    "not_a_heldout_result": true,
+    "not_a_true_threshold_change": true,
+    "previous_floor": 100,
+    "reason": "G212M3 sample-driven quarantine removes four 2Wiki model-val groups from the internal screen; held-out remains unavailable and final claims must report this reduced screen size.",
+    "twowiki_modelval_floor": 99
+  },
+  "ordered_ids_sha256": "6bb43ecbd8279a3e521e8eeb30eb2535ca8f9a446d3ee2ce6a6dd21bda1a28f5",
+  "repair_reason": "conservative_quarantine_g212m3_failed_sample_cases",
+  "repair_stage": "G220",
+  "requires_structural_true_rerun": false,
+  "sample_review_required_before_training": true,
+  "schema_version": "full-flow-g220-conservative-filter-manifest-v1",
+  "sealed_or_heldout_read": false,
+  "source_manifest_schema_version": "full-flow-g210-v2-final-manifest-v1",
+  "split_leakage": {
+    "component_overlap": 0,
+    "group_overlap": 0
+  },
+  "status": "PRE_MANUAL_PASS",
+  "target_rewrite_started": false,
+  "train_cases": 2379,
+  "train_cases_sha256": "b51460dddb76a4e437d4ec591e88751a57ab85ec69a9c077b84fbbce25d0f1f8",
+  "training_started": false,
+  "unsupported_update_ratio": 0.11343218963091244,
+  "unsupported_updates": 1048,
+  "utility_labels_started": false,
+  "validation_cases": 310,
+  "validation_cases_sha256": "6e554a8d31167e321ff4d7fbb5064c6aa879b2eb6c5ad4a831829135852f7c99"
+}

@@ -1,0 +1,128 @@
+{
+  "schema_version": "full-flow-g300-draft-lora-training-manifest-v1",
+  "status": "COMPLETE",
+  "stage": "G300",
+  "run_kind": "smoke",
+  "recipe": "gr-f",
+  "seed": 13,
+  "script_sha256": "8973ac773c4da18dd1648c88de8ab316378ffb99eb59d080e170ac9767014b77",
+  "source_role": "G223 controlled-continuation train-fit only",
+  "decision_dev_used": false,
+  "sealed_or_heldout_read": false,
+  "dev_read": false,
+  "utility_labels_started": false,
+  "formal_training_started": false,
+  "adapter_scope": "draft generation call only",
+  "claim_splitter_scope": "frozen Granite base with adapters disabled",
+  "true_scope": "frozen verifier; not trained",
+  "decode_policy": "greedy at runtime",
+  "entry_mode": "controlled_continuation_limited_internal_screen",
+  "clean_freeze_ready": false,
+  "g223_manifest_sha256": "9213eb32f1234290ac5d25c66c51756927adaff58ff4cd4cf2f70ece2312b30b",
+  "g223_status": "CONTROLLED_CONTINUATION_READY",
+  "g223_entry_mode": "controlled_continuation_limited_internal_screen",
+  "g223_clean_freeze_ready": false,
+  "g223_controlled_continuation_ready": true,
+  "g223_twowiki_modelval_groups": 95,
+  "g223_counts": {
+    "2wiki": {
+      "train-fit_answerable_groups": 815,
+      "train-fit_unsupported_groups": 1044,
+      "train-modelval_answerable_groups": 95
+    },
+    "niah": {
+      "train-fit_answerable_groups": 511,
+      "train-modelval_answerable_groups": 207
+    }
+  },
+  "limitations": {
+    "not_clean_freeze": true,
+    "twowiki_modelval_screen": 95,
+    "heldout_requires_separate_authorization": true,
+    "no_selector_utility_labels": true
+  },
+  "model_snapshot": "/scratch/fl25387/IBM_Granite_Project_latest/model-cache/models--ibm-granite--granite-4.1-3b/snapshots/c0650403e44e78ec0262dab1c90914c65b196c4e",
+  "model_snapshot_config_sha256": "9a0e589b69e7d3ad9fb9fb2c844aa7d7156e052cb7ea4211de7de48ab7c8525c",
+  "init_adapter": null,
+  "init_adapter_config_sha256": null,
+  "train_cases_sha256": "88e5592ed796e756fb836c9faee22393a0fa56c57b50eae69c449bd78c438635",
+  "validation_cases_sha256": "f896e8a92fe5e36757249f1a22d3c55f579233879beca229341833137f95cb67",
+  "ordered_ids_sha256": "b3bd73290f9753ada6b6f79b7d6758d755b6eec1e42035936b76ceee90b5b283",
+  "full_data_train_groups": 2370,
+  "full_data_validation_groups": 302,
+  "smoke_selection": "longest",
+  "selected_train_case_ids": [
+    "niah-old::11690"
+  ],
+  "selected_validation_case_ids": [
+    "niah-new-modelval::1148"
+  ],
+  "train_groups": 1,
+  "training_examples": 8,
+  "validation_groups": 1,
+  "epochs": 1,
+  "max_length": 2304,
+  "observed_max_training_length": 2120,
+  "truncated_examples": 0,
+  "truncation_rate": 0.0,
+  "microbatch_size": 1,
+  "gradient_accumulation_groups": 8,
+  "optimizer_steps": 1,
+  "learning_rate": 0.0001,
+  "lora": {
+    "r": 8,
+    "alpha": 16,
+    "dropout": 0.05,
+    "target_modules": [
+      "q_proj",
+      "k_proj",
+      "v_proj",
+      "o_proj",
+      "gate_proj",
+      "up_proj",
+      "down_proj"
+    ],
+    "bias": "none"
+  },
+  "query_group_equalization": {
+    "enabled": true,
+    "implementation": "The per-case loss is the mean of its context-variant losses; gradient accumulation counts groups, not variants."
+  },
+  "token_weighting": {
+    "prompt": 0,
+    "answer_or_punctuation": 1,
+    "citation_brackets_or_index": 4,
+    "eos": 1
+  },
+  "trainable_parameters": 15564800,
+  "all_parameters_with_adapter": 3418401280,
+  "trainable_percent": 0.45532395775372514,
+  "mean_group_weighted_loss": 3.691102609038353,
+  "final_25_group_weighted_loss": 3.691102609038353,
+  "mean_answer_token_loss": 2.61328125,
+  "mean_citation_token_loss": 5.6171875,
+  "mean_eos_token_loss": 0.000663459300994873,
+  "validation_loss": {
+    "groups": 1,
+    "mean_group_weighted_loss": 2.535270197050912,
+    "mean_answer_token_loss": 2.4107142857142856,
+    "mean_citation_token_loss": 2.954241609999112,
+    "mean_eos_token_loss": 0.0026638167245047434
+  },
+  "elapsed_seconds": 19.216266613453627,
+  "peak_cuda_memory_bytes": 9118088192,
+  "adapter_config_sha256": "eb24bc1c24ba55081bc7e3168d02a6a59e717d607912be75db0b331bb9f90c45",
+  "adapter_weights_sha256": "ad6f968728d817cd8aabf79f516b2590dca09d506e5afc08ae2c9a979b8b13ec",
+  "reload_check": {
+    "status": "PASS",
+    "fresh_base_loaded": true,
+    "persisted_adapter_loaded": true,
+    "is_trainable": false,
+    "all_parameters_with_adapter": 3418401280
+  },
+  "versions": {
+    "torch": "2.6.0+cu126",
+    "transformers": "4.57.6",
+    "peft": "0.20.0"
+  }
+}

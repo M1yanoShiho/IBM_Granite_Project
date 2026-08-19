@@ -91,18 +91,35 @@ def _bears_answer(text: str, answers: tuple[str, ...]) -> bool:
     return any(answer in normalised for answer in answers)
 
 
-def classify_run(
-    run: dict[str, object],
-    answers: tuple[str, ...],
-) -> tuple[str, int | None]:
-    """Return (class, rank of the best answer-bearing candidate) for one pipeline run."""
-    selected = run["selected"]["evidence"]  # type: ignore[index]
-    selected_documents = {item["document_id"] for item in selected}
+def _bearing(run: dict[str, object], answers: tuple[str, ...]) -> list[dict[str, object]]:
+    """Answer-bearing candidates in the pool, in retrieval-rank order."""
     candidates = sorted(
         run["candidates"]["candidates"],  # type: ignore[index]
         key=lambda item: item["retrieval_rank"],
     )
-    bearing = [item for item in candidates if _bears_answer(item["text"], answers)]
+    return [item for item in candidates if _bears_answer(item["text"], answers)]
+
+
+def classify_run(
+    run: dict[str, object],
+    answers: tuple[str, ...],
+) -> tuple[str, int | None]:
+    """Return (class, the rank that class is about) for one pipeline run.
+
+    The rank is the SIBLING's whenever the class is `sibling`, not the shallowest
+    answer-bearing candidate: R16 asks how deep the split half fell, and a nearer candidate
+    sitting in some other document does not answer that. The two coincide whenever only one
+    candidate bears the answer, which is why they never disagreed at `top_k=50`. Once R18
+    widened the pool to 1000 they came apart, and the difference is not cosmetic -- a case
+    can be reported at rank 30 while the answer was already visible at rank 11.
+
+    `shallowest_bearing_rank` is the other quantity. Read it, not this one, for "how deep
+    would a pool have to reach". This one stays as it is because R16's published shares and
+    ranks were computed from it and must remain reproducible.
+    """
+    selected = run["selected"]["evidence"]  # type: ignore[index]
+    selected_documents = {item["document_id"] for item in selected}
+    bearing = _bearing(run, answers)
     if not bearing:
         return "retrieval", None
     best = bearing[0]
@@ -112,6 +129,20 @@ def classify_run(
         sibling = next(item for item in bearing if item["document_id"] in selected_documents)
         return "sibling", sibling["retrieval_rank"]
     return "other", best["retrieval_rank"]
+
+
+def shallowest_bearing_rank(
+    run: dict[str, object],
+    answers: tuple[str, ...],
+) -> int | None:
+    """Rank of the shallowest answer-bearing candidate, whichever document it sits in.
+
+    This is the depth a wider pool -- or a reranker over one -- would have to reach before
+    the answer is visible at all, which is the question `classify_run`'s rank silently
+    answers differently for `sibling` cases. `None` when nothing in the pool bears it.
+    """
+    bearing = _bearing(run, answers)
+    return int(bearing[0]["retrieval_rank"]) if bearing else None  # type: ignore[arg-type]
 
 
 def corpus_holds_answer(
@@ -155,6 +186,7 @@ def main(argv: list[str] | None = None) -> int:
 
     classes: dict[str, str] = {}
     ranks: dict[str, int] = {}
+    shallowest: dict[str, int] = {}
     max_selected: set[int] = set()
     top_k: set[int] = set()
     with (arguments.run / "pipeline_runs.jsonl").open(encoding="utf-8") as handle:
@@ -172,6 +204,9 @@ def main(argv: list[str] | None = None) -> int:
             classes[query_id] = label
             if rank is not None:
                 ranks[query_id] = rank
+            nearest = shallowest_bearing_rank(run, answers)
+            if nearest is not None:
+                shallowest[query_id] = nearest
 
     missing = population - set(classes)
     if missing:
@@ -190,7 +225,10 @@ def main(argv: list[str] | None = None) -> int:
                         {
                             "query_id": query_id,
                             "class": classes[query_id],
+                            # `best_rank` keeps R16's meaning -- the rank the class is about
+                            # -- so dumps written before R18 stay comparable field for field.
                             "best_rank": ranks.get(query_id),
+                            "shallowest_rank": shallowest.get(query_id),
                             "reference_answers": list(gold[query_id][0]),
                         }
                     )
@@ -213,11 +251,19 @@ def main(argv: list[str] | None = None) -> int:
     if ranks:
         ordered = sorted(ranks.values())
         print()
-        print("rank of the best answer-bearing candidate (misses only)")
+        print("rank the class is about -- sibling's own rank for siblings (misses only)")
         print(f"  n {len(ordered)}  min {ordered[0]}  median {ordered[len(ordered) // 2]}  max {ordered[-1]}")
         cut = max(max_selected) if max_selected else 0
         just_past = sum(1 for rank in ordered if rank <= cut + 5)
         print(f"  within 5 ranks of the cut ({cut}): {just_past} ({just_past / len(ordered):.1%})")
+
+    if shallowest:
+        ordered = sorted(shallowest.values())
+        divergent = sum(1 for query_id, rank in shallowest.items() if ranks.get(query_id) != rank)
+        print()
+        print("shallowest answer-bearing candidate -- the depth a wider pool must reach")
+        print(f"  n {len(ordered)}  min {ordered[0]}  median {ordered[len(ordered) // 2]}  max {ordered[-1]}")
+        print(f"  cases where this is shallower than the class rank: {divergent}")
     return 0
 
 

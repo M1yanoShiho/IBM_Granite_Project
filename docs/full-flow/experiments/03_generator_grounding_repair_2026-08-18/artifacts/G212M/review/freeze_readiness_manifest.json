@@ -1,0 +1,32 @@
+{
+  "artifacts": {
+    "ordered_review_ids": {
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G212M-v2/review/ordered_review_ids.json",
+      "sha256": "90b6914d280d12d020564a3d4fabec97fc03ba6a410c3a47557ecbbf4340eb0b"
+    },
+    "sample_review_rows": {
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G212M-v2/review/sample_review_rows.jsonl",
+      "sha256": "00f3f979f8ca0364226505da0dadb51f1a3d14c71c20724f88a9d0e803b91d6d"
+    },
+    "sample_review_summary": {
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G212M-v2/review/sample_review_summary.json",
+      "sha256": "3893f2cdcbfa5923df6cc0b9fa089b8e523d57ecf29cf6d95d5026568c0326e8"
+    }
+  },
+  "dev_read": false,
+  "elapsed_seconds": 0.007675647735595703,
+  "freeze_ready": false,
+  "g300_unlocked": false,
+  "input_sha256": {
+    "length_audit": "0946f082118dbb5d8eb12cf2ed3ef3b8f1b51c76cc5f41b1aa303d372b1b7873",
+    "manual_sample": "9434da2434ea10dad5e1fe7548ab54745e11820b4f325f5b1728bf0b4921bd58",
+    "prepare_manifest": "fa683cd0e25b1f190b9197a2743de630085f1bec748053aaa5594cda47a69485"
+  },
+  "length_audit_status": "PASS",
+  "sample_review_status": "FAIL_SAMPLE_REVIEW",
+  "schema_version": "full-flow-g212m-freeze-readiness-manifest-v1",
+  "sealed_or_heldout_read": false,
+  "status": "NOT_FREEZE_READY_SAMPLE_REVIEW_FAILED",
+  "training_started": false,
+  "utility_labels_started": false
+}

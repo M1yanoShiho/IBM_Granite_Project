@@ -1,0 +1,81 @@
+{
+  "answerable_train_updates": 9495,
+  "counts": {
+    "2wiki": {
+      "train-fit_answerable_groups": 1075,
+      "train-fit_unsupported_groups": 1075,
+      "train-modelval_answerable_groups": 136
+    },
+    "niah": {
+      "train-fit_answerable_groups": 515,
+      "train-modelval_answerable_groups": 307
+    }
+  },
+  "dev_read": false,
+  "gates": {
+    "niah_new_modelval_groups": true,
+    "niah_train_groups": true,
+    "split_component_overlap_zero": true,
+    "split_group_overlap_zero": true,
+    "twowiki_modelval_groups": true,
+    "twowiki_train_groups": true,
+    "unsupported_update_ratio": true
+  },
+  "gold_use": "offline target construction only; runtime prompts contain evidence text and question only",
+  "input_sha256": {
+    "niah_candidate_pool": "09e8c9b4972f48a67661c8b06dcf220f178528156699da671a16dd8d08fb908f",
+    "niah_gold": "91af72dba9e8ccc97286f5933475bd21e43701a16727d0dfe0c442c55be90699",
+    "niah_modelval_components": "e4aae598d9c83c5dcee2c0988466aeccef3c202aca785b4d730b77f220bd7cbc",
+    "niah_modelval_qa2d_targets": "b3cd30a922f9ae9e00d96c8c033b865f47c7aedef9e977bfd22e70fa283f7ea9",
+    "niah_modelval_roles": "8c565a9b56d840b72af9ab572b0c66746426dcca9bb9ccda052391f677fd0da2",
+    "niah_queries": "02af9b4ef8458ce35c9caf99833421d7098f07e704d2c1f534909ea2a64be1fe",
+    "old_niah_train_cases": "c045fc40495d4852fdb930663257970e000f4b597fd51522c8474f4b732ff5ed",
+    "twowiki_candidate_pool": "0ab0fc92f95add1c5d514f531e7b567c4e67d1e5430c401f37ec6f719dbc8887",
+    "twowiki_components": "394fb41123322b08c618ce3d94ec3dc6bb1f4666bceb1f32e1e7019e241fe298",
+    "twowiki_gold": "b62cc139f390067322b0337431dc962d4befca77026667f1f347e1f09380165b",
+    "twowiki_official_rows": "a0f464f1604edf40ad990b605c61c03d56911c106d09ad32becf6afcf3201d52",
+    "twowiki_queries": "bb64fcca8fdcb0063e5fde103ec74531a4ce74333fd057c3fdebd13e5db5b7cf",
+    "twowiki_roles": "d435d526fc40ca5f463110ab95eb006736354f3fe343a37eba247f745e7d47fd"
+  },
+  "niah_modelval_counts": {
+    "excluded_qa2d_answer_not_preserved": 3,
+    "materialized": 307,
+    "role_assigned": 310
+  },
+  "ordered_ids_sha256": "a2813b7f456ac3fcc32209b69871249b470e864c24ca8d53970abf6bc38a78bc",
+  "qa2d": {
+    "model": "MarkS/bart-base-qa2d",
+    "revision": "94f286a9102dd7e178778d531d4aefcfbcbe5a07",
+    "runtime_component": false
+  },
+  "schema_version": "full-flow-g200r-data-manifest-v1",
+  "sealed_or_heldout_read": false,
+  "split_leakage": {
+    "component_overlap": 0,
+    "group_overlap": 0
+  },
+  "stage": "G200R",
+  "status": "PRE_AUDIT",
+  "target_construction": {
+    "2wiki": "support_sentence_aligned_v1",
+    "niah": "qa2d_single_claim_reuse_or_frozen_qa2d"
+  },
+  "train_cases": 2665,
+  "train_cases_sha256": "239f274b362ac8467c865a6f16eeb14b032a37ea539ea465e636ea7aa11d8db8",
+  "training_started": false,
+  "true_audit_pending": true,
+  "twowiki_counts": {
+    "excluded_train-fit_bad_official_chain": 43,
+    "excluded_train-fit_support_not_fully_in_top10": 1582,
+    "excluded_train-modelval_bad_official_chain": 3,
+    "excluded_train-modelval_support_not_fully_in_top10": 161,
+    "materialized_train-fit": 1075,
+    "materialized_train-modelval": 136,
+    "role_train-fit": 2700,
+    "role_train-modelval": 300
+  },
+  "unsupported_update_ratio": 0.10170293282876064,
+  "unsupported_updates": 1075,
+  "validation_cases": 443,
+  "validation_cases_sha256": "24e1a618a7a4c667bfcd1392d767033e107894285a09eb4e52d9efad021b9e9f"
+}

@@ -1,0 +1,50 @@
+{
+  "schema_version": "full-flow-g230-run-manifest-v1",
+  "status": "COMPLETE",
+  "git_commit": "9137228b9eb19db68f964babeb9b5ac446e5de17",
+  "mode": "draft-pair",
+  "seed": 42,
+  "arms": [
+    "GC",
+    "GM"
+  ],
+  "tasks": 1829,
+  "full_topk_tasks": 739,
+  "stress_tasks_by_context": {
+    "S_legacy_selected": 218,
+    "O_support_only": 218,
+    "OB_support_benign": 218,
+    "OH_support_harmful": 218,
+    "OP_support_last": 218
+  },
+  "resumed_rows": 0,
+  "attempts_by_arm": {
+    "GC": 1829,
+    "GM": 1829
+  },
+  "errors_by_arm": {
+    "GC": 0,
+    "GM": 0
+  },
+  "trace_missing_by_arm": {
+    "GC": 0,
+    "GM": 0
+  },
+  "gold_loaded_at_runtime": false,
+  "run_spec_sha256": "d3d7ce5dc016854d2061d6c7cd7d2ca3b6bf2deb77e6b50339d461dbe941bcee",
+  "generations_sha256": "9318a47af3fd5abbb37e05c022019d600d1ca77436e4be88eea3765ab764f6ed",
+  "elapsed_seconds_this_invocation": 37257.65343680233,
+  "environment": {
+    "python": "3.11.15 (main, Jun 11 2026, 15:20:16) [GCC 14.3.0]",
+    "platform": "Linux-5.15.0-139-generic-x86_64-with-glibc2.31",
+    "torch": "2.6.0+cu126",
+    "transformers": "4.57.6",
+    "peft": "0.20.0",
+    "cuda_available": true,
+    "cuda_runtime": "12.6",
+    "cudnn": 90501,
+    "gpu_names": [
+      "NVIDIA RTX A4000"
+    ]
+  }
+}

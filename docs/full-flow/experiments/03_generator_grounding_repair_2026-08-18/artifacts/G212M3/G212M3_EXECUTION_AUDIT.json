@@ -1,0 +1,43 @@
+{
+  "artifacts": {
+    "freeze_readiness_manifest": {
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G212M3-v1/review/freeze_readiness_manifest.json",
+      "sha256": "d2cadd49b89b94612727fd8bc0cb0d020d6e0eccf8e9e3c0efe27097d1aa0654"
+    },
+    "ordered_review_ids": {
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G212M3-v1/review/ordered_review_ids.json",
+      "sha256": "f98a16f78ea3ebc1e6e2369e79ee4b8cd18e1b513eb3691f54d3e775c68a1936"
+    },
+    "sample_review_rows": {
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G212M3-v1/review/sample_review_rows.jsonl",
+      "sha256": "d47364c456e46fa2d0f826458f69c74da9b796cdfa58aaa64b2e4261299853b3"
+    },
+    "sample_review_summary": {
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G212M3-v1/review/sample_review_summary.json",
+      "sha256": "937d79254249e1552dbc2164062b904803a44b0b19e21835185c4104771267ec"
+    }
+  },
+  "command": "cd /home/fl25387/projects/IBM_Granite_Project_latest; /scratch/fl25387/IBM_Granite_Project_latest/envs/selector_mis_py311/bin/python scripts/full_flow_g212m_sample_adjudication.py --manual-sample /scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G212R3-v1/manual_sample.jsonl --prepare-manifest /scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G212R3-v1/prepare_manifest.json --length-audit /scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G212R3-v1/length_audit.json --output-dir /scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G212M3-v1/review --fail ... --reviewer-label fixed_sample_adjudication",
+  "created_date": "2026-08-18",
+  "dev_read": false,
+  "fail": 9,
+  "freeze_ready": false,
+  "g300_unlocked": false,
+  "input_sha256": {
+    "length_audit": "9647c6301a8c4390ef6535c8420db1eab648ccab58b0667386093383be41ae0b",
+    "manual_sample": "dbe12b9c7f240d4393b984195b0a20180971291ff249dd76fa070e2b5b89db29",
+    "prepare_manifest": "5dd4d0cdd525fb59bd1563fabecba91a6d155a0ff6e9ea48db8efc5d80aa77d0"
+  },
+  "pass": 91,
+  "sample_review_status": "FAIL_SAMPLE_REVIEW",
+  "schema_version": "full-flow-g212m3-execution-audit-v1",
+  "script_sha256": "654150d2cca2b171757f6e8163ffbc4dc17d032f686ce7a062890f86f83377e3",
+  "sealed_or_heldout_read": false,
+  "server_repo_head_at_execution": "e24f411abdd26faf9f471cba0152ddf0c69f9df6",
+  "source_head_before_stage": "e24f411abdd26faf9f471cba0152ddf0c69f9df6",
+  "stage": "G212M3",
+  "status": "NOT_FREEZE_READY_SAMPLE_REVIEW_FAILED",
+  "training_started": false,
+  "uncertain": 0,
+  "utility_labels_started": false
+}

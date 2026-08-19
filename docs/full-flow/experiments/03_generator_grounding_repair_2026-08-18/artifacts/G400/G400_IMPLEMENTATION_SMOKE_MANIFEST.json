@@ -1,0 +1,99 @@
+{
+  "schema_version": "full-flow-g400-implementation-smoke-v1",
+  "stage": "G400_IMPLEMENTATION_SMOKE",
+  "status": "IMPLEMENTATION_PASS_FORMAL_READY",
+  "date": "2026-08-19",
+  "commits": {
+    "runner_implementation": "474e99dfd105c46c8b74c17c56291c7d9ce16a87",
+    "score_smoke_subset_fix": "82a8144b80c340fe4f81ded3144bbbb53b3e59e8"
+  },
+  "files": {
+    "runner": {
+      "path": "scripts/full_flow_g400_niah_qualification.py",
+      "sha256": "1e25bbedd15a666cf9f40e520e4693afb00e3930167ffe36ab540d3f39df4cbc"
+    },
+    "tests": {
+      "path": "tests/full_flow/test_full_flow_g400_niah_qualification.py",
+      "sha256": "89c49cb826cd660ac655d13b794f0d25bfd3727b0059a5b0b38bf4b9b71857ad"
+    },
+    "report": {
+      "path": "docs/full-flow/experiments/03_generator_grounding_repair_2026-08-18/G400_IMPLEMENTATION_SMOKE_REPORT.md",
+      "sha256": "516218d837cac7602bd9cb96352a6fa88bf5f4dd99aebabfd0a87187c13c1378"
+    }
+  },
+  "verification": {
+    "local": {
+      "py_compile": "PASS",
+      "new_tests": {
+        "command": "./.venv/bin/python -m pytest tests/full_flow/test_full_flow_g400_niah_qualification.py -q",
+        "result": "2 passed"
+      },
+      "adjacent_tests": {
+        "command": "./.venv/bin/python -m pytest tests/full_flow/test_full_flow_g230.py tests/full_flow/test_full_flow_g230_citation_score.py tests/full_flow/test_full_flow_g400_niah_qualification.py -q",
+        "result": "11 passed"
+      }
+    },
+    "server": {
+      "repo": "/home/fl25387/projects/IBM_Granite_Project_latest",
+      "runtime": "/scratch/fl25387/IBM_Granite_Project_latest",
+      "head": "82a8144b80c340fe4f81ded3144bbbb53b3e59e8",
+      "py_compile": "PASS",
+      "adjacent_tests": {
+        "command": "/scratch/fl25387/IBM_Granite_Project_latest/envs/selector_mis_py311/bin/python -m pytest tests/full_flow/test_full_flow_g230.py tests/full_flow/test_full_flow_g230_citation_score.py tests/full_flow/test_full_flow_g400_niah_qualification.py -q",
+        "result": "11 passed"
+      }
+    }
+  },
+  "runtime_smoke": {
+    "formal": false,
+    "run_tasks_per_seed": 1,
+    "score_tasks": 1,
+    "seed13": {
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G400-v1/smoke-seed13-474e99d",
+      "status": "COMPLETE",
+      "run_manifest_sha256": "1a23669ddb57a866564f13533c70aeee6e6281279ea831dd67a625e1d8077414",
+      "run_spec_sha256": "ed0e22ba32cb1034d8ef82f7be9213ab30b8672a8bf77e143d7b9a0e5cf88877",
+      "generations_sha256": "c490ee4a395c132c2061ef9ef7bd7acab1b3c91c4aff46aca63cad25f957d0d5",
+      "errors": 0,
+      "trace_missing": 0
+    },
+    "seed42": {
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G400-v1/smoke-seed42-474e99d",
+      "status": "COMPLETE",
+      "run_manifest_sha256": "98db95d64e97fa6d0217446abb3f67732b63e0c4138148e1150ed058d7a9da46",
+      "run_spec_sha256": "6fd6870b70735aab766b7fecfc21ca662218273745d8664db50773ac047fc3d3",
+      "generations_sha256": "0990f99927f7cfa066c509af03ebd47c3151846fd69d045d2567432200640b9d",
+      "errors": 0,
+      "trace_missing": 0
+    },
+    "seed73": {
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G400-v1/smoke-seed73-474e99d",
+      "status": "COMPLETE",
+      "run_manifest_sha256": "afdd3bb71d78f3cbe01a36d5f0cdddc6b6bc335c76c8d35873226eb151e1ca88",
+      "run_spec_sha256": "a3573af0465a0dc505be394b01cd9a87b102b679a6ff2d3a0bb4d7b498fc7386",
+      "generations_sha256": "34f05acc162464821f3e4d513e430046c54dc96174c336acc0702069bb2f04c0",
+      "errors": 0,
+      "trace_missing": 0
+    },
+    "score": {
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G400-v1/smoke-score-82a8144",
+      "status": "CONTROLLED_CONTINUATION_SIGNAL",
+      "score_report_sha256": "76926e47f7f1786e1a5f17ba67982764c585e86189cd9061e24cfcfe414fbbb0",
+      "scored_rows_sha256": "87ff7d2c8c68397434f10b6d9cadf440d04ef3a2928483a009714c6b194e266d",
+      "markdown_report_sha256": "63edc8992513447c7a0a449868dab2ea7dd9317a157c1288257209ba571a7433",
+      "unique_judge_calls": 3
+    }
+  },
+  "boundaries": {
+    "formal_g400_run": false,
+    "gold_loaded_by_run_command": false,
+    "score_uses_gold_after_generation": true,
+    "sealed_or_heldout_read": false,
+    "utility_labels_started": false,
+    "teacher_generator_frozen": false,
+    "retriever_changed": false,
+    "selector_changed": false,
+    "recipe_or_seed_changed": false
+  },
+  "next_stage": "G400 formal locked NIAH qualification"
+}

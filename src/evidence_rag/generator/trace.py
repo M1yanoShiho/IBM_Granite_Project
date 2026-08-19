@@ -81,8 +81,13 @@ class ClaimTrace(FrozenModel):
     routing_outcome: str = ""
     citation: str | None = None
     declared_indices: tuple[int, ...] = ()
+    declared_verified: bool = False
+    rescued_by_scan: bool = False
+    routing_hypothesis: str = ""
     gated_outcome: str = ""
     gated_citation: str | None = None
+    review_flagged: bool = False
+    attachment_verified: bool = False
     conflict_evidence_id: str | None = None
     final_sentence: str = ""
 

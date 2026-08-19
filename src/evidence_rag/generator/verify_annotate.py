@@ -173,6 +173,13 @@ class ClaimRouting:
     rescued_by_scan: bool = False
     """the declared citation failed but the full scan found support anyway"""
     claim_text: str = ""
+    routing_hypothesis: str = ""
+    """The exact text given to TRUE for this routing decision.
+
+    By default this is the splitter claim.  VerifyAnnotateGenerator overrides it
+    with the final output sentence, stripped of citation markers, so final
+    citation attachment is judged against what the reader will actually see.
+    """
     sentence: str = ""
     """the sentence as it was written into the answer, so scoring can attach the
     verified citation to exactly that sentence instead of approximating"""
@@ -316,6 +323,8 @@ class CitationRoutedVerifier:
         claim: Claim,
         answer_text: str,
         selected: SelectedEvidenceSet,
+        *,
+        hypothesis_text: str | None = None,
     ) -> ClaimRouting:
         """Route one claim, computing BOTH the entailment-only verdict and the
         verdict the entity gate would have reached.
@@ -328,6 +337,7 @@ class CitationRoutedVerifier:
         evidence = list(selected.evidence)
         by_index = {position: item for position, item in enumerate(evidence, start=1)}
         declared = declared_indices(answer_text, claim)
+        hypothesis = hypothesis_text or claim.text
 
         entailed_id: str | None = None  # entailment alone -- the ungated citation
         entailed_declared = False
@@ -345,7 +355,7 @@ class CitationRoutedVerifier:
         for from_declared, item in [(True, i) for i in declared_items] + [
             (False, i) for i in evidence
         ]:
-            entailed, consistent, genuine, detail = self._supports(item.text, claim.text)
+            entailed, consistent, genuine, detail = self._supports(item.text, hypothesis)
             if not entailed:
                 continue
             if entailed_id is None:
@@ -387,6 +397,7 @@ class CitationRoutedVerifier:
             declared_verified=bool(citation) and from_declared,
             rescued_by_scan=bool(citation) and not from_declared and bool(declared),
             claim_text=claim.text,
+            routing_hypothesis=hypothesis,
             conflict_evidence_id=conflict_id,
             conflict_detail=conflict_detail,
             gated_outcome=gated_outcome,
@@ -486,12 +497,17 @@ class VerifyAnnotateGenerator:
         for claim in draft.claims:
             if not claim.faithful_to_answer:
                 continue
-            routing = self.verifier.route(claim, draft.answer_text, selected)
+            sentence = self._claim_text(draft, claim)
+            routing = self.verifier.route(
+                claim,
+                draft.answer_text,
+                selected,
+                hypothesis_text=sentence or None,
+            )
             self.last_routings.append(routing)
             self._record(routing)
             if routing.outcome == "dropped_entity_conflict":
                 continue
-            sentence = self._claim_text(draft, claim)
             if not sentence:
                 continue
             if routing.outcome == "verified" and routing.citation is not None:
@@ -575,8 +591,19 @@ class VerifyAnnotateGenerator:
                     routing_outcome=routing.outcome if routing else "",
                     citation=routing.citation if routing else None,
                     declared_indices=routing.declared_indices if routing else (),
+                    declared_verified=(
+                        routing.declared_verified if routing else False
+                    ),
+                    rescued_by_scan=routing.rescued_by_scan if routing else False,
+                    routing_hypothesis=routing.routing_hypothesis if routing else "",
                     gated_outcome=routing.gated_outcome if routing else "",
                     gated_citation=routing.gated_citation if routing else None,
+                    review_flagged=routing.review_flagged if routing else False,
+                    attachment_verified=(
+                        routing.outcome == "verified" and routing.citation is not None
+                        if routing
+                        else False
+                    ),
                     conflict_evidence_id=(
                         routing.conflict_evidence_id if routing else None
                     ),

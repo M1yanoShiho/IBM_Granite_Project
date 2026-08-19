@@ -108,6 +108,11 @@ def test_trace_on_and_off_preserve_calls_and_final_output() -> None:
     assert trace.draft.splitter.faithfulness_raw_output == STRUCTURED_RESPONSES[2]
     assert trace.claims[0].final_disposition == "verified"
     assert trace.claims[0].citation == "ev-1"
+    assert trace.claims[0].attachment_verified is True
+    assert trace.claims[0].declared_verified is True
+    assert trace.claims[0].rescued_by_scan is False
+    assert trace.claims[0].routing_hypothesis == "Revenue rose 8%."
+    assert trace.claims[0].review_flagged is False
     assert trace.final_answer == on_result.answer
     assert trace.final_empty_reason == ""
 

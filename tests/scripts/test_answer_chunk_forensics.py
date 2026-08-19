@@ -22,6 +22,7 @@ from answer_chunk_forensics import (  # noqa: E402
     corpus_holds_answer,
     read_gold,
     read_population,
+    shallowest_bearing_rank,
 )
 
 
@@ -91,6 +92,35 @@ def test_an_answer_inside_a_selected_chunk_is_still_reported_faithfully() -> Non
     # the answer sitting above the cut rather than silently reading as a retrieval miss.
     selected = SELECTED[:-1] + [candidate(10, "D10", "the answer is Paris")]
     assert classify_run(run_with(selected=selected, extra=[]), ("paris",)) == ("sibling", 10)
+
+
+def test_the_shallowest_bearing_rank_ignores_which_class_won() -> None:
+    # R18's question, which `classify_run`'s rank cannot answer. The class rank is the
+    # sibling's, deliberately (see the test above); the depth a pool or a reranker would have
+    # to reach to see the answer at all is the shallowest answer-bearing candidate, whichever
+    # document it sits in. Here those are 30 and 11, and reading one for the other overstates
+    # the required depth by nearly threefold.
+    run = run_with(
+        selected=SELECTED,
+        extra=[candidate(11, "D99", "Paris is a stranger"), candidate(30, "D1", "Paris again")],
+    )
+    assert classify_run(run, ("paris",)) == ("sibling", 30)
+    assert shallowest_bearing_rank(run, ("paris",)) == 11
+
+
+def test_the_shallowest_rank_equals_the_class_rank_when_only_one_candidate_bears() -> None:
+    # The common case, and the reason the two numbers agreed everywhere at top_k=50: a single
+    # answer-bearing candidate cannot disagree with itself. The divergence is created by pool
+    # depth, which is exactly why it appeared only once R18 widened the pool.
+    run = run_with(selected=SELECTED, extra=[candidate(12, "D1", "the capital is Paris")])
+    assert classify_run(run, ("paris",)) == ("sibling", 12)
+    assert shallowest_bearing_rank(run, ("paris",)) == 12
+
+
+def test_the_shallowest_rank_is_none_when_nothing_bears_the_answer() -> None:
+    run = run_with(selected=SELECTED, extra=[candidate(15, "D99", "nothing relevant")])
+    assert classify_run(run, ("tokyo",)) == ("retrieval", None)
+    assert shallowest_bearing_rank(run, ("tokyo",)) is None
 
 
 def test_the_population_is_exactly_the_conditional_misses(tmp_path: Path) -> None:

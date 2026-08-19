@@ -1,0 +1,114 @@
+{
+  "artifacts": {
+    "code": {
+      "bytes": 44029,
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G200R-v2/code/full_flow_g200_v2.py",
+      "sha256": "b1c844c32d58c6f15a9db9dd05f4cd85da894c7a1a72ea4e61bfa0828b57f0f4"
+    },
+    "data_manifest": {
+      "bytes": 3440,
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G200R-v2/data/manifest.json",
+      "sha256": "84e8fc6f7701e91e289d51df3916c29beccd760391fa4f67c0e6a8d93a84cff5"
+    },
+    "ordered_ids": {
+      "bytes": 275076,
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G200R-v2/data/ordered_ids.json",
+      "sha256": "8c7490cd7a7d4a842137e8d72acf39ad76041c23ea57a5fa1ec551e9389c28b1"
+    },
+    "train_cases": {
+      "bytes": 61268247,
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G200R-v2/data/train_cases.jsonl",
+      "records": 2621,
+      "sha256": "131fe0daacccc5c71a81db2f2eec55ecf56f6661263317299a40c991f19da1ec"
+    },
+    "validation_cases": {
+      "bytes": 17059369,
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G200R-v2/data/validation_cases.jsonl",
+      "records": 440,
+      "sha256": "87a47d81dc87ba311f4819e6f872671d2eb1dde7c1b315ecc13f9ed775a3d035"
+    }
+  },
+  "commands": [
+    {
+      "code_path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G200R-v2/code/full_flow_g200_v2.py",
+      "model_calls": false,
+      "status": "exit_0",
+      "step": "materialize-python3.11",
+      "training_started": false
+    }
+  ],
+  "created_unix": 1787071294,
+  "git": {
+    "branch": "refactor/three-module-baseline",
+    "head_at_runtime": "fe9510a3e056d5030c0c377782ec12b6e81683cc",
+    "status_short": ""
+  },
+  "manifest_summary": {
+    "counts": {
+      "2wiki": {
+        "train-fit_answerable_groups": 1053,
+        "train-fit_unsupported_groups": 1053,
+        "train-modelval_answerable_groups": 133
+      },
+      "niah": {
+        "train-fit_answerable_groups": 515,
+        "train-modelval_answerable_groups": 307
+      }
+    },
+    "gates": {
+      "niah_new_modelval_groups": true,
+      "niah_train_groups": true,
+      "split_component_overlap_zero": true,
+      "split_group_overlap_zero": true,
+      "twowiki_modelval_groups": true,
+      "twowiki_train_groups": true,
+      "unsupported_update_ratio": true
+    },
+    "schema_version": "full-flow-g200r-data-manifest-v1",
+    "split_leakage": {
+      "component_overlap": 0,
+      "group_overlap": 0
+    },
+    "stage": "G200R2",
+    "status": "PRE_AUDIT",
+    "target_construction": {
+      "2wiki": "support_sentence_aligned_v1",
+      "niah": "qa2d_single_claim_reuse_or_frozen_qa2d"
+    },
+    "train_cases": 2621,
+    "twowiki_counts": {
+      "excluded_train-fit_bad_official_chain": 65,
+      "excluded_train-fit_support_not_fully_in_top10": 1582,
+      "excluded_train-modelval_bad_official_chain": 6,
+      "excluded_train-modelval_support_not_fully_in_top10": 161,
+      "materialized_train-fit": 1053,
+      "materialized_train-modelval": 133,
+      "role_train-fit": 2700,
+      "role_train-modelval": 300
+    },
+    "unsupported_update_ratio": 0.10088139490323816,
+    "validation_cases": 440
+  },
+  "runtime_boundaries": {
+    "dev_read": false,
+    "gold_use": "offline target construction only; runtime prompts contain evidence text and question only",
+    "reference_answers_loaded_at_runtime": false,
+    "runtime_gold_loaded": false,
+    "sealed_or_heldout_read": false,
+    "training_started": false,
+    "true_audit_pending": true
+  },
+  "schema_version": "full-flow-g200r2-execution-audit-v1",
+  "server": {
+    "host": "it097952",
+    "python": "/scratch/fl25387/IBM_Granite_Project_latest/envs/selector_mis_py311/bin/python",
+    "python_version": "Python 3.11.15",
+    "repo": "/home/fl25387/projects/IBM_Granite_Project_latest",
+    "runtime": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G200R-v2"
+  },
+  "status": "COMPLETE_PRE_AUDIT_PASS",
+  "tests": {
+    "local_py_compile": "scripts/full_flow_g200_v2.py scripts/full_flow_g210_audit_v2.py: pass",
+    "local_pytest": "tests/scripts/test_full_flow_g200_v2.py tests/scripts/test_full_flow_g210_audit_v2.py: 5 passed"
+  }
+}
