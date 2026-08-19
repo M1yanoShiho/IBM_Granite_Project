@@ -1,0 +1,15 @@
+comparison,metric,paired_cases,mean_case_delta,bootstrap_ci_low,bootstrap_ci_high,improved_cases,unchanged_cases,regressed_cases,bootstrap_iterations,bootstrap_seed,analysis_status
+a1_new_minus_old,atomic,43,0.07751937984496124,-0.007751937984496122,0.16279069767441862,8,34,1,10000,20260819,exploratory_post_hoc
+a1_new_minus_old,self_contained,50,0.2853333333333333,0.202,0.3716666666666667,25,24,1,10000,20260819,exploratory_post_hoc
+a1_new_minus_old,verifiable,50,0.20466666666666666,0.129,0.2813333333333333,24,23,3,10000,20260819,exploratory_post_hoc
+a1_new_minus_old,unresolved_pronoun,49,-0.08401360544217687,-0.13401360544217686,-0.04081632653061224,11,38,0,10000,20260819,exploratory_post_hoc
+a2_new_minus_old_on_old_a1,atomic,42,-0.015873015873015872,-0.07142857142857142,0.02380952380952381,1,40,1,10000,20260819,exploratory_post_hoc
+a2_new_minus_old_on_old_a1,self_contained,43,-0.015503875968992248,-0.08527131782945736,0.05426356589147287,1,39,3,10000,20260819,exploratory_post_hoc
+a2_new_minus_old_on_old_a1,span_aligned,43,0.029069767441860465,-0.025193798449612406,0.09689922480620156,4,37,2,10000,20260819,exploratory_post_hoc
+a2_new_minus_old_on_old_a1,rewrite_faithful,43,0.05232558139534883,-0.015503875968992248,0.13372093023255813,5,36,2,10000,20260819,exploratory_post_hoc
+a2_new_minus_old_on_new_a1,atomic,48,0.0,0.0,0.0,0,48,0,10000,20260819,exploratory_post_hoc
+a2_new_minus_old_on_new_a1,self_contained,49,0.006802721088435375,0.0,0.020408163265306124,1,48,0,10000,20260819,exploratory_post_hoc
+a2_new_minus_old_on_new_a1,span_aligned,49,-0.01360544217687075,-0.061224489795918366,0.02040816326530612,1,47,1,10000,20260819,exploratory_post_hoc
+a2_new_minus_old_on_new_a1,rewrite_faithful,49,-0.034013605442176874,-0.10204081632653061,0.013605442176870748,1,46,2,10000,20260819,exploratory_post_hoc
+a2_coverage_new_minus_old_on_old_a1,fact_coverage_ordinal,45,0.03333333333333333,0.0,0.07777777777777778,3,42,0,10000,20260819,exploratory_post_hoc
+a2_coverage_new_minus_old_on_new_a1,fact_coverage_ordinal,48,0.010416666666666666,0.0,0.03125,1,47,0,10000,20260819,exploratory_post_hoc
