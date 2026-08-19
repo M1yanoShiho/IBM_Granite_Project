@@ -558,6 +558,8 @@ screen 硬排除：
 - 记录 answer-token/citation-token loss、model-val、fingerprint、显存和 wall time；
 - 效果失败不能换 seed 重训。
 
+G330 three-seed fit 已完成：按 G320 冻结的 `GR-C` 配方完成 seeds 13/42/73。seed13 复用 G310 formal GR-C adapter 并重新核对，seed42/73 在 G330 runtime 新训练完成；三份 training manifest 均为 COMPLETE，fresh-base reload 均 PASS，held-out/sealed 未读取，utility labels 未启动。G330 只是训练适配器完成，不是 Generator qualification 或 GQ freeze。报告见 [G330_THREE_SEED_FIT_REPORT.md](G330_THREE_SEED_FIT_REPORT.md)。
+
 ### G400/G410/G420：Generator 模块资格
 
 先定义：
