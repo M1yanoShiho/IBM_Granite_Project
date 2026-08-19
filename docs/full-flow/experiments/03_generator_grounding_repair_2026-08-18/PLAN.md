@@ -534,6 +534,8 @@ G310 screen implementation 已完成：新增 `scripts/full_flow_g310_seed13_scr
 
 G310 formal seed13 screen 已完成：GR-F/GR-C formal adapters 均训练完成并 fresh-base reload 通过；正式 screen 覆盖 2968 tasks，生成 2968 rows、评分 2968 rows。MiniCheck post-generation screen 选择 `GR-C`；GR-C overall `correct_and_cited` delta 为 +9.489pp，2Wiki delta 为 +41.895pp，NIAH delta 为 -5.383pp；GR-F 因 `answer_regression_gt_2pp` 被排除。该结果只解锁 G320 recipe freeze，不是最终 Generator qualification，不冻结 GQ，不授权 utility labels 或 held-out。报告见 [G310_FORMAL_SCREEN_REPORT.md](G310_FORMAL_SCREEN_REPORT.md)。
 
+G320 recipe freeze 已完成：冻结唯一训练配方 `GR-C`。冻结项包括 continuation 初始化、learning rate=5e-5、LoRA 结构、query-group equalization、citation token weighting、脚本/模型/adapter/data hash 和 G330 固定 seeds 13/42/73。G320 只是配方冻结，不是教师 Generator 冻结；GQ 仍只能在 G430 冻结。报告见 [G320_RECIPE_FREEZE_REPORT.md](G320_RECIPE_FREEZE_REPORT.md)。
+
 screen 硬排除：
 
 - runtime error、missing trace、invalid citation 不为 0；

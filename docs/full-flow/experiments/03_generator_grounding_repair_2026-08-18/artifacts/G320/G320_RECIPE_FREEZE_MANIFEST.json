@@ -1,0 +1,86 @@
+{
+  "schema_version": "full-flow-g320-recipe-freeze-v1",
+  "stage": "G320",
+  "status": "RECIPE_FROZEN",
+  "date": "2026-08-19",
+  "frozen_recipe": "GR-C",
+  "source_g310_archive_commit": "256243ba854bdf1fc0606759439b94071a4b0681",
+  "source_g310_manifest_sha256": "667552a35a321268f9674d48cae18e869df3e3d1c99dce993a17da5381b0ad50",
+  "source_g310_score_report_sha256": "e76c5b0e2b55653269dcad50e09c20f8acec28760d0aecc8fd24c603cf03f5b8",
+  "selection_trace": {
+    "rule": "discard hard-exclusion failures, then choose the higher maximin correct_and_cited delta across NIAH and 2Wiki; ties choose GR-F",
+    "tie_break_used": false,
+    "GR-C": {
+      "survives": true,
+      "failures": [],
+      "validation_correct_and_cited_delta": 0.0948912015137186,
+      "niah_correct_and_cited_delta": -0.053830227743271286,
+      "twowiki_correct_and_cited_delta": 0.4189473684210526,
+      "maximin_delta": -0.053830227743271286
+    },
+    "GR-F": {
+      "survives": false,
+      "failures": ["answer_regression_gt_2pp"],
+      "validation_correct_and_cited_delta": 0.07653736991485355,
+      "niah_correct_and_cited_delta": -0.07384403036576992,
+      "twowiki_correct_and_cited_delta": 0.40421052631578946,
+      "maximin_delta": -0.07384403036576992
+    }
+  },
+  "frozen_recipe_config": {
+    "recipe_id": "gr-c",
+    "init_adapter": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G220-v1/formal/gm-seed13/adapter",
+    "init_adapter_config_sha256": "3891557ce282e952949f6deeb0fff99e134113211f30b99a1a05f9d4a36a9171",
+    "learning_rate": 0.00005,
+    "epochs": 1,
+    "microbatch_size": 1,
+    "gradient_accumulation_groups": 8,
+    "max_length": 2304,
+    "lora": {
+      "r": 8,
+      "alpha": 16,
+      "dropout": 0.05,
+      "bias": "none",
+      "target_modules": ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
+    },
+    "query_group_equalization": true,
+    "token_weighting": {
+      "prompt": 0,
+      "answer_or_punctuation": 1,
+      "citation_brackets_or_index": 4,
+      "eos": 1
+    },
+    "decode_policy": "greedy at runtime",
+    "adapter_scope": "draft generation call only",
+    "claim_splitter_scope": "frozen Granite base with adapters disabled",
+    "true_scope": "frozen verifier; not trained"
+  },
+  "frozen_identities": {
+    "g300_training_script_sha256": "8973ac773c4da18dd1648c88de8ab316378ffb99eb59d080e170ac9767014b77",
+    "g310_screen_script_sha256": "1aae31c5eed5d0b073bbd1be96c57a0b118bbe1435f4f670374c84ed53c505d5",
+    "granite_model_config_sha256": "9a0e589b69e7d3ad9fb9fb2c844aa7d7156e052cb7ea4211de7de48ab7c8525c",
+    "g223_manifest_sha256": "9213eb32f1234290ac5d25c66c51756927adaff58ff4cd4cf2f70ece2312b30b",
+    "train_cases_sha256": "88e5592ed796e756fb836c9faee22393a0fa56c57b50eae69c449bd78c438635",
+    "validation_cases_sha256": "f896e8a92fe5e36757249f1a22d3c55f579233879beca229341833137f95cb67",
+    "ordered_ids_sha256": "b3bd73290f9753ada6b6f79b7d6758d755b6eec1e42035936b76ceee90b5b283"
+  },
+  "g330": {
+    "status": "UNLOCKED",
+    "recipe": "GR-C",
+    "seeds": [13, 42, 73],
+    "seed13_reuse_allowed_if_revalidated": true,
+    "seed13_training_manifest_sha256": "2aadc3fd2ff68873b597612d21396fea2a79ff89ba9bf00d53958d22a4918b99",
+    "seed13_adapter_weights_sha256": "492d336c7acc32785becded707220dbdf1a8acf9a895630147fc4e8cd28d0707",
+    "seed13_adapter_config_sha256": "1918333d819e6007d3faf17d3497c4f4665f7c0d3cb032f510986cfdb9837942"
+  },
+  "boundaries": {
+    "not_teacher_generator_freeze": true,
+    "not_final_generator_qualification": true,
+    "g223_clean_freeze_ready": false,
+    "g223_controlled_continuation_ready": true,
+    "twowiki_modelval_screen": 95,
+    "sealed_or_heldout_read": false,
+    "utility_labels_started": false,
+    "heldout_status": "BLOCKED_REQUIRES_SEPARATE_USER_AUTHORIZATION"
+  }
+}
