@@ -1,0 +1,14 @@
+{
+  "schema_version": "full-flow-g310-run-manifest-v1",
+  "stage": "G310",
+  "status": "COMPLETE",
+  "tasks": 2968,
+  "formal": true,
+  "generations_sha256": "a640f4c044548f16b5200eed4a80c3c8da1f7cd7003e2d69cdb31a09ac034aa4",
+  "run_spec_sha256": "6e8b0e93fba7280e593bdc6601a702a9997037c83b0f058a7f83ba176ce12acf",
+  "elapsed_seconds": 47109.09945206158,
+  "gold_loaded_at_runtime": false,
+  "dev_read": false,
+  "sealed_or_heldout_read": false,
+  "utility_labels_started": false
+}

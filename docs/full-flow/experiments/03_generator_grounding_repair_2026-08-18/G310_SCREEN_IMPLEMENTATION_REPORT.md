@@ -1,7 +1,7 @@
 # G310 Screen Implementation Report
 
 **Date:** 2026-08-18
-**Status:** `IMPLEMENTATION TEST PASS / FORMAL TRAINING IN PROGRESS / RECIPE NOT SELECTED`
+**Status:** `IMPLEMENTATION TEST PASS / SUPERSEDED BY FORMAL SCREEN REPORT`
 
 ## What Changed
 
@@ -52,12 +52,14 @@ python -m pytest tests/scripts/test_full_flow_g310_seed13_screen.py
 
 ## Current Runtime State
 
-The formal GR-F and GR-C seed13 adapter training jobs are still running on the server under:
+This implementation report records the code/test readiness checkpoint. The later formal G310 screen completed and selected `GR-C`; see [G310_FORMAL_SCREEN_REPORT.md](G310_FORMAL_SCREEN_REPORT.md).
+
+The formal GR-F and GR-C seed13 adapter training jobs used:
 
 - `/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G310-v1/formal-grf-seed13`
 - `/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G310-v1/formal-grc-seed13`
 
-This report only freezes the G310 screen implementation. G310 itself is not complete until both adapters finish, the fixed screen is run, the score report is written, and the recipe decision is archived.
+This report only freezes the G310 screen implementation. The formal recipe decision is archived separately.
 
 ## SHA256
 
@@ -68,6 +70,6 @@ This report only freezes the G310 screen implementation. G310 itself is not comp
 
 ## Result
 
-`IMPLEMENTATION TEST PASS`: the fixed G310 screen code is ready to use after the formal seed13 adapter training completes.
+`IMPLEMENTATION TEST PASS`: the fixed G310 screen code was ready and was used by the later formal seed13 screen.
 
-This is not a Generator repair success claim and does not unlock G320.
+This implementation checkpoint alone is not a Generator repair success claim.

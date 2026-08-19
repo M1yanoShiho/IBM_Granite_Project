@@ -1,7 +1,7 @@
 # Generator 修复与 Selector 分阶段协同
 
 **日期：** 2026-08-18
-**状态：** `G310 SCREEN IMPLEMENTATION PASS / FORMAL SEED13 TRAINING RUNNING / HELD-OUT BLOCKED`
+**状态：** `G310 COMPLETE / RECIPE_SELECTED GR-C / HELD-OUT BLOCKED`
 **详细计划：** [PLAN.md](PLAN.md)
 **执行跟踪：** [TRACKER.md](TRACKER.md)
 **原始方案快照：** [snapshots/PLAN_v1_generator_only_2026-08-18.md](snapshots/PLAN_v1_generator_only_2026-08-18.md)
@@ -44,8 +44,8 @@
 - G222 已把硬门解释修订为三档：100/100 是 clean freeze，97/100 且失败局部集中是 controlled continuation，只允许继续残余修复/隔离，不允许直接训练；
 - G223 已隔离剩余 3 条失败及必要 counterpart，得到 controlled-continuation candidate：train/validation 为 2,370/302，2Wiki model-val 为 95，split overlap 为 0，unsupported ratio 为 11.3392%；下一步可进入 G300 limited draft entry，但不是 clean freeze；
 - G300 已完成 draft LoRA 训练入口实现和 smoke：长度审计覆盖 train 2,370 groups / 9,207 examples、validation 302 groups / 1,924 examples，0 个超过 2,304；GR-F seed13 的 1-group smoke 成功保存并 fresh-base reload adapter，显存峰值约 9.12GB；这是可执行性通过，不是 Generator 效果结论；
-- G310 screen implementation 已补齐 MiniCheck/ALCE-style post-generation citation scoring，并通过服务器测试 3 passed；正式 GR-F/GR-C seed13 adapter training 仍在运行，尚未产生 recipe 选择；
-- 因此最终 Selector、最终 Generator 和完整新系统目前都不存在。
+- G310 已完成正式 seed13 screen：GR-F/GR-C formal adapters 均训练完成并 fresh-base reload 通过；2968 条正式生成和 2968 条评分行数一致；MiniCheck post-generation screen 选择 `GR-C`，GR-F 因 answer regression >2pp 被排除；这是配方筛选通过，不是最终 Generator qualification；
+- 因此最终 Selector、最终冻结 Generator 和完整新系统目前都不存在；下一步只能进入 G320 recipe freeze，仍不得启动 utility labels 或 held-out。
 
 ## 修订后的核心方法
 
@@ -93,15 +93,15 @@ CI 跨 0 不再自动淘汰职责合格组件，但也不能写成统计显著�
 
 ## 下一步
 
-下一步是完成 G310 seed13 screen：
+下一步是执行 G320 recipe freeze：
 
 ```text
-G310 seed13 screen
--> use G223 controlled-continuation candidate
--> compare GR-F fresh LoRA and GR-C continuation if GM13 adapter is available
--> use the same G300 query-group loss and citation weighting
--> score citations with MiniCheck only after generation
--> keep reporting that this is not clean 100/100 freeze
+G320 recipe freeze
+-> freeze GR-C as the only Generator recipe candidate
+-> record adapter, training, screen, scoring and boundary hashes
+-> keep G223 controlled-continuation limitation visible
+-> keep reporting that this is not final Generator qualification
+-> do not start utility labels until GQ is frozen later in G430
 ```
 
-G218/G212R3/G212M3/G219/G220/G212R4/G212M4/G221/G212R5/G212M5/G222/G223/G300/G310 implementation 说明当前路线仍有积极信号：长度、split、NIAH 和 unsupported ratio 都稳定，unsupported 固定样本层已经稳定通过，最近一轮固定样本达到 97/100，已知残余失败已隔离，训练入口 smoke 也已跑通，G310 判定代码也已按计划补齐 citation judge。但这仍不是 clean freeze；不得把后续结果写成强统计结论、降低 TRUE 阈值、改最终测试集边界、读取 held-out，或按已看到的结果临时改规则凑通过。
+G218/G212R3/G212M3/G219/G220/G212R4/G212M4/G221/G212R5/G212M5/G222/G223/G300/G310 说明当前路线仍有积极信号：长度、split、NIAH 和 unsupported ratio 都稳定，unsupported 固定样本层已经稳定通过，最近一轮固定样本达到 97/100，已知残余失败已隔离，训练入口和正式筛选均跑通；GR-C 在 2Wiki citation grounding 上有明显正信号，并大幅降低 unsupported safety 层乱答。但这仍不是 clean freeze 或 held-out 结论；不得把后续结果写成强统计结论、降低 TRUE 阈值、改最终测试集边界、读取 held-out，或按已看到的结果临时改规则凑通过。

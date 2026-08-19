@@ -530,7 +530,9 @@ G300 已完成实现和 smoke：新增 `scripts/full_flow_g300_draft_lora_train.
 
 两者使用相同数据、updates、batch、model-val、splitter、TRUE 和 MiniCheck。只运行 seed13 screen。
 
-G310 screen implementation 已完成：新增 `scripts/full_flow_g310_seed13_screen.py` 和测试，固定比较 `G0`、`GR-F`、`GR-C`，运行时仍走 adapter draft、frozen-base splitter 和 frozen TRUE；生成完成后的 citation 判定使用 MiniCheck/ALCE-style sentence-citation scoring。服务器测试 3 passed。当前状态只是 `IMPLEMENTATION TEST PASS / FORMAL TRAINING IN PROGRESS`，尚未选择 recipe，也不解锁 G320。报告见 [G310_SCREEN_IMPLEMENTATION_REPORT.md](G310_SCREEN_IMPLEMENTATION_REPORT.md)。
+G310 screen implementation 已完成：新增 `scripts/full_flow_g310_seed13_screen.py` 和测试，固定比较 `G0`、`GR-F`、`GR-C`，运行时仍走 adapter draft、frozen-base splitter 和 frozen TRUE；生成完成后的 citation 判定使用 MiniCheck/ALCE-style sentence-citation scoring。服务器测试 3 passed。报告见 [G310_SCREEN_IMPLEMENTATION_REPORT.md](G310_SCREEN_IMPLEMENTATION_REPORT.md)。
+
+G310 formal seed13 screen 已完成：GR-F/GR-C formal adapters 均训练完成并 fresh-base reload 通过；正式 screen 覆盖 2968 tasks，生成 2968 rows、评分 2968 rows。MiniCheck post-generation screen 选择 `GR-C`；GR-C overall `correct_and_cited` delta 为 +9.489pp，2Wiki delta 为 +41.895pp，NIAH delta 为 -5.383pp；GR-F 因 `answer_regression_gt_2pp` 被排除。该结果只解锁 G320 recipe freeze，不是最终 Generator qualification，不冻结 GQ，不授权 utility labels 或 held-out。报告见 [G310_FORMAL_SCREEN_REPORT.md](G310_FORMAL_SCREEN_REPORT.md)。
 
 screen 硬排除：
 
