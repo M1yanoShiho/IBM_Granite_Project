@@ -1,7 +1,7 @@
 # Generator 修复与 Selector 分阶段协同
 
 **日期：** 2026-08-18
-**状态：** `G330 COMPLETE / THREE_SEED_FIT GR-C / HELD-OUT BLOCKED`
+**状态：** `G331 COMPLETE / CONTINUATION_GATE_AMENDED / G400 READY / HELD-OUT BLOCKED`
 **详细计划：** [PLAN.md](PLAN.md)
 **执行跟踪：** [TRACKER.md](TRACKER.md)
 **原始方案快照：** [snapshots/PLAN_v1_generator_only_2026-08-18.md](snapshots/PLAN_v1_generator_only_2026-08-18.md)
@@ -47,6 +47,7 @@
 - G310 已完成正式 seed13 screen：GR-F/GR-C formal adapters 均训练完成并 fresh-base reload 通过；2968 条正式生成和 2968 条评分行数一致；MiniCheck post-generation screen 选择 `GR-C`，GR-F 因 answer regression >2pp 被排除；这是配方筛选通过，不是最终 Generator qualification；
 - G320 已冻结唯一 Generator 训练配方 `GR-C`，G330 只能用该配方训练 seeds 13/42/73；这仍不是教师 Generator 冻结，也不允许启动 utility labels 或 held-out；
 - G330 已完成 `GR-C` seeds 13/42/73 三 seed fit，三份 manifest 均为 COMPLETE，fresh-base reload 均 PASS，未读 held-out/sealed，未生成 utility labels；
+- G331 已按用户要求修订后续判定解释：未达某个单一数字门不再被写成“路线无意义”；强冻结/强结论条件与继续推进条件分开记录，积极信号可以进入受控下一步，但不能被包装成已经通过强结论；
 - 因此最终 Selector、最终冻结 Generator 和完整新系统目前都不存在；下一步只能进入 G400/G410/G420 的 Generator qualification。
 
 ## 修订后的核心方法
@@ -73,6 +74,17 @@ Selector 与 Generator 有联系，但不同时自由修改：
 3. **完整系统通过：** Utility Selector 对同一个 GQ 有净作用，完整系统主要联合结果正向且没有实际不可接受的答案、引用或安全退化。
 
 CI 跨 0 不再自动淘汰职责合格组件，但也不能写成统计显著提升。
+
+## 修订后的继续原则
+
+门槛的作用是保护结论边界，不是把研究路线一票否决。后续每个阶段同时记录四类判定：
+
+1. **技术有效：** 运行完整、hash 可复算、没有读取禁止数据、没有 gold/reference runtime 泄漏。
+2. **职责可用：** 主要职责指标相对固定基线没有实际不可接受退化，并且至少有可解释的正向信号。
+3. **强结论成立：** 预注册统计门支持更强表述。
+4. **受控继续：** 未达到强冻结或强结论，但正向信号明确、失败局部可解释、没有触发安全或泄漏 tripwire，因此可以继续做下一步受控验证。
+
+例如早期 2Wiki model-val 过滤后只有 76 个 answerable groups，含义是“这个数据版本不能 clean freeze”，不是“Generator/Selector 路线失败”。同理，后续若出现 97/100、方向性提升但 CI 不够强、或某个 slice 没过强结论门，只能限制结论写法，不能自动中断有价值的受控推进。
 
 ## 数据角色
 

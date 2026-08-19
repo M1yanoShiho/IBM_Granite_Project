@@ -2,7 +2,7 @@
 
 **路线：** `03_generator_grounding_repair_2026-08-18`
 **日期：** 2026-08-18
-**修订状态：** `G300 IMPLEMENTATION SMOKE PASS / G310 SEED13 SCREEN NEXT / HELD-OUT BLOCKED`
+**修订状态：** `G331 COMPLETE / CONTINUATION_GATE_AMENDED / G400 READY / HELD-OUT BLOCKED`
 **修订原因：** 明确旧 Selector 的数据与外推边界；把模块资格、强统计结论和完整系统资格分开；将 Generator-aware Selector 纳入同一条交替冻结路线
 **上一阶段：** G230 `COMPLETE / NO CANDIDATE`
 **主生成模型：** `ibm-granite/granite-4.1-3b@c0650403...`
@@ -560,6 +560,8 @@ screen 硬排除：
 
 G330 three-seed fit 已完成：按 G320 冻结的 `GR-C` 配方完成 seeds 13/42/73。seed13 复用 G310 formal GR-C adapter 并重新核对，seed42/73 在 G330 runtime 新训练完成；三份 training manifest 均为 COMPLETE，fresh-base reload 均 PASS，held-out/sealed 未读取，utility labels 未启动。G330 只是训练适配器完成，不是 Generator qualification 或 GQ freeze。报告见 [G330_THREE_SEED_FIT_REPORT.md](G330_THREE_SEED_FIT_REPORT.md)。
 
+G331 continuation/gate amendment 已完成：按用户要求，把后续“门”明确拆成技术有效、职责可用、强结论成立、受控继续四类判定。单一数字门未达成不得自动写成路线失败；只要没有禁止数据泄漏、没有严重 safety/citation tripwire，且正向信号可解释，就允许继续做受控下一步，但不能把受控继续写成 clean freeze、强统计结论或 held-out 授权。报告见 [G331_CONTINUATION_GATE_AMENDMENT.md](G331_CONTINUATION_GATE_AMENDMENT.md)。
+
 ### G400/G410/G420：Generator 模块资格
 
 先定义：
@@ -593,6 +595,16 @@ correct_and_cited =
 - 2Wiki `correct_and_cited` delta >= -2pp，answer/citation 任一项不得下降超过 3pp。
 
 这些是模块可用性的实际容忍范围，不是显著性门。G010 在新结果出现前复核其可分辨性和业务含义，但不得根据候选表现放宽。
+
+职责判定门控制的是“能否冻结新 Generator 为 GQ”。如果某个数字没有达到，但结果满足以下条件，阶段结论应写为 `CONTROLLED_CONTINUATION_SIGNAL` 或 `PARTIAL_POSITIVE_SIGNAL`，而不是写成路线无意义：
+
+- 技术完整性 A 全部通过；
+- 没有读取 held-out、sealed600 或 runtime gold/reference；
+- 没有触发 C 中的严重退化 tripwire；
+- 至少一个预注册主要 family 或机制指标相对 G0 有正向变化，且失败 slice 局部、可解释、可复核；
+- 后续动作不会用当前结果临时改 seed、门、数据或最终测试边界来凑通过。
+
+这类结果可以继续完成 G400/G410/G420 的组合判定，或在 G430 降级为 `GQ=G0` 后继续阶段 S；它不能解锁“新 Generator 修复成功”的写法。
 
 #### C. 严重退化 tripwire
 
@@ -912,11 +924,13 @@ MiniCheck 是外部 judge；TRUE 是被测 runtime verifier，不评价自己。
 
 ### 13.4 停止与 fallback
 
-- 新 Generator 失败：使用 G0 作为 GQ，Selector 阶段可继续；
+- 新 Generator 没有通过职责可用门：使用 G0 作为 GQ，Selector 阶段可继续；若同时存在正向信号，归档为受控诊断结果，不写成新 Generator 修复成功；
 - utility pilot 标签不足：停止 Utility Selector，不强造；
 - Selector 不提供同 GQ 下端到端正作用：没有三模块候选；
 - 完整系统职责门失败：不运行 held-out；
 - held-out mixed/negative：报告真实结果，不再调方法。
+
+只有技术无效、禁止数据被读取、严重安全/引用退化、标签无法形成可训练监督，或完整系统职责失败时，才停止对应路线。未达到强结论门只降级表述，不自动停止受控推进。
 
 ---
 
@@ -962,7 +976,7 @@ MiniCheck 是外部 judge；TRUE 是被测 runtime verifier，不评价自己。
 | 把 NIAH harmful 结论外推到所有数据 | 明确 proxy 范围；2Wiki 用 utility 而非伪 harm；最终三数据单独确认 |
 | Generator 与 Selector 同时变化 | 只允许 G -> freeze -> S -> freeze -> I |
 | 没有新 G 就完全阻断 Selector | G0 fallback teacher；不把新 G 失败等同于 S 不可研究 |
-| 资格门过严导致有用组件被淘汰 | 模块职责、强结论、完整系统三层分开 |
+| 资格门过严导致有用组件被淘汰 | 技术有效、职责可用、强结论、受控继续四层分开 |
 | 为了通过而放松可靠性 | 保留 answer/citation/coverage/unsupported 实际 margin 和严重退化 tripwire |
 | utility labels 随 Generator 改变 | GQ hash 绑定 labels；换 G 必须重建 |
 | 2Wiki 只保护不动作 | 用冻结 GQ 的 leave-one-out utility 学 distractor 作用 |
