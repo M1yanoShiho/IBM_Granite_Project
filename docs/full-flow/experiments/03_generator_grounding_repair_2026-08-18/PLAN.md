@@ -2,7 +2,7 @@
 
 **路线：** `03_generator_grounding_repair_2026-08-18`
 **日期：** 2026-08-18
-**修订状态：** `G331 COMPLETE / CONTINUATION_GATE_AMENDED / G400 READY / HELD-OUT BLOCKED`
+**修订状态：** `G400 IMPLEMENTATION PASS / FORMAL G400 READY / HELD-OUT BLOCKED`
 **修订原因：** 明确旧 Selector 的数据与外推边界；把模块资格、强统计结论和完整系统资格分开；将 Generator-aware Selector 纳入同一条交替冻结路线
 **上一阶段：** G230 `COMPLETE / NO CANDIDATE`
 **主生成模型：** `ibm-granite/granite-4.1-3b@c0650403...`
@@ -561,6 +561,8 @@ screen 硬排除：
 G330 three-seed fit 已完成：按 G320 冻结的 `GR-C` 配方完成 seeds 13/42/73。seed13 复用 G310 formal GR-C adapter 并重新核对，seed42/73 在 G330 runtime 新训练完成；三份 training manifest 均为 COMPLETE，fresh-base reload 均 PASS，held-out/sealed 未读取，utility labels 未启动。G330 只是训练适配器完成，不是 Generator qualification 或 GQ freeze。报告见 [G330_THREE_SEED_FIT_REPORT.md](G330_THREE_SEED_FIT_REPORT.md)。
 
 G331 continuation/gate amendment 已完成：按用户要求，把后续“门”明确拆成技术有效、职责可用、强结论成立、受控继续四类判定。单一数字门未达成不得自动写成路线失败；只要没有禁止数据泄漏、没有严重 safety/citation tripwire，且正向信号可解释，就允许继续做受控下一步，但不能把受控继续写成 clean freeze、强统计结论或 held-out 授权。报告见 [G331_CONTINUATION_GATE_AMENDMENT.md](G331_CONTINUATION_GATE_AMENDMENT.md)。
+
+G400 implementation/smoke 已完成：新增 `scripts/full_flow_g400_niah_qualification.py`，`run` 命令不接受 gold/reference，`score` 命令只在生成后读取 NIAH dev gold；G0 固定复用 A002/B100，不重新生成。本地和服务器相邻测试均 11/11 通过；服务器三 seed 各 1 题真实 smoke 均 COMPLETE、0 runtime error、0 missing trace，score smoke 成功合并固定 G0、三 seed GR-C、NIAH dev gold 和 MiniCheck。该阶段只证明 G400 runner 与实体接线可执行，正式 G400 尚未运行，不构成效果结论。报告见 [G400_IMPLEMENTATION_SMOKE_REPORT.md](G400_IMPLEMENTATION_SMOKE_REPORT.md)。
 
 ### G400/G410/G420：Generator 模块资格
 
