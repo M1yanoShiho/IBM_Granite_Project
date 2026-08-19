@@ -1080,10 +1080,15 @@ def score(
         candidate_manifests[f"seed{seed}"] = manifest
     assert canonical_evidence is not None and canonical_metadata is not None
     expected_tasks = set(canonical_evidence)
+    missing_baseline = expected_tasks - set(baseline)
+    if missing_baseline:
+        missing = sorted(missing_baseline)
+        raise ValueError(f"G400 fixed G0 baseline lacks tasks: {missing[:5]}")
+    configs["G0"] = {task_id: baseline[task_id] for task_id in expected_tasks}
     for name, rows in configs.items():
         if set(rows) != expected_tasks:
             raise ValueError(f"G400 {name} does not exactly cover candidate tasks")
-    if set(components) & expected_tasks != expected_tasks:
+    if expected_tasks - set(components):
         missing = sorted(expected_tasks - set(components))
         raise ValueError(f"G400 baseline lacks components for tasks: {missing[:5]}")
 
