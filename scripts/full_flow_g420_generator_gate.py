@@ -175,14 +175,21 @@ def component_cluster_bootstrap(
 def _stats_for_context(
     rows: Sequence[Mapping[str, Any]],
     *,
-    dataset: str,
+    dataset: str | None,
     context: str | None,
     metrics: Sequence[str],
     resamples: int,
+    answerable: bool | None = None,
 ) -> dict[str, object]:
     output: dict[str, object] = {}
     for metric in metrics:
-        values = query_level_deltas(rows, metric=metric, context=context, dataset=dataset)
+        values = query_level_deltas(
+            rows,
+            metric=metric,
+            context=context,
+            dataset=dataset,
+            answerable=answerable,
+        )
         output[metric] = component_cluster_bootstrap(values, resamples=resamples)
     return output
 
@@ -335,10 +342,11 @@ def evaluate(
         )
     stats["g400"][G400_UNSUPPORTED_CONTEXT] = _stats_for_context(
         g400_rows,
-        dataset="niah",
+        dataset=None,
         context=G400_UNSUPPORTED_CONTEXT,
         metrics=("unsupported_ungrounded_assertion",),
         resamples=resamples,
+        answerable=False,
     )
     stats["g410"][G410_ALL_CONTEXT] = _stats_for_context(
         g410_rows,

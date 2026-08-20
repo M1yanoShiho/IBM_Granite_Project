@@ -48,6 +48,7 @@ def _row(
         "context": context,
         "component_id": component,
         "query_id": query,
+        "answerable": context != "train_unsupported_safety",
         key: arms,
     }
 
@@ -124,7 +125,7 @@ def test_evaluate_marks_new_generator_ready_with_positive_g400_g410(tmp_path: Pa
         [
             _row(
                 schema_version="full-flow-g400-scored-row-v1",
-                dataset="niah",
+                dataset="2wiki" if context == "train_unsupported_safety" else "niah",
                 context=context,
                 component=f"c{idx}",
                 query=f"q{idx}",
