@@ -1,7 +1,7 @@
 # Generator 修复与 Selector 分阶段协同
 
 **日期：** 2026-08-18
-**状态：** `G400 RESPONSIBILITY PASS / G410 READY / HELD-OUT BLOCKED`
+**状态：** `G410 IMPLEMENTATION PASS / FORMAL G410 READY / HELD-OUT BLOCKED`
 **详细计划：** [PLAN.md](PLAN.md)
 **执行跟踪：** [TRACKER.md](TRACKER.md)
 **原始方案快照：** [snapshots/PLAN_v1_generator_only_2026-08-18.md](snapshots/PLAN_v1_generator_only_2026-08-18.md)
@@ -50,7 +50,8 @@
 - G331 已按用户要求修订后续判定解释：未达某个单一数字门不再被写成“路线无意义”；强冻结/强结论条件与继续推进条件分开记录，积极信号可以进入受控下一步，但不能被包装成已经通过强结论；
 - G400 implementation/smoke 已完成：新增 locked NIAH qualification runner，服务器和本地相邻测试均 11/11 通过，三 seed 各 1 题真实 smoke 均 COMPLETE、0 runtime error、0 missing trace，score smoke 能合并固定 G0、三 seed GR-C、NIAH dev gold 和 MiniCheck；这只是接线通过，不是正式 G400 效果结论；
 - G400 formal locked NIAH qualification 已完成：三 seed 各 2873 条生成全部 COMPLETE，0 runtime error、0 missing trace，评分状态为 `G400_NIAH_RESPONSIBILITY_PASS`；NIAH 各 full/stress family 的 `correct+cited` 相对固定 G0 为 +5.35pp 到 +11.93pp，unsupported ungrounded assertion 从 30.08% 降到接近 0；
-- 因此最终 Selector、最终冻结 Generator 和完整新系统目前都不存在；下一步只能进入 G410 cross-data qualification，再由 G420 组合判定是否冻结新 Generator。
+- G410 implementation/smoke 已完成：新增 2Wiki cross-data runner，生成阶段只读 no-answer task packet；prepare smoke 从 G223 生成 475 个 2Wiki tasks 和独立 references，三 seed 各 1 题真实 smoke 均 COMPLETE，score smoke 只用显式 `--allow-subset` 裁剪到 1 题并通过；
+- 因此最终 Selector、最终冻结 Generator 和完整新系统目前都不存在；下一步只能进入正式 G410 2Wiki cross-data qualification，再由 G420 组合判定是否冻结新 Generator。
 
 ## 修订后的核心方法
 
