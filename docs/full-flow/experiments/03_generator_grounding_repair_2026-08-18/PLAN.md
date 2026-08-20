@@ -564,6 +564,8 @@ G331 continuation/gate amendment 已完成：按用户要求，把后续“门�
 
 G400 implementation/smoke 已完成：新增 `scripts/full_flow_g400_niah_qualification.py`，`run` 命令不接受 gold/reference，`score` 命令只在生成后读取 NIAH dev gold；G0 固定复用 A002/B100，不重新生成。本地和服务器相邻测试均 11/11 通过；服务器三 seed 各 1 题真实 smoke 均 COMPLETE、0 runtime error、0 missing trace，score smoke 成功合并固定 G0、三 seed GR-C、NIAH dev gold 和 MiniCheck。该阶段只证明 G400 runner 与实体接线可执行，正式 G400 尚未运行，不构成效果结论。报告见 [G400_IMPLEMENTATION_SMOKE_REPORT.md](G400_IMPLEMENTATION_SMOKE_REPORT.md)。
 
+G400 formal locked NIAH qualification 已完成：seeds 13/42/73 均按冻结 `GR-C` 生成 2873 rows，runtime error=0、missing trace=0，generation runtime 未读取 gold/reference，sealed/held-out=false，utility labels 未启动。正式 scoring 覆盖 1829 条 NIAH answerable full/stress 和 1044 条 unsupported safety，状态为 `G400_NIAH_RESPONSIBILITY_PASS`。相对固定 G0，NIAH family `correct_and_cited` delta 全部为正：K_topk +6.13pp、S_legacy_selected +10.70pp、O_support_only +8.10pp、OB_support_benign +5.35pp、OH_support_harmful +11.93pp、OP_support_last +10.86pp；unsupported ungrounded assertion 从 30.08% 降到接近 0。该结果解决了 G310 暴露的 NIAH 回归风险，解锁 G410 cross-data qualification；但 G400 不是 GQ freeze，也不是 held-out 或完整 Generator 强统计结论。报告见 [G400_LOCKED_NIAH_QUALIFICATION_REPORT.md](G400_LOCKED_NIAH_QUALIFICATION_REPORT.md)。
+
 ### G400/G410/G420：Generator 模块资格
 
 先定义：

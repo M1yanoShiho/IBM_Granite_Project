@@ -1,7 +1,7 @@
 # Generator 修复与 Selector 分阶段协同
 
 **日期：** 2026-08-18
-**状态：** `G400 IMPLEMENTATION PASS / FORMAL G400 READY / HELD-OUT BLOCKED`
+**状态：** `G400 RESPONSIBILITY PASS / G410 READY / HELD-OUT BLOCKED`
 **详细计划：** [PLAN.md](PLAN.md)
 **执行跟踪：** [TRACKER.md](TRACKER.md)
 **原始方案快照：** [snapshots/PLAN_v1_generator_only_2026-08-18.md](snapshots/PLAN_v1_generator_only_2026-08-18.md)
@@ -49,7 +49,8 @@
 - G330 已完成 `GR-C` seeds 13/42/73 三 seed fit，三份 manifest 均为 COMPLETE，fresh-base reload 均 PASS，未读 held-out/sealed，未生成 utility labels；
 - G331 已按用户要求修订后续判定解释：未达某个单一数字门不再被写成“路线无意义”；强冻结/强结论条件与继续推进条件分开记录，积极信号可以进入受控下一步，但不能被包装成已经通过强结论；
 - G400 implementation/smoke 已完成：新增 locked NIAH qualification runner，服务器和本地相邻测试均 11/11 通过，三 seed 各 1 题真实 smoke 均 COMPLETE、0 runtime error、0 missing trace，score smoke 能合并固定 G0、三 seed GR-C、NIAH dev gold 和 MiniCheck；这只是接线通过，不是正式 G400 效果结论；
-- 因此最终 Selector、最终冻结 Generator 和完整新系统目前都不存在；下一步只能进入 G400/G410/G420 的 Generator qualification。
+- G400 formal locked NIAH qualification 已完成：三 seed 各 2873 条生成全部 COMPLETE，0 runtime error、0 missing trace，评分状态为 `G400_NIAH_RESPONSIBILITY_PASS`；NIAH 各 full/stress family 的 `correct+cited` 相对固定 G0 为 +5.35pp 到 +11.93pp，unsupported ungrounded assertion 从 30.08% 降到接近 0；
+- 因此最终 Selector、最终冻结 Generator 和完整新系统目前都不存在；下一步只能进入 G410 cross-data qualification，再由 G420 组合判定是否冻结新 Generator。
 
 ## 修订后的核心方法
 
@@ -108,15 +109,15 @@ CI 跨 0 不再自动淘汰职责合格组件，但也不能写成统计显著�
 
 ## 下一步
 
-下一步是执行正式 G400 locked NIAH qualification：
+下一步是执行 G410 cross-data qualification：
 
 ```text
-G400 locked NIAH qualification
--> use frozen GR-C seeds 13/42/73
--> generate locked NIAH full/stress/unsupported outputs
--> score answer, citation, coverage and unsupported safety
+G410 cross-data qualification
+-> keep frozen GR-C seeds 13/42/73
+-> generate and score registered cross-data checks
 -> keep G0 comparison fixed
+-> carry G400 NIAH pass into G420, but do not freeze GQ yet
 -> do not freeze GQ, start utility labels, or touch held-out in this stage
 ```
 
-G218/G212R3/G212M3/G219/G220/G212R4/G212M4/G221/G212R5/G212M5/G222/G223/G300/G310/G320/G330 说明当前路线仍有积极信号：长度、split、NIAH 和 unsupported ratio 都稳定，unsupported 固定样本层已经稳定通过，最近一轮固定样本达到 97/100，已知残余失败已隔离，训练入口和正式筛选均跑通；GR-C 在 2Wiki citation grounding 上有明显正信号，并大幅降低 unsupported safety 层乱答，且三 seed adapter 已完成保存和 reload。但这仍不是 clean freeze、Generator qualification 或 held-out 结论；不得把后续结果写成强统计结论、降低 TRUE 阈值、改最终测试集边界、读取 held-out，或按已看到的结果临时改规则凑通过。
+G218/G212R3/G212M3/G219/G220/G212R4/G212M4/G221/G212R5/G212M5/G222/G223/G300/G310/G320/G330/G400 说明当前路线仍有积极信号：长度、split、NIAH 和 unsupported ratio 都稳定，unsupported 固定样本层已经稳定通过，最近一轮固定样本达到 97/100，已知残余失败已隔离，训练入口、正式筛选和 locked NIAH qualification 均跑通；GR-C 在 2Wiki citation grounding 上有明显正信号，并大幅降低 unsupported safety 层乱答，三 seed adapter 已完成保存和 reload，且 G400 NIAH full/stress family 全部显示 `correct+cited` 正增益。但这仍不是 GQ freeze、完整 Generator 强统计结论或 held-out 结论；不得把后续结果写成强统计结论、降低 TRUE 阈值、改最终测试集边界、读取 held-out，或按已看到的结果临时改规则凑通过。
