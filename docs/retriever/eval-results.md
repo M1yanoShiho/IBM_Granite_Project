@@ -83,54 +83,14 @@ retr_scifact_rrf-k30.toml       0.6117   0.7029   0.7596   0.8127   0.8641   300
 retr_scifact_rrf-k100.toml      0.6117   0.7029   0.7596   0.8127   0.8641   300/300
 ```
 
-## 显著性检验
-```
-comparison (ON vs OFF)     metric                              mean_on mean_off    delta    p_value       n
--------------------------------------------------------------------------------------------------------------
-Traceback (most recent call last):
-  File "<stdin>", line 3, in <module>
-  File "/software/local/languages/miniforge3/envs/python-3.11.15/lib/python3.11/json/__init__.py", line 346, in loads
-    return _default_decoder.decode(s)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/software/local/languages/miniforge3/envs/python-3.11.15/lib/python3.11/json/decoder.py", line 337, in decode
-    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/software/local/languages/miniforge3/envs/python-3.11.15/lib/python3.11/json/decoder.py", line 355, in raw_decode
-    raise JSONDecodeError("Expecting value", s, err.value) from None
-json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
-Exception ignored in: <_io.TextIOWrapper name='<stdout>' mode='w' encoding='utf-8'>
-BrokenPipeError: [Errno 32] Broken pipe
-comparison (ON vs OFF)     metric                              mean_on mean_off    delta    p_value       n
--------------------------------------------------------------------------------------------------------------
-Traceback (most recent call last):
-  File "<stdin>", line 3, in <module>
-  File "/software/local/languages/miniforge3/envs/python-3.11.15/lib/python3.11/json/__init__.py", line 346, in loads
-    return _default_decoder.decode(s)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/software/local/languages/miniforge3/envs/python-3.11.15/lib/python3.11/json/decoder.py", line 337, in decode
-    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/software/local/languages/miniforge3/envs/python-3.11.15/lib/python3.11/json/decoder.py", line 355, in raw_decode
-    raise JSONDecodeError("Expecting value", s, err.value) from None
-json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
-Exception ignored in: <_io.TextIOWrapper name='<stdout>' mode='w' encoding='utf-8'>
-BrokenPipeError: [Errno 32] Broken pipe
-comparison (ON vs OFF)     metric                              mean_on mean_off    delta    p_value       n
--------------------------------------------------------------------------------------------------------------
-Traceback (most recent call last):
-  File "<stdin>", line 3, in <module>
-  File "/software/local/languages/miniforge3/envs/python-3.11.15/lib/python3.11/json/__init__.py", line 346, in loads
-    return _default_decoder.decode(s)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/software/local/languages/miniforge3/envs/python-3.11.15/lib/python3.11/json/decoder.py", line 337, in decode
-    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/software/local/languages/miniforge3/envs/python-3.11.15/lib/python3.11/json/decoder.py", line 355, in raw_decode
-    raise JSONDecodeError("Expecting value", s, err.value) from None
-json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
-Exception ignored in: <_io.TextIOWrapper name='<stdout>' mode='w' encoding='utf-8'>
-BrokenPipeError: [Errno 32] Broken pipe
-```
+## 显著性检验(首轮:读数脚本崩溃,未产出数据)
+
+首轮读数脚本对三个数据集各打印了表头后,即在 `json.loads` 处崩溃
+(`JSONDecodeError: Expecting value: line 1 column 1 (char 0)`,随后 `BrokenPipeError`),
+**三个数据集全部如此,未产出任何数字**。原始 stderr 曾整段粘在此处,但它只记录了失败、不含结果,
+现移除以免被误读为数据。
+
+**本节无可引用的数字;完整结果见下一节"显著性检验(修正版)"。**
 
 ## 显著性检验(修正版)
 ```
