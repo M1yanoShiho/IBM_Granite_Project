@@ -856,24 +856,41 @@ def score(
     minicheck_model_id: str = FROZEN_MINICHECK_MODEL,
     minicheck_device: str = "cpu",
     entails: Callable[[str, str], bool] | None = None,
+    allow_subset: bool = False,
 ) -> dict[str, object]:
     if set(seed_generations) != set(ALLOWED_SEEDS):
         raise ValueError("G410 scoring requires seeds 13, 42, and 73")
     tasks = _load_tasks(tasks_path)
     wanted = {task.task_id for task in tasks}
+    candidate_rows: dict[int, dict[str, Mapping[str, object]]] = {}
+    candidate_task_ids: set[str] | None = None
+    candidate_manifests: dict[str, Mapping[str, Any]] = {}
+    for seed, path in sorted(seed_generations.items()):
+        rows, manifest = _candidate_results(path, seed=seed)
+        row_ids = set(rows)
+        if candidate_task_ids is None:
+            candidate_task_ids = row_ids
+        elif row_ids != candidate_task_ids:
+            raise ValueError("G410 candidate seed task sets differ")
+        candidate_rows[seed] = rows
+        candidate_manifests[f"seed{seed}"] = manifest
+    if candidate_task_ids is None:
+        raise ValueError("G410 candidate rows are empty")
+    if candidate_task_ids != wanted:
+        if not allow_subset:
+            raise ValueError("G410 candidates do not exactly cover prepared tasks")
+        if not candidate_task_ids < wanted:
+            raise ValueError("G410 subset scoring requires a strict prepared-task subset")
+        tasks = [task for task in tasks if task.task_id in candidate_task_ids]
+        wanted = candidate_task_ids
     references = _load_references(references_path, wanted)
     metadata = {task.task_id: _task_identity(task) for task in tasks}
     evidence = {task.task_id: task.evidence for task in tasks}
     baseline = _baseline_g0(baseline_g310_generations_path, wanted)
     configs: dict[str, dict[str, Mapping[str, object]]] = {"G0": baseline}
-    candidate_manifests: dict[str, Mapping[str, Any]] = {}
     for seed, path in sorted(seed_generations.items()):
-        rows, manifest = _candidate_results(path, seed=seed)
-        if set(rows) != wanted:
-            raise ValueError(f"G410 seed-{seed} does not exactly cover prepared tasks")
         config = f"GRC{seed}"
-        configs[config] = rows
-        candidate_manifests[f"seed{seed}"] = manifest
+        configs[config] = candidate_rows[seed]
     config_names = tuple(configs)
     if entails is None:
         entails, judge_call_count = _build_minicheck_entailer(
@@ -937,6 +954,7 @@ def score(
         "score_type": "locked_2wiki_cross_data_internal_screen",
         "tasks": len(tasks),
         "case_groups": EXPECTED_TWOWIKI_CASES,
+        "formal_task_subset": allow_subset,
         "configs": list(config_names),
         "contexts": [ALL_CONTEXT, *CONTEXTS],
         "aggregate": aggregate,
@@ -1045,6 +1063,7 @@ def _parser() -> argparse.ArgumentParser:
     score_parser.add_argument("--output-report", required=True, type=Path)
     score_parser.add_argument("--minicheck-model-id", default=FROZEN_MINICHECK_MODEL)
     score_parser.add_argument("--minicheck-device", default="cpu")
+    score_parser.add_argument("--allow-subset", action="store_true")
     return parser
 
 
@@ -1084,6 +1103,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             output_report=args.output_report,
             minicheck_model_id=args.minicheck_model_id,
             minicheck_device=args.minicheck_device,
+            allow_subset=args.allow_subset,
         )
     print(json.dumps(result, ensure_ascii=True, sort_keys=True))
     return 0
