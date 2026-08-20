@@ -1,0 +1,105 @@
+{
+  "schema_version": "full-flow-g410-formal-qualification-v1",
+  "stage": "G410_FORMAL_CROSS_DATA_QUALIFICATION",
+  "status": "G410_CROSS_DATA_RESPONSIBILITY_PASS",
+  "date": "2026-08-20",
+  "commit_used_for_runtime": "739b155c3451742882d10ccbf9ef8373293d2989",
+  "runtime": {
+    "repo": "/home/fl25387/projects/IBM_Granite_Project_latest",
+    "root": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G410-v1",
+    "prepare_dir": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G410-v1/formal-prepare-739b155",
+    "seed13_dir": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G410-v1/formal-seed13-739b155",
+    "seed42_dir": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G410-v1/formal-seed42-739b155",
+    "seed73_dir": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G410-v1/formal-seed73-739b155",
+    "score_dir": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G410-v1/formal-score-739b155"
+  },
+  "inputs": {
+    "source": "G223 validation 2Wiki answerable model-val screen",
+    "tasks": 475,
+    "case_groups": 95,
+    "contexts": [
+      "topk",
+      "support_only",
+      "support_first",
+      "support_middle",
+      "support_last"
+    ],
+    "tasks_sha256": "84d5026a77846d53fd536902fc89c731f1b65adcb6aab2c62e45e394788551f3",
+    "references_sha256": "c524d40756262b9c1fb636e4a800482db19293eb8497b917cfa708b436932765",
+    "formal_task_subset": false
+  },
+  "run_manifests": {
+    "seed13": {
+      "status": "COMPLETE",
+      "tasks": 475,
+      "generations_sha256": "a39964e87b4cd1c30d4d4c3b72880d77f20c26222124ab83cada1976b0eae339",
+      "run_spec_sha256": "fc26e03942b8fb611576dd0a17161ae259ae874e2d881ddb133a7d0acfa94612"
+    },
+    "seed42": {
+      "status": "COMPLETE",
+      "tasks": 475,
+      "generations_sha256": "c7af2c94df3481ab2d53e03cec68cf0937f045d7d771e408b51f7ba91dcf7fb9",
+      "run_spec_sha256": "99d770e514c8a0e4d41659f1781c47ac4a74d0c60005092abde9a6dc3a409d6f"
+    },
+    "seed73": {
+      "status": "COMPLETE",
+      "tasks": 475,
+      "generations_sha256": "1ef4bbb931bd671d568c0b9f35e996126e8c1ba47c581523ae1c09164670e13d",
+      "run_spec_sha256": "8f9dd9d7f4f5acb7259ff8e9b9da2827238da2a43c6a1543a4744f5a3a6336bb"
+    }
+  },
+  "score": {
+    "status": "G410_CROSS_DATA_RESPONSIBILITY_PASS",
+    "tasks": 475,
+    "case_groups": 95,
+    "correct_and_cited_delta_all_2wiki": 0.3964912280701755,
+    "answer_match_delta_all_2wiki": 0.06947368421052637,
+    "coverage_delta_all_2wiki": 0.025263157894736838,
+    "citation_precision_delta_all_2wiki": 0.31368421052631584,
+    "citation_recall_delta_all_2wiki": 0.3547368421052634,
+    "positive_signal": true,
+    "technical_pass": true,
+    "responsibility_pass": true,
+    "tripwires": []
+  },
+  "boundaries": {
+    "generation_runtime_gold_or_reference_fields": false,
+    "gold_loaded_at_runtime": false,
+    "references_loaded_at_runtime": false,
+    "score_uses_references_after_generation": true,
+    "sealed_or_heldout_read": false,
+    "utility_labels_started": false,
+    "teacher_generator_frozen": false,
+    "selector_changed": false,
+    "retriever_changed": false,
+    "g420_final_gate_pending": true,
+    "revealed_asqa_qampari_guard_pending": true
+  },
+  "archived_files": {
+    "prepare_manifest": {
+      "path": "docs/full-flow/experiments/03_generator_grounding_repair_2026-08-18/artifacts/G410/G410_FORMAL_PREPARE_MANIFEST.json",
+      "sha256": "dadde5e58302c55bb74034bff00bedb5ea80133f1e9fe4774285e81582d8d727"
+    },
+    "seed13_run_manifest": {
+      "path": "docs/full-flow/experiments/03_generator_grounding_repair_2026-08-18/artifacts/G410/G410_FORMAL_SEED13_RUN_MANIFEST.json",
+      "sha256": "c9c325bf3d5aea63229802158ab18f8dae1ef6e9305a4488de2e57c874e4a8f1"
+    },
+    "seed42_run_manifest": {
+      "path": "docs/full-flow/experiments/03_generator_grounding_repair_2026-08-18/artifacts/G410/G410_FORMAL_SEED42_RUN_MANIFEST.json",
+      "sha256": "0e071879fa27fa6fea478a31fac131518088b9cbed44f5ff78a33b9766723c18"
+    },
+    "seed73_run_manifest": {
+      "path": "docs/full-flow/experiments/03_generator_grounding_repair_2026-08-18/artifacts/G410/G410_FORMAL_SEED73_RUN_MANIFEST.json",
+      "sha256": "edab5339f26079c509da5c2d6b33309d9952250f18e7b96c51500376c613ffb8"
+    },
+    "score_report": {
+      "path": "docs/full-flow/experiments/03_generator_grounding_repair_2026-08-18/artifacts/G410/G410_FORMAL_SCORE_REPORT.json",
+      "sha256": "196118d92a1535928dac1b853f6899846c1ded1b9b832f6816568bd311262e3b"
+    },
+    "runtime_score_report": {
+      "path": "docs/full-flow/experiments/03_generator_grounding_repair_2026-08-18/artifacts/G410/G410_FORMAL_RUNTIME_SCORE_REPORT.md",
+      "sha256": "755b3ab3718fe9758e3690a76e5237cd34e85c58137887b7c8030126e9015357"
+    }
+  },
+  "next_stage": "G420 combined Generator gate/statistics"
+}

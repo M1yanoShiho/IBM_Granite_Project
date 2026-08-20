@@ -568,6 +568,8 @@ G400 formal locked NIAH qualification 已完成：seeds 13/42/73 均按冻结 `G
 
 G410 implementation/smoke 已完成：新增 `scripts/full_flow_g410_cross_data_qualification.py`，将 2Wiki cross-data screen 拆为 prepare/run/score 三步。Prepare 从 G223 validation 2Wiki 生成 475 个 no-answer tasks 和独立 reference packet；run 命令只消费 no-answer tasks，不接受 gold/reference；score 在生成后复用固定 G310 G0、三 seed `GR-C` 输出、separated references 和 MiniCheck。服务器三 seed 各 1 题真实 smoke COMPLETE，score smoke 使用显式 `--allow-subset` 只裁剪 1-task smoke 子集并返回 `G410_CROSS_DATA_RESPONSIBILITY_PASS`。该阶段只证明 G410 runner 与实体接线可执行，正式 G410 尚未运行，不构成效果结论。报告见 [G410_IMPLEMENTATION_SMOKE_REPORT.md](G410_IMPLEMENTATION_SMOKE_REPORT.md)。
 
+G410 formal locked 2Wiki cross-data qualification 已完成：seeds 13/42/73 均按冻结 `GR-C` 生成 475 rows，generation runtime 未读取 gold/reference，sealed/held-out=false，utility labels 未启动。正式 scoring 状态为 `G410_CROSS_DATA_RESPONSIBILITY_PASS`，`formal_task_subset=false`。相对固定 G0，all_2wiki family delta 为 correct+cited +39.65pp、answer +6.95pp、coverage +2.53pp、citation precision +31.37pp、citation recall +35.47pp；topk/support_only/support_first/support_middle/support_last 的 correct+cited 均为正。该结果给出跨数据正向信号并解锁 G420 combined Generator gate/statistics；但 G410 不是 GQ freeze，也不是 held-out 或完整 Generator 强统计结论。报告见 [G410_LOCKED_CROSS_DATA_QUALIFICATION_REPORT.md](G410_LOCKED_CROSS_DATA_QUALIFICATION_REPORT.md)。
+
 ### G400/G410/G420：Generator 模块资格
 
 先定义：
