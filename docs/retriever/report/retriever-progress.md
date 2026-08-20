@@ -28,7 +28,7 @@ cannot verify that the evidence supports the claim, which stays a human job.
 | Decomposition? | **No on SciFact/2Wiki. On NQ it is a trade** — buys ~+1.2pp pool recall, costs top-rank precision, at N extra LLM calls per query. Worth it only if the downstream consumes pool depth | R4 Steps 3–6 |
 | If decomposing anyway | `include_original` **on, everywhere**. `fusion="best-rank"` only where the full-query ranking is already strong. Weighting the original arm never beats plain strong-bm25 | R4 Steps 2–4 |
 | Chunking | **Keep `word` (120/20).** The 2Wiki finding that 60×10 beats it by +2.2pp does **not** generalise: the same design on NQ puts the peak *at* 120 and 60×10 at **−4.65pp (p=0.0001)** — opposite sign, both significant. What does transfer is a rule about the corpus, not a number: **never set `chunk_size` below the corpus's native passage length**. dpr-w100 ships fixed 100-word passages, so 120 never splits one and 60 splits every one (chunk counts 1.000 vs 2.002 per document). Overlap remains irrelevant in 0–60. `section` keeps tables intact but its retrieval effect is **unmeasured** | R10, R7; ledger R14 (NQ, four points, paired, n=2000); ledger R15 (the threshold, with the chunk counts that fix it); **ledger R17 (holds on the shipped Hybrid RRF: +0.0386, p 0.0001)** |
-| If a chunk ends up smaller than the passage | **Do not reach for `max_selected` — it will not recover the loss.** Splitting separates the answer from the text matching the query, and the retriever ranks by query terms: 69.7% of the resulting misses have no answer-bearing chunk anywhere in the top-50 pool, and of the ones that do reach it only 30.6% sit within five ranks of the cut. The lever is aligning the retrieval unit with the passage, for which `materializer/source_parent.py` already holds a deterministic mapping | ledger R16 (NQ and 2Wiki, per-case classification of every conditional miss) |
+| If a chunk ends up smaller than the passage | **Do not reach for `max_selected` — it will not recover the loss.** Splitting separates the answer from the text matching the query, and the retriever ranks by query terms: at the shipped `top_k=50`, 69.7% of the resulting misses have no answer-bearing chunk anywhere in the pool, and of the ones that do reach it only 30.6% sit within five ranks of the cut. **That share is depth-bound, not absolute — re-read at `top_k=1000` it falls to 34.5%, and the split-passage class (`sibling`) becomes the majority at 53.8%, which is exactly what the lever below targets.** The lever is aligning the retrieval unit with the passage, for which `materializer/source_parent.py` already holds a deterministic mapping | ledger R16 (NQ and 2Wiki, per-case classification of every conditional miss); ledger R18 (the same 119 cases re-read at pool depth 1000) |
 | Scale | **Query cost still grows faster than the corpus** — 16× the corpus gave 32.7× the latency on real NQ questions, so the inverted index bought a constant factor, not better asymptotics. Memory per chunk *is* flat: ≈ **5.0 GB per million chunks** on NQ, ≈ 7.8 on our own Markdown | R9, ledger R13 |
 
 **Cautions on reading the table.** Most downstream or "system-level" numbers here were
@@ -838,7 +838,10 @@ or to the shared layer; they are listed because they bound what this module's nu
    R18 ran it anyway at `top_k=1000` and the depth answer is: **65.5% of the misses become
    visible within 1000, median rank 81** (q1 28, q3 162, max 625), with 41 still beyond 1000.
    Those ranks are **upper bounds** — the classifier reported the sibling's rank rather than the
-   shallowest answer-bearing rank, a defect R18 found and fixed with `shallowest_bearing_rank`.
+   shallowest answer-bearing rank. Ledger R18 reports a `shallowest_bearing_rank` re-read that
+   puts the median at **58** against the class-rank median of 81, but **the committed dump carries
+   `class` / `best_rank` only**, so that figure cannot be re-derived from this repo. The 81 quoted
+   above is the class-rank median, which can.
 
    Its larger result is a two-sided revision of R16, and both sides belong here. **R16's
    headline share does not survive**: "the loss happens before the pool" holds only at depth 50,
@@ -847,9 +850,15 @@ or to the shared layer; they are listed because they bound what this module's nu
    **53.8%**, and the fix R16 pointed at — aligning the retrieval unit with the passage, for
    which `materializer/source_parent.py` already holds the mapping — targets exactly that class.
    By class, the engineering reads: `sibling` 53.8% to passage alignment, deterministic and free
-   at query time; `retrieval` 34.5% out of reach of either lever; `other` 11.8% the only share a
-   reranker alone would address, which is why R18 concludes a reranker does not justify a new
-   line of work.
+   at query time; `retrieval` 34.5% out of reach of either lever; `other` 11.8% the share for
+   which a reranker is the *only* remedy. **That is not the reranker's ceiling, and ledger R18
+   forbids reading it as one:** reranking does not look at the class, only at whether the chunk is
+   in the pool at all, so its reach is the whole **65.5%** that is in-pool at depth 1000, `sibling`
+   included. The honest comparison is passage alignment at 53.8% — deterministic, no model, free at
+   query time — against a reranker ceiling of 65.5% that needs a model, needs to lift a
+   median-rank-58 chunk into the top 10, and holds only if `top_k` goes to 1000 as well (at the
+   shipped `top_k=50` it is 36/119 = **30.3%**). R18's conclusion that a reranker does not justify
+   a new line of work is unchanged — no class share moved — but it does not rest on 11.8%.
 4. **The second pathway for the split penalty.** R17 showed the penalty survives a retriever
    that needs no verbatim query terms, so query-term separation is not the whole mechanism. A
    candidate second path — a 60-word half being a thinner context for the embedding — was
