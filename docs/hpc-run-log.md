@@ -4975,6 +4975,11 @@ python -m evidence_rag.evaluation.paired_metric_cli \
 与"数据集变异应假定为重要直到实测"一致,现在有两个真实语料的数了。
 登录节点上手测的 5552/5101 B/chunk 与本次作业一致 ⇒ 内存测量确实对节点争用不敏感。
 
+**⚠️ 产物状态(2026-08-20 核对):本行没有原始产物。** 拉回的
+`results/retriever-scaling-nq-inverted.json` **只存 `peak_rss_mb`,无 `index_bytes_per_chunk` 字段**;
+`scripts/retriever_memory.py` 的输出未落盘拉回。**⇒ 5245→4949 与由它外推的"≈5.0 GB/百万 chunk"
+目前只有本条一个来源,不可从仓库重算。**
+
 **⚠️ 不可做的比较:** 不得把这里的 `ms/1k_chunks`(0.27–0.55)与 R5 改动前的 16.47–17.86 直接相除
 说"快了 30 倍"。R5 跑的是 SciFact、另一个节点、另一份语料。**本条唯一干净的结论是自身的斜率**,
 绝对量级的 before/after 需要在同一语料同一节点上重跑,与 R6b 的教训同理。
@@ -6018,7 +6023,11 @@ is near useless"的结论不受本条影响,但"提 `top_k` 即可解决"这一�
 **但不得再把 11.8% 当成重排器的上限来引。**
 
 **原始产物:** `results/r18-nq-c60o10-topk1000-classes.jsonl`(119 行,含
-`class` / `best_rank` / `shallowest_rank`);运行目录 `runs/chunk-nq-b-c60o10-topk1000`(bp1)。
+`class` / `best_rank`);运行目录 `runs/chunk-nq-b-c60o10-topk1000`(bp1)。
+**⚠️ 更正(2026-08-20 核对):已提交的 dump 只有 `class` / `best_rank` / `reference_answers`,
+没有 `shallowest_rank`** —— 结清二说的"重生成的 dump"未拉回。**⇒ 结清二的最浅含答案名次
+(median 58、13 例两者不等、偏深中位数 105 / 最大 404)不可从仓库重算;正文的 median 81
+(类名次)、四类占比、逐例转移矩阵与那 5 例改判位移均已逐位复核通过。**
 
 ---
 
@@ -6162,6 +6171,11 @@ R13 原始 0.27 → 0.55(**×2.04**)。**⇒ 节点慢了四成,倍数几乎不�
 
 **原始产物:** `results/r13-repeat/retriever-scaling-nq-inverted-rep{1,2,3}.json`
 与 `-memory.json`;读数命令见预注册,判据编在 `scripts/r13_repeat_readout.py` 内而非文档措辞里。
+
+**⚠️ 产物状态(2026-08-20 核对):`results/r13-repeat/` 从未提交过任何分支。**
+与 R13/R14/R16/R17 等条目不同,本条的 raw 没有 `git add -f` 拉回。
+**⇒ 本条全部数字(三次指数、抖动百分比、内存三次复现)目前只有本条一个来源,
+不可从仓库重算;对外引用须注明证据在 bp1 上。**
 
 **本条未回答:** 跨节点方差(限制 1)、生僻词查询(限制 2)、绝对量级的 before/after(限制 3)。
 **p95 膝点的成因未测** —— 100k 处 4× 跳变后 200k 只涨 1.3×,三次重复稳定复现,
@@ -6338,6 +6352,12 @@ done
 两轮 `run_manifest.json` 的 `source_tree_signature` 均为 `78588832088510cc`(读数脚本已强制对拍)。
 **注:计算节点未加载 git 模块,`git_commit` 记为 `git-unavailable`,故可对拍的只有签名;
 所幸本条自检写的正是签名。** 钉住的提交见 `results/r20-pinned-commit.txt`(`2a6ffd1`)。
+
+**⚠️ 产物状态(2026-08-20 核对):`runs/_r20-rep1/`(及 rep2 同名目录)与
+`results/r20-pinned-commit.txt` 均未提交过任何分支。** ⇒ **第二轮不可从仓库重算。**
+可核的是另一半:上表四行的 Δ、p 与 CI 与仓内 R11 首轮产物
+(`results/r11-nq{25k,50k,100k,200k}-{decompose-orig,strong-bm25}-per-case.json`)
+**逐位一致**,故"两轮相同"这一主张里,**首轮已复核、次轮只有本条一个来源。**
 
 **本条未回答:** 跨节点方差、跨 GPU 架构方差(仅 R7→R8 一个观测)、
 以及 R11 原限制"各规模语料不是嵌套子集"所引入的点间额外方差(原样继承,本条不改变)。

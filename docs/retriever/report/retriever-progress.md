@@ -53,6 +53,28 @@ the generator emits no verdict either way. Any 2Wiki system-level number quoted 
 group carries that, diluting arm-to-arm deltas by roughly 11.7% without changing their sign
 (ledger R16). NQ is unaffected — its answers are entity spans.
 
+**Reading the p-values.** Every paired test here runs through
+`evidence_rag.evaluation.paired_metric.compare_paired` (sign-flip randomisation, 10 000 draws).
+**The estimator changed on 2026-08-11 (`ffe2d27`):** before that it was `extreme / iterations`
+and could return a literal `0.0000`; after it, a plus-one correction makes `0.0001` the floor.
+So entries dated before 08-11 print `p=0.0000` and entries after print `p=0.0001` **for the same
+event** — no permutation in 10 000 reached the observed extreme, i.e. `p < 1e-4`. They are not
+different strengths of evidence, and re-running an old entry under today's code turns its
+`0.0000` into `0.0001` without anything having moved.
+
+**Where the evidence lives.** `results/` and `runs/` are gitignored; the retrieval artifacts were
+pulled back file by file with `git add -f`, and 158 of 165 are in the repo, so most rows above can
+be recomputed from it. **Six things cannot**, and should be quoted as "evidence on bp1" rather
+than as repo-derivable: ledger R19's three fitted exponents (`results/r13-repeat/` was never
+committed); ledger R20's second round (`runs/_r20-rep1/` and `results/r20-pinned-commit.txt`,
+likewise never committed — its first round *is* in the repo and reproduces bit for bit); the
+memory-per-chunk figure behind the Scale row's **≈ 5.0 GB per million chunks**
+(`retriever-scaling-nq-inverted.json` stores only `peak_rss_mb`); ledger R18's shallowest-bearing
+rank (the committed dump carries `best_rank` only); the 8 × 3 benchmark matrix of R2, which has no
+per-case artifact — the NQ `strong-bm25` arm was later re-derived bit-identically, the rest was
+not; and R15's answer-length premise table, which needs the benchmark corpora under `data/`.
+
+
 ### Where to find what
 
 | | |
