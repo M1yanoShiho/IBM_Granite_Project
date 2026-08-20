@@ -570,6 +570,8 @@ G410 implementation/smoke 已完成：新增 `scripts/full_flow_g410_cross_data_
 
 G410 formal locked 2Wiki cross-data qualification 已完成：seeds 13/42/73 均按冻结 `GR-C` 生成 475 rows，generation runtime 未读取 gold/reference，sealed/held-out=false，utility labels 未启动。正式 scoring 状态为 `G410_CROSS_DATA_RESPONSIBILITY_PASS`，`formal_task_subset=false`。相对固定 G0，all_2wiki family delta 为 correct+cited +39.65pp、answer +6.95pp、coverage +2.53pp、citation precision +31.37pp、citation recall +35.47pp；topk/support_only/support_first/support_middle/support_last 的 correct+cited 均为正。该结果给出跨数据正向信号并解锁 G420 combined Generator gate/statistics；但 G410 不是 GQ freeze，也不是 held-out 或完整 Generator 强统计结论。报告见 [G410_LOCKED_CROSS_DATA_QUALIFICATION_REPORT.md](G410_LOCKED_CROSS_DATA_QUALIFICATION_REPORT.md)。
 
+G420 combined Generator gate/statistics 已完成：新增 `scripts/full_flow_g420_generator_gate.py`，只读 G400/G410 formal score report 和 scored rows，不重新生成、不训练、不启动 utility labels、不读取 held-out。G420 按 query-level seed-averaged paired delta 和 component-cluster bootstrap 汇总，状态为 `G420_NEW_GENERATOR_QUALIFIED_G430_READY`，teacher recommendation 为 `FREEZE_NEW_GRC_IN_G430`，strong claim 为 `ESTABLISHED`。G400 K_topk correct+cited 为 +6.13pp，95% CI [2.63pp, 9.90pp]；G410 all_2wiki correct+cited 为 +39.65pp，95% CI [29.97pp, 49.35pp]。G420 解锁 G430 teacher Generator freeze；但它本身没有执行 GQ freeze，也不授权 Selector utility labels 或 held-out。报告见 [G420_GENERATOR_GATE_REPORT.md](G420_GENERATOR_GATE_REPORT.md)。
+
 ### G400/G410/G420：Generator 模块资格
 
 先定义：

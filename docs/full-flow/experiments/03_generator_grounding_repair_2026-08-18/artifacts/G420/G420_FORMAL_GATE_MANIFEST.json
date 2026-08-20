@@ -1,0 +1,27 @@
+{
+  "schema_version": "full-flow-g420-generator-gate-manifest-v1",
+  "stage": "G420",
+  "status": "G420_NEW_GENERATOR_QUALIFIED_G430_READY",
+  "teacher_recommendation": "FREEZE_NEW_GRC_IN_G430",
+  "strong_claim_status": "ESTABLISHED",
+  "git_commit": "3688b0f93b01ca5bf90eb788c27499823b3eaff8",
+  "outputs": {
+    "score_report": {
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G420-v1/formal-3688b0f/g420_score_report.json",
+      "sha256": "bfeb5ce3a00b34c90bdb70cfa4abbc4f9ee1d0c7e8af71f7b2c70cbddc6e7e5d"
+    },
+    "markdown_report": {
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G420-v1/formal-3688b0f/G420_GATE_REPORT.md",
+      "sha256": "2ba68d18c6eb268fa99da7d92619251aa3204a6f49590c1970063be1c082c0e5"
+    }
+  },
+  "boundaries": {
+    "no_new_generation": true,
+    "no_training": true,
+    "no_utility_labels": true,
+    "sealed_or_heldout_read": false,
+    "gq_freeze_not_performed": true,
+    "next_stage": "G430 teacher Generator freeze"
+  },
+  "next_stage": "G430 teacher Generator freeze"
+}
