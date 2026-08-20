@@ -2,7 +2,7 @@
 
 **路线：** `03_generator_grounding_repair_2026-08-18`
 **日期：** 2026-08-18
-**修订状态：** `GQ FROZEN / S100 READY / HELD-OUT BLOCKED`
+**修订状态：** `S100 IMPLEMENTATION/SMOKE PASS / FORMAL S100 READY / HELD-OUT BLOCKED`
 **修订原因：** 明确旧 Selector 的数据与外推边界；把模块资格、强统计结论和完整系统资格分开；将 Generator-aware Selector 纳入同一条交替冻结路线
 **上一阶段：** G230 `COMPLETE / NO CANDIDATE`
 **主生成模型：** `ibm-granite/granite-4.1-3b@c0650403...`
@@ -573,6 +573,8 @@ G410 formal locked 2Wiki cross-data qualification 已完成：seeds 13/42/73 均
 G420 combined Generator gate/statistics 已完成：新增 `scripts/full_flow_g420_generator_gate.py`，只读 G400/G410 formal score report 和 scored rows，不重新生成、不训练、不启动 utility labels、不读取 held-out。G420 按 query-level seed-averaged paired delta 和 component-cluster bootstrap 汇总，状态为 `G420_NEW_GENERATOR_QUALIFIED_G430_READY`，teacher recommendation 为 `FREEZE_NEW_GRC_IN_G430`，strong claim 为 `ESTABLISHED`。G400 K_topk correct+cited 为 +6.13pp，95% CI [2.63pp, 9.90pp]；G410 all_2wiki correct+cited 为 +39.65pp，95% CI [29.97pp, 49.35pp]。G420 解锁 G430 teacher Generator freeze；但它本身没有执行 GQ freeze，也不授权 Selector utility labels 或 held-out。报告见 [G420_GENERATOR_GATE_REPORT.md](G420_GENERATOR_GATE_REPORT.md)。
 
 G430 teacher Generator freeze 已完成：按 G420 recommendation 冻结新的 `GR-C` 三 seed 教师家族为 GQ，明确不做 best-seed selection。冻结内容包括 Granite 4.1-3B base snapshot、GR-C recipe、greedy decode policy、claim splitter/TRUE/scorer 边界、seeds 13/42/73 adapter runtime paths 与 SHA256、G320/G330/G420 证据链和服务器实体核验。seed13/42/73 adapter_model 和 adapter_config hash 均与 G330 归档一致。G430 未生成 utility labels、未训练 Selector、未读取 held-out；GQ 一旦用于 S100 后不得修改，除非重建所有 utility labels。报告见 [G430_TEACHER_GENERATOR_FREEZE_REPORT.md](G430_TEACHER_GENERATOR_FREEZE_REPORT.md)。
+
+S100 implementation/smoke 已完成：新增 `scripts/full_flow_s100_utility_pilot.py`，把 `prepare`、`run`、`score` 分开，保证正式生成任务包不含 answer/reference/support provenance，references 和 support ids 只在生成后评分阶段使用。本地和服务器相关测试均为 8 passed；服务器 prepare smoke 为 2 questions / 22 tasks；seeds 13/42/73 各 2 条真实生成均 COMPLETE、errors=0、trace_missing=0；score smoke 能写出报告、scored rows、labels 文件和 manifest。因为 smoke 子集没有完整 full + all leave-one-out 组，`labels=0` 和 `NO_DECISION_INCOMPLETE_QUESTIONS` 是预期接线结果，不是正式 S100 结论。S100 formal 100-question pilot 尚未启动，报告见 [S100_IMPLEMENTATION_SMOKE_REPORT.md](S100_IMPLEMENTATION_SMOKE_REPORT.md)。
 
 ### G400/G410/G420：Generator 模块资格
 
