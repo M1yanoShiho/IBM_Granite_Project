@@ -1,7 +1,7 @@
 # Generator 修复与 Selector 分阶段协同
 
 **日期：** 2026-08-18
-**状态：** `I090 FAST-PATH SYSTEM CANDIDATE SELECTED / S110 RUNNING BACKGROUND / HELD-OUT BLOCKED`
+**状态：** `I100 FAST-PATH INPUT REUSE COMPLETE / S110 RUNNING BACKGROUND / HELD-OUT BLOCKED`
 **详细计划：** [PLAN.md](PLAN.md)
 **执行跟踪：** [TRACKER.md](TRACKER.md)
 **原始方案快照：** [snapshots/PLAN_v1_generator_only_2026-08-18.md](snapshots/PLAN_v1_generator_only_2026-08-18.md)
@@ -59,6 +59,7 @@
 - S090 early full-flow triage 已完成：在不新增训练、不读 held-out 的前提下复用 G400/G410/L003 结果。218 个 NIAH matched 问题上 `TopK+GQ` 相对 `TopK+G0` 的 correct+cited 为 +9.33pp，而 `Legacy SL+GQ` 相对 `TopK+GQ` 为 -0.46pp；G410 2Wiki `TopK+GQ` 仍有 +39.65pp correct+cited。结论是当前正信号主要来自 GQ，旧 Selector 没有同 GQ 额外端到端收益。
 - 因此截止日期优先路线改为：S110 继续后台运行，但不再阻塞；先以 `TopK Selector + GQ` 作为 fast-path 系统候选推进完整开发评估和 baseline 对比。Utility Selector 若后续赶上并证明相对 `TopK+GQ` 有正作用，再作为增强路线加入。
 - I090 fast-path system decision 已完成：当前主系统候选冻结为 `SystemF-fast-S0-GQ-2026-08-21`，即 frozen Retriever + TopK keep-all Selector + frozen GQ。它可以支持 main result/baseline packaging；但不能声称 Selector 学习成功，也不能运行 held-out。
+- I100 fast-path input reuse 已完成：不重新启动耗时 Retriever 全量计算，先复用 F000/A002/B100/G400/G410/G420/G430 已完成且 hash 绑定的开发输入与结果，进入 I200 locked development comparison packaging。
 
 ## 修订后的核心方法
 
@@ -136,4 +137,4 @@ S110 utility materialization
 -> do not let it block the main deadline path
 ```
 
-G218/G212R3/G212M3/G219/G220/G212R4/G212M4/G221/G212R5/G212M5/G222/G223/G300/G310/G320/G330/G400/G410/G420/G430/S100-smoke/S100-formal/S090/I090 说明当前路线仍有积极信号：长度、split、NIAH 和 unsupported ratio 都稳定，unsupported 固定样本层已经稳定通过，最近一轮固定样本达到 97/100，已知残余失败已隔离，训练入口、正式筛选、locked NIAH qualification、2Wiki cross-data qualification、combined Generator gate、GQ freeze、S100 工具链接线、formal utility pilot、early full-flow triage 和 fast-path system decision 均跑通；GR-C 在 2Wiki citation grounding 上有明显正信号，并大幅降低 unsupported safety 层乱答，三 seed adapter 已完成保存和 reload，G400 NIAH full/stress family 全部显示 `correct+cited` 正增益，G410 all_2wiki `correct+cited` 为 +39.65pp，G430 已冻结新 GR-C 为 GQ，S100 formal 产生 905 条可用 utility labels 且建议 `S110_READY`，I090 支持 fast-path `TopK+GQ` 先进入 main result/baseline packaging。但这仍不是 Utility Selector 或 held-out 结论；不得降低 TRUE 阈值、改最终测试集边界、读取 held-out，或按已看到的结果临时改规则凑通过。
+G218/G212R3/G212M3/G219/G220/G212R4/G212M4/G221/G212R5/G212M5/G222/G223/G300/G310/G320/G330/G400/G410/G420/G430/S100-smoke/S100-formal/S090/I090/I100 说明当前路线仍有积极信号：长度、split、NIAH 和 unsupported ratio 都稳定，unsupported 固定样本层已经稳定通过，最近一轮固定样本达到 97/100，已知残余失败已隔离，训练入口、正式筛选、locked NIAH qualification、2Wiki cross-data qualification、combined Generator gate、GQ freeze、S100 工具链接线、formal utility pilot、early full-flow triage、fast-path system decision 和 fast-path input reuse 均跑通；GR-C 在 2Wiki citation grounding 上有明显正信号，并大幅降低 unsupported safety 层乱答，三 seed adapter 已完成保存和 reload，G400 NIAH full/stress family 全部显示 `correct+cited` 正增益，G410 all_2wiki `correct+cited` 为 +39.65pp，G430 已冻结新 GR-C 为 GQ，S100 formal 产生 905 条可用 utility labels 且建议 `S110_READY`，I090/I100 支持 fast-path `TopK+GQ` 先进入 main result/baseline packaging。但这仍不是 Utility Selector 或 held-out 结论；不得降低 TRUE 阈值、改最终测试集边界、读取 held-out，或按已看到的结果临时改规则凑通过。

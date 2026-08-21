@@ -2,7 +2,7 @@
 
 **路线：** `03_generator_grounding_repair_2026-08-18`
 **日期：** 2026-08-18
-**修订状态：** `I090 FAST-PATH SYSTEM CANDIDATE SELECTED / S110 RUNNING BACKGROUND / HELD-OUT BLOCKED`
+**修订状态：** `I100 FAST-PATH INPUT REUSE COMPLETE / S110 RUNNING BACKGROUND / HELD-OUT BLOCKED`
 **修订原因：** 明确旧 Selector 的数据与外推边界；把模块资格、强统计结论和完整系统资格分开；将 Generator-aware Selector 纳入同一条交替冻结路线
 **上一阶段：** G230 `COMPLETE / NO CANDIDATE`
 **主生成模型：** `ibm-granite/granite-4.1-3b@c0650403...`
@@ -818,11 +818,9 @@ SystemF-fast-S0-GQ-2026-08-21
 
 ### I100：冻结真实 Retriever 输出
 
-- 从当前真实 Retriever 入口运行冻结 Hybrid RRF；
-- 缓存候选只为平行臂输入一致；
-- manifest 绑定 index、corpus、config、TopK 和 hash；
-- 报告 support visibility、oracle answerability 和 noise load；
-- 不用旧候选池代替真实 full-flow 入口。
+截止日期 fast path 下，I100 先完成轻量输入冻结/复用判定，而不是重新启动耗时 Retriever 全量计算。当前主比较是 `TopK+GQ - TopK+G0`，不声称 learned Selector 或 Retriever 新贡献，因此复用已完成并 hash 绑定的 F000/A002/B100/G400/G410/G420/G430 开发输入和结果作为 I200 的共同输入。
+
+报告见 [I100_FAST_PATH_INPUT_REUSE_REPORT.md](I100_FAST_PATH_INPUT_REUSE_REPORT.md)，机器清单见 [artifacts/I100/fast_path_input_reuse_manifest.json](artifacts/I100/fast_path_input_reuse_manifest.json)。最终 held-out H 前仍需按 SystemF 执行边界重新核对真实 runtime 输入；I100 不授权读取 held-out。
 
 ### I200：锁定开发比较
 
