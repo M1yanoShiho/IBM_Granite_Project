@@ -1,7 +1,9 @@
 # Generator 修复与 Selector 分阶段协同
 
 **日期：** 2026-08-18
-**状态：** `I220 SYSTEMF-FAST FROZEN / HELD-OUT AUTHORIZATION REQUIRED / S110 RUNNING BACKGROUND`
+**状态：** `I225 CURRENT STATE INDEX COMPLETE / SYSTEMF-FAST FROZEN / HELD-OUT AUTHORIZATION REQUIRED / S110 PAUSED`
+
+**先读：** [CURRENT_STATE_AND_ARTIFACT_INDEX_2026-08-21.md](CURRENT_STATE_AND_ARTIFACT_INDEX_2026-08-21.md)。该文件把当前主线、暂停的 S110、历史证据和无关 dirty 文件分开，避免继续实验前混淆。
 **详细计划：** [PLAN.md](PLAN.md)
 **执行跟踪：** [TRACKER.md](TRACKER.md)
 **原始方案快照：** [snapshots/PLAN_v1_generator_only_2026-08-18.md](snapshots/PLAN_v1_generator_only_2026-08-18.md)
@@ -63,6 +65,7 @@
 - I200 fast-path development comparison 已完成：当前主线 D=B=TopK+GQ。NIAH TopK `correct_and_cited` 相对 G0 为 +6.13pp，2Wiki all_2wiki 为 +39.65pp，unsupported 无依据回答从 30.08% 降到 0.13%。Legacy Selector 同 GQ 下没有额外净收益，因此 Utility Selector/S110 继续后台可选，不阻塞主线。
 - I210 fast-path responsibility gate 已通过：D-A 总作用、安全和边界均通过；因 `SQ=S0`，D-B Selector 净作用不适用，不能声称 learned Selector 贡献。下一步可冻结 `SystemF-fast-S0-GQ-2026-08-21`。
 - I220 SystemF-fast freeze 已完成：冻结 `SystemF-fast-S0-GQ-2026-08-21 = frozen Hybrid RRF Retriever + S0 TopK keep-all Selector + frozen GQ Generator`。下一步 H100 HotpotQA/MuSiQue/RGB held-out 必须等待用户单独授权。
+- I225 current state/artifact index 已完成：S110 已暂停并保留 partial rows；当前主线、可选/暂停、历史证据和无关 dirty 文件已分开记录。
 
 ## 修订后的核心方法
 

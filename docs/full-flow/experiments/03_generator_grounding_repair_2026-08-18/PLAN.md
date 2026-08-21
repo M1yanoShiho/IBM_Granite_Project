@@ -2,7 +2,7 @@
 
 **路线：** `03_generator_grounding_repair_2026-08-18`
 **日期：** 2026-08-18
-**修订状态：** `I220 SYSTEMF-FAST FROZEN / HELD-OUT AUTHORIZATION REQUIRED / S110 RUNNING BACKGROUND`
+**修订状态：** `I225 CURRENT STATE INDEX COMPLETE / SYSTEMF-FAST FROZEN / HELD-OUT AUTHORIZATION REQUIRED / S110 PAUSED`
 **修订原因：** 明确旧 Selector 的数据与外推边界；把模块资格、强统计结论和完整系统资格分开；将 Generator-aware Selector 纳入同一条交替冻结路线
 **上一阶段：** G230 `COMPLETE / NO CANDIDATE`
 **主生成模型：** `ibm-granite/granite-4.1-3b@c0650403...`
@@ -886,6 +886,10 @@ Retriever config + SQ + GQ + prompt + splitter + TRUE = SystemF
 - CI 跨 0 但 I210 职责门通过：仍可冻结 SystemF 进入一次性 held-out，但必须把强结论标记为未建立。
 
 I220 fast path 已完成冻结：`SystemF-fast-S0-GQ-2026-08-21 = frozen Hybrid RRF Retriever + S0 TopK keep-all Selector + frozen GQ Generator`。因 `SQ=S0`，开发强结论只支持 Generator-first full-flow system improvement，不支持 learned Selector improvement。报告见 [I220_SYSTEMF_FAST_FREEZE_REPORT.md](I220_SYSTEMF_FAST_FREEZE_REPORT.md)，机器清单见 [artifacts/I220/systemf_fast_s0_gq_freeze_manifest.json](artifacts/I220/systemf_fast_s0_gq_freeze_manifest.json)。下一步 H100 必须等待用户单独授权。
+
+### I225：当前状态与产物台账
+
+I225 已建立当前状态台账，用于把当前主线、暂停的 S110、历史证据、服务器 runtime 和无关 dirty 文件分开。报告见 [CURRENT_STATE_AND_ARTIFACT_INDEX_2026-08-21.md](CURRENT_STATE_AND_ARTIFACT_INDEX_2026-08-21.md)，机器清单见 [artifacts/I225/current_state_artifact_index_manifest.json](artifacts/I225/current_state_artifact_index_manifest.json)。S110 已暂停，保留 seed13 1452 行、seed42 1230 行，seed73 未启动；不得恢复，除非用户明确批准修订计划。
 
 ---
 
