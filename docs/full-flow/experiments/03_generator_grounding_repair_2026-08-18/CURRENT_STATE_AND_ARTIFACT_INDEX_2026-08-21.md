@@ -2,9 +2,9 @@
 
 **Date:** 2026-08-21
 
-**Status:** `CURRENT_STATE_INDEX_COMPLETE`
+**Status:** `CURRENT_STATE_INDEX_COMPLETE / LOCAL_DIRTY_CLEANED`
 
-This file is the first place to read before continuing the project.  It separates the current usable route from paused work, historical evidence, and unrelated dirty files.
+This file is the first place to read before continuing the project.  It separates the current usable route from paused work, historical evidence, server runtime outputs, and the cleaned local workspace.
 
 ## One-Sentence Current State
 
@@ -64,8 +64,9 @@ Interpretation:
 | `a083b6d` | I200 | development comparison packaged |
 | `a05983d` | I210 | responsibility gate passed |
 | `cae3702` | I220 | SystemF-fast frozen |
+| `143bc1d` | I225 | current state/artifact index written |
 
-Local, GitHub, and server repo were synchronized through `cae3702` before this index was written.
+Local, GitHub, and server repo were synchronized through `143bc1d` before the workspace cleanup update.
 
 ## Canonical Evidence Buckets
 
@@ -122,17 +123,16 @@ Largest observed runtime directories:
 
 No server runtime data was deleted during this cleanup index step.
 
-## Local Dirty Files Outside This Route
+## Local Workspace Cleanup
 
-The local worktree still contains unrelated dirty/untracked files.  They were not staged or committed for this route:
+After user clarification, presentation materials are treated as team records and must be retained.  The cleanup scope is limited to experiment-side scratch files and route bookkeeping:
 
-- deleted presentation files under `docs/presentations/`;
-- untracked presentation folders under `docs/presentations/2026-*`;
-- untracked `.aris/traces/novelty-check/`;
-- untracked `docs/selector/SELECTOR_BALANCE_REVIEW_2026-08-10.md`;
-- untracked `findings.md`, `progress.md`, `task_plan.md`, `$STATUS`.
+- tracked presentation files under `docs/presentations/` were restored and retained;
+- untracked experiment scratch files were removed from the local repo workspace;
+- route-critical lightweight evidence remains in this experiment directory and its `artifacts/` manifests;
+- server runtime outputs were not deleted or copied into Git.
 
-These need a separate cleanup decision.  They should not be mixed into full-flow experiment commits.
+The machine-readable cleanup record is `artifacts/I226/workspace_cleanup_manifest.json`.
 
 ## Recommended Next Discussion
 
@@ -144,4 +144,3 @@ Before any new experiment is launched, decide the final development plan in this
 4. Only after that, launch H100 or any extra development run.
 
 Do not restart S110 unless the discussion concludes that Selector retraining is necessary and worth the time.
-
