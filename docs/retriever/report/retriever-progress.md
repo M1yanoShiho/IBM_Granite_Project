@@ -655,11 +655,19 @@ it is a different claim from the one this section was built to make, and the sec
 promise — "what it actually buys" — is answered by that sentence rather than by the synthetic
 tables above.
 
-Two further readings. **The tail degrades faster than the mean** (p95 12.8 → 385.6 ms, 30×,
-against the median's 24×), so at 200k chunks p95 is already near 0.4 s per query and any
-mean-only report hides it. And **memory behaves oppositely and well**: bytes per chunk are flat
-across the same span (5245 → 4949, −5.6%), so per-chunk extrapolation is sound where latency
-extrapolation is not.
+Two further readings. **The tail degrades faster than the median** (p95 12.8 → 385.6 ms, 30×,
+against p50's 24.4×), so at 200k chunks p95 is already near 0.4 s per query and any mean-only
+report hides it. **This sentence said "faster than the mean" until 2026-08-18, and that did not
+hold on its own data** — the same row's mean is 3.375 → 110.376 = **32.7×**, *larger* than p95's
+30×, and the parenthetical was in fact comparing p50. Ledger R19 reproduced the pattern three
+times and found the two methods rank it oppositely: by fitted exponent p95 (1.281–1.302) beats
+mean (1.241–1.251), by endpoint ratio mean (32.1×) beats p95 (29.2×), because p95 has a knee at
+100k that lifts the fit and flattens the ratio. **Only "p95 degrades faster than p50" is safe to
+quote** — both methods agree on it and the exponent intervals do not overlap. Any comparison of
+p95 against the mean is method-dependent and must name which measure it used.
+
+And **memory behaves oppositely and well**: bytes per chunk are flat across the same span
+(5245 → 4949, −5.6%), so per-chunk extrapolation is sound where latency extrapolation is not.
 
 **A consequence worth acting on: the analyzer is now a cost decision, not only a quality one.**
 Stopword filtering removes precisely the highest-coverage terms, so it should benefit more from
@@ -934,17 +942,27 @@ or to the shared layer; they are listed because they bound what this module's nu
   now the default, failures are logged rather than swallowed, and the parse path honours
   `on_error` — which it previously ignored, so a single corrupt file used to abort a whole
   ingest. Ids moved to relative paths so recursion cannot silently collide them.
-- **Performance at larger corpus sizes:** **done** (R5, then R9). R5 measured the cost as linear
-  in corpus size with no sub-linear region — roughly 29 s/query at a million documents, measured
-  rather than guessed — and cut the per-query constant **5.27–5.40×** with bit-for-bit identical
-  output. R9 then built the inverted index R5 said was the only thing that could change the
-  asymptotics, **and corrected that premise**: it does not remove the linearity, it makes cost
-  proportional to the query's own postings, so the linearity survives exactly to the extent the
-  query asks for common terms. A consequence worth acting on came out of it — the analyzer is now
-  a cost decision as well as a quality one, with stopword filtering worth ~900× on prose queries.
-  Memory, which R5 flagged as unmeasured and then withdrew an estimate for, is now measured with
-  the right instrument: **~1.06 GB per million chunks**, and the inverted index turns out to use
-  ~6.3× *less* memory than the forward index it replaced, not more.
+- **Performance at larger corpus sizes:** **done** (R5, then R9) — **and corrected twice since,
+  both times against us. The figures below replace the ones this bullet carried until
+  2026-08-21**, which had gone stale on the same day they were written: the retractions of
+  2026-08-13 reached R9 and the recommendations table but not this section. R5 measured the cost
+  as linear in corpus size with no sub-linear region — ~29 s/query at a million documents,
+  **extrapolated from a measured-linear region that tops out at 5183 documents**, not measured
+  there — and cut the per-query constant **5.27–5.40×** with bit-for-bit identical output. R9 then
+  built the inverted index R5 said was the only thing that could change the asymptotics, and on
+  synthetic corpora corrected that premise: cost tracks the query's own postings rather than the
+  corpus. **Ledger R13 corrected it again on real NQ questions, and further: 16× the corpus gives
+  32.7× the mean latency — not sub-linear, not even linear.** What the index bought is a constant
+  factor, not better asymptotics, and ledger R19's three fitted exponents (**1.145–1.302**, three
+  non-overlapping intervals) put that above run-to-run variance. The analyzer is still a cost
+  decision as well as a quality one, but **stopword filtering is worth 1.8–3.1× on real text — the
+  "~900×" this bullet used to quote came from synthetic prose and is retracted** (R9). Memory,
+  which R5 flagged as unmeasured and then withdrew an estimate for, is now measured with an
+  instrument that can see it (`tracemalloc` retained bytes, not peak RSS): **≈ 7.8 GB per million
+  chunks** on real prose and ≈ 5.0 on NQ, with the inverted index saving **1.6×** over the forward
+  index it replaced. **The ~1.06 GB and ~6.3× this bullet used to quote were the synthetic corpus
+  talking and are retracted** — a hand-tuned vocabulary gets distinct-terms-per-chunk wrong (13.6
+  against real prose's 95.3), which flatters postings specifically.
 
 ---
 
@@ -1214,10 +1232,19 @@ authoritative pre-registrations live in `docs/hpc-run-log.md`; this list only po
    significantly at all four sizes, which rules out the "probably a fluke" outcome and makes it
    robust within NQ. **The successor experiment is on question form, not scale** (single-hop
    factoid vs claim verification vs multi-hop); sweeping size further is wasted machine time.
-5. **Confirm R9's latency and memory figures on a real corpus.** Both harnesses take a manifest:
-   `scripts/retriever_scaling.py --manifest …` and `scripts/retriever_memory.py --manifest …`.
-   Until then those numbers size the effect and identify the mechanism, and are not SciFact or NQ
-   figures.
+5. ~~**Confirm R9's latency and memory figures on a real corpus.**~~ **Latency: answered
+   2026-08-13, and hardened 2026-08-18.** Ledger R13 ran `scripts/retriever_scaling.py --manifest
+   …` on real NQ questions across a 16× span and the answer was unfavourable — worse than linear,
+   so R9's asymptotic claim was withdrawn rather than confirmed — and ledger R19's three repeats
+   put the exponents at 1.145–1.302 with non-overlapping intervals. **Memory is the half still
+   open, and it is narrower than it looks.** R13/R19 do give an NQ figure (≈ 5.0 GB per million
+   chunks, flat across the span and reproduced bit for bit three times), but it is
+   `index_bytes_per_chunk` from the scaling harness — a different quantity from the ≈ 7.8 GB that
+   `scripts/retriever_memory.py` measures as retained bytes, and `results/r13-repeat/` was never
+   committed, so it cannot be recomputed from this repo. The 7.8 still rests on 121 of our own
+   Markdown documents rather than SciFact or NQ, and since the synthetic-to-real move already
+   changed that answer ~7×, dataset-to-dataset variation should be assumed material until
+   `scripts/retriever_memory.py --manifest …` runs on a benchmark corpus.
 
 ### Waiting on another group
 
