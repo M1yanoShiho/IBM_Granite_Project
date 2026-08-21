@@ -2,7 +2,7 @@
 
 **路线：** `03_generator_grounding_repair_2026-08-18`
 **日期：** 2026-08-18
-**修订状态：** `I210 FAST-PATH RESPONSIBILITY PASS / S110 RUNNING BACKGROUND / HELD-OUT BLOCKED`
+**修订状态：** `I220 SYSTEMF-FAST FROZEN / HELD-OUT AUTHORIZATION REQUIRED / S110 RUNNING BACKGROUND`
 **修订原因：** 明确旧 Selector 的数据与外推边界；把模块资格、强统计结论和完整系统资格分开；将 Generator-aware Selector 纳入同一条交替冻结路线
 **上一阶段：** G230 `COMPLETE / NO CANDIDATE`
 **主生成模型：** `ibm-granite/granite-4.1-3b@c0650403...`
@@ -879,11 +879,13 @@ Retriever config + SQ + GQ + prompt + splitter + TRUE = SystemF
 如果 D-A 正向但 D-B 不正向，只能说 Generator 提供了系统收益，不能声称 Selector 有净贡献，也不能把 D 作为三模块新方法进入最终主张。
 如果 `SQ=S0`，D-B 不适用；该路线可以冻结 Generator-first SystemF，但 Selector contribution 必须明确记为未建立。
 
-### I220：强开发结论
+### I220：强开发结论 / SystemF-fast freeze
 
 - D-A 主要 paired CI 下界 >0：开发数据支持完整系统强结论；
 - D-B 主要 paired CI 下界 >0：开发数据支持 Selector 净作用强结论；
 - CI 跨 0 但 I210 职责门通过：仍可冻结 SystemF 进入一次性 held-out，但必须把强结论标记为未建立。
+
+I220 fast path 已完成冻结：`SystemF-fast-S0-GQ-2026-08-21 = frozen Hybrid RRF Retriever + S0 TopK keep-all Selector + frozen GQ Generator`。因 `SQ=S0`，开发强结论只支持 Generator-first full-flow system improvement，不支持 learned Selector improvement。报告见 [I220_SYSTEMF_FAST_FREEZE_REPORT.md](I220_SYSTEMF_FAST_FREEZE_REPORT.md)，机器清单见 [artifacts/I220/systemf_fast_s0_gq_freeze_manifest.json](artifacts/I220/systemf_fast_s0_gq_freeze_manifest.json)。下一步 H100 必须等待用户单独授权。
 
 ---
 
