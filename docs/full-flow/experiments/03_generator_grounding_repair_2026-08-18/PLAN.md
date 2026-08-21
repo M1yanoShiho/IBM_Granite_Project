@@ -2,7 +2,7 @@
 
 **路线：** `03_generator_grounding_repair_2026-08-18`
 **日期：** 2026-08-18
-**修订状态：** `S100 IMPLEMENTATION/SMOKE PASS / FORMAL S100 READY / HELD-OUT BLOCKED`
+**修订状态：** `S100 FORMAL COMPLETE / S110 READY / HELD-OUT BLOCKED`
 **修订原因：** 明确旧 Selector 的数据与外推边界；把模块资格、强统计结论和完整系统资格分开；将 Generator-aware Selector 纳入同一条交替冻结路线
 **上一阶段：** G230 `COMPLETE / NO CANDIDATE`
 **主生成模型：** `ibm-granite/granite-4.1-3b@c0650403...`
@@ -574,7 +574,9 @@ G420 combined Generator gate/statistics 已完成：新增 `scripts/full_flow_g4
 
 G430 teacher Generator freeze 已完成：按 G420 recommendation 冻结新的 `GR-C` 三 seed 教师家族为 GQ，明确不做 best-seed selection。冻结内容包括 Granite 4.1-3B base snapshot、GR-C recipe、greedy decode policy、claim splitter/TRUE/scorer 边界、seeds 13/42/73 adapter runtime paths 与 SHA256、G320/G330/G420 证据链和服务器实体核验。seed13/42/73 adapter_model 和 adapter_config hash 均与 G330 归档一致。G430 未生成 utility labels、未训练 Selector、未读取 held-out；GQ 一旦用于 S100 后不得修改，除非重建所有 utility labels。报告见 [G430_TEACHER_GENERATOR_FREEZE_REPORT.md](G430_TEACHER_GENERATOR_FREEZE_REPORT.md)。
 
-S100 implementation/smoke 已完成：新增 `scripts/full_flow_s100_utility_pilot.py`，把 `prepare`、`run`、`score` 分开，保证正式生成任务包不含 answer/reference/support provenance，references 和 support ids 只在生成后评分阶段使用。本地和服务器相关测试均为 8 passed；服务器 prepare smoke 为 2 questions / 22 tasks；seeds 13/42/73 各 2 条真实生成均 COMPLETE、errors=0、trace_missing=0；score smoke 能写出报告、scored rows、labels 文件和 manifest。因为 smoke 子集没有完整 full + all leave-one-out 组，`labels=0` 和 `NO_DECISION_INCOMPLETE_QUESTIONS` 是预期接线结果，不是正式 S100 结论。S100 formal 100-question pilot 尚未启动，报告见 [S100_IMPLEMENTATION_SMOKE_REPORT.md](S100_IMPLEMENTATION_SMOKE_REPORT.md)。
+S100 implementation/smoke 已完成：新增 `scripts/full_flow_s100_utility_pilot.py`，把 `prepare`、`run`、`score` 分开，保证正式生成任务包不含 answer/reference/support provenance，references 和 support ids 只在生成后评分阶段使用。本地和服务器相关测试均为 8 passed；服务器 prepare smoke 为 2 questions / 22 tasks；seeds 13/42/73 各 2 条真实生成均 COMPLETE、errors=0、trace_missing=0；score smoke 能写出报告、scored rows、labels 文件和 manifest。因为 smoke 子集没有完整 full + all leave-one-out 组，`labels=0` 和 `NO_DECISION_INCOMPLETE_QUESTIONS` 是预期接线结果，不是正式 S100 结论。报告见 [S100_IMPLEMENTATION_SMOKE_REPORT.md](S100_IMPLEMENTATION_SMOKE_REPORT.md)。
+
+S100 formal utility pilot 已完成：固定 50 NIAH train + 50 2Wiki train 问题，每题 10 条 evidence，三 seed 各运行 1,100 个 full/leave-one-out task；seed13/42/73 run manifest 均为 COMPLETE，errors=0，trace_missing=0，generation runtime 未读取 gold/reference/support provenance，sealed/held-out=false，Selector/full-system 未启动。评分状态为 `S100_PILOT_COMPLETE`，`s110_recommendation=S110_READY`；共 1,000 条 utility labels：MUST_KEEP 90、SAFE_DROP 815、NEUTRAL 32、UNCERTAIN 63，stable label rate=0.937，utility label rate=0.905，uncertain rate=0.063，utility 覆盖 NIAH 与 2Wiki。S100 只解锁 S110，不是 Selector 或完整系统结论。报告见 [S100_FORMAL_UTILITY_PILOT_REPORT.md](S100_FORMAL_UTILITY_PILOT_REPORT.md)，manifest/rows/labels 见 [artifacts/S100/formal-fbca132/](artifacts/S100/formal-fbca132/)。
 
 ### G400/G410/G420：Generator 模块资格
 
@@ -686,6 +688,8 @@ pilot 只检查：
 - 估算完整 leave-one-out 计算预算。
 
 标签过少或重复不稳定时，停止 Utility Selector 训练并报告原因，不强造训练集。
+
+S100 formal 结果满足继续条件：1,000 条 evidence-level labels 中 905 条为可用 utility labels，stable label rate=0.937，utility label rate=0.905，uncertain rate=0.063，且 utility 覆盖 NIAH 与 2Wiki。因此 S110 可按冻结 GQ 继续扩展；UNCERTAIN 仍按保守策略默认保留或不进入 utility loss。
 
 ### S110：完整 utility 数据
 

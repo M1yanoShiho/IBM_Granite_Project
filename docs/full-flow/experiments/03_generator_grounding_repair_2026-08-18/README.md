@@ -1,7 +1,7 @@
 # Generator 修复与 Selector 分阶段协同
 
 **日期：** 2026-08-18
-**状态：** `S100 IMPLEMENTATION/SMOKE PASS / FORMAL S100 READY / HELD-OUT BLOCKED`
+**状态：** `S100 FORMAL COMPLETE / S110 READY / HELD-OUT BLOCKED`
 **详细计划：** [PLAN.md](PLAN.md)
 **执行跟踪：** [TRACKER.md](TRACKER.md)
 **原始方案快照：** [snapshots/PLAN_v1_generator_only_2026-08-18.md](snapshots/PLAN_v1_generator_only_2026-08-18.md)
@@ -55,7 +55,8 @@
 - G420 combined Generator gate/statistics 已完成：只读 G400/G410 正式评分行，不重新生成、不训练、不读 held-out；状态为 `G420_NEW_GENERATOR_QUALIFIED_G430_READY`，teacher recommendation 为 `FREEZE_NEW_GRC_IN_G430`，strong claim 为 `ESTABLISHED`；
 - G430 teacher Generator freeze 已完成：按 G420 建议冻结新的 `GR-C` 三 seed 教师家族为 GQ，三颗 adapter 的服务器实体 hash 已核对一致，utility labels 尚未启动；
 - S100 implementation/smoke 已完成：新增 prepare/run/score runner；本地和服务器相关测试均为 8 passed；服务器 prepare smoke 生成 2 questions / 22 tasks，三 seed 各 2 条真实生成 smoke 均 COMPLETE 且 errors=0、trace_missing=0；score smoke 能写报告/清单，但因子集不完整不形成正式标签；
-- 因此最终 Selector 和完整新系统目前都不存在；下一步只能进入 formal S100 utility pilot。
+- S100 formal utility pilot 已完成：固定 50 NIAH train + 50 2Wiki train 问题，每题 10 条证据，三 seed 各跑 1,100 个 full/leave-one-out task；三 seed 全部 COMPLETE、errors=0、trace_missing=0，生成阶段未读取 reference/support provenance/held-out。评分后得到 1,000 条 evidence-level utility labels：MUST_KEEP 90、SAFE_DROP 815、NEUTRAL 32、UNCERTAIN 63，stable label rate=0.937，utility label rate=0.905，覆盖 NIAH 和 2Wiki；状态为 `S100_PILOT_COMPLETE`，建议 `S110_READY`。
+- 因此最终 Selector 和完整新系统目前都不存在；下一步只能进入 S110 utility materialization，仍不得读取 held-out。
 
 ## 修订后的核心方法
 
@@ -114,14 +115,15 @@ CI 跨 0 不再自动淘汰职责合格组件，但也不能写成统计显著�
 
 ## 下一步
 
-下一步是执行 formal S100 utility pilot：
+下一步是执行 S110 utility materialization：
 
 ```text
-S100 utility pilot
--> use frozen GQ to run full-context and leave-one-out checks on a fixed 100-query pilot
--> measure whether utility labels are stable and dense enough
--> stop Utility Selector if labels are too sparse or unstable
+S110 utility materialization
+-> keep frozen GQ unchanged
+-> expand NIAH/2Wiki utility labels under the S100-proven labeling route
+-> preserve train/model-val isolation and held-out denylist
+-> do not start Selector training until S110 artifacts pass checks
 -> do not run held-out
 ```
 
-G218/G212R3/G212M3/G219/G220/G212R4/G212M4/G221/G212R5/G212M5/G222/G223/G300/G310/G320/G330/G400/G410/G420/G430/S100-smoke 说明当前路线仍有积极信号：长度、split、NIAH 和 unsupported ratio 都稳定，unsupported 固定样本层已经稳定通过，最近一轮固定样本达到 97/100，已知残余失败已隔离，训练入口、正式筛选、locked NIAH qualification、2Wiki cross-data qualification、combined Generator gate、GQ freeze 和 S100 工具链接线均跑通；GR-C 在 2Wiki citation grounding 上有明显正信号，并大幅降低 unsupported safety 层乱答，三 seed adapter 已完成保存和 reload，G400 NIAH full/stress family 全部显示 `correct+cited` 正增益，G410 all_2wiki `correct+cited` 为 +39.65pp，G430 已冻结新 GR-C 为 GQ，S100 三 seed smoke 无 runtime error。但这仍不是 Selector、完整系统或 held-out 结论；不得降低 TRUE 阈值、改最终测试集边界、读取 held-out，或按已看到的结果临时改规则凑通过。
+G218/G212R3/G212M3/G219/G220/G212R4/G212M4/G221/G212R5/G212M5/G222/G223/G300/G310/G320/G330/G400/G410/G420/G430/S100-smoke/S100-formal 说明当前路线仍有积极信号：长度、split、NIAH 和 unsupported ratio 都稳定，unsupported 固定样本层已经稳定通过，最近一轮固定样本达到 97/100，已知残余失败已隔离，训练入口、正式筛选、locked NIAH qualification、2Wiki cross-data qualification、combined Generator gate、GQ freeze、S100 工具链接线和 formal utility pilot 均跑通；GR-C 在 2Wiki citation grounding 上有明显正信号，并大幅降低 unsupported safety 层乱答，三 seed adapter 已完成保存和 reload，G400 NIAH full/stress family 全部显示 `correct+cited` 正增益，G410 all_2wiki `correct+cited` 为 +39.65pp，G430 已冻结新 GR-C 为 GQ，S100 formal 产生 905 条可用 utility labels 且建议 `S110_READY`。但这仍不是 Selector、完整系统或 held-out 结论；不得降低 TRUE 阈值、改最终测试集边界、读取 held-out，或按已看到的结果临时改规则凑通过。
