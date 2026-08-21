@@ -2,7 +2,7 @@
 
 **路线：** `03_generator_grounding_repair_2026-08-18`
 **日期：** 2026-08-18
-**修订状态：** `I100 FAST-PATH INPUT REUSE COMPLETE / S110 RUNNING BACKGROUND / HELD-OUT BLOCKED`
+**修订状态：** `I200 FAST-PATH DEV COMPARISON COMPLETE / S110 RUNNING BACKGROUND / HELD-OUT BLOCKED`
 **修订原因：** 明确旧 Selector 的数据与外推边界；把模块资格、强统计结论和完整系统资格分开；将 Generator-aware Selector 纳入同一条交替冻结路线
 **上一阶段：** G230 `COMPLETE / NO CANDIDATE`
 **主生成模型：** `ibm-granite/granite-4.1-3b@c0650403...`
@@ -848,6 +848,10 @@ Utility 相对 Legacy   = D - C（仅 SQ=SU 时）
 ```
 
 这些都是平行实验。部署的 SystemF 仍只运行一次 D。
+
+I200 fast path 已完成锁定开发比较归档。因为 `SQ=S0`，`D=B=TopK+GQ`。当前主开发结论是：G400 NIAH TopK `correct_and_cited` 为 +6.13pp，G410 2Wiki all_2wiki `correct_and_cited` 为 +39.65pp，G400 unsupported 无依据回答从 30.08% 降到 0.13%。Legacy SL+GQ 在 matched NIAH subset 上相对 TopK+GQ 为 -0.46pp correct_and_cited，因此不作为主线阻塞项。
+
+报告见 [I200_FAST_PATH_DEV_COMPARISON_REPORT.md](I200_FAST_PATH_DEV_COMPARISON_REPORT.md)，机器清单见 [artifacts/I200/fast_path_dev_comparison_manifest.json](artifacts/I200/fast_path_dev_comparison_manifest.json)。
 
 ### I210：完整系统职责门
 
