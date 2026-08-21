@@ -2,7 +2,7 @@
 
 **路线：** `03_generator_grounding_repair_2026-08-18`
 **日期：** 2026-08-18
-**修订状态：** `I200 FAST-PATH DEV COMPARISON COMPLETE / S110 RUNNING BACKGROUND / HELD-OUT BLOCKED`
+**修订状态：** `I210 FAST-PATH RESPONSIBILITY PASS / S110 RUNNING BACKGROUND / HELD-OUT BLOCKED`
 **修订原因：** 明确旧 Selector 的数据与外推边界；把模块资格、强统计结论和完整系统资格分开；将 Generator-aware Selector 纳入同一条交替冻结路线
 **上一阶段：** G230 `COMPLETE / NO CANDIDATE`
 **主生成模型：** `ibm-granite/granite-4.1-3b@c0650403...`
@@ -869,6 +869,8 @@ SystemF 必须满足：
 stress、changed-only、support-visible、noise type 和每 seed 结果完整报告，但不要求每个 slice 单独显著。
 
 通过后冻结：
+
+I210 fast path 已完成并通过。由于当前 `SQ=S0`，`D=B`，Selector 净作用检查记为 not applicable；因此只允许声称 `GQ` 相对 `G0` 的 fast-path 系统收益，不允许声称 learned Selector 成功。报告见 [I210_FAST_PATH_RESPONSIBILITY_GATE_REPORT.md](I210_FAST_PATH_RESPONSIBILITY_GATE_REPORT.md)，机器清单见 [artifacts/I210/fast_path_responsibility_gate_manifest.json](artifacts/I210/fast_path_responsibility_gate_manifest.json)。
 
 ```text
 Retriever config + SQ + GQ + prompt + splitter + TRUE = SystemF
