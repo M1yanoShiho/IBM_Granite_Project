@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-21
 
-**Status:** `CURRENT_STATE_INDEX_COMPLETE / LOCAL_DIRTY_CLEANED`
+**Status:** `CURRENT_STATE_INDEX_COMPLETE / LOCAL_DIRTY_CLEANED / REPORTS_ORGANIZED`
 
 This file is the first place to read before continuing the project.  It separates the current usable route from paused work, historical evidence, server runtime outputs, and the cleaned local workspace.
 
@@ -33,7 +33,8 @@ These are the current source-of-truth files:
 | Full plan and boundaries | `PLAN.md` |
 | Stage tracker | `TRACKER.md` |
 | Current state index | `CURRENT_STATE_AND_ARTIFACT_INDEX_2026-08-21.md` |
-| Frozen fast-path system report | `I220_SYSTEMF_FAST_FREEZE_REPORT.md` |
+| Detailed stage reports | `reports/` |
+| Frozen fast-path system report | `reports/I220_SYSTEMF_FAST_FREEZE_REPORT.md` |
 | Frozen fast-path system manifest | `artifacts/I220/systemf_fast_s0_gq_freeze_manifest.json` |
 
 ## Current Main Results
@@ -89,7 +90,7 @@ These files are directly relevant to the next discussion and next run decision:
 
 These are useful for diagnosing Selector, data quality, or Generator history, but they should not block the next planning discussion:
 
-- `S100_FORMAL_UTILITY_PILOT_REPORT.md`
+- `reports/S100_FORMAL_UTILITY_PILOT_REPORT.md`
 - `artifacts/S100/`
 - paused S110 partial runtime under `/scratch/.../S110-v1/formal-1a54bbe`
 - G300/G310/G320/G330 training implementation and adapter evidence
@@ -133,6 +134,15 @@ After user clarification, presentation materials are treated as team records and
 - server runtime outputs were not deleted or copied into Git.
 
 The machine-readable cleanup record is `artifacts/I226/workspace_cleanup_manifest.json`.
+
+The experiment root is now intentionally small:
+
+- `README.md`
+- `PLAN.md`
+- `TRACKER.md`
+- `CURRENT_STATE_AND_ARTIFACT_INDEX_2026-08-21.md`
+
+Detailed stage reports live in `reports/`.  Machine-readable artifacts stay in `artifacts/`.
 
 ## Recommended Next Discussion
 

@@ -1,11 +1,12 @@
 # Generator 修复与 Selector 分阶段协同
 
 **日期：** 2026-08-18
-**状态：** `I226 WORKSPACE CLEANUP COMPLETE / SYSTEMF-FAST FROZEN / HELD-OUT AUTHORIZATION REQUIRED / S110 PAUSED`
+**状态：** `I226 WORKSPACE CLEANUP + REPORTS ORGANIZED / SYSTEMF-FAST FROZEN / HELD-OUT AUTHORIZATION REQUIRED / S110 PAUSED`
 
 **先读：** [CURRENT_STATE_AND_ARTIFACT_INDEX_2026-08-21.md](CURRENT_STATE_AND_ARTIFACT_INDEX_2026-08-21.md)。该文件把当前主线、暂停的 S110、历史证据、服务器 runtime 和已清理的本地工作区分开，避免继续实验前混淆。
 **详细计划：** [PLAN.md](PLAN.md)
 **执行跟踪：** [TRACKER.md](TRACKER.md)
+**阶段报告：** [reports/](reports/)
 **原始方案快照：** [snapshots/PLAN_v1_generator_only_2026-08-18.md](snapshots/PLAN_v1_generator_only_2026-08-18.md)
 
 ## 当前处在哪里
@@ -66,7 +67,7 @@
 - I210 fast-path responsibility gate 已通过：D-A 总作用、安全和边界均通过；因 `SQ=S0`，D-B Selector 净作用不适用，不能声称 learned Selector 贡献。下一步可冻结 `SystemF-fast-S0-GQ-2026-08-21`。
 - I220 SystemF-fast freeze 已完成：冻结 `SystemF-fast-S0-GQ-2026-08-21 = frozen Hybrid RRF Retriever + S0 TopK keep-all Selector + frozen GQ Generator`。下一步 H100 HotpotQA/MuSiQue/RGB held-out 必须等待用户单独授权。
 - I225 current state/artifact index 已完成：S110 已暂停并保留 partial rows；当前主线、可选/暂停、历史证据和无关 dirty 文件已分开记录。
-- I226 workspace cleanup 已完成：按用户更正，presentation 作为团队记录保留；清理范围限定为实验侧零散 scratch 文件，当前路线只保留必要轻量文档、manifest 和关键报告。
+- I226 workspace cleanup 已完成：按用户更正，presentation 作为团队记录保留；清理范围限定为实验侧零散 scratch 文件。路线顶层已整理为 4 个入口文件，详细阶段报告统一移入 [reports/](reports/)。
 
 ## 修订后的核心方法
 

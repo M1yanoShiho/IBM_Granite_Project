@@ -1,7 +1,7 @@
 {
   "stage_id": "I226",
   "stage_name": "workspace_cleanup",
-  "status": "COMPLETE_PENDING_COMMIT_PRESENTATIONS_RETAINED",
+  "status": "COMPLETE_PENDING_COMMIT_PRESENTATIONS_RETAINED_REPORTS_ORGANIZED",
   "date": "2026-08-21",
   "user_request": "Clean all dirty files and keep only necessary lightweight current-route materials.",
   "scope": {
@@ -44,7 +44,19 @@
     "docs/full-flow/experiments/03_generator_grounding_repair_2026-08-18/PLAN.md",
     "docs/full-flow/experiments/03_generator_grounding_repair_2026-08-18/TRACKER.md",
     "docs/full-flow/experiments/03_generator_grounding_repair_2026-08-18/CURRENT_STATE_AND_ARTIFACT_INDEX_2026-08-21.md",
+    "docs/full-flow/experiments/03_generator_grounding_repair_2026-08-18/reports/",
     "docs/full-flow/experiments/03_generator_grounding_repair_2026-08-18/artifacts/"
   ],
-  "next_decision": "Discuss the frozen full-flow development/held-out plan before launching any new experiment."
+  "route_root_layout_after_cleanup": {
+    "entry_files": [
+      "README.md",
+      "PLAN.md",
+      "TRACKER.md",
+      "CURRENT_STATE_AND_ARTIFACT_INDEX_2026-08-21.md"
+    ],
+    "detailed_reports_folder": "reports/",
+    "machine_artifacts_folder": "artifacts/",
+    "snapshots_folder": "snapshots/"
+  },
+  "next_decision": "User will decide the next experiment after reviewing the cleaned repository state."
 }

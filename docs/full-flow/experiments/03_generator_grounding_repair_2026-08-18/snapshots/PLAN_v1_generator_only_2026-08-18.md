@@ -5,7 +5,7 @@
 **状态：** `DRAFT FOR REVIEW / NO NEW RUN AUTHORIZED`
 **上一阶段：** G230 `COMPLETE / NO CANDIDATE`
 **主模型：** `ibm-granite/granite-4.1-3b@c0650403...`
-**执行 tracker：** [TRACKER.md](TRACKER.md)
+**执行 tracker：** [TRACKER.md](../TRACKER.md)
 
 ---
 

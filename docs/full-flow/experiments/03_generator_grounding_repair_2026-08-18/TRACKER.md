@@ -2,7 +2,7 @@
 
 **日期：** 2026-08-18
 **计划：** [PLAN.md](PLAN.md)
-**当前状态：** `I226 WORKSPACE CLEANUP COMPLETE / SYSTEMF-FAST FROZEN / HELD-OUT AUTHORIZATION REQUIRED / S110 PAUSED`
+**当前状态：** `I226 WORKSPACE CLEANUP + REPORTS ORGANIZED / SYSTEMF-FAST FROZEN / HELD-OUT AUTHORIZATION REQUIRED / S110 PAUSED`
 
 用户已确认本路线的边界和协同顺序，并进一步授权按积极信号与截止日期优先原则调整执行。G210 数据冻结判定已失败；G215 将失败解释为“原数据冻结失败但路线可修”；G200R2 已完成 answer-alias-preserving materialization；G210R2 已完成 structural、TRUE 和 pre-sample finalize，自动数据门通过；G212 length gate 发现唯一 overlength train group；G214 已成组排除该 train group 并保持数据门通过；G212R length gate 已通过；G212M 固定 100 条 sample review/adjudication 为 92 PASS / 8 FAIL / 0 UNCERTAIN；G216 已排除失败样本对应 11 个 case，预冻结数据门仍通过；G212R2 length gate 已通过；G212M2 新固定 100 条 sample 仍为 92 PASS / 8 FAIL / 0 UNCERTAIN；G217 已把判定措辞改为中性 sample review/adjudication；G218 已完成系统性 target 修复、structural/TRUE 和 finalize，自动数据门仍通过；G212R3 length gate 已通过并生成新固定 100 条 sample；G212M3 sample review/adjudication 为 91 PASS / 9 FAIL / 0 UNCERTAIN；G219 controlled target repair 在 finalize 失败，2Wiki model-val 为 94，低于当前最低 100；G220 conservative filter 通过 pre-sample gates，2Wiki model-val 为 99；G212R4 length gate 已通过并生成新固定 100 条 sample；G212M4 sample review/adjudication 为 90 PASS / 10 FAIL / 0 UNCERTAIN；G221 targeted sample-failure repair 通过 pre-sample gates，2Wiki model-val 为 96；G212R5 length gate 已通过并生成新固定 100 条 sample；G212M5 sample review/adjudication 为 97 PASS / 3 FAIL / 0 UNCERTAIN；G222 已把该结果判为 controlled continuation，不是 clean freeze；G223 已隔离剩余失败并通过 controlled continuation gate；G300 已完成训练入口实现、长度审计和 1-group smoke；G310 已完成正式 seed13 screen 并选择 `GR-C`；G320 已冻结唯一训练配方 `GR-C`；G330 已完成 seeds 13/42/73 三 seed fit；G331 已把后续硬门解释修订为技术有效、职责可用、强结论、受控继续四类判定；G400 implementation/smoke 已完成，runner 和三 seed 接线通过；G400 formal locked NIAH qualification 已完成并通过职责门，状态为 `G400_NIAH_RESPONSIBILITY_PASS`；G410 implementation/smoke 已完成，2Wiki no-answer task packet、三 seed smoke 和 subset score smoke 均通过；G410 formal 2Wiki cross-data qualification 已完成并通过职责门，状态为 `G410_CROSS_DATA_RESPONSIBILITY_PASS`；G420 combined Generator gate/statistics 已完成，状态为 `G420_NEW_GENERATOR_QUALIFIED_G430_READY`，teacher recommendation 为 `FREEZE_NEW_GRC_IN_G430`；G430 已冻结新的 `GR-C` 三 seed 教师家族为 GQ，服务器实体 hash 已核对一致；S100 implementation/smoke 已完成，prepare/run/score 接线和三 seed小规模真实生成均通过；S100 formal 已完成 100 题 utility pilot，评分产出 1,000 条 utility labels，其中 905 条为可用 utility labels，状态为 `S100_PILOT_COMPLETE` 且建议 `S110_READY`；S090 early full-flow triage 已完成，现有证据支持 fast-path `TopK+GQ` 先进入完整开发评估；I090 已选择 `SystemF-fast-S0-GQ-2026-08-21` 为当前主系统候选，Utility Selector 改为后台增强路线；I100 已完成 fast-path input reuse，复用已 hash 绑定的 F000/A002/B100/G400/G410/G420/G430 开发输入与结果，不重新启动耗时 Retriever 全量计算；I200 已完成 fast-path development comparison package，D=B=TopK+GQ，主开发信号为 NIAH +6.13pp、2Wiki +39.65pp、unsupported 无依据回答约 30.08% -> 0.13%。仍不允许读取 held-out；下一步为 I210 fast-path responsibility gate，同时 S110 formal 后台继续。
 
@@ -14,7 +14,7 @@
 
 最新补充：I225 current state/artifact index 已建立；先整理当前主线、暂停 S110、历史证据和无关 dirty 文件，再讨论下一步实验计划。
 
-最新补充：I226 workspace cleanup 已完成；按用户更正，presentation 作为团队记录保留，清理范围限定为实验侧零散 scratch 文件，当前路线只保留必要轻量文档、manifest 和关键报告。
+最新补充：I226 workspace cleanup 已完成；按用户更正，presentation 作为团队记录保留，清理范围限定为实验侧零散 scratch 文件；路线顶层已整理为 4 个入口文件，详细阶段报告统一移入 `reports/`。
 
 | ID | 阶段 | 目的 | 必需产物 | 状态 |
 |---|---|---|---|---|
@@ -84,7 +84,7 @@
 | I210 | System responsibility gate | 检查 D-A 总作用、D-B Selector 净作用和安全；SQ=S0 时不要求 Selector 净作用 | gate report、machine manifest | PASS / SYSTEMF_FAST_FREEZE_READY |
 | I220 | System freeze | 冻结 Retriever+SQ+GQ 为 SystemF-fast | SystemF manifest、all hashes | COMPLETE / SYSTEMF_FAST_FROZEN |
 | I225 | State/artifact index | 整理当前主线、暂停 S110、历史证据、无关 dirty 文件 | current index、machine manifest | COMPLETE / INDEX READY |
-| I226 | Workspace cleanup | 移除本地零散脏文件，保持主线证据轻量可读 | cleanup manifest、clean worktree check | COMPLETE / CLEAN |
+| I226 | Workspace cleanup | 移除本地零散脏文件，把详细阶段报告移入 reports/，保持顶层轻量可读 | cleanup manifest、clean worktree check | COMPLETE / CLEAN + REPORTS ORGANIZED |
 | H100 | One-time heldout | 分别运行 HotpotQA、MuSiQue-Full、RGB | per-dataset results、claim matrix | CONDITIONAL / REQUIRES USER AUTHORIZATION |
 
 ## 当前禁止事项
