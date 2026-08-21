@@ -2,7 +2,7 @@
 
 **路线：** `03_generator_grounding_repair_2026-08-18`
 **日期：** 2026-08-18
-**修订状态：** `S100 FORMAL COMPLETE / S110 READY / HELD-OUT BLOCKED`
+**修订状态：** `S090 FAST GQ SYSTEM READY / S110 RUNNING BACKGROUND / HELD-OUT BLOCKED`
 **修订原因：** 明确旧 Selector 的数据与外推边界；把模块资格、强统计结论和完整系统资格分开；将 Generator-aware Selector 纳入同一条交替冻结路线
 **上一阶段：** G230 `COMPLETE / NO CANDIDATE`
 **主生成模型：** `ibm-granite/granite-4.1-3b@c0650403...`
@@ -691,6 +691,27 @@ pilot 只检查：
 
 S100 formal 结果满足继续条件：1,000 条 evidence-level labels 中 905 条为可用 utility labels，stable label rate=0.937，utility label rate=0.905，uncertain rate=0.063，且 utility 覆盖 NIAH 与 2Wiki。因此 S110 可按冻结 GQ 继续扩展；UNCERTAIN 仍按保守策略默认保留或不进入 utility loss。
 
+### S090：截止日期驱动的早期整体 triage
+
+2026-09-05 截止日期要求先判断“当前方法主信号来自哪里”，避免把 S110/S200/SU 训练变成唯一阻塞路线。S090 不新增训练、不读取 held-out、不修改 GQ 或 Selector；它复用 G400/G410/L003 已冻结的非 held-out 产物，重新按 A/B/C 视角做早期整体判断：
+
+| 臂 | 含义 |
+|---|---|
+| A | TopK + G0 |
+| B | TopK + GQ |
+| C | Legacy SL + GQ |
+
+在 G400 matched 218 个 NIAH 问题上，`B-A correct_and_cited=+9.33pp`，`C-A=+8.87pp`，但 `C-B=-0.46pp`；answer_match 上 `B-A=+8.56pp`，`C-B=-1.07pp`。这说明当前明确正信号主要来自 GQ，而旧 Legacy Selector 没有在同一 GQ 下提供额外端到端收益。G410 已证明 2Wiki `TopK+GQ` 相对 G0 的 `all_2wiki correct_and_cited=+39.65pp`；旧 L003 Legacy Selector 在 1,000 个 2Wiki 问题上删除 0 条，因此没有可声称的 2Wiki 过滤贡献。
+
+因此执行优先级修订为：
+
+- S110 formal 继续后台运行，因其可能产生有价值的 Utility Selector 数据；
+- S110/S200/SU 不再阻塞截止日期关键路线；
+- 立即允许以 `SQ=S0 TopK` 作为 fast-path 系统候选进入开发比较，此时 `D=B`，只能声称 Generator/GQ 系统收益，不能声称 Selector 净贡献；
+- Utility Selector 只有在后续 S300 证明相对 `TopK+GQ` 有同 GQ 端到端正作用时，才替换 fast-path `SQ=S0`。
+
+报告见 [S090_EARLY_FULL_FLOW_TRIAGE_REPORT.md](S090_EARLY_FULL_FLOW_TRIAGE_REPORT.md)，机器清单见 [artifacts/S090/early_full_flow_triage_manifest.json](artifacts/S090/early_full_flow_triage_manifest.json)。
+
 ### S110：完整 utility 数据
 
 pilot 通过后，按预冻结抽样扩展：
@@ -776,7 +797,7 @@ SU + GQ
 - SU 通过职责门：冻结为 `SQ`；
 - SU 失败而 SL 在同一 GQ 下通过相同技术、evidence safety 和端到端职责门：允许冻结 `SQ=SL` 作为风险基线 fallback；SL 不适用 utility-head 的 MUST_KEEP/SAFE_DROP 指标，但其他 answer/coverage/citation/chain margin 不得放宽；
 - `SQ=SL` 时不能声称 generator-aware utility 成功，C2 记为不支持；
-- SU/SL 均不能相对 TopK 提供正的端到端作用：没有 Selector candidate，完整三模块新方法停止；保留 GQ 单模块结果。
+- SU/SL 均不能相对 TopK 提供正的端到端作用：不得声称 Selector 方法成功；按 S090 fast path 允许冻结 `SQ=S0`，即保留 TopK Selector + GQ 作为 Generator-first 系统候选继续完整开发比较。
 
 ---
 
@@ -803,6 +824,7 @@ SU + GQ
 
 如果 `GQ=G0`，A 与 B 完全相同并复用，不制造重复运行。
 如果 `SQ=SL`，C 与 D 完全相同并复用；此时不计算或声称 Utility 相对 Legacy 的改善。
+如果 `SQ=S0`，B 与 D 完全相同并复用；此时不计算或声称 Selector 净作用，完整系统结论只能写成 Generator/GQ 相对默认系统的收益。
 
 关键比较：
 
@@ -821,7 +843,7 @@ Utility 相对 Legacy   = D - C（仅 SQ=SU 时）
 SystemF 必须满足：
 
 - `D-A correct_and_cited` family point delta >0；
-- `D-B correct_and_cited` point delta >0，证明 SQ 对同一个 GQ 有净作用；
+- 当 `SQ` 不是 `S0` 时，`D-B correct_and_cited` point delta >0，证明 SQ 对同一个 GQ 有净作用；
 - D-A answer/coverage point delta 各 >= -2pp；
 - D-A citation precision/recall point delta各 >= -3pp；
 - supporting evidence/chain safety 通过；
@@ -838,6 +860,7 @@ Retriever config + SQ + GQ + prompt + splitter + TRUE = SystemF
 ```
 
 如果 D-A 正向但 D-B 不正向，只能说 Generator 提供了系统收益，不能声称 Selector 有净贡献，也不能把 D 作为三模块新方法进入最终主张。
+如果 `SQ=S0`，D-B 不适用；该路线可以冻结 Generator-first SystemF，但 Selector contribution 必须明确记为未建立。
 
 ### I220：强开发结论
 
