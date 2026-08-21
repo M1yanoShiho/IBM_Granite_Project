@@ -2,7 +2,7 @@
 
 **路线：** `03_generator_grounding_repair_2026-08-18`
 **日期：** 2026-08-18
-**修订状态：** `S090 FAST GQ SYSTEM READY / S110 RUNNING BACKGROUND / HELD-OUT BLOCKED`
+**修订状态：** `I090 FAST-PATH SYSTEM CANDIDATE SELECTED / S110 RUNNING BACKGROUND / HELD-OUT BLOCKED`
 **修订原因：** 明确旧 Selector 的数据与外推边界；把模块资格、强统计结论和完整系统资格分开；将 Generator-aware Selector 纳入同一条交替冻结路线
 **上一阶段：** G230 `COMPLETE / NO CANDIDATE`
 **主生成模型：** `ibm-granite/granite-4.1-3b@c0650403...`
@@ -802,6 +802,19 @@ SU + GQ
 ---
 
 ## 10. 阶段 I：完整三模块联合验证
+
+### I090：截止日期 fast-path 系统候选
+
+S090 表明旧 Legacy Selector 没有同 GQ 额外端到端收益，而 G420 已经证明 `TopK+GQ` 在 NIAH 与 2Wiki 内部开发资格上均相对 `TopK+G0` 有正向且主要指标 CI 下界大于 0。因此在 2026-09-05 截止日期约束下，允许先选择：
+
+```text
+SystemF-fast-S0-GQ-2026-08-21
+= frozen Retriever + S0 TopK keep-all Selector + frozen GQ
+```
+
+这个 fast path 保持正式 runtime 仍是 `Retriever -> Selector -> Generator -> one answer`，但 `Selector=S0` 表示不声称 learned Selector 贡献。D 臂等同 B 臂，主比较是 `TopK+GQ - TopK+G0`。S110/S200/S300 若后来证明 Utility Selector 有同 GQ 净作用，可以作为增强路线替换 `SQ=S0`；否则不阻塞 main result 与 baseline packaging。
+
+报告见 [I090_FAST_PATH_SYSTEM_DECISION_REPORT.md](I090_FAST_PATH_SYSTEM_DECISION_REPORT.md)，机器清单见 [artifacts/I090/fast_path_system_decision_manifest.json](artifacts/I090/fast_path_system_decision_manifest.json)。
 
 ### I100：冻结真实 Retriever 输出
 
