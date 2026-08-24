@@ -2,20 +2,29 @@ import hashlib
 import json
 import math
 import os
+import re
 from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
 from evidence_rag.contracts.models import Document, RetrieverProvenance
 from evidence_rag.contracts.protocols import Generator, Retriever, Selector
+from evidence_rag.generator.claim_splitter import ClaimSplitter
+from evidence_rag.generator.draft import DraftAnswerGenerator, DraftGenerator
 from evidence_rag.generator.extractive import ExtractiveGenerator
 from evidence_rag.generator.granite import (
+    GraniteGenerationConfig,
     GraniteGenerator,
     GraniteLLMClient,
+    NamedAdapterTextGenerator,
+    PeftGraniteLLMClient,
     TextGenerator,
 )
-from evidence_rag.generator.nli import NLIModel
-from evidence_rag.generator.verify_annotate import VerifyAnnotateGenerator
+from evidence_rag.generator.nli import NLIModel, TrueNLIModel
+from evidence_rag.generator.verify_annotate import (
+    CitationRoutedVerifier,
+    VerifyAnnotateGenerator,
+)
 from evidence_rag.infrastructure.config import ExperimentConfig, ModuleConfig
 from evidence_rag.infrastructure.corpus import CorpusSnapshot
 from evidence_rag.pipeline.service import EvidenceRAGPipeline
@@ -41,13 +50,41 @@ from evidence_rag.retriever.indexing import (
     write_index,
 )
 from evidence_rag.retriever.strong_bm25 import StrongBM25Retriever
+from evidence_rag.selector.dual_head import load_dual_head_checkpoint
+from evidence_rag.selector.nli_dual_head import load_nli_dual_head_model
+from evidence_rag.selector.nli_runtime import NliRiskControlledSelector
 from evidence_rag.selector.top_k import TopKSelector
+
+_ENV_REFERENCE = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
 
 
 def _reject_parameters(config: ModuleConfig, module_kind: str) -> None:
     if config.parameters:
         names = ", ".join(sorted(config.parameters))
         raise ValueError(f"{module_kind} {config.name!r} does not accept parameters: {names}")
+
+
+def _verify_file_sha256(path: Path, expected: str, *, label: str) -> None:
+    if not path.is_file():
+        raise ValueError(f"missing {label}: {path}")
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    observed = digest.hexdigest()
+    if observed != expected:
+        raise ValueError(f"{label} SHA-256 differs: expected {expected}, observed {observed}")
+
+
+def _expand_runtime_value(value: object, *, label: str) -> str:
+    """Resolve explicit ``${NAME}`` references without storing HPC paths in Git."""
+
+    raw = str(value)
+    names = {match.group(1) for match in _ENV_REFERENCE.finditer(raw)}
+    missing = sorted(name for name in names if name not in os.environ)
+    if missing:
+        raise ValueError(f"{label} requires environment variable(s): {', '.join(missing)}")
+    return _ENV_REFERENCE.sub(lambda match: os.environ[match.group(1)], raw)
 
 
 # The retriever registry: each name maps to an implementation version. Parameter
@@ -246,21 +283,28 @@ def _construct_retriever(
     name: str,
     parameters: Mapping[str, Any],
     corpus: CorpusSnapshot,
+    *,
+    embedder: TextEmbedder | None = None,
 ) -> Retriever:
     if name == "bm25":
         return BM25Retriever.from_corpus(corpus, k1=parameters["k1"], b=parameters["b"])
     if name == "strong-bm25":
         return StrongBM25Retriever.from_corpus(corpus, k1=parameters["k1"], b=parameters["b"])
     if name == "granite-dense":
-        embedder = GraniteEmbedder(
+        active_embedder = embedder or GraniteEmbedder(
             model_id=parameters["embedder_model_id"],
             query_prefix=parameters["query_prefix"],
             document_prefix=parameters["document_prefix"],
         )
-        return GraniteDenseRetriever.from_corpus(corpus, embedder=embedder)
+        return GraniteDenseRetriever.from_corpus(corpus, embedder=active_embedder)
     if name == "hybrid":
         arms = [
-            _construct_retriever(arm["name"], arm["parameters"], corpus)
+            _construct_retriever(
+                arm["name"],
+                arm["parameters"],
+                corpus,
+                embedder=embedder,
+            )
             for arm in parameters["retrievers"]
         ]
         if parameters["fusion"] == "rrf":
@@ -272,7 +316,12 @@ def _construct_retriever(
             pool_size=parameters["pool_size"],
         )
     base_config = parameters["base"]
-    base = _construct_retriever(base_config["name"], base_config["parameters"], corpus)
+    base = _construct_retriever(
+        base_config["name"],
+        base_config["parameters"],
+        corpus,
+        embedder=embedder,
+    )
     llm = GraniteLLMClient()
     if name == "query2doc":
         return Query2DocRetriever(base, llm)
@@ -350,6 +399,7 @@ def build_retriever(
     corpus: CorpusSnapshot,
     *,
     index_directory: Path | None = None,
+    embedder: TextEmbedder | None = None,
 ) -> Retriever:
     name, version, parameters = _normalise_retriever(config)
     if index_directory is not None:
@@ -360,14 +410,73 @@ def build_retriever(
             expected_implementation_version=version,
             expected_parameters=parameters,
         )
-        return _construct_retriever(name, parameters, snapshot)
-    return _construct_retriever(name, parameters, corpus)
+        return _construct_retriever(name, parameters, snapshot, embedder=embedder)
+    return _construct_retriever(name, parameters, corpus, embedder=embedder)
 
 
-def build_selector(config: ModuleConfig) -> Selector:
+def build_selector(config: ModuleConfig, *, model: Any | None = None) -> Selector:
     if config.name == "top-k":
         _reject_parameters(config, "selector")
         return TopKSelector()
+    if config.name == "nli-risk-controlled":
+        parameters = dict(config.parameters)
+        unknown = sorted(
+            set(parameters)
+            - {
+                "model_snapshot",
+                "model_id",
+                "revision",
+                "checkpoint_path",
+                "checkpoint_sha256",
+                "safe_threshold",
+                "max_delete",
+                "local_files_only",
+                "device",
+            }
+        )
+        if unknown:
+            raise ValueError(f"unknown selector parameters: {unknown}")
+        if model is None:
+            required = {
+                "model_snapshot",
+                "model_id",
+                "revision",
+                "checkpoint_path",
+                "checkpoint_sha256",
+            }
+            missing = sorted(required - set(parameters))
+            if missing:
+                raise ValueError(f"nli-risk-controlled selector is missing parameters: {missing}")
+            checkpoint = Path(
+                _expand_runtime_value(
+                    parameters["checkpoint_path"],
+                    label="Selector checkpoint",
+                )
+            )
+            _verify_file_sha256(
+                checkpoint,
+                str(parameters["checkpoint_sha256"]),
+                label="Selector checkpoint",
+            )
+            device = str(parameters.get("device", "auto"))
+            model_snapshot = _expand_runtime_value(
+                parameters["model_snapshot"],
+                label="Selector model snapshot",
+            )
+            model = load_nli_dual_head_model(
+                model_snapshot,
+                revision=str(parameters["revision"]),
+                identity_model_id=str(parameters["model_id"]),
+                local_files_only=bool(parameters.get("local_files_only", True)),
+                device=device,
+            )
+            load_dual_head_checkpoint(model, checkpoint)
+            model.eval()
+        return NliRiskControlledSelector(
+            model=model,
+            safe_threshold=float(parameters.get("safe_threshold", 0.9212157130241394)),
+            max_delete=int(parameters.get("max_delete", 2)),
+        )
     raise ValueError(f"unknown selector: {config.name}")
 
 
@@ -376,6 +485,8 @@ def build_generator(
     *,
     llm: TextGenerator | None = None,
     nli: NLIModel | None = None,
+    grc_client: Any | None = None,
+    entity_checker: Any | None = None,
 ) -> Generator:
     """Build the configured Generator.
 
@@ -406,6 +517,105 @@ def build_generator(
             entity_gate=gate,
             abstain_when_unverified=abstain,
         )
+    if config.name == "grounded-grc":
+        parameters = dict(config.parameters)
+        adapter_name = str(parameters.pop("adapter_name", "grc"))
+        gate = parameters.pop("entity_gate", "observe")
+        model_snapshot = parameters.pop("model_snapshot", None)
+        model_config_sha256 = parameters.pop("model_config_sha256", None)
+        adapter_path_raw = parameters.pop("adapter_path", None)
+        adapter_weights_sha256 = parameters.pop("adapter_weights_sha256", None)
+        adapter_config_sha256 = parameters.pop("adapter_config_sha256", None)
+        true_snapshot = parameters.pop("true_snapshot", None)
+        true_config_sha256 = parameters.pop("true_config_sha256", None)
+        device = str(parameters.pop("device", "auto"))
+        max_new_tokens = int(parameters.pop("max_new_tokens", 256))
+        max_input_tokens_raw = parameters.pop("max_input_tokens", None)
+        max_input_tokens = (
+            int(max_input_tokens_raw) if max_input_tokens_raw is not None else None
+        )
+        temperature = float(parameters.pop("temperature", 0.0))
+        top_p = float(parameters.pop("top_p", 1.0))
+        if parameters:
+            raise ValueError(f"unknown generator parameters: {sorted(parameters)}")
+        if grc_client is None:
+            required = {
+                "model_snapshot": model_snapshot,
+                "model_config_sha256": model_config_sha256,
+                "adapter_path": adapter_path_raw,
+                "adapter_weights_sha256": adapter_weights_sha256,
+                "adapter_config_sha256": adapter_config_sha256,
+            }
+            missing = sorted(name for name, value in required.items() if value is None)
+            if missing:
+                raise ValueError(f"grounded-grc generator is missing parameters: {missing}")
+            model_path = Path(
+                _expand_runtime_value(model_snapshot, label="Granite model snapshot")
+            )
+            adapter_path = Path(
+                _expand_runtime_value(adapter_path_raw, label="GR-C adapter")
+            )
+            _verify_file_sha256(
+                model_path / "config.json",
+                str(model_config_sha256),
+                label="Granite model config",
+            )
+            _verify_file_sha256(
+                adapter_path / "adapter_model.safetensors",
+                str(adapter_weights_sha256),
+                label="GR-C adapter weights",
+            )
+            _verify_file_sha256(
+                adapter_path / "adapter_config.json",
+                str(adapter_config_sha256),
+                label="GR-C adapter config",
+            )
+            grc_client = PeftGraniteLLMClient(
+                model_id=str(model_path),
+                adapters={adapter_name: str(adapter_path)},
+                config=GraniteGenerationConfig(
+                    max_new_tokens=max_new_tokens,
+                    temperature=temperature,
+                    top_p=top_p,
+                    max_input_tokens=max_input_tokens,
+                ),
+                device=device,
+            )
+        if nli is None:
+            if true_snapshot is None or true_config_sha256 is None:
+                raise ValueError(
+                    "grounded-grc generator requires true_snapshot and true_config_sha256"
+                )
+            true_path = Path(
+                _expand_runtime_value(true_snapshot, label="TRUE model snapshot")
+            )
+            _verify_file_sha256(
+                true_path / "config.json",
+                str(true_config_sha256),
+                label="TRUE verifier config",
+            )
+            nli = TrueNLIModel(model_id=str(true_path))
+        draft = DraftAnswerGenerator(
+            draft_generator=DraftGenerator(
+                llm=NamedAdapterTextGenerator(grc_client, adapter_name),
+                trace_enabled=True,
+            ),
+            claim_splitter=ClaimSplitter(llm=grc_client, trace_enabled=True),
+            trace_enabled=True,
+        )
+        verifier = (
+            CitationRoutedVerifier(nli, entity_checker, entity_gate=gate)
+            if entity_checker is not None
+            else None
+        )
+        return VerifyAnnotateGenerator(
+            draft_generator=draft,
+            verifier=verifier,
+            nli=nli,
+            entity_gate=gate,
+            abstain_when_unverified=False,
+            trace_enabled=True,
+        )
     raise ValueError(f"unknown generator: {config.name}")
 
 
@@ -427,15 +637,28 @@ def build_pipeline_from_config(
     corpus: CorpusSnapshot,
     *,
     index_directory: Path | None = None,
+    embedder: TextEmbedder | None = None,
+    selector_model: Any | None = None,
+    llm: TextGenerator | None = None,
+    nli: NLIModel | None = None,
+    grc_client: Any | None = None,
+    entity_checker: Any | None = None,
 ) -> EvidenceRAGPipeline:
     return EvidenceRAGPipeline(
         retriever=build_retriever(
             config.retriever,
             corpus,
             index_directory=index_directory,
+            embedder=embedder,
         ),
-        selector=build_selector(config.selector),
-        generator=build_generator(config.generator),
+        selector=build_selector(config.selector, model=selector_model),
+        generator=build_generator(
+            config.generator,
+            llm=llm,
+            nli=nli,
+            grc_client=grc_client,
+            entity_checker=entity_checker,
+        ),
     )
 
 

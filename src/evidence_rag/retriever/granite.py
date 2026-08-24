@@ -60,6 +60,7 @@ class GraniteEmbedder:
         model_id: str | None = None,
         query_prefix: str = "",
         document_prefix: str = "",
+        device: str | None = None,
     ) -> None:
         self.model_id = (
             model_id
@@ -68,6 +69,7 @@ class GraniteEmbedder:
         )
         self.query_prefix = query_prefix
         self.document_prefix = document_prefix
+        self.device = device
         self._model: Any = self._load_model()
 
     def _load_model(self) -> Any:
@@ -81,6 +83,7 @@ class GraniteEmbedder:
         return sentence_transformers.SentenceTransformer(
             self.model_id,
             cache_folder=cache_folder,
+            device=self.device,
         )
 
     @staticmethod

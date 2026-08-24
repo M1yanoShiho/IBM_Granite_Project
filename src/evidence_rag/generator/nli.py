@@ -241,10 +241,12 @@ class MiniCheckNLIModel:
         model_id: str = "lytang/MiniCheck-Flan-T5-Large",
         threshold: float = DEFAULT_BINARY_ENTAIL_THRESHOLD,
         max_length: int = 2048,
+        device: str | None = None,
     ) -> None:
         self.model_id = model_id
         self.threshold = threshold
         self.max_length = max_length
+        self.device = device
         self._tokenizer: Any = None
         self._model: Any = None
 
@@ -260,6 +262,8 @@ class MiniCheckNLIModel:
             self._model = transformers.AutoModelForSeq2SeqLM.from_pretrained(
                 self.model_id, cache_dir=cache_dir, token=token, use_safetensors=False
             )
+            if self.device is not None:
+                self._model = self._model.to(self.device)
             self._model.eval()
         return self._tokenizer, self._model
 

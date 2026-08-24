@@ -12,7 +12,9 @@ dependencies = ["pydantic>=2.7,<3"]
 [project.optional-dependencies]
 benchmark = ["ir-datasets==0.5.11"]
 granite = [
+  "nltk>=3.8,<4",
   "peft>=0.13,<1",
+  "sentencepiece>=0.1.99,<0.3",
   "sentence-transformers>=3,<6",
   "torch>=2,<3",
   "transformers>=4.45,<5",

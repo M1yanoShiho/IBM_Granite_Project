@@ -29,6 +29,18 @@ venv/
 
 /.superpowers/
 /.reasonix/
+/.aris/
+
+# Runtime model artifacts live in HPC/model storage, never in Git.
+/models/
+/model-cache/
+/hf-cache/
+*.safetensors
+*.ckpt
+*.pt
+*.pth
+pytorch_model*.bin
+adapter_model*.bin
 
 # Held-out final test set (docs/hpc-run-log.md: RGB / HotpotQA / MuSiQue-Full are
 # never loaded during development). Cloned locally by mistake; keep it untracked.
