@@ -1,0 +1,34 @@
+{
+  "schema_version": "full-flow-g400-run-manifest-v1",
+  "stage": "G400",
+  "status": "COMPLETE",
+  "seed": 13,
+  "arms": [
+    "GR-C"
+  ],
+  "tasks": 2873,
+  "answerable_tasks": 1829,
+  "unsupported_tasks": 1044,
+  "formal": true,
+  "generations_sha256": "26e142d76cf494494b9d2306dedfe00e7e3c471aa075019ffc5830b59f530222",
+  "run_spec_sha256": "84b447cdbd5ea9445433113f1bfd23f265e9a20bcac292e1ebd50aedfcc6d1c4",
+  "errors": 0,
+  "trace_missing": 0,
+  "elapsed_seconds_this_invocation": 16739.0704153385,
+  "gold_loaded_at_runtime": false,
+  "reference_answers_loaded_at_runtime": false,
+  "sealed_or_heldout_read": false,
+  "utility_labels_started": false,
+  "environment": {
+    "python": "3.11.15 (main, Jun 11 2026, 15:20:16) [GCC 14.3.0]",
+    "platform": "Linux-5.15.0-139-generic-x86_64-with-glibc2.31",
+    "torch": "2.6.0+cu126",
+    "transformers": "4.57.6",
+    "peft": "0.20.0",
+    "cuda_available": true,
+    "cuda_runtime": "12.6",
+    "gpu_names": [
+      "NVIDIA RTX A4000"
+    ]
+  }
+}

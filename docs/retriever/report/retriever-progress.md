@@ -28,7 +28,7 @@ cannot verify that the evidence supports the claim, which stays a human job.
 | Decomposition? | **No on SciFact/2Wiki. On NQ it is a trade** — buys ~+1.2pp pool recall, costs top-rank precision, at N extra LLM calls per query. Worth it only if the downstream consumes pool depth | R4 Steps 3–6 |
 | If decomposing anyway | `include_original` **on, everywhere**. `fusion="best-rank"` only where the full-query ranking is already strong. Weighting the original arm never beats plain strong-bm25 | R4 Steps 2–4 |
 | Chunking | **Keep `word` (120/20).** The 2Wiki finding that 60×10 beats it by +2.2pp does **not** generalise: the same design on NQ puts the peak *at* 120 and 60×10 at **−4.65pp (p=0.0001)** — opposite sign, both significant. What does transfer is a rule about the corpus, not a number: **never set `chunk_size` below the corpus's native passage length**. dpr-w100 ships fixed 100-word passages, so 120 never splits one and 60 splits every one (chunk counts 1.000 vs 2.002 per document). Overlap remains irrelevant in 0–60. `section` keeps tables intact but its retrieval effect is **unmeasured** | R10, R7; ledger R14 (NQ, four points, paired, n=2000); ledger R15 (the threshold, with the chunk counts that fix it); **ledger R17 (holds on the shipped Hybrid RRF: +0.0386, p 0.0001)** |
-| If a chunk ends up smaller than the passage | **Do not reach for `max_selected` — it will not recover the loss.** Splitting separates the answer from the text matching the query, and the retriever ranks by query terms: 69.7% of the resulting misses have no answer-bearing chunk anywhere in the top-50 pool, and of the ones that do reach it only 30.6% sit within five ranks of the cut. The lever is aligning the retrieval unit with the passage, for which `materializer/source_parent.py` already holds a deterministic mapping | ledger R16 (NQ and 2Wiki, per-case classification of every conditional miss) |
+| If a chunk ends up smaller than the passage | **Do not reach for `max_selected` — it will not recover the loss.** Splitting separates the answer from the text matching the query, and the retriever ranks by query terms: at the shipped `top_k=50`, 69.7% of the resulting misses have no answer-bearing chunk anywhere in the pool, and of the ones that do reach it only 30.6% sit within five ranks of the cut. **That share is depth-bound, not absolute — re-read at `top_k=1000` it falls to 34.5%, and the split-passage class (`sibling`) becomes the majority at 53.8%, which is exactly what the lever below targets.** The lever is aligning the retrieval unit with the passage, for which `materializer/source_parent.py` already holds a deterministic mapping | ledger R16 (NQ and 2Wiki, per-case classification of every conditional miss); ledger R18 (the same 119 cases re-read at pool depth 1000) |
 | Scale | **Query cost still grows faster than the corpus** — 16× the corpus gave 32.7× the latency on real NQ questions, so the inverted index bought a constant factor, not better asymptotics. Memory per chunk *is* flat: ≈ **5.0 GB per million chunks** on NQ, ≈ 7.8 on our own Markdown | R9, ledger R13 |
 
 **Cautions on reading the table.** Most downstream or "system-level" numbers here were
@@ -52,6 +52,28 @@ Wikipedia prose, `yes` scores 5/155 because the extractive generator can never p
 the generator emits no verdict either way. Any 2Wiki system-level number quoted to another
 group carries that, diluting arm-to-arm deltas by roughly 11.7% without changing their sign
 (ledger R16). NQ is unaffected — its answers are entity spans.
+
+**Reading the p-values.** Every paired test here runs through
+`evidence_rag.evaluation.paired_metric.compare_paired` (sign-flip randomisation, 10 000 draws).
+**The estimator changed on 2026-08-11 (`ffe2d27`):** before that it was `extreme / iterations`
+and could return a literal `0.0000`; after it, a plus-one correction makes `0.0001` the floor.
+So entries dated before 08-11 print `p=0.0000` and entries after print `p=0.0001` **for the same
+event** — no permutation in 10 000 reached the observed extreme, i.e. `p < 1e-4`. They are not
+different strengths of evidence, and re-running an old entry under today's code turns its
+`0.0000` into `0.0001` without anything having moved.
+
+**Where the evidence lives.** `results/` and `runs/` are gitignored; the retrieval artifacts were
+pulled back file by file with `git add -f`, and 158 of 165 are in the repo, so most rows above can
+be recomputed from it. **Six things cannot**, and should be quoted as "evidence on bp1" rather
+than as repo-derivable: ledger R19's three fitted exponents (`results/r13-repeat/` was never
+committed); ledger R20's second round (`runs/_r20-rep1/` and `results/r20-pinned-commit.txt`,
+likewise never committed — its first round *is* in the repo and reproduces bit for bit); the
+memory-per-chunk figure behind the Scale row's **≈ 5.0 GB per million chunks**
+(`retriever-scaling-nq-inverted.json` stores only `peak_rss_mb`); ledger R18's shallowest-bearing
+rank (the committed dump carries `best_rank` only); the 8 × 3 benchmark matrix of R2, which has no
+per-case artifact — the NQ `strong-bm25` arm was later re-derived bit-identically, the rest was
+not; and R15's answer-length premise table, which needs the benchmark corpora under `data/`.
+
 
 ### Where to find what
 
@@ -633,11 +655,19 @@ it is a different claim from the one this section was built to make, and the sec
 promise — "what it actually buys" — is answered by that sentence rather than by the synthetic
 tables above.
 
-Two further readings. **The tail degrades faster than the mean** (p95 12.8 → 385.6 ms, 30×,
-against the median's 24×), so at 200k chunks p95 is already near 0.4 s per query and any
-mean-only report hides it. And **memory behaves oppositely and well**: bytes per chunk are flat
-across the same span (5245 → 4949, −5.6%), so per-chunk extrapolation is sound where latency
-extrapolation is not.
+Two further readings. **The tail degrades faster than the median** (p95 12.8 → 385.6 ms, 30×,
+against p50's 24.4×), so at 200k chunks p95 is already near 0.4 s per query and any mean-only
+report hides it. **This sentence said "faster than the mean" until 2026-08-18, and that did not
+hold on its own data** — the same row's mean is 3.375 → 110.376 = **32.7×**, *larger* than p95's
+30×, and the parenthetical was in fact comparing p50. Ledger R19 reproduced the pattern three
+times and found the two methods rank it oppositely: by fitted exponent p95 (1.281–1.302) beats
+mean (1.241–1.251), by endpoint ratio mean (32.1×) beats p95 (29.2×), because p95 has a knee at
+100k that lifts the fit and flattens the ratio. **Only "p95 degrades faster than p50" is safe to
+quote** — both methods agree on it and the exponent intervals do not overlap. Any comparison of
+p95 against the mean is method-dependent and must name which measure it used.
+
+And **memory behaves oppositely and well**: bytes per chunk are flat across the same span
+(5245 → 4949, −5.6%), so per-chunk extrapolation is sound where latency extrapolation is not.
 
 **A consequence worth acting on: the analyzer is now a cost decision, not only a quality one.**
 Stopword filtering removes precisely the highest-coverage terms, so it should benefit more from
@@ -816,7 +846,10 @@ or to the shared layer; they are listed because they bound what this module's nu
    R18 ran it anyway at `top_k=1000` and the depth answer is: **65.5% of the misses become
    visible within 1000, median rank 81** (q1 28, q3 162, max 625), with 41 still beyond 1000.
    Those ranks are **upper bounds** — the classifier reported the sibling's rank rather than the
-   shallowest answer-bearing rank, a defect R18 found and fixed with `shallowest_bearing_rank`.
+   shallowest answer-bearing rank. Ledger R18 reports a `shallowest_bearing_rank` re-read that
+   puts the median at **58** against the class-rank median of 81, but **the committed dump carries
+   `class` / `best_rank` only**, so that figure cannot be re-derived from this repo. The 81 quoted
+   above is the class-rank median, which can.
 
    Its larger result is a two-sided revision of R16, and both sides belong here. **R16's
    headline share does not survive**: "the loss happens before the pool" holds only at depth 50,
@@ -825,9 +858,15 @@ or to the shared layer; they are listed because they bound what this module's nu
    **53.8%**, and the fix R16 pointed at — aligning the retrieval unit with the passage, for
    which `materializer/source_parent.py` already holds the mapping — targets exactly that class.
    By class, the engineering reads: `sibling` 53.8% to passage alignment, deterministic and free
-   at query time; `retrieval` 34.5% out of reach of either lever; `other` 11.8% the only share a
-   reranker alone would address, which is why R18 concludes a reranker does not justify a new
-   line of work.
+   at query time; `retrieval` 34.5% out of reach of either lever; `other` 11.8% the share for
+   which a reranker is the *only* remedy. **That is not the reranker's ceiling, and ledger R18
+   forbids reading it as one:** reranking does not look at the class, only at whether the chunk is
+   in the pool at all, so its reach is the whole **65.5%** that is in-pool at depth 1000, `sibling`
+   included. The honest comparison is passage alignment at 53.8% — deterministic, no model, free at
+   query time — against a reranker ceiling of 65.5% that needs a model, needs to lift a
+   median-rank-58 chunk into the top 10, and holds only if `top_k` goes to 1000 as well (at the
+   shipped `top_k=50` it is 36/119 = **30.3%**). R18's conclusion that a reranker does not justify
+   a new line of work is unchanged — no class share moved — but it does not rest on 11.8%.
 4. **The second pathway for the split penalty.** R17 showed the penalty survives a retriever
    that needs no verbatim query terms, so query-term separation is not the whole mechanism. A
    candidate second path — a 60-word half being a thinner context for the embedding — was
@@ -903,17 +942,27 @@ or to the shared layer; they are listed because they bound what this module's nu
   now the default, failures are logged rather than swallowed, and the parse path honours
   `on_error` — which it previously ignored, so a single corrupt file used to abort a whole
   ingest. Ids moved to relative paths so recursion cannot silently collide them.
-- **Performance at larger corpus sizes:** **done** (R5, then R9). R5 measured the cost as linear
-  in corpus size with no sub-linear region — roughly 29 s/query at a million documents, measured
-  rather than guessed — and cut the per-query constant **5.27–5.40×** with bit-for-bit identical
-  output. R9 then built the inverted index R5 said was the only thing that could change the
-  asymptotics, **and corrected that premise**: it does not remove the linearity, it makes cost
-  proportional to the query's own postings, so the linearity survives exactly to the extent the
-  query asks for common terms. A consequence worth acting on came out of it — the analyzer is now
-  a cost decision as well as a quality one, with stopword filtering worth ~900× on prose queries.
-  Memory, which R5 flagged as unmeasured and then withdrew an estimate for, is now measured with
-  the right instrument: **~1.06 GB per million chunks**, and the inverted index turns out to use
-  ~6.3× *less* memory than the forward index it replaced, not more.
+- **Performance at larger corpus sizes:** **done** (R5, then R9) — **and corrected twice since,
+  both times against us. The figures below replace the ones this bullet carried until
+  2026-08-21**, which had gone stale on the same day they were written: the retractions of
+  2026-08-13 reached R9 and the recommendations table but not this section. R5 measured the cost
+  as linear in corpus size with no sub-linear region — ~29 s/query at a million documents,
+  **extrapolated from a measured-linear region that tops out at 5183 documents**, not measured
+  there — and cut the per-query constant **5.27–5.40×** with bit-for-bit identical output. R9 then
+  built the inverted index R5 said was the only thing that could change the asymptotics, and on
+  synthetic corpora corrected that premise: cost tracks the query's own postings rather than the
+  corpus. **Ledger R13 corrected it again on real NQ questions, and further: 16× the corpus gives
+  32.7× the mean latency — not sub-linear, not even linear.** What the index bought is a constant
+  factor, not better asymptotics, and ledger R19's three fitted exponents (**1.145–1.302**, three
+  non-overlapping intervals) put that above run-to-run variance. The analyzer is still a cost
+  decision as well as a quality one, but **stopword filtering is worth 1.8–3.1× on real text — the
+  "~900×" this bullet used to quote came from synthetic prose and is retracted** (R9). Memory,
+  which R5 flagged as unmeasured and then withdrew an estimate for, is now measured with an
+  instrument that can see it (`tracemalloc` retained bytes, not peak RSS): **≈ 7.8 GB per million
+  chunks** on real prose and ≈ 5.0 on NQ, with the inverted index saving **1.6×** over the forward
+  index it replaced. **The ~1.06 GB and ~6.3× this bullet used to quote were the synthetic corpus
+  talking and are retracted** — a hand-tuned vocabulary gets distinct-terms-per-chunk wrong (13.6
+  against real prose's 95.3), which flatters postings specifically.
 
 ---
 
@@ -1183,10 +1232,19 @@ authoritative pre-registrations live in `docs/hpc-run-log.md`; this list only po
    significantly at all four sizes, which rules out the "probably a fluke" outcome and makes it
    robust within NQ. **The successor experiment is on question form, not scale** (single-hop
    factoid vs claim verification vs multi-hop); sweeping size further is wasted machine time.
-5. **Confirm R9's latency and memory figures on a real corpus.** Both harnesses take a manifest:
-   `scripts/retriever_scaling.py --manifest …` and `scripts/retriever_memory.py --manifest …`.
-   Until then those numbers size the effect and identify the mechanism, and are not SciFact or NQ
-   figures.
+5. ~~**Confirm R9's latency and memory figures on a real corpus.**~~ **Latency: answered
+   2026-08-13, and hardened 2026-08-18.** Ledger R13 ran `scripts/retriever_scaling.py --manifest
+   …` on real NQ questions across a 16× span and the answer was unfavourable — worse than linear,
+   so R9's asymptotic claim was withdrawn rather than confirmed — and ledger R19's three repeats
+   put the exponents at 1.145–1.302 with non-overlapping intervals. **Memory is the half still
+   open, and it is narrower than it looks.** R13/R19 do give an NQ figure (≈ 5.0 GB per million
+   chunks, flat across the span and reproduced bit for bit three times), but it is
+   `index_bytes_per_chunk` from the scaling harness — a different quantity from the ≈ 7.8 GB that
+   `scripts/retriever_memory.py` measures as retained bytes, and `results/r13-repeat/` was never
+   committed, so it cannot be recomputed from this repo. The 7.8 still rests on 121 of our own
+   Markdown documents rather than SciFact or NQ, and since the synthetic-to-real move already
+   changed that answer ~7×, dataset-to-dataset variation should be assumed material until
+   `scripts/retriever_memory.py --manifest …` runs on a benchmark corpus.
 
 ### Waiting on another group
 

@@ -1,0 +1,392 @@
+{
+  "schema_version": "full-flow-s100-score-report-v1",
+  "stage": "S100",
+  "status": "S100_PILOT_COMPLETE",
+  "s110_recommendation": "S110_READY",
+  "questions": 100,
+  "tasks": 1100,
+  "labels": 1000,
+  "configs": [
+    "GQ13",
+    "GQ42",
+    "GQ73"
+  ],
+  "aggregate": {
+    "all": {
+      "GQ13": {
+        "tasks": 1100,
+        "answer_match": 0.6418181818181818,
+        "correct_and_cited": 0.5836363636363636,
+        "coverage": 0.8618181818181818,
+        "draft_invalid_citation": 0.0,
+        "final_empty": 0.13818181818181818,
+        "minicheck_citation_precision": 0.7950000000000002,
+        "minicheck_citation_recall": 0.7942424242424243,
+        "minicheck_citations": 1.3690909090909091,
+        "minicheck_sentences": 1.3809090909090909,
+        "missing_trace": 0.0,
+        "runtime_error": 0.0
+      },
+      "GQ42": {
+        "tasks": 1100,
+        "answer_match": 0.6409090909090909,
+        "correct_and_cited": 0.59,
+        "coverage": 0.8736363636363637,
+        "draft_invalid_citation": 0.0,
+        "final_empty": 0.12636363636363637,
+        "minicheck_citation_precision": 0.815909090909091,
+        "minicheck_citation_recall": 0.8137878787878788,
+        "minicheck_citations": 1.44,
+        "minicheck_sentences": 1.45,
+        "missing_trace": 0.0,
+        "runtime_error": 0.0
+      },
+      "GQ73": {
+        "tasks": 1100,
+        "answer_match": 0.5845454545454546,
+        "correct_and_cited": 0.5336363636363637,
+        "coverage": 0.79,
+        "draft_invalid_citation": 0.0,
+        "final_empty": 0.21,
+        "minicheck_citation_precision": 0.7336363636363636,
+        "minicheck_citation_recall": 0.7327272727272728,
+        "minicheck_citations": 1.2554545454545454,
+        "minicheck_sentences": 1.26,
+        "missing_trace": 0.0,
+        "runtime_error": 0.0
+      }
+    },
+    "full": {
+      "GQ13": {
+        "tasks": 100,
+        "answer_match": 0.7,
+        "correct_and_cited": 0.64,
+        "coverage": 0.95,
+        "draft_invalid_citation": 0.0,
+        "final_empty": 0.05,
+        "minicheck_citation_precision": 0.8883333333333334,
+        "minicheck_citation_recall": 0.8883333333333334,
+        "minicheck_citations": 1.58,
+        "minicheck_sentences": 1.58,
+        "missing_trace": 0.0,
+        "runtime_error": 0.0
+      },
+      "GQ42": {
+        "tasks": 100,
+        "answer_match": 0.69,
+        "correct_and_cited": 0.64,
+        "coverage": 0.95,
+        "draft_invalid_citation": 0.0,
+        "final_empty": 0.05,
+        "minicheck_citation_precision": 0.8983333333333334,
+        "minicheck_citation_recall": 0.8983333333333334,
+        "minicheck_citations": 1.63,
+        "minicheck_sentences": 1.63,
+        "missing_trace": 0.0,
+        "runtime_error": 0.0
+      },
+      "GQ73": {
+        "tasks": 100,
+        "answer_match": 0.64,
+        "correct_and_cited": 0.59,
+        "coverage": 0.87,
+        "draft_invalid_citation": 0.0,
+        "final_empty": 0.13,
+        "minicheck_citation_precision": 0.8183333333333335,
+        "minicheck_citation_recall": 0.8183333333333335,
+        "minicheck_citations": 1.46,
+        "minicheck_sentences": 1.46,
+        "missing_trace": 0.0,
+        "runtime_error": 0.0
+      }
+    },
+    "leave_one_out": {
+      "GQ13": {
+        "tasks": 1000,
+        "answer_match": 0.636,
+        "correct_and_cited": 0.578,
+        "coverage": 0.853,
+        "draft_invalid_citation": 0.0,
+        "final_empty": 0.147,
+        "minicheck_citation_precision": 0.7856666666666667,
+        "minicheck_citation_recall": 0.7848333333333334,
+        "minicheck_citations": 1.348,
+        "minicheck_sentences": 1.361,
+        "missing_trace": 0.0,
+        "runtime_error": 0.0
+      },
+      "GQ42": {
+        "tasks": 1000,
+        "answer_match": 0.636,
+        "correct_and_cited": 0.585,
+        "coverage": 0.866,
+        "draft_invalid_citation": 0.0,
+        "final_empty": 0.134,
+        "minicheck_citation_precision": 0.8076666666666668,
+        "minicheck_citation_recall": 0.8053333333333333,
+        "minicheck_citations": 1.421,
+        "minicheck_sentences": 1.432,
+        "missing_trace": 0.0,
+        "runtime_error": 0.0
+      },
+      "GQ73": {
+        "tasks": 1000,
+        "answer_match": 0.579,
+        "correct_and_cited": 0.528,
+        "coverage": 0.782,
+        "draft_invalid_citation": 0.0,
+        "final_empty": 0.218,
+        "minicheck_citation_precision": 0.7251666666666667,
+        "minicheck_citation_recall": 0.7241666666666667,
+        "minicheck_citations": 1.235,
+        "minicheck_sentences": 1.24,
+        "missing_trace": 0.0,
+        "runtime_error": 0.0
+      }
+    },
+    "dataset:2wiki": {
+      "GQ13": {
+        "tasks": 550,
+        "answer_match": 0.3381818181818182,
+        "correct_and_cited": 0.3236363636363636,
+        "coverage": 0.7509090909090909,
+        "draft_invalid_citation": 0.0,
+        "final_empty": 0.24909090909090909,
+        "minicheck_citation_precision": 0.7336363636363636,
+        "minicheck_citation_recall": 0.7321212121212122,
+        "minicheck_citations": 1.778181818181818,
+        "minicheck_sentences": 1.789090909090909,
+        "missing_trace": 0.0,
+        "runtime_error": 0.0
+      },
+      "GQ42": {
+        "tasks": 550,
+        "answer_match": 0.33636363636363636,
+        "correct_and_cited": 0.33636363636363636,
+        "coverage": 0.7727272727272727,
+        "draft_invalid_citation": 0.0,
+        "final_empty": 0.22727272727272727,
+        "minicheck_citation_precision": 0.77,
+        "minicheck_citation_recall": 0.7657575757575757,
+        "minicheck_citations": 1.9145454545454546,
+        "minicheck_sentences": 1.9254545454545455,
+        "missing_trace": 0.0,
+        "runtime_error": 0.0
+      },
+      "GQ73": {
+        "tasks": 550,
+        "answer_match": 0.22363636363636363,
+        "correct_and_cited": 0.22363636363636363,
+        "coverage": 0.610909090909091,
+        "draft_invalid_citation": 0.0,
+        "final_empty": 0.3890909090909091,
+        "minicheck_citation_precision": 0.6072727272727273,
+        "minicheck_citation_recall": 0.6054545454545455,
+        "minicheck_citations": 1.5472727272727274,
+        "minicheck_sentences": 1.550909090909091,
+        "missing_trace": 0.0,
+        "runtime_error": 0.0
+      }
+    },
+    "dataset:niah": {
+      "GQ13": {
+        "tasks": 550,
+        "answer_match": 0.9454545454545454,
+        "correct_and_cited": 0.8436363636363636,
+        "coverage": 0.9727272727272728,
+        "draft_invalid_citation": 0.0,
+        "final_empty": 0.02727272727272727,
+        "minicheck_citation_precision": 0.8563636363636363,
+        "minicheck_citation_recall": 0.8563636363636363,
+        "minicheck_citations": 0.96,
+        "minicheck_sentences": 0.9727272727272728,
+        "missing_trace": 0.0,
+        "runtime_error": 0.0
+      },
+      "GQ42": {
+        "tasks": 550,
+        "answer_match": 0.9454545454545454,
+        "correct_and_cited": 0.8436363636363636,
+        "coverage": 0.9745454545454545,
+        "draft_invalid_citation": 0.0,
+        "final_empty": 0.025454545454545455,
+        "minicheck_citation_precision": 0.8618181818181818,
+        "minicheck_citation_recall": 0.8618181818181818,
+        "minicheck_citations": 0.9654545454545455,
+        "minicheck_sentences": 0.9745454545454545,
+        "missing_trace": 0.0,
+        "runtime_error": 0.0
+      },
+      "GQ73": {
+        "tasks": 550,
+        "answer_match": 0.9454545454545454,
+        "correct_and_cited": 0.8436363636363636,
+        "coverage": 0.9690909090909091,
+        "draft_invalid_citation": 0.0,
+        "final_empty": 0.03090909090909091,
+        "minicheck_citation_precision": 0.86,
+        "minicheck_citation_recall": 0.86,
+        "minicheck_citations": 0.9636363636363636,
+        "minicheck_sentences": 0.9690909090909091,
+        "missing_trace": 0.0,
+        "runtime_error": 0.0
+      }
+    }
+  },
+  "label_summary": {
+    "total_labels": 1000,
+    "label_counts": {
+      "MUST_KEEP": 90,
+      "SAFE_DROP": 815,
+      "UNCERTAIN": 63,
+      "NEUTRAL": 32
+    },
+    "label_counts_by_dataset": {
+      "2wiki": {
+        "MUST_KEEP": 66,
+        "SAFE_DROP": 363,
+        "UNCERTAIN": 63,
+        "NEUTRAL": 8
+      },
+      "niah": {
+        "NEUTRAL": 24,
+        "SAFE_DROP": 452,
+        "MUST_KEEP": 24
+      }
+    },
+    "label_counts_by_role": {
+      "support": {
+        "MUST_KEEP": 90,
+        "UNCERTAIN": 26,
+        "NEUTRAL": 32,
+        "SAFE_DROP": 2
+      },
+      "distractor": {
+        "SAFE_DROP": 813,
+        "UNCERTAIN": 37
+      }
+    },
+    "label_counts_by_rank_bucket": {
+      "rank_1_2": {
+        "MUST_KEEP": 81,
+        "UNCERTAIN": 23,
+        "SAFE_DROP": 68,
+        "NEUTRAL": 28
+      },
+      "rank_3_5": {
+        "SAFE_DROP": 273,
+        "NEUTRAL": 3,
+        "UNCERTAIN": 16,
+        "MUST_KEEP": 8
+      },
+      "rank_6_10": {
+        "SAFE_DROP": 474,
+        "UNCERTAIN": 24,
+        "NEUTRAL": 1,
+        "MUST_KEEP": 1
+      }
+    },
+    "stable_label_rate": 0.937,
+    "utility_label_rate": 0.905,
+    "uncertain_rate": 0.063,
+    "utility_labels": 905,
+    "datasets_with_utility": [
+      "2wiki",
+      "niah"
+    ]
+  },
+  "incomplete_questions": [],
+  "technical_failures": [],
+  "candidate_manifests": {
+    "seed13": {
+      "schema_version": "full-flow-s100-run-manifest-v1",
+      "stage": "S100",
+      "status": "COMPLETE",
+      "seed": 13,
+      "arm": "GQ",
+      "formal": true,
+      "tasks": 1100,
+      "generations_sha256": "bf95a4caccdc404f5bd9429a7c507fc14600917a3f0f69a4223ff284982348e3",
+      "run_spec_sha256": "7e0511f8d90067dba7bb18e8b369f844a9fad9a9cfe677769bae2fc0b7805e10",
+      "errors": 0,
+      "trace_missing": 0,
+      "elapsed_seconds_this_invocation": 12009.049380607903,
+      "gold_loaded_at_runtime": false,
+      "reference_answers_loaded_at_runtime": false,
+      "support_provenance_loaded_at_runtime": false,
+      "sealed_or_heldout_read": false,
+      "selector_training_started": false,
+      "full_system_started": false
+    },
+    "seed42": {
+      "schema_version": "full-flow-s100-run-manifest-v1",
+      "stage": "S100",
+      "status": "COMPLETE",
+      "seed": 42,
+      "arm": "GQ",
+      "formal": true,
+      "tasks": 1100,
+      "generations_sha256": "be9fecb31f33e5c90d3f566ab9b523c5f8f47cabf5af7b92f058e16cfa2bf015",
+      "run_spec_sha256": "6b36a1c8a78bebba87daa03d14877b9cf0079bc2d168145c2e81042af83fe807",
+      "errors": 0,
+      "trace_missing": 0,
+      "elapsed_seconds_this_invocation": 13922.799694102257,
+      "gold_loaded_at_runtime": false,
+      "reference_answers_loaded_at_runtime": false,
+      "support_provenance_loaded_at_runtime": false,
+      "sealed_or_heldout_read": false,
+      "selector_training_started": false,
+      "full_system_started": false
+    },
+    "seed73": {
+      "schema_version": "full-flow-s100-run-manifest-v1",
+      "stage": "S100",
+      "status": "COMPLETE",
+      "seed": 73,
+      "arm": "GQ",
+      "formal": true,
+      "tasks": 1100,
+      "generations_sha256": "eb86ee61e6bca4d63d7266008b9e647f55293a658c1850546fc5cf94920f0ef9",
+      "run_spec_sha256": "cd987dd8ed4b69a548b4687c03e9131e554d0fe86371111888a5b897ac7bfa7f",
+      "errors": 0,
+      "trace_missing": 0,
+      "elapsed_seconds_this_invocation": 10285.586731340736,
+      "gold_loaded_at_runtime": false,
+      "reference_answers_loaded_at_runtime": false,
+      "support_provenance_loaded_at_runtime": false,
+      "sealed_or_heldout_read": false,
+      "selector_training_started": false,
+      "full_system_started": false
+    }
+  },
+  "continuation_rule": {
+    "purpose": "minimum pilot signal floor, not a final-success target",
+    "min_utility_labels_for_s110": 20,
+    "max_uncertain_rate_for_s110": 0.5,
+    "min_datasets_with_utility_for_s110": 2
+  },
+  "citation_judge": {
+    "model": "MiniCheck-Flan-T5-Large",
+    "model_id": "/scratch/fl25387/IBM_Granite_Project_latest/model-cache/models--lytang--MiniCheck-Flan-T5-Large/snapshots/96eafd01cee2d16cf81aaa2fb226b14f422a37b3",
+    "device": "cuda:0",
+    "unique_judge_calls": 276,
+    "production_true_excluded_from_judging": true
+  },
+  "source_sha256": {
+    "script": "f8c8e755b7215db609e8757eac6c66cb724d8e2d88585af2129f23ba4d7b5cc2",
+    "tasks": "6a96e9d0cec1a6ccba2e8910a301cb27dc1ce21a675bdfdd3e8da722964ae17e",
+    "references": "1ddc41b8fd8d4bd9e8599d7fb3a1f06acb4fbbe56264c91d7b5bbe75135f2d9b",
+    "seed13_generations": "bf95a4caccdc404f5bd9429a7c507fc14600917a3f0f69a4223ff284982348e3",
+    "seed42_generations": "be9fecb31f33e5c90d3f566ab9b523c5f8f47cabf5af7b92f058e16cfa2bf015",
+    "seed73_generations": "eb86ee61e6bca4d63d7266008b9e647f55293a658c1850546fc5cf94920f0ef9"
+  },
+  "boundaries": {
+    "generation_runtime_reference_answers_loaded": false,
+    "generation_runtime_support_provenance_loaded": false,
+    "score_uses_references_after_generation": true,
+    "sealed_or_heldout_read": false,
+    "selector_training_started": false,
+    "full_system_started": false,
+    "gq_changed": false
+  }
+}

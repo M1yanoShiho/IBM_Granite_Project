@@ -1,0 +1,81 @@
+{
+  "schema_version": "full-flow-i090-fast-path-system-decision-manifest-v1",
+  "stage": "I090",
+  "created_utc": "2026-08-21T19:45:11Z",
+  "status": "COMPLETE",
+  "decision": "FAST_PATH_SYSTEM_CANDIDATE_SELECTED",
+  "system_candidate_id": "SystemF-fast-S0-GQ-2026-08-21",
+  "heldout_read": false,
+  "sealed600_read": false,
+  "s110_continues_background": true,
+  "system_identity": {
+    "retriever": {
+      "role": "frozen Hybrid RRF/default",
+      "g000_identity_sha256": "67333c6f3fcf6567756b382048961bc150da0ee26af4f9cecc59f58f30b5d78d"
+    },
+    "selector": {
+      "id": "S0",
+      "type": "TopK keep-all",
+      "learned_selector_contribution_claim": false
+    },
+    "generator": {
+      "id": "GQ-GR-C-THREE-SEED-FAMILY-2026-08-20",
+      "source_stage": "G430",
+      "seed_policy": "three_seed_frozen_family_no_best_seed_selection",
+      "seeds": [
+        13,
+        42,
+        73
+      ]
+    }
+  },
+  "source_artifacts": {
+    "g430_gq_freeze_manifest": {
+      "path": "docs/full-flow/experiments/03_generator_grounding_repair_2026-08-18/artifacts/G430/G430_GQ_FREEZE_MANIFEST.json",
+      "sha256": "e254f929d1fd4889dba3eb7d73cc02693a4925515f2727b68417fe65f8e3f9aa"
+    },
+    "g420_score_report": {
+      "path": "docs/full-flow/experiments/03_generator_grounding_repair_2026-08-18/artifacts/G420/G420_FORMAL_SCORE_REPORT.json",
+      "sha256": "bfeb5ce3a00b34c90bdb70cfa4abbc4f9ee1d0c7e8af71f7b2c70cbddc6e7e5d"
+    },
+    "s090_triage_manifest": {
+      "path": "docs/full-flow/experiments/03_generator_grounding_repair_2026-08-18/artifacts/S090/early_full_flow_triage_manifest.json",
+      "sha256": "0d955658018f9408ce8e7c665a4672494be0209bc28819140dc151caf5d3a80a"
+    }
+  },
+  "development_evidence": {
+    "g420_topk_gq_vs_topk_g0": {
+      "g400_niah_k_topk": {
+        "correct_and_cited_delta": 0.061344158773116816,
+        "ci95_low": 0.02629233511586453,
+        "ci95_high": 0.0989505247376312,
+        "queries": 739,
+        "components": 534
+      },
+      "g410_2wiki_all": {
+        "correct_and_cited_delta": 0.3964912280701755,
+        "ci95_low": 0.29967248908296936,
+        "ci95_high": 0.49348739495798317,
+        "queries": 95,
+        "components": 93
+      }
+    },
+    "s090_legacy_sl_same_gq_check": {
+      "matched_niah_queries": 218,
+      "legacy_sl_gq_minus_topk_gq_correct_and_cited": -0.00458715596330275,
+      "legacy_sl_gq_minus_topk_gq_answer_match": -0.010703363914373088,
+      "legacy_selector_2wiki_changed_rows": 0
+    }
+  },
+  "reporting_rules": {
+    "main_comparison": "D-A where D equals TopK+GQ under SQ=S0",
+    "selector_net_effect": "not applicable for fast path",
+    "allowed_claim": "Generator/GQ-centered system improvement on development data",
+    "disallowed_claims": [
+      "Utility Selector improves the system",
+      "Legacy Selector improves same-GQ end-to-end performance",
+      "held-out performance is known"
+    ]
+  },
+  "next_stage": "development/baseline packaging for report; held-out H requires separate authorization"
+}

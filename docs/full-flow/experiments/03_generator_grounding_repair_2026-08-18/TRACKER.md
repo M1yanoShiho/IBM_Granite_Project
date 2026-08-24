@@ -2,11 +2,19 @@
 
 **日期：** 2026-08-18
 **计划：** [PLAN.md](PLAN.md)
-**当前状态：** `G400 IMPLEMENTATION PASS / FORMAL G400 READY / HELD-OUT BLOCKED`
+**当前状态：** `I226 WORKSPACE CLEANUP + REPORTS ORGANIZED / SYSTEMF-FAST FROZEN / HELD-OUT AUTHORIZATION REQUIRED / S110 PAUSED`
 
-用户已确认本路线的边界和协同顺序。G210 数据冻结判定已失败；用户已进一步授权按积极信号原则修订计划。G215 将失败解释为“原数据冻结失败但路线可修”；G200R2 已完成 answer-alias-preserving materialization；G210R2 已完成 structural、TRUE 和 pre-sample finalize，自动数据门通过；G212 length gate 发现唯一 overlength train group；G214 已成组排除该 train group 并保持数据门通过；G212R length gate 已通过；G212M 固定 100 条 sample review/adjudication 为 92 PASS / 8 FAIL / 0 UNCERTAIN；G216 已排除失败样本对应 11 个 case，预冻结数据门仍通过；G212R2 length gate 已通过；G212M2 新固定 100 条 sample 仍为 92 PASS / 8 FAIL / 0 UNCERTAIN；G217 已把判定措辞改为中性 sample review/adjudication；G218 已完成系统性 target 修复、structural/TRUE 和 finalize，自动数据门仍通过；G212R3 length gate 已通过并生成新固定 100 条 sample；G212M3 sample review/adjudication 为 91 PASS / 9 FAIL / 0 UNCERTAIN；G219 controlled target repair 在 finalize 失败，2Wiki model-val 为 94，低于当前最低 100；G220 conservative filter 通过 pre-sample gates，2Wiki model-val 为 99；G212R4 length gate 已通过并生成新固定 100 条 sample；G212M4 sample review/adjudication 为 90 PASS / 10 FAIL / 0 UNCERTAIN；G221 targeted sample-failure repair 通过 pre-sample gates，2Wiki model-val 为 96；G212R5 length gate 已通过并生成新固定 100 条 sample；G212M5 sample review/adjudication 为 97 PASS / 3 FAIL / 0 UNCERTAIN；G222 已把该结果判为 controlled continuation，不是 clean freeze；G223 已隔离剩余失败并通过 controlled continuation gate；G300 已完成训练入口实现、长度审计和 1-group smoke；G310 已完成正式 seed13 screen 并选择 `GR-C`；G320 已冻结唯一训练配方 `GR-C`；G330 已完成 seeds 13/42/73 三 seed fit；G331 已把后续硬门解释修订为技术有效、职责可用、强结论、受控继续四类判定；G400 implementation/smoke 已完成，runner 和三 seed 接线通过。仍不允许读取 held-out 或启动 Selector utility generation；下一步为正式 G400 locked NIAH qualification。
+用户已确认本路线的边界和协同顺序，并进一步授权按积极信号与截止日期优先原则调整执行。G210 数据冻结判定已失败；G215 将失败解释为“原数据冻结失败但路线可修”；G200R2 已完成 answer-alias-preserving materialization；G210R2 已完成 structural、TRUE 和 pre-sample finalize，自动数据门通过；G212 length gate 发现唯一 overlength train group；G214 已成组排除该 train group 并保持数据门通过；G212R length gate 已通过；G212M 固定 100 条 sample review/adjudication 为 92 PASS / 8 FAIL / 0 UNCERTAIN；G216 已排除失败样本对应 11 个 case，预冻结数据门仍通过；G212R2 length gate 已通过；G212M2 新固定 100 条 sample 仍为 92 PASS / 8 FAIL / 0 UNCERTAIN；G217 已把判定措辞改为中性 sample review/adjudication；G218 已完成系统性 target 修复、structural/TRUE 和 finalize，自动数据门仍通过；G212R3 length gate 已通过并生成新固定 100 条 sample；G212M3 sample review/adjudication 为 91 PASS / 9 FAIL / 0 UNCERTAIN；G219 controlled target repair 在 finalize 失败，2Wiki model-val 为 94，低于当前最低 100；G220 conservative filter 通过 pre-sample gates，2Wiki model-val 为 99；G212R4 length gate 已通过并生成新固定 100 条 sample；G212M4 sample review/adjudication 为 90 PASS / 10 FAIL / 0 UNCERTAIN；G221 targeted sample-failure repair 通过 pre-sample gates，2Wiki model-val 为 96；G212R5 length gate 已通过并生成新固定 100 条 sample；G212M5 sample review/adjudication 为 97 PASS / 3 FAIL / 0 UNCERTAIN；G222 已把该结果判为 controlled continuation，不是 clean freeze；G223 已隔离剩余失败并通过 controlled continuation gate；G300 已完成训练入口实现、长度审计和 1-group smoke；G310 已完成正式 seed13 screen 并选择 `GR-C`；G320 已冻结唯一训练配方 `GR-C`；G330 已完成 seeds 13/42/73 三 seed fit；G331 已把后续硬门解释修订为技术有效、职责可用、强结论、受控继续四类判定；G400 implementation/smoke 已完成，runner 和三 seed 接线通过；G400 formal locked NIAH qualification 已完成并通过职责门，状态为 `G400_NIAH_RESPONSIBILITY_PASS`；G410 implementation/smoke 已完成，2Wiki no-answer task packet、三 seed smoke 和 subset score smoke 均通过；G410 formal 2Wiki cross-data qualification 已完成并通过职责门，状态为 `G410_CROSS_DATA_RESPONSIBILITY_PASS`；G420 combined Generator gate/statistics 已完成，状态为 `G420_NEW_GENERATOR_QUALIFIED_G430_READY`，teacher recommendation 为 `FREEZE_NEW_GRC_IN_G430`；G430 已冻结新的 `GR-C` 三 seed 教师家族为 GQ，服务器实体 hash 已核对一致；S100 implementation/smoke 已完成，prepare/run/score 接线和三 seed小规模真实生成均通过；S100 formal 已完成 100 题 utility pilot，评分产出 1,000 条 utility labels，其中 905 条为可用 utility labels，状态为 `S100_PILOT_COMPLETE` 且建议 `S110_READY`；S090 early full-flow triage 已完成，现有证据支持 fast-path `TopK+GQ` 先进入完整开发评估；I090 已选择 `SystemF-fast-S0-GQ-2026-08-21` 为当前主系统候选，Utility Selector 改为后台增强路线；I100 已完成 fast-path input reuse，复用已 hash 绑定的 F000/A002/B100/G400/G410/G420/G430 开发输入与结果，不重新启动耗时 Retriever 全量计算；I200 已完成 fast-path development comparison package，D=B=TopK+GQ，主开发信号为 NIAH +6.13pp、2Wiki +39.65pp、unsupported 无依据回答约 30.08% -> 0.13%。仍不允许读取 held-out；下一步为 I210 fast-path responsibility gate，同时 S110 formal 后台继续。
 
 ## 阶段 G：Generator
+
+最新补充：I210 fast-path responsibility gate 已通过，允许进入 I220 SystemF-fast freeze；仍不允许读取 held-out，S110 formal 继续作为后台可选增强。
+
+最新补充：I220 SystemF-fast freeze 已完成，冻结 `SystemF-fast-S0-GQ-2026-08-21`；下一步 H100 held-out 必须等待用户单独授权。
+
+最新补充：I225 current state/artifact index 已建立；先整理当前主线、暂停 S110、历史证据和无关 dirty 文件，再讨论下一步实验计划。
+
+最新补充：I226 workspace cleanup 已完成；按用户更正，presentation 作为团队记录保留，清理范围限定为实验侧零散 scratch 文件；路线顶层已整理为 4 个入口文件，详细阶段报告统一移入 `reports/`。
 
 | ID | 阶段 | 目的 | 必需产物 | 状态 |
 |---|---|---|---|---|
@@ -48,31 +56,35 @@
 | G320 | Recipe freeze | 按 maximin 冻结唯一 Generator 配方 | recipe、tie-break trace | COMPLETE / RECIPE_FROZEN GR-C |
 | G330 | Three-seed fit | 唯一配方训练 seeds 13/42/73 | adapters、training manifests | COMPLETE / THREE_SEED_FIT GR-C |
 | G331 | Continuation gate amendment | 按积极信号原则修订后续门槛解释，避免把未达单一数字门等同路线失败 | amendment report、decision manifest | COMPLETE / PASS |
-| G400 | Locked NIAH qualification | 生成 NIAH full/stress/unsupported | runner、smoke、generations、answer/citation report | IMPLEMENTATION PASS / FORMAL READY |
-| G410 | Cross-data qualification | 生成 2Wiki 和已揭示 citation regression | per-dataset outputs | READY AFTER G400 |
-| G420 | Generator gate | 技术门、职责门、tripwire 与强结论分开判定 | statistics、gate report | BLOCKED BY G400/G410 |
-| G430 | Teacher freeze | 新候选通过则 GQ=new；否则 GQ=G0 fallback | teacher manifest | BLOCKED BY G420 |
+| G400 | Locked NIAH qualification | 生成 NIAH full/stress/unsupported | runner、smoke、generations、answer/citation report | COMPLETE / RESPONSIBILITY PASS |
+| G410 | Cross-data qualification | 生成 2Wiki 和已揭示 citation regression | per-dataset outputs | FORMAL PASS / COMPLETE |
+| G420 | Generator gate | 技术门、职责门、tripwire 与强结论分开判定 | statistics、gate report | FORMAL PASS / COMPLETE |
+| G430 | Teacher freeze | 新候选通过则 GQ=new；否则 GQ=G0 fallback | teacher manifest | COMPLETE |
 
 ## 阶段 S：Utility Selector
 
 | ID | 阶段 | 目的 | 必需产物 | 状态 |
 |---|---|---|---|---|
-| S100 | Utility pilot | 用冻结 GQ 做 100 题 full/leave-one-out 一致性检查 | pilot labels、budget report | BLOCKED BY G430 |
-| S110 | Utility materialization | 扩展 NIAH/2Wiki MUST_KEEP/SAFE_DROP/NEUTRAL | utility dataset、manifest | BLOCKED BY S100 PASS |
-| S200 | Utility implementation | legacy safety + generator utility，cap 保持 2 | code、tests、smoke | BLOCKED BY S110 |
+| S100 | Utility pilot | 用冻结 GQ 做 100 题 full/leave-one-out 一致性检查 | pilot labels、budget report | FORMAL COMPLETE / S110_READY |
+| S090 | Early full-flow triage | 复用 G400/G410/L003 判断 GQ-only 是否应先进入系统开发 | report、machine manifest | COMPLETE / FAST_GQ_SYSTEM_READY |
+| S110 | Utility materialization | 扩展 NIAH/2Wiki MUST_KEEP/SAFE_DROP/NEUTRAL | utility dataset、manifest | RUNNING BACKGROUND |
+| S200 | Utility implementation | legacy safety + generator utility，cap 保持 2 | code、tests、smoke | OPTIONAL / AFTER S110 |
 | S210 | Seed13 screen | 只用 model-val 冻结唯一 utility 配方/阈值 | screen report、recipe | BLOCKED BY S200 |
 | S220 | Three-seed fit | 训练/复现 SU seeds 13/42/73 | checkpoints、manifests | BLOCKED BY S210 |
 | S300 | Selector qualification | 同一 GQ 下比较 TopK、SL、SU | evidence/answer/citation gate report | BLOCKED BY S220 |
-| S310 | Selector freeze | 主目标 SQ=SU；仅 SL 单独通过时 SQ=SL fallback；否则 STOP | selector manifest 或 no-candidate report | BLOCKED BY S300 |
+| S310 | Selector freeze | 主目标 SQ=SU；SL/SU 无净作用时允许 SQ=S0 fast path，但不声称 Selector 贡献 | selector manifest 或 no-candidate report | FAST PATH SQ=S0 READY / UTILITY OPTIONAL |
 
 ## 阶段 I/H：完整系统
 
 | ID | 阶段 | 目的 | 必需产物 | 状态 |
 |---|---|---|---|---|
-| I100 | Retriever input freeze | 从真实 frozen Retriever 入口产生共同候选 | pool manifest、visibility report | BLOCKED BY S310 SQ |
-| I200 | Locked full-flow dev | A=TopK+G0、B=TopK+GQ、C=SL+GQ、D=SQ+GQ；重复臂复用 | generations、scores | BLOCKED BY I100 |
-| I210 | System responsibility gate | 检查 D-A 总作用、D-B Selector 净作用和安全 | gate report | BLOCKED BY I200 |
-| I220 | System freeze | 冻结 Retriever+SQ+GQ 为 SystemF | SystemF manifest、all hashes | BLOCKED BY I210 PASS |
+| I100 | Fast-path input freeze/reuse | 复用已冻结 F000/A002/B100/G400/G410/G420/G430 开发输入与结果，不重跑耗时 Retriever | report、machine manifest | COMPLETE / FAST-PATH INPUT REUSE |
+| I090 | Fast-path system decision | 选择 SQ=S0 + GQ 作为截止日期主系统候选，不声称 Selector 贡献 | report、machine manifest | COMPLETE / SYSTEM CANDIDATE SELECTED |
+| I200 | Locked full-flow dev | A=TopK+G0、B=TopK+GQ、C=SL+GQ diagnostic、D=SQ+GQ；SQ=S0 时 D=B 复用 | report、machine manifest | COMPLETE / FAST-PATH DEV PASS |
+| I210 | System responsibility gate | 检查 D-A 总作用、D-B Selector 净作用和安全；SQ=S0 时不要求 Selector 净作用 | gate report、machine manifest | PASS / SYSTEMF_FAST_FREEZE_READY |
+| I220 | System freeze | 冻结 Retriever+SQ+GQ 为 SystemF-fast | SystemF manifest、all hashes | COMPLETE / SYSTEMF_FAST_FROZEN |
+| I225 | State/artifact index | 整理当前主线、暂停 S110、历史证据、无关 dirty 文件 | current index、machine manifest | COMPLETE / INDEX READY |
+| I226 | Workspace cleanup | 移除本地零散脏文件，把详细阶段报告移入 reports/，保持顶层轻量可读 | cleanup manifest、clean worktree check | COMPLETE / CLEAN + REPORTS ORGANIZED |
 | H100 | One-time heldout | 分别运行 HotpotQA、MuSiQue-Full、RGB | per-dataset results、claim matrix | CONDITIONAL / REQUIRES USER AUTHORIZATION |
 
 ## 当前禁止事项
@@ -87,7 +99,7 @@
 - [ ] 不挑单个最好 seed。
 - [ ] 不把 context/leave-one-out rows 当作独立问题。
 - [ ] 不把 G300 smoke adapter 当作正式 Generator 候选。
-- [ ] 不删除、还原或提交用户无关文件。
+- [ ] 未经用户明确要求，不删除、还原或提交用户无关文件。
 - [ ] 不把 G210 的 76/100 改写为通过；只能作为 G200R/G210R 的诊断输入。
 
 ## Git/GitHub 同步纪律
@@ -141,3 +153,12 @@
 - G310 formal seed13 screen：正式 GR-F/GR-C adapters 均训练完成，fresh-base reload 为 PASS；正式 screen 覆盖 2968 tasks，生成 2968 rows、评分 2968 rows。MiniCheck post-generation screen 状态为 `RECIPE_SELECTED`，选择 `GR-C`；GR-C overall `correct_and_cited` delta 为 +9.489pp，2Wiki delta 为 +41.895pp，NIAH delta 为 -5.383pp；GR-F 因 `answer_regression_gt_2pp` 被排除。run/spec/score/scored rows SHA256 已归档，held-out/sealed 未读取，utility labels 未启动。产物位于 `artifacts/G310/`，报告见 `G310_FORMAL_SCREEN_REPORT.md`。G310 只解锁 G320 recipe freeze，不冻结 GQ，不授权 held-out。
 - G320 recipe freeze：基于 G310 formal screen 冻结唯一 Generator 训练配方 `GR-C`。选择规则为先排除 hard-exclusion，再按 NIAH/2Wiki `correct_and_cited` delta 的 maximin 选择；GR-C hard-exclusion 为空，maximin=-5.383pp；GR-F 因 `answer_regression_gt_2pp` 被排除，maximin=-7.384pp；tie-break 未使用。G330 解锁为 `GR-C` seeds 13/42/73；G310 的 GR-C seed13 adapter 只有在 G330 重新核对 manifest、adapter hash、recipe 和边界后才可复用。G320 未启动训练、utility labels 或 held-out；报告见 `G320_RECIPE_FREEZE_REPORT.md`，manifest 见 `artifacts/G320/G320_RECIPE_FREEZE_MANIFEST.json`。
 - G330 three-seed fit：按 G320 冻结的 `GR-C` 配方完成 seeds 13/42/73。seed13 复用 G310 formal GR-C adapter 并重新核对，seed42/73 在 G330 runtime 新训练完成；三份 manifest 均为 COMPLETE，reload PASS，train groups=2370，examples=9207，steps=297。adapter weights SHA256 分别为 seed13 `492d336c7acc32785becded707220dbdf1a8acf9a895630147fc4e8cd28d0707`、seed42 `96d8087e1dbed831ad795fb7a037677eeb7e2d6986a91df61a897b9c1b6d383c`、seed73 `d5f90954f3ac2829a213ab7c3b04e6d26b89990c42e95306bc74743d1ac2431c`。G330 未启动 qualification scoring、utility labels 或 held-out；报告见 `G330_THREE_SEED_FIT_REPORT.md`，manifest 见 `artifacts/G330/G330_THREE_SEED_FIT_MANIFEST.json`。
+- G331 continuation/gate amendment：按用户要求把后续门槛解释拆成技术有效、职责可用、强结论和受控继续四层。未达单一数字门不再自动写成路线失败；正向信号可进入受控下一步，但不能包装成 clean freeze 或强统计结论。报告见 `G331_CONTINUATION_GATE_AMENDMENT.md`，manifest 见 `artifacts/G331/G331_CONTINUATION_GATE_MANIFEST.json`。
+- G400 implementation/smoke：新增 locked NIAH qualification runner 并完成本地/服务器相邻测试；三 seed 各 1 题真实 smoke 均 COMPLETE，score smoke 能合并固定 G0、三 seed GR-C、NIAH dev gold 和 MiniCheck。该阶段只证明接线可执行，不是正式效果结论。报告见 `G400_IMPLEMENTATION_SMOKE_REPORT.md`，manifest 见 `artifacts/G400/G400_IMPLEMENTATION_SMOKE_MANIFEST.json`。
+- G400 formal locked NIAH qualification：三 seed 各 2873 条生成全部 COMPLETE，0 errors，0 missing trace，run manifests 均记录 generation runtime 未读取 gold/reference、sealed/held-out=false、utility labels 未启动。正式评分覆盖 1829 条 NIAH answerable full/stress 和 1044 条 unsupported safety；状态为 `G400_NIAH_RESPONSIBILITY_PASS`。相对固定 G0，NIAH family `correct+cited` 全部为正：K_topk +6.13pp、S_legacy_selected +10.70pp、O_support_only +8.10pp、OB_support_benign +5.35pp、OH_support_harmful +11.93pp、OP_support_last +10.86pp；unsupported ungrounded assertion 从 30.08% 降到接近 0。G400 只解锁 G410，不冻结 GQ，不授权 utility labels 或 held-out。报告见 `G400_LOCKED_NIAH_QUALIFICATION_REPORT.md`，manifest 见 `artifacts/G400/G400_FORMAL_QUALIFICATION_MANIFEST.json`。
+- G410 implementation/smoke：新增 `scripts/full_flow_g410_cross_data_qualification.py` 和对应测试。Prepare 从 G223 validation 2Wiki 生成 475 个 no-answer tasks 和独立 references；run 只消费 no-answer task packet；score 在生成后复用固定 G310 G0 和 separated references。服务器测试 2 passed，三 seed 各 1 题真实 smoke 均 COMPLETE，score smoke 使用显式 `--allow-subset` 只裁剪 smoke 子集并返回 `G410_CROSS_DATA_RESPONSIBILITY_PASS`。这只是接线和边界通过，不是正式 G410 效果结论。报告见 `G410_IMPLEMENTATION_SMOKE_REPORT.md`，manifest 见 `artifacts/G410/G410_IMPLEMENTATION_SMOKE_MANIFEST.json`。
+- G410 formal locked 2Wiki cross-data qualification：三 seed 各 475 条生成全部 COMPLETE，run manifests 均记录 generation runtime 未读取 gold/reference、sealed/held-out=false、utility labels 未启动。正式评分状态为 `G410_CROSS_DATA_RESPONSIBILITY_PASS`，`formal_task_subset=false`。相对固定 G0，all_2wiki family delta 为 correct+cited +39.65pp、answer +6.95pp、coverage +2.53pp、citation precision +31.37pp、citation recall +35.47pp；所有 registered 2Wiki contexts 的 correct+cited 均为正。G410 只解锁 G420，不冻结 GQ，不授权 utility labels 或 held-out。报告见 `G410_LOCKED_CROSS_DATA_QUALIFICATION_REPORT.md`，manifest 见 `artifacts/G410/G410_FORMAL_QUALIFICATION_MANIFEST.json`。
+- G420 combined Generator gate/statistics：新增 `scripts/full_flow_g420_generator_gate.py`，只读 G400/G410 formal score report 和 scored rows，按 query-level seed-averaged paired delta 与 component-cluster bootstrap 做组合判定。状态为 `G420_NEW_GENERATOR_QUALIFIED_G430_READY`，teacher recommendation 为 `FREEZE_NEW_GRC_IN_G430`，strong claim 为 `ESTABLISHED`。G400 K_topk correct+cited 为 +6.13pp，95% CI [2.63pp, 9.90pp]；G410 all_2wiki correct+cited 为 +39.65pp，95% CI [29.97pp, 49.35pp]。G420 未重新生成、未训练、未启动 utility labels、未读取 held-out；报告见 `G420_GENERATOR_GATE_REPORT.md`，manifest 见 `artifacts/G420/G420_FORMAL_GATE_MANIFEST.json`。
+- G430 teacher Generator freeze：按 G420 recommendation 冻结新的 `GR-C` 三 seed 教师家族为 GQ，明确不做 best-seed selection。冻结 base Granite 4.1-3B snapshot、GR-C 配方、decode policy、三颗 adapter runtime path 与 SHA256、G320/G330/G420 证据链和边界。服务器实体核验显示 seed13/42/73 adapter_model 与 adapter_config hash 均与 G330 归档一致。G430 未生成 utility labels、未训练 Selector、未读取 held-out；报告见 `G430_TEACHER_GENERATOR_FREEZE_REPORT.md`，manifest 见 `artifacts/G430/G430_GQ_FREEZE_MANIFEST.json`。
+- S100 implementation/smoke：新增 `scripts/full_flow_s100_utility_pilot.py` 和测试。Runner 分为 prepare/run/score：generation task packet 不含 answer/reference/support provenance，score 才读取 references 和 support ids。local targeted tests 与 server targeted tests 均为 8 passed。服务器 smoke root 为 `/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/S100-v1/smoke-4a3ebbb`；prepare smoke 为 2 questions / 22 tasks；seeds 13/42/73 各 2 条真实生成均 COMPLETE、errors=0、trace_missing=0；score smoke 写出报告和 manifest。因 smoke 子集不完整，`labels=0` 与 `NO_DECISION_INCOMPLETE_QUESTIONS` 是预期接线结果，不是正式 S100 结论。报告见 `S100_IMPLEMENTATION_SMOKE_REPORT.md`，manifest 见 `artifacts/S100/S100_IMPLEMENTATION_SMOKE_MANIFEST.json`。
+- S100 formal utility pilot：固定 50 NIAH train + 50 2Wiki train 问题，每题 10 条 evidence，三 seed 各运行 1,100 个 full/leave-one-out task；seed13/42/73 run manifest 均为 COMPLETE，errors=0，trace_missing=0，generation runtime 未读取 gold/reference/support provenance，sealed/held-out=false，Selector/full-system 未启动。评分状态为 `S100_PILOT_COMPLETE`，`s110_recommendation=S110_READY`；共 1,000 条 utility labels：MUST_KEEP 90、SAFE_DROP 815、NEUTRAL 32、UNCERTAIN 63，stable label rate=0.937，utility label rate=0.905，uncertain rate=0.063，utility 覆盖 NIAH 与 2Wiki。S100 只解锁 S110，不是 Selector 或完整系统结论。报告见 `S100_FORMAL_UTILITY_PILOT_REPORT.md`，manifest/rows/labels 见 `artifacts/S100/formal-fbca132/`。
