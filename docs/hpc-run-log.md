@@ -6494,4 +6494,68 @@ PYTHONPATH=src python scripts/generator_a1_a2_ablation.py \
 
 **实验代码 commit:** `c5ab67a`（`generator-add A1/A2 ablation experiment`）。
 
-**AFTER:** 未运行；不得填写。
+### AFTER（2026-08-17，已完成）
+
+**状态：COMPLETED。** BluePebble Slurm job `18557307` 正常完成（exit code 0），运行代码
+commit 为 `9bcb862080dc365e746fe3328cb6190d94699d89`。实验使用预注册的 50 个 ASQA case、
+top-5 固定证据、`seed=13` 与 `ibm-granite/granite-4.1-3b`，四臂在同一作业中运行。
+原始产物完整：`cases.jsonl` 50 行、`outputs_by_arm.jsonl` 200 行，并生成
+`manifest.json`、`raw_responses.jsonl`、`annotation_blinded.csv`、`annotation_key.json`
+与 `automatic_summary.json`。数据 SHA-256、query ID 和每项原始产物 hash 均记录在
+`results/generator-a1-a2-ablation/manifest.json`。
+
+**盲评与解盲：** 人工标注共 639 行，其中 A1 sentence 163、A2 claim 276、A2 case 200。
+所有标签先完成唯一性、必填项与 coverage/error-type 一致性检查，确认 639/639 有效后才读取
+`annotation_key.json` 解盲。冻结工作簿为 `annotation_blinded_final.xlsx`，SHA-256：
+`11ba06f70ce4840d4b31f8ef2d37781f1d50d6511c9afc179a7c2a594018cb06`；盲评流程与文件
+hash 见 `human_annotation_manifest.json`。本轮只有一名标注者，未计算跨标注者 agreement。
+
+#### A1 人工主指标
+
+| metric | old | new | new − old |
+|---|---:|---:|---:|
+| atomic | 56/65 = 86.2%（NA=38） | 45/47 = 95.7%（NA=13） | +9.6 pp |
+| self-contained | 50/103 = 48.5% | 47/60 = 78.3% | +29.8 pp |
+| independently verifiable | 63/103 = 61.2% | 47/60 = 78.3% | +17.2 pp |
+| unresolved pronoun（越低越好） | 14/103 = 13.6% | 0/59 = 0.0%（NA=1） | −13.6 pp |
+
+A1 自动守卫同时改善：evidence-index 格式合规率由 77/103（74.8%）升至 54/60（90.0%），
+越界引用均为 0。代价是答案明显变短：平均每题 29.8 → 15.9 words（−46.6%），句数
+103 → 60；两个版本均无空答。在固定 A2-old 时，complete source-fact coverage 为
+73.3% → 85.4%（+12.1 pp）；固定 A2-new 时为 80.0% → 87.5%（+7.5 pp），未观察到新版
+因变短而降低事实覆盖。故 **H1 获得较强描述性支持，但不是无代价提升**：新版更适合逐句核验，
+同时减少了输出信息量；本实验只能说明已标注的 source facts 没有因此出现 coverage 下降，不能证明
+所有信息量都被保留。
+
+#### A2 人工主指标
+
+| arm | atomic | self-contained | span aligned | rewrite faithful | complete fact coverage |
+|---|---:|---:|---:|---:|---:|
+| `old_old` | 71/73 = 97.3%（NA=1） | 65/74 = 87.8% | 52/74 = 70.3% | 50/74 = 67.6% | 33/45 = 73.3%（NA=5） |
+| `old_new` | 73/76 = 96.1%（NA=1） | 67/77 = 87.0% | 56/77 = 72.7% | 55/77 = 71.4% | 36/45 = 80.0%（NA=5） |
+| `new_old` | 59/59 = 100.0%（NA=2） | 58/61 = 95.1% | 46/61 = 75.4% | 46/61 = 75.4% | 41/48 = 85.4%（NA=2） |
+| `new_new` | 62/62 = 100.0%（NA=2） | 62/64 = 96.9% | 49/64 = 76.6% | 48/64 = 75.0% | 42/48 = 87.5%（NA=2） |
+
+固定 old-A1 answer 时，A2-new 相对 A2-old 的 span alignment +2.5 pp、rewrite faithfulness
++3.9 pp、complete coverage +6.7 pp，但 atomicity −1.2 pp、self-containment −0.8 pp。固定
+new-A1 answer 时，span alignment +1.2 pp、complete coverage +2.1 pp、self-containment
++1.8 pp，atomicity 持平，rewrite faithfulness −0.4 pp。因此 **H2 仅获部分描述性支持**：
+两个合法配对中的 coverage 与 span 均未下降，满足预注册底线；但改善幅度小，且其他质量指标
+并非一致提高，不能宣称 A2 在所有维度全面更优。
+
+A2 自动诊断与预期机制一致：unlocatable claims 为 `old_old=2`、`old_new=0`、`new_old=3`、
+`new_new=0`；A2-new 在两种固定答案下都消除了 unlocatable。split errors 为
+`old_old=3`、`old_new=3`、`new_old=0`、`new_new=0`，说明本样本中的 split error 主要随
+A1 输出形状变化，不能归因于 A2-new。
+
+#### 组合结论与边界
+
+`new_new` 相对 `old_old`：atomicity +2.7 pp、self-containment +9.0 pp、span alignment
++6.3 pp、rewrite faithfulness +7.4 pp、complete fact coverage +14.2 pp。所有预注册 H3
+人工指标均未下降且多项提高，故 **H3 获得描述性支持**。
+
+以上为单标注者、50-case calibration sample 的描述性结果，未做显著性检验，不外推为总体因果
+结论。本实验不评估 NLI、entity consistency、最终 citation precision/recall、A3–A5 repair 或
+abstention；不得用它证明 Generator B 或完整系统的效果。正式方法、完整计数和论文可用表格见
+`docs/generator/generator-a1-a2-ablation-results.md`，机器可读统计见
+`results/generator-a1-a2-ablation/human_metrics.json`。
