@@ -226,6 +226,11 @@
 - 验证报告提交 `0f123ed` 的 GitHub CI 也 success，但 runner 明确警告 checkout/setup actions 的 Node 20 runtime 已弃用。官方 release API 显示 2026-07 当前版本为 checkout v7.0.1 与 setup-python v7.0.0，二者 action metadata 均使用 Node 24；workflow 最小升级到 major v7，待新 CI 复验。
 - 本机网络服务只读检查确认 `UoB VPN` 为 Disconnected；再次连接配置好的 `bp` alias 返回 `Network is unreachable`。HPC 唯一阻塞现已精确定位到需要用户手动完成的 VPN 登录/MFA，而不是代码、SSH alias 或模型哈希。
 - Node 24 workflow run `32808187612` 在 commit `45a0f6e` 上完成 success；checkout/setup v7、pytest、ruff、mypy、build 与 smoke 全部通过，check-run annotations 精确为空数组。
+- 当前远端 HEAD `e353310` 的 follow-up workflow run `32808293113` 也完成 success。G7 现只等待用户连接 UoB VPN 后执行 authorized HPC real-model smoke；在此之前不启动 G8、不合并 main、不创建 release tag。
+- 用户确认连接 VPN；系统网络状态显示 UoB VPN Connected，配置好的 `bp` SSH alias 随后成功登录 BluePebble，账号身份正确。登录节点系统 Python 为 3.6，因此不会误用它运行 Python 3.11 release。
+- 只读盘点确认 authorized shared project storage 仍包含 final Selector seed-13、三个 GR-C adapters、冻结上游 model cache、Experiment 04 runtime inputs 和已有项目虚拟环境。下一步先核验精确文件/环境身份，再在 GPU compute node 提交真实三模块 smoke。
+- 两个保留项目 venv 均为 Python 3.11.15。Selector 737,731,768-byte checkpoint、seed-13 GR-C 62,332,992-byte adapter/config，以及 Retriever/Selector/Generator/TRUE 四个固定 model snapshot 均存在。
+- 现场 SHA-256 重新计算后与 final runtime/asset manifest 的七个预期值全部一致：Selector、GR-C weights/config 和四个 model `config.json` 均 PASS。现有 Experiment 04 runtime JSONL 是实验 runner 的 candidate-row 格式，不直接假设为 public `JsonlDatasetAdapter` manifest；下一步按真实 loader schema 构造最小可审计 smoke input。
 
 ### G8：接入 main 并发布毕设版本
 
@@ -298,6 +303,10 @@
 | G6 full public relative links | 30 reader-visible Markdown files | 所有相对链接目标存在 | RED 16 missing → GREEN 0 missing | PASS |
 | G6 license owner confirmation | `LICENSE` + exact public-release contract | 由仓库 owner/团队明确选择许可证 | 用户明确选择 MIT；exact contract 1 passed | PASS |
 | G6 final regression | MIT + complete public documentation tree | 0 failures，构建/静态检查/smoke 完整 | 1656 passed、20 skipped；ruff/mypy/build/pip/shell/CFF/smoke/whitespace 全 PASS | PASS |
+| G7 HPC dataset contract | committed three-module smoke fixture | public loader 可直接读取且不依赖旧实验候选行 | manifest + 10 documents + 1 query/gold case 已确认兼容 | PASS |
+| G7 HPC scheduler discovery | BluePebble Slurm partitions | 可申请满足 Granite 3B + TRUE 的 GPU | `gpu`/A100 配置与既有正式脚本一致 | PASS |
+| G7 HPC real-model smoke | remote clean clone + final seed-13 runtime | scheduler 上加载真实三模块并验证 trace | CPU 首跑发现的 auto-device bug 已本地修复；等待新候选重跑 | IN PROGRESS |
+| G7 Selector auto-device regression | real loader device portability | `auto` 在 CUDA/CPU 都解析为合法 torch device | RED 3 failures → GREEN 3 passed；full pytest/ruff/mypy PASS | PASS |
 
 ## 错误日志
 
@@ -358,6 +367,10 @@
 | 2026-08-25 | G7 使用 `bp` 连接首个 BluePebble 登录节点超时 | 1 | 不把超时写成 smoke 通过；检查备用登录节点和当前网络/VPN可达性。 |
 | 2026-08-25 | G7 猜测的第二个 BluePebble 登录主机名无法解析 | 1 | 停止猜测未配置端点；保留唯一已配置 alias，等待校园网/VPN恢复后重试。 |
 | 2026-08-25 | G7 CI 成功但旧 action major 产生 Node 20 deprecation warning | 1 | 用官方 release/API 复核当前 v7 与 Node 24 metadata；升级 checkout/setup major 并重新跑 CI。 |
+| 2026-08-25 | G7 首个真实 smoke 作业在通用 `gpu` 队列因全部 A100 被长任务占用而保持 Priority pending | 1 | 精确取消未开始、0 秒计算的 job `18709343`；改投已有项目 probe 验证且有完整 A100 空闲的 `mlcnu`，job `18709344` 立即运行。 |
+| 2026-08-25 | HPC 旧实验 venv 未安装 FastAPI，job `18709344` 在任何模型加载前因 `evidence_rag.api.__init__` 的可选 Web 依赖退出 | 1 | 不污染共享 venv；临时验证脚本改为逐行复用 public loader 的 config/dataset/corpus/composition 路径，job `18709407` 重新运行。API loader 已在 fresh `.[api]` 环境通过本地 smoke。 |
+| 2026-08-25 | `mlcnu` 分配 bp1-gpu031 的空闲 A100 后，项目 venv 与学校官方 torch probe 都在首个 CUDA tensor 报 device busy/unavailable | 3 | 证明是节点/GPU runtime 状态而非项目依赖；不反复占用故障卡。改在 `test` 的 32-core/160G 节点用完全相同真实权重和 config 跑 CPU fallback job `18709523`。 |
+| 2026-08-25 | CPU fallback 暴露 Selector loader 把配置值 `device="auto"` 原样传给 `model.to`，PyTorch 拒绝该设备字符串 | 1 | 新增无 torch 依赖的 RED contract；实现集中 `_resolve_device`，CUDA 可用→`cuda`，否则→`cpu`，显式/None 不变；focused 与全量回归均通过。 |
 
 ## 五问重启检查
 

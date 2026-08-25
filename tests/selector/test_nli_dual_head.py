@@ -224,6 +224,38 @@ def test_loader_restores_nli_probabilities_and_independent_classifier_storage(
 
 
 @pytest.mark.parametrize(
+    ("cuda_available", "expected"),
+    ((False, "cpu"), (True, "cuda")),
+)
+def test_loader_resolves_auto_device_from_cuda_availability(
+    cuda_available: bool,
+    expected: str,
+) -> None:
+    module = importlib.import_module("evidence_rag.selector.nli_dual_head")
+    fake_torch = type(
+        "FakeTorch",
+        (),
+        {
+            "cuda": type(
+                "FakeCuda",
+                (),
+                {"is_available": staticmethod(lambda: cuda_available)},
+            )()
+        },
+    )()
+
+    assert module._resolve_device(fake_torch, "auto") == expected
+
+
+def test_loader_preserves_explicit_or_unspecified_device() -> None:
+    module = importlib.import_module("evidence_rag.selector.nli_dual_head")
+    fake_torch = object()
+
+    assert module._resolve_device(fake_torch, None) is None
+    assert module._resolve_device(fake_torch, "cuda:2") == "cuda:2"
+
+
+@pytest.mark.parametrize(
     ("kwargs", "message"),
     (
         (

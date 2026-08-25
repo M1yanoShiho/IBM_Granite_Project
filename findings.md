@@ -189,6 +189,13 @@
 - 扩大链接审计到全部 30 份读者可见 Markdown 后，发现 16 个 G2/G4 迁移遗留的旧相对链接；根因是先前契约只扫描核心 G6 文档，没有覆盖 `docs/research/` 和 `results/`。这些链接现已指向 canonical aggregate/report，archive-only 原始 manifest 则改为明确 archive ref。
 - G7 第一次从远端 clone `20c9717` 后发现 README 末尾仍保留许可证 pending 句子；`LICENSE` 和 wheel metadata 已是 MIT，因此这是发布说明一致性缺口，不是许可证文件或代码错误。
 - G7 第二份 fresh clone 证明 `.[dev,api]` 足以 build/smoke，但不足以执行全量 release tests：Experiment 05 modules/tests 直接依赖 numpy/pyarrow。现有 CI lock 也缺少 data-prep 依赖，因此 clean GitHub runner 会在 collection 失败；完整开发/CI 环境必须显式包含 `data-prep`，普通 CPU smoke 仍保持轻量。
+- G7 VPN 恢复后 BluePebble SSH 连接成功。登录节点 Python 3.6 不满足 release 的 Python 3.11 约束，但 authorized shared storage 中已有最终权重、固定模型 cache、runtime inputs 和项目 venv；真实 smoke 应复用经核验的项目环境并通过 GPU scheduler 运行，而不是在登录节点加载模型。
+- G7 HPC 现场核验确认 Python 3.11.15 项目环境可用；final Selector checkpoint、seed-13 GR-C adapter/config 与四个上游 snapshot config 的 bytes/SHA 全部对齐公开 manifest。Experiment 04 runtime JSONL 使用候选行 schema，不是 public loader manifest，因此真实 smoke 需显式构造 loader-compatible 的小型 dataset，而不能仅把旧实验文件路径塞入 final config。
+- 仓库已有 `tests/fixtures/three_module_smoke_dataset/manifest.json`：10 条文档、1 条问题与 gold case，正是为 Retriever→Selector→Generator 接线验证设计，并完全符合 `JsonlDatasetAdapter` 契约；HPC smoke 应直接复用它，不生成或提交临时数据。
+- BluePebble 当前 `gpu` 队列提供 A100；既有项目脚本使用 account `coms039904`、`gpu` partition、`gpu:a100:1`。真实三模块 smoke 应沿用这一已验证的资源边界并由 Slurm 调度，不能在登录节点加载模型。
+- 远端 fresh clone 固定到候选提交 `e353310`，共享 Python 3.11 环境已确认包含 torch 2.6.0+cu126、transformers 4.57.6、sentence-transformers 5.7.0、PEFT 0.20.0 与 Pydantic 2.13.4。真实作业 `18709343` 只通过环境变量注入外部资产，Git 候选树保持无权重、无账号路径。
+- `mlcnu` 的 bp1-gpu031 当前由 Slurm 分到 GPU 0，但无论项目 torch 2.6 还是学校 `apps/pytorch/2.5.1-gpu` 官方 probe，首个 CUDA tensor 都报 device busy/unavailable；这是节点资源状态，不能归因于 release。为保留真实权重/真实配置验证，G7 改用空闲 CPU compute node，不用 double，也不改变算法。
+- HPC CPU 路径发现 final config 的 Selector `device="auto"` 在 loader 中未解析就直接传给 `torch.nn.Module.to`。这是真实 portability bug；修复后 `auto` 严格映射到 CUDA/CPU，显式 device 保持不变，并由不依赖可选 torch 的三条契约覆盖。
 
 ## 技术决策
 

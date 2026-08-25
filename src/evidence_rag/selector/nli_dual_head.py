@@ -227,6 +227,12 @@ def _nli_dual_head_model_class(torch: Any) -> type[Any]:
     return _NliDualHeadModel
 
 
+def _resolve_device(torch: Any, device: str | None) -> str | None:
+    if device == "auto":
+        return "cuda" if bool(torch.cuda.is_available()) else "cpu"
+    return device
+
+
 def load_nli_dual_head_model(
     model_id_or_path: str = DEFAULT_MODEL_ID,
     *,
@@ -274,8 +280,9 @@ def load_nli_dual_head_model(
         model_id=identity_model_id or model_id_or_path,
         revision=revision,
     )
-    if device is not None:
-        model.to(device)
+    resolved_device = _resolve_device(torch, device)
+    if resolved_device is not None:
+        model.to(resolved_device)
     model.eval()
     return model
 
