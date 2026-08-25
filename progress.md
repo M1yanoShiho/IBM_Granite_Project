@@ -52,7 +52,7 @@
 
 ### G1：冻结完整研究历史
 
-- **状态：** in_progress
+- **状态：** complete
 - 已满足开始条件：P0/P1 complete，用户已授权顺序执行。
 - 已执行：
   - 确认当前分支、HEAD、远端关系、普通 checkout 状态和 GitHub 登录状态。
@@ -79,8 +79,17 @@
   - `421f193` — `docs(results): record final experiments and audits`
 - 报告提交前重新验证 Exp04/05 audit hashes。冻结 Markdown/CRLF CSV 保留原字节，因此报告组不以普通 `git diff --check` 作为通过条件；该例外只适用于 archive 研究证据。
 - 已创建 `ARCHIVE_INDEX.md`，覆盖 Selector 8 条路线、Full-flow 5 条路线、最终 runtime、Exp04/05、外部模型哈希和恢复方法。
+- 已推送开发分支和 `archive/full-research-history-2026-08-25`。
+- 已创建并推送 annotated tag `research-archive-2026-08-25`。
+- 远端 branch/tag 均指向 `ea4d617753aff868fff8f846964f7cfb050414bb`；通过 tag 抽查 Exp05 audit、scorer 源码和 archive index 均可恢复。
 
-### G2–G8
+### G2：建立干净 release 文件树
+
+- **状态：** in_progress
+- 开始条件已满足：G1 complete，archive branch/tag 已在远端验证。
+- 下一步：建立隔离 worktree，从 archive commit 创建 `release/dissertation-v1`，形成受控保留树和归档映射。
+
+### G3–G8
 
 - **状态：** pending
 - 按 `task_plan.md` 顺序和验收门执行。
@@ -111,6 +120,8 @@
 | G1 Exp04 staged boundary | 43 files | 只含 Exp04/config/runtime baseline/tests | allowlist 检查通过；提交 `cdf2186` | PASS |
 | G1 Exp05 staged boundary | 39 files | 只含 Exp05/pyproject/tests | allowlist、ruff、mypy、focused pytest 通过；提交 `84a90de` | PASS |
 | G1 research evidence boundary | 81 files | 只含 full-flow docs/results | allowlist 和冻结 hashes 通过；提交 `421f193` | PASS |
+| G1 remote archive refs | archive branch + annotated tag | 远端解析到同一冻结提交 | 两者均为 `ea4d617753aff868fff8f846964f7cfb050414bb` | PASS |
+| G1 tag recovery sample | Exp05 audit、scorer、archive index | 可从 tag 读取 | 三个 `git cat-file -e` 均通过 | PASS |
 
 ## 错误日志
 
@@ -125,13 +136,14 @@
 | 2026-08-25 | 结果校验脚本把 Exp05 claim label 假设为 `NOT_SUPPORTED` | 1 | 读取冻结 audit，确认实际值为 `NOT SUPPORTED`；改用实际 schema 值并重新验证，失败遗留临时目录已精确定位。 |
 | 2026-08-25 | 首次 secret-scan shell 使用 zsh 只读变量名 `status` | 1 | 改用任务专用变量 `scan_result` 并添加精确临时文件退出清理；扫描通过。 |
 | 2026-08-25 | staged allowlist 循环使用 zsh 特殊变量 `path`，覆盖命令搜索路径并导致 `git` command not found | 1 | 暂存区保持完整；改用 `staged_file` 并通过 `/usr/bin/git` 执行提交。 |
+| 2026-08-25 | 首次同步 G1 complete/G2 in-progress 补丁包含已过期的 `progress.md` 邻接上下文 | 1 | 读取当前段落并拆成精确的小补丁。 |
 
 ## 五问重启检查
 
 | 问题 | 答案 |
 |---|---|
-| 我在哪里？ | P0/P1 已完成；G1 正在冻结完整研究历史。 |
-| 我要去哪里？ | G1 冻结研究历史，然后依次完成 G2–G8。 |
+| 我在哪里？ | P0/P1/G1 已完成；G2 正在建立干净 release 文件树。 |
+| 我要去哪里？ | 完成 G2 release 文件边界，然后依次完成 G3–G8。 |
 | 目标是什么？ | 同仓库内形成可提交毕设的干净可用正式 main，同时保留完整研究历史。 |
 | 我学到了什么？ | 见 `findings.md`。 |
 | 我做了什么？ | 已将整理清单转换成 Goal 计划，并完成正式 main 的结构与逐文件职责预览。 |
