@@ -57,6 +57,8 @@
 - Exp04/05 的 21 个公开结果文件都由 Git 检测为 100% rename，说明迁移没有改变文件字节；其中包含冻结 audit、claim labels、bootstrap 和最终表格，不包含逐题输出或原始 generations。
 - 原有 `/.gitignore` 将 `results/` 整体排除；正式树应采用 deny-by-default 并只放行 `results/README.md`、`experiment04/` 和 `experiment05/`，避免今后把 raw results 误提交。
 - 清理后个人/HPC 路径启发式匹配已从约 242 个 tracked 文件降到 23 个，全部位于仍待依赖审计的历史 `scripts/`；G2 的下一精简批次应以正式 runtime/复现入口的依赖闭包决定保留项。
+- 23 个剩余路径匹配中，21 个是 archive-only 的旧 server/Slurm/freeze 入口；另外两个是最终 Exp04 dataset launcher。前者可安全移出，后者可只把 workspace、venv 和 cache 变为必需环境变量，不改变实验阶段顺序或 scorer 隔离边界。
+- 第一批外置后的 16 个 pytest 失败不是 runtime 回归：它们全部读取已移出的历史文档或中间 artifacts。将三项最终 Exp04 聚合契约改指 `results/experiment04/`，并移除纯 archive artifact 集成断言后，全量 release 测试重新通过。
 
 ### G1 mypy 根因分析
 

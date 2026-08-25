@@ -9,7 +9,7 @@
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=128G
 #SBATCH --time=2-00:00:00
-#SBATCH --output=/user/work/fl25387/experiment04_goal4-%x-%j.out
+#SBATCH --output=experiment04_goal4-%x-%j.out
 
 set -euo pipefail
 
@@ -21,13 +21,16 @@ set -euo pipefail
 : "${EXP04_ATTEMPT_ID:?EXP04_ATTEMPT_ID is required}"
 : "${EXP04_SELECTOR_CHECKPOINT:?EXP04_SELECTOR_CHECKPOINT is required}"
 : "${EXP04_ADAPTER13:?EXP04_ADAPTER13 is required}"
+: "${EVIDENCE_RAG_ROOT:?EVIDENCE_RAG_ROOT is required}"
+: "${EVIDENCE_RAG_VENV:?EVIDENCE_RAG_VENV is required}"
+: "${MODEL_CACHE_DIR:?MODEL_CACHE_DIR is required}"
 
 scorer_sidecar="$EXP04_SIDECAR"
 unset EXP04_SIDECAR
 
-workspace=/user/work/fl25387/experiment04_goal3_workspace
-venv=/user/work/fl25387/experiment04_goal3_venv
-cache=/user/work/fl25387/experiment04_goal3_cache
+workspace="$EVIDENCE_RAG_ROOT"
+venv="$EVIDENCE_RAG_VENV"
+cache="$MODEL_CACHE_DIR"
 prepared="$EXP04_ATTEMPT_DIR/prepared_goal4.jsonl"
 
 export MODEL_CACHE_DIR="$cache"

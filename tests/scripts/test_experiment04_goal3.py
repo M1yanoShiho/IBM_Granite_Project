@@ -101,3 +101,7 @@ def test_slurm_hides_scorer_path_until_after_generation_freeze() -> None:
     sidecar = script.index('--sidecar "$scorer_sidecar"')
     assert unset < prepare < generate < freeze < score < sidecar
     assert script.count('--sidecar "$scorer_sidecar"') == 1
+    assert "/user/work/" not in script
+    assert "EVIDENCE_RAG_ROOT" in script
+    assert "EVIDENCE_RAG_VENV" in script
+    assert "MODEL_CACHE_DIR" in script

@@ -15,7 +15,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 
-from check_preregistrations import LEDGER, RELATION_MARKER, check  # noqa: E402
+from check_preregistrations import RELATION_MARKER, check  # noqa: E402
 
 PRIOR = "### R7 — something measured [2026-08-09]\n\ntext\n\n"
 
@@ -28,11 +28,6 @@ def ledger_with(relation: str, *, date: str = "2026-08-14") -> str:
         f"{relation}"
         "**设计:** four points.\n"
     )
-
-
-def test_the_real_preregistrations_are_all_situated() -> None:
-    problems = check(LEDGER.read_text(encoding="utf-8"))
-    assert problems == [], "\n".join(problems)
 
 
 def test_a_missing_relation_paragraph_is_caught() -> None:

@@ -97,6 +97,9 @@
 - 第一批迁移在加入新的 `results/README.md` 时被旧 `/.gitignore` 的整目录规则中断；此前的精确删除/迁移仍完整保留在暂存区，没有回滚。修正方案是只放行公开的 `results/README.md`、`experiment04/` 和 `experiment05/`，其余运行结果继续忽略。
 - 已修正公开结果目录层级和 ignore allowlist；Exp04/05 共 21 个文件均为 100% byte-preserving rename。当前 tracked tree 约 5.75 MB、没有超过 1 MiB 的文件。
 - 第一批后个人/HPC 路径匹配只剩 `scripts/` 中 23 个文件；这些脚本将按 runtime/复现依赖闭包在下一批精简，而不是直接改写历史路径。
+- 第二批移出 21 个带个人服务器地址且不再属于最终入口的旧启动/冻结脚本及对应历史测试；两个仍被 Exp04 复现测试引用的 dataset launcher 改为要求 `EVIDENCE_RAG_ROOT`、`EVIDENCE_RAG_VENV` 和 `MODEL_CACHE_DIR`，不再内嵌账号或绝对存储路径。
+- 第二批首次全量 pytest 出现 16 个失败，均为 release 已移出文档/artifact 的路径依赖：2 个旧文档检查、5 个 Exp04 中间 artifact 检查、4 个 Exp04 最终结果旧路径检查、5 个旧 full-flow artifact 检查。处理边界：最终结果测试迁移到 canonical `results/`；只验证 archive-only 材料的测试从 release 移出。
+- 16 个路径型失败已分类处理：Exp04 最终 audit/summary/表格测试改指 canonical 结果；其余 real-history artifact 断言移出，同时保留不依赖历史文件的 checker/unit tests。受影响测试 26 项通过，随后全量 pytest 退出码 0。
 
 ### G3–G8
 
@@ -135,6 +138,11 @@
 | G2 pre-cleanup pytest | archive-derived release tree | 与 G1 基线一致 | 1877 passed、20 skipped、1 known G000 failure | KNOWN-FAIL |
 | G2 pre-cleanup ruff | `src tests scripts` | 记录清理前 lint 债务 | 历史 scripts 29 errors；正式新增范围此前通过 | BASELINE |
 | G2 pre-cleanup mypy | `src` + `tests/typecheck.py` | 0 errors | 147 source files 无错误 | PASS |
+| G2 archive recovery | 第一批移出的 872 个源路径 | archive tag 全部可读取 | `git cat-file -e` 全部通过 | PASS |
+| G2 public result relocation | 5 个 final docs + 20 个 final result/audit 文件 | 与 archive 源文件逐字节一致 | 25 个 `git hash-object` 比较一致 | PASS |
+| G2 portable launchers | 两个保留的 Exp04 Slurm 文件 | shell 语法、阶段顺序、环境变量边界正确 | `bash -n` 和 4 个 focused tests 通过 | PASS |
+| G2 personal path scan | release tracked tree（规划/迁移记录除外） | 无账号和个人绝对路径 | 无匹配 | PASS |
+| G2 post-boundary pytest | 当前 release tree | 0 failed | 全量退出码 0 | PASS |
 
 ## 错误日志
 
@@ -153,6 +161,9 @@
 | 2026-08-25 | `git check-ignore -q .worktrees` 对尚不存在的空目录未命中 | 1 | 改为验证 `.worktrees/release-placeholder`，确认 `/.worktrees/` 规则生效。 |
 | 2026-08-25 | G2 第一批迁移加入 `results/README.md` 时命中原有 `/.gitignore` 的 `/results/` 整目录规则 | 1 | 保留已暂存的精确迁移；把规则收窄为默认忽略 `results/*`，仅放行最终 Exp04/05 聚合结果和说明文件，并修正多余目录层级。 |
 | 2026-08-25 | 第一轮迁移 SHA-256 比对中的 macOS `shasum` 因无效 `C.UTF-8` locale 多次 panic，导致该轮计数不可作为有效证据 | 1 | 不采信该轮哈希结果；改用 `git hash-object` 对 archive blob 流和工作树文件逐字节比较。 |
+| 2026-08-25 | 第二批路径扫描命中新加入的 launcher 测试，因为测试本身写入了旧账号字面量 | 1 | 删除账号字面量；保留对 `/user/work/` 绝对路径和三个必需环境变量的通用断言，再重跑扫描与测试。 |
+| 2026-08-25 | 第一批 docs/results 外置后全量 pytest 有 16 个测试读取已归档的旧路径而失败 | 1 | 分类为最终结果契约与纯历史 artifact 契约；前者改指 canonical `results/experiment04/`，后者连同其 archive-only 前置材料一并从 release 测试面移出。 |
+| 2026-08-25 | 第二批提交前 `git diff --cached --check` 发现 4 个删减后的测试文件末尾多余空行 | 1 | 提交被安全中止；用精确补丁移除四个 EOF 空行并重复格式检查。 |
 
 ## 五问重启检查
 

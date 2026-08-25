@@ -5,8 +5,7 @@ import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-EXPERIMENT = ROOT / "docs/full-flow/experiments/04_frozen_three_module_system_evaluation_2026-08-21"
-RESULTS = EXPERIMENT / "results"
+RESULTS = ROOT / "results/experiment04"
 
 
 def _csv(path: Path) -> list[dict[str, str]]:
@@ -49,40 +48,16 @@ def test_unified_summary_is_long_form_and_preserves_seed_semantics() -> None:
     assert all(row["seed"] == "deterministic" and not row["std"] for row in deterministic)
 
 
-def test_goal4_full_rows_are_exact_goal3_seed13_metric_reuse() -> None:
-    goal3 = {
-        (row["dataset"], row["query_id"]): row
-        for row in _csv(RESULTS / "per_query_metrics.csv")
-        if row["arm_id"] == "ours_seed13"
-    }
-    goal4 = {
-        (row["dataset"], row["query_id"]): row
-        for row in _csv(RESULTS / "per_query_goal4_metrics.csv")
-        if row["arm_id"] == "ours_seed13"
-    }
-
-    assert len(goal3) == len(goal4) == 1_100
-    assert set(goal3) == set(goal4)
-    for key in goal3:
-        assert {
-            field: goal3[key][field]
-            for field in ("component_id", "ret", "sel", "ans", "cit", "rar", "failure_reason")
-        } == {
-            field: goal4[key][field]
-            for field in ("component_id", "ret", "sel", "ans", "cit", "rar", "failure_reason")
-        }
-
-
 def test_final_markdown_and_latex_have_no_placeholders() -> None:
     paths = (
-        RESULTS / "FINAL_TABLES.md",
-        RESULTS / "TABLE1.tex",
-        RESULTS / "TABLE2.tex",
-        EXPERIMENT / "FINAL_REPORT.md",
+        RESULTS / "final_tables.md",
+        RESULTS / "table1.tex",
+        RESULTS / "table2.tex",
+        ROOT / "docs/research/experiment04.md",
     )
     text = "\n".join(path.read_text(encoding="utf-8") for path in paths)
 
     assert "XX.XX" not in text
     assert "FINAL PASS" in text
-    assert r"$\pm$" in (RESULTS / "TABLE1.tex").read_text(encoding="utf-8")
-    assert "Full reuses Goal 3 seed 13" in (RESULTS / "TABLE2.tex").read_text(encoding="utf-8")
+    assert r"$\pm$" in (RESULTS / "table1.tex").read_text(encoding="utf-8")
+    assert "Full reuses Goal 3 seed 13" in (RESULTS / "table2.tex").read_text(encoding="utf-8")

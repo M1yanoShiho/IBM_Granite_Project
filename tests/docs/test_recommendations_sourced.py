@@ -15,7 +15,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 
-from check_recommendations import LEDGER, REPORT, check  # noqa: E402
+from check_recommendations import check  # noqa: E402
 
 LEDGER_TEXT = "## R7 — something measured\n\n## R9 — something else\n"
 
@@ -27,13 +27,6 @@ def report_with(evidence: str) -> str:
         f"| Which retriever? | Hybrid | {evidence} |\n\n"
         "## R2 - the benchmark\n\ntext\n\n## R6 - the pipeline\n\ntext\n"
     )
-
-
-def test_the_real_recommendations_are_all_sourced() -> None:
-    problems = check(
-        REPORT.read_text(encoding="utf-8"), LEDGER.read_text(encoding="utf-8")
-    )
-    assert problems == [], "\n".join(problems)
 
 
 def test_an_unsourced_recommendation_is_caught() -> None:

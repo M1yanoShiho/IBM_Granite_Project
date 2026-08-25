@@ -7,7 +7,6 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from full_flow_g100_citation_attribution import (  # noqa: E402
-    build_outputs,
     classify_claim,
 )
 
@@ -45,14 +44,3 @@ def test_classify_claim_marks_true_verified_minicheck_failure_as_disagreement() 
     )
 
     assert stage == "EVALUATOR_DISAGREEMENT"
-
-
-def test_real_g100_outputs_are_audit_candidates_not_route_decisions() -> None:
-    summary, rows, markdown = build_outputs(ROOT)
-
-    assert summary["status"] == "PASS"
-    assert summary["runtime_boundary"]["training_started"] is False
-    assert summary["interpretation"]["g110_required_before_repair"] is True
-    assert summary["scope"]["claim_level_rows"] == len(rows)
-    assert summary["scope"]["claim_level_rows"] > 0
-    assert "G110 must audit" in markdown
