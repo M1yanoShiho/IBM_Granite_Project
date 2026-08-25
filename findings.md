@@ -226,7 +226,7 @@
 
 ## 规划验证发现
 
-- P0/P1/G1–G6 complete；MIT、公开文档、package metadata 和完整回归均已通过；G7–G8 pending。
+- P0/P1/G1–G7 complete；最终候选 `aeb5926` 的 clean clone、CI 与 authorized HPC real-model smoke 均通过；G8 正在正式发布。
 - G1–G8 均包含目的、前置条件、允许动作、产物、验收门和禁止事项。
 - P0 初版缺少部分同名结构标题，已在自检后补齐。
 - cleanup inventory 已链接到 `task_plan.md`，执行状态不会在两份文件中重复维护。

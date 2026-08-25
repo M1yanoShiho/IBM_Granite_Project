@@ -208,7 +208,7 @@
 
 ### G7：独立验证正式候选版本
 
-- **状态：** in_progress
+- **状态：** complete
 - G6 commit `20c9717` 已推送，远端 `release/dissertation-v1` 与本地 HEAD 完全一致且工作树干净。
 - 下一步从远端重新 clone，在独立 Python 3.11 环境执行安装、测试、静态检查、构建、CPU smoke、文档/manifest/secret/path/large-file 审计，并验证 GitHub CI 与 HPC 真实三模块。
 - 第一份 fresh clone 位于临时目录，HEAD 与远端 `20c9717` 一致；读取 README 时发现发布页仍写着“license pending”，与已经提交的 MIT `LICENSE`/metadata 不一致。按 G7 第一次失败协议记录并进入文档契约修复。
@@ -231,11 +231,15 @@
 - 只读盘点确认 authorized shared project storage 仍包含 final Selector seed-13、三个 GR-C adapters、冻结上游 model cache、Experiment 04 runtime inputs 和已有项目虚拟环境。下一步先核验精确文件/环境身份，再在 GPU compute node 提交真实三模块 smoke。
 - 两个保留项目 venv 均为 Python 3.11.15。Selector 737,731,768-byte checkpoint、seed-13 GR-C 62,332,992-byte adapter/config，以及 Retriever/Selector/Generator/TRUE 四个固定 model snapshot 均存在。
 - 现场 SHA-256 重新计算后与 final runtime/asset manifest 的七个预期值全部一致：Selector、GR-C weights/config 和四个 model `config.json` 均 PASS。现有 Experiment 04 runtime JSONL 是实验 runner 的 candidate-row 格式，不直接假设为 public `JsonlDatasetAdapter` manifest；下一步按真实 loader schema 构造最小可审计 smoke input。
+- 仓库已有 loader-compatible 的 `three_module_smoke_dataset`，无需临时生成或提交数据。远端 fresh clone 固定到 `aeb5926`，最终 job `18709546` 在 32-core/160G scheduler node 以真实 Hybrid Retriever、训练后 Selector、GR-C adapter 与 TRUE verifier 完成，elapsed 4:32、exit 0。
+- HPC redacted trace：10 candidates、10 selected、1 citation、answer non-empty；selected 是 candidates subset，citations 是 selected subset。该普通 query 未触发删除，但实际类为 `NliRiskControlledSelector` 且 checkpoint hash 已核验，因此不是 Top-K fallback。
+- HPC 首跑发现并修正 Selector `device="auto"` portability bug；修复提交 `aeb5926` 的 CI run `32812730363` success。随后全新本地 clone 按 README 安装并复验：1659 passed/20 skipped、ruff、154-source mypy、build、pip check、CPU smoke 全 PASS。
+- `RELEASE_VALIDATION_REPORT.md` 已更新为 overall PASS；G7 全部验收门完成，按用户全局授权自动进入 G8。
 
 ### G8：接入 main 并发布毕设版本
 
-- **状态：** pending
-- 仅在 G7 全部验收门通过后启动。
+- **状态：** in_progress
+- G7 已 complete；下一步按发布分支收尾规则复核 refs、权限和精确合并方式，再接入 `main`、创建 annotated tag 与 GitHub Release。
 
 ## 测试结果
 
@@ -305,8 +309,9 @@
 | G6 final regression | MIT + complete public documentation tree | 0 failures，构建/静态检查/smoke 完整 | 1656 passed、20 skipped；ruff/mypy/build/pip/shell/CFF/smoke/whitespace 全 PASS | PASS |
 | G7 HPC dataset contract | committed three-module smoke fixture | public loader 可直接读取且不依赖旧实验候选行 | manifest + 10 documents + 1 query/gold case 已确认兼容 | PASS |
 | G7 HPC scheduler discovery | BluePebble Slurm partitions | 可申请满足 Granite 3B + TRUE 的 GPU | `gpu`/A100 配置与既有正式脚本一致 | PASS |
-| G7 HPC real-model smoke | remote clean clone + final seed-13 runtime | scheduler 上加载真实三模块并验证 trace | CPU 首跑发现的 auto-device bug 已本地修复；等待新候选重跑 | IN PROGRESS |
+| G7 HPC real-model smoke | remote clean clone `aeb5926` + final seed-13 runtime | scheduler 上加载真实三模块并验证 trace | job `18709546` completed 4:32/exit 0；10→10→1 trace invariants PASS | PASS |
 | G7 Selector auto-device regression | real loader device portability | `auto` 在 CUDA/CPU 都解析为合法 torch device | RED 3 failures → GREEN 3 passed；full pytest/ruff/mypy PASS | PASS |
+| G7 final clean clone | remote `aeb5926` + fresh Python 3.11 | README 全命令在最终候选通过 | 1659 passed/20 skipped；ruff/mypy/build/pip/smoke/CI 全 PASS | PASS |
 
 ## 错误日志
 
@@ -371,6 +376,8 @@
 | 2026-08-25 | HPC 旧实验 venv 未安装 FastAPI，job `18709344` 在任何模型加载前因 `evidence_rag.api.__init__` 的可选 Web 依赖退出 | 1 | 不污染共享 venv；临时验证脚本改为逐行复用 public loader 的 config/dataset/corpus/composition 路径，job `18709407` 重新运行。API loader 已在 fresh `.[api]` 环境通过本地 smoke。 |
 | 2026-08-25 | `mlcnu` 分配 bp1-gpu031 的空闲 A100 后，项目 venv 与学校官方 torch probe 都在首个 CUDA tensor 报 device busy/unavailable | 3 | 证明是节点/GPU runtime 状态而非项目依赖；不反复占用故障卡。改在 `test` 的 32-core/160G 节点用完全相同真实权重和 config 跑 CPU fallback job `18709523`。 |
 | 2026-08-25 | CPU fallback 暴露 Selector loader 把配置值 `device="auto"` 原样传给 `model.to`，PyTorch 拒绝该设备字符串 | 1 | 新增无 torch 依赖的 RED contract；实现集中 `_resolve_device`，CUDA 可用→`cuda`，否则→`cpu`，显式/None 不变；focused 与全量回归均通过。 |
+| 2026-08-25 | 最终 clean-clone 安装命令首次把 `$validation_dir[dev,...]` 解析为 zsh 参数下标 | 1 | clone/venv 保持完整；改为 `${validation_dir}[dev,api,data-prep]` 后安装通过。 |
+| 2026-08-25 | clean-clone pytest 首次从父工作目录启动，误收集原仓库测试并与 clone 安装代码混用，产生 4 个非候选失败 | 1 | 不采信该结果；先 `cd` 到 fresh clone 再运行同一命令，得到 1659 passed/20 skipped 和完整绿门。 |
 
 ## 五问重启检查
 
