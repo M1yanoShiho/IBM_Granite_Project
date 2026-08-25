@@ -43,6 +43,21 @@
 - 当前全量 pytest 的唯一失败仍是历史 G000 文档状态测试：`tests/scripts/test_full_flow_g000_freeze.py::test_g000_without_server_audit_stops_before_next_stage` 要求旧 README/TRACKER 包含 active G000 文本，但该历史路线已经推进到后续状态。它与本次 Exp04/05 代码无关；G1 原样记录，G2/G7 在正式树移出旧 tracker 后重新验证公开 CI。
 - Exp04/05 冻结 CSV 使用 CRLF，若按普通 text whitespace 检查会把每行的 `\r` 报为 trailing whitespace；部分 Markdown 也用两个尾随空格表示硬换行。archive 必须保留这些已登记哈希的原字节，release 中的小型公开表格再由 G4 规范化生成。
 
+## G2 隔离基线
+
+- Release worktree 位于项目忽略的 `.worktrees/dissertation-v1`，分支 `release/dissertation-v1`，并以 `research-archive-2026-08-25` 为祖先。
+- 隔离 Python 3.11 环境已通过 `pip install -e '.[dev,data-prep]'` 安装成功。
+- 清理前全量 pytest 复现 archive 基线：1877 passed、20 skipped、1 个旧 G000 README/TRACKER 状态失败。
+- 清理前 strict mypy 仍为 147 source files 无错误。
+- 清理前全 `scripts/` ruff 有 29 errors，集中在历史分析/Full-flow 阶段脚本；新增 Exp04/05 和 `src/tests` 的 focused ruff 已通过。G2/G4 应仅保留正式依赖脚本，使最终 ruff 作用面与公开树一致，而不是批量格式化 archive-only 脚本。
+- Release worktree 的 tracked 内容约为：`docs` 119.6 MB/642 files、`results` 185.5 MB/170 files、`runs` 7.66 MB、`scripts` 2.01 MB/171 files、`src` 1.82 MB/146 files、`tests` 1.55 MB/234 files。
+- `results`、历史 `docs` artifacts 和 `runs` 是 >25 MiB release gate 的主要来源；最大 tracked 文件为 34.15 MB Selector labels。所有这些大文件都能从 archive tag 恢复，不需要留在 release tree。
+- G2 不应按体积直接删除 `src/tests/scripts`：它们虽然小，但需要 G3/G4 dependency closure 后才可精简；本阶段先移出明确的 `.aris/refine-logs/runs/results`、历史 docs/artifacts、配置 sweep 和无争议旧脚本组。
+- G2 第一批外置后，tracked tree 已从约 301 MB 降到约 5.75 MB；`docs` 约 99 KB、最终 `results` 约 93 KB，且没有 tracked 文件超过 1 MiB。
+- Exp04/05 的 21 个公开结果文件都由 Git 检测为 100% rename，说明迁移没有改变文件字节；其中包含冻结 audit、claim labels、bootstrap 和最终表格，不包含逐题输出或原始 generations。
+- 原有 `/.gitignore` 将 `results/` 整体排除；正式树应采用 deny-by-default 并只放行 `results/README.md`、`experiment04/` 和 `experiment05/`，避免今后把 raw results 误提交。
+- 清理后个人/HPC 路径启发式匹配已从约 242 个 tracked 文件降到 23 个，全部位于仍待依赖审计的历史 `scripts/`；G2 的下一精简批次应以正式 runtime/复现入口的依赖闭包决定保留项。
+
 ### G1 mypy 根因分析
 
 - `experiment05_data.py` 的 pyarrow 是函数内可选依赖；库已安装但不提供 `py.typed`，错误来自第三方类型元数据而不是本项目数据逻辑。

@@ -21,7 +21,12 @@ venv/
 *.swp
 
 /data/
-/results/
+/results/*
+!/results/README.md
+!/results/experiment04/
+!/results/experiment04/**
+!/results/experiment05/
+!/results/experiment05/**
 /runs/
 /artifacts/
 /outputs/

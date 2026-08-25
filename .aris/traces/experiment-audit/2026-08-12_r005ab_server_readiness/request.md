@@ -1,3 +1,0 @@
-# R005A/R005B server-readiness audit request
-
-Perform an independent read-only audit of the finalized R005A/R005B amendment and its target server. Check local/server/GitHub commit and branch alignment, the read-only capability basis for `flock`, hard-link no-replace, `renameat2(RENAME_NOREPLACE)`, and directory `fsync`, whether the three canonical amendment roots were accidentally created or consumed, and whether any unapproved A001/A002/formal-fit/held-out artifact or run exists. Distinguish interface availability from actual A001 behavioral and fault-injection tests. Do not modify any file, repository, server state, sample, or artifact. Return PASS/WARN/FAIL, P0/P1/P2 counts, and the only legal next step.

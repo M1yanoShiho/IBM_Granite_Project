@@ -89,6 +89,14 @@
 - 开始条件已满足：G1 complete，archive branch/tag 已在远端验证。
 - 下一步：建立隔离 worktree，从 archive commit 创建 `release/dissertation-v1`，形成受控保留树和归档映射。
 - worktree 预检确认当前是普通 checkout，项目原先没有 `.worktrees/` 且未忽略该目录；按隔离执行规则在开发分支增加 `/.worktrees/` 防护。
+- 已从 `research-archive-2026-08-25` 创建隔离 worktree 和 `release/dissertation-v1`，再带入 G1/G2 状态与 worktree ignore 两个运维提交；archive commit 仍是 release 的祖先。
+- 已创建独立 Python 3.11 `.venv` 并成功安装 editable `dev + data-prep` 环境。
+- 清理前基线：pytest 1877 passed/20 skipped/1 known historical failure；strict mypy 147 files PASS；全 scripts ruff 29 errors（历史脚本范围）。
+- 清理前 tracked 体积审计：docs 119.6 MB、results 185.5 MB、runs 7.66 MB；src/tests/scripts 合计约 5.38 MB。最大 tracked 文件为 34.15 MB Selector labels。
+- 第一批 release 边界已应用：从当前树移出 `.aris/`、`refine-logs/`、`runs/`、历史 docs 和 raw/intermediate results；保留文档、Exp04/05 最终报告及最终聚合结果正在迁移到公开路径。
+- 第一批迁移在加入新的 `results/README.md` 时被旧 `/.gitignore` 的整目录规则中断；此前的精确删除/迁移仍完整保留在暂存区，没有回滚。修正方案是只放行公开的 `results/README.md`、`experiment04/` 和 `experiment05/`，其余运行结果继续忽略。
+- 已修正公开结果目录层级和 ignore allowlist；Exp04/05 共 21 个文件均为 100% byte-preserving rename。当前 tracked tree 约 5.75 MB、没有超过 1 MiB 的文件。
+- 第一批后个人/HPC 路径匹配只剩 `scripts/` 中 23 个文件；这些脚本将按 runtime/复现依赖闭包在下一批精简，而不是直接改写历史路径。
 
 ### G3–G8
 
@@ -123,6 +131,10 @@
 | G1 research evidence boundary | 81 files | 只含 full-flow docs/results | allowlist 和冻结 hashes 通过；提交 `421f193` | PASS |
 | G1 remote archive refs | archive branch + annotated tag | 远端解析到同一冻结提交 | 两者均为 `ea4d617753aff868fff8f846964f7cfb050414bb` | PASS |
 | G1 tag recovery sample | Exp05 audit、scorer、archive index | 可从 tag 读取 | 三个 `git cat-file -e` 均通过 | PASS |
+| G2 isolated install | Python 3.11 + `.[dev,data-prep]` | editable install 成功 | build/install exit 0 | PASS |
+| G2 pre-cleanup pytest | archive-derived release tree | 与 G1 基线一致 | 1877 passed、20 skipped、1 known G000 failure | KNOWN-FAIL |
+| G2 pre-cleanup ruff | `src tests scripts` | 记录清理前 lint 债务 | 历史 scripts 29 errors；正式新增范围此前通过 | BASELINE |
+| G2 pre-cleanup mypy | `src` + `tests/typecheck.py` | 0 errors | 147 source files 无错误 | PASS |
 
 ## 错误日志
 
@@ -138,6 +150,9 @@
 | 2026-08-25 | 首次 secret-scan shell 使用 zsh 只读变量名 `status` | 1 | 改用任务专用变量 `scan_result` 并添加精确临时文件退出清理；扫描通过。 |
 | 2026-08-25 | staged allowlist 循环使用 zsh 特殊变量 `path`，覆盖命令搜索路径并导致 `git` command not found | 1 | 暂存区保持完整；改用 `staged_file` 并通过 `/usr/bin/git` 执行提交。 |
 | 2026-08-25 | 首次同步 G1 complete/G2 in-progress 补丁包含已过期的 `progress.md` 邻接上下文 | 1 | 读取当前段落并拆成精确的小补丁。 |
+| 2026-08-25 | `git check-ignore -q .worktrees` 对尚不存在的空目录未命中 | 1 | 改为验证 `.worktrees/release-placeholder`，确认 `/.worktrees/` 规则生效。 |
+| 2026-08-25 | G2 第一批迁移加入 `results/README.md` 时命中原有 `/.gitignore` 的 `/results/` 整目录规则 | 1 | 保留已暂存的精确迁移；把规则收窄为默认忽略 `results/*`，仅放行最终 Exp04/05 聚合结果和说明文件，并修正多余目录层级。 |
+| 2026-08-25 | 第一轮迁移 SHA-256 比对中的 macOS `shasum` 因无效 `C.UTF-8` locale 多次 panic，导致该轮计数不可作为有效证据 | 1 | 不采信该轮哈希结果；改用 `git hash-object` 对 archive blob 流和工作树文件逐字节比较。 |
 
 ## 五问重启检查
 
