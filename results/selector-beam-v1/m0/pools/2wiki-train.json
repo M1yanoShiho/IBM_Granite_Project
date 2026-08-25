@@ -1,0 +1,55 @@
+{
+  "audit": {
+    "harmful_label_count": 0,
+    "harmful_pool_hit_count": 0,
+    "harmful_pool_hit_rate": null,
+    "required_recall_at_top_n": 0.7354166666666667,
+    "required_recall_n": 3000,
+    "unresolved_parent_count": 0,
+    "unresolved_parent_ids": []
+  },
+  "candidate_pool": {
+    "exact_top_n_count": 3000,
+    "exact_top_n_rate": 1.0,
+    "path": "/home/fl25387/projects/IBM_Granite_Project_latest/runs/selector-beam-v1/pools/2wiki-train/candidate_sets.jsonl",
+    "query_count": 3000,
+    "sha256": "0ab0fc92f95add1c5d514f531e7b567c4e67d1e5430c401f37ec6f719dbc8887",
+    "top_n": 20
+  },
+  "created_at_utc": "2026-08-09T22:55:45.559913+00:00",
+  "dataset": {
+    "artifact_sha256": {
+      "documents.jsonl": "18cae1bbdb104b35004eb9efb27975928fd5d2a5d4f6e854ec38a1788ac1d192",
+      "gold_cases.jsonl": "b62cc139f390067322b0337431dc962d4befca77026667f1f347e1f09380165b",
+      "queries.jsonl": "bb64fcca8fdcb0063e5fde103ec74531a4ce74333fd057c3fdebd13e5db5b7cf"
+    },
+    "id": "2wiki/multihop",
+    "manifest_path": "/home/fl25387/projects/IBM_Granite_Project_latest/runs/twowiki-train/manifest.json",
+    "manifest_sha256": "a16f3e76e8072cc68a8df350fa1e7928d88f3df0a3b21415d4bbad8dffd9fe0e",
+    "signature": "036385693999c5bdf6932cd96a32019be6053fc2ac85f8ad3d458d1de1485f86",
+    "split": "train",
+    "version": "train-subsample-3000"
+  },
+  "embedding": {
+    "model_id": "ibm-granite/granite-embedding-english-r2",
+    "revision": "47ea694b257b703fee9253d75c2b1f2985180498"
+  },
+  "git_commit": "fd3854b0005e86e04a3645256adc5fade81dd3d9",
+  "git_dirty": false,
+  "retriever": {
+    "implementation_version": "hybrid-v1",
+    "name": "hybrid",
+    "parameters_sha256": "67333c6f3fcf6567756b382048961bc150da0ee26af4f9cecc59f58f30b5d78d",
+    "schema_version": "1.0"
+  },
+  "retriever_config": {
+    "path": "/home/fl25387/projects/IBM_Granite_Project_latest/configs/experiments/selector_beam_2wiki_train_pool.toml",
+    "sha256": "1606b5c63ffa21884d4b3382bdd83cb9bd583bfc83cbe3e7552415c1a3580ad7"
+  },
+  "schema_version": "1.0",
+  "seed": 13,
+  "source_parent": {
+    "path": "/home/fl25387/projects/IBM_Granite_Project_latest/runs/twowiki-train/source_parent.jsonl",
+    "sha256": "1af322fb6bf749ce5f7897ced3674758b100dfd2c5f7ab80b7021d07a5b7d76e"
+  }
+}

@@ -1,0 +1,215 @@
+from evidence_rag.materializer.provenance import MutationRecord
+from evidence_rag.relations.claims import (
+    HYPOTHESIS_FORMS,
+    HYPOTHESIS_TEMPLATE,
+    build_hypothesis,
+    build_question_answer,
+)
+from evidence_rag.relations.models import PREDICTED_LABELS, RelationLabel
+from evidence_rag.relations.task_probe import (
+    CF_GOLD,
+    CF_REPLACEMENT,
+    GOLD_SUPPORTS,
+    NEEDLE_GOLD,
+    NEEDLE_REPLACEMENT,
+    TWIN_NOT_SUPPORTED,
+    build_probe_pairs,
+)
+
+
+def _record(query_id: str = "q1") -> MutationRecord:
+    return MutationRecord(
+        query_id=query_id,
+        needle_document_id="needle",
+        counterfactual_document_id="cf::needle",
+        # canonical is lowercased by `canonicalize_answer`; the document carries the raw
+        # surface form. R012d exists because these differ in the real probe.
+        gold_value="kennedy",
+        gold_alias_used="Kennedy",
+        replacement_value="Nixon",
+        string_class="proper_name_1",
+        seed=42,
+        char_span=(0, 7),
+        text_hash_before="a" * 8,
+        text_hash_after="b" * 8,
+        answer_bank_hash="c" * 8,
+    )
+
+
+_TEXTS = {"needle": "Kennedy won", "cf::needle": "Nixon won"}
+_QUESTIONS = {"q1": "who won?"}
+
+
+def test_hypothesis_uses_the_frozen_template() -> None:
+    assert build_hypothesis("who won?", "Kennedy") == (
+        'The answer to the question "who won?" is Kennedy.'
+    )
+
+
+def test_hypothesis_is_deterministic() -> None:
+    assert build_hypothesis("q", "a") == build_hypothesis("q", "a")
+
+
+def test_hypothesis_strips_surrounding_whitespace() -> None:
+    assert build_hypothesis("  q  ", "  a  ") == 'The answer to the question "q" is a.'
+
+
+def test_template_is_exported_for_the_protocol_record() -> None:
+    assert "{question}" in HYPOTHESIS_TEMPLATE
+    assert "{answer}" in HYPOTHESIS_TEMPLATE
+
+
+def test_builds_the_four_deterministic_pair_types() -> None:
+    pairs = build_probe_pairs(
+        records=(_record(),), question_by_query=_QUESTIONS, text_by_document=_TEXTS
+    )
+    assert len(pairs) == 4
+    by_key = {(pair.premise, pair.label) for pair in pairs}
+    assert ("Kennedy won", RelationLabel.SUPPORTS) in by_key
+    assert ("Kennedy won", RelationLabel.NOT_SUPPORTED) in by_key
+    assert ("Nixon won", RelationLabel.SUPPORTS) in by_key
+    assert ("Nixon won", RelationLabel.NOT_SUPPORTED) in by_key
+
+
+def test_probe_gold_labels_follow_the_metric_not_the_models_output_space() -> None:
+    """M0 §3.2, ruled 2026-08-06 alongside A2: the gold column carries SUPPORTS / NOT_SUPPORTED.
+
+    That is deliberately NOT the model's output space, which A2 restored to three classes. The
+    twin rows are genuine contradictions, so REFUTES would be the semantically natural name — but
+    the metric they feed is `predicted != SUPPORTS`, and the entire §9.12 episode came from text
+    that named one quantity while the code computed another. The label follows the metric.
+
+    Scoring is unaffected either way: neither 0B-2 metric reads this column at all, which is why
+    pairs files from both sides of A1 produce byte-identical reports. The cost of getting the
+    name wrong is a reader who mis-infers what was measured.
+    """
+    pairs = build_probe_pairs(
+        records=(_record(),), question_by_query=_QUESTIONS, text_by_document=_TEXTS
+    )
+    assert {pair.label for pair in pairs} == {
+        RelationLabel.SUPPORTS,
+        RelationLabel.NOT_SUPPORTED,
+    }
+    assert RelationLabel.NOT_SUPPORTED not in PREDICTED_LABELS
+
+
+def test_the_twin_row_pairs_the_counterfactual_against_the_gold_claim() -> None:
+    """The cf_gold row is the whole point of 0B-2: the twin discrimination the extraction
+    layer could not do."""
+    pairs = build_probe_pairs(
+        records=(_record(),), question_by_query=_QUESTIONS, text_by_document=_TEXTS
+    )
+    cf_gold = next(pair for pair in pairs if pair.kind == CF_GOLD)
+    assert cf_gold.premise == "Nixon won"
+    assert "kennedy" in cf_gold.hypothesis, "default source is the canonical value"
+    assert cf_gold.label is RelationLabel.NOT_SUPPORTED
+
+
+def test_pairs_carry_the_synthetic_family_as_the_leakage_group() -> None:
+    pairs = build_probe_pairs(
+        records=(_record(),), question_by_query=_QUESTIONS, text_by_document=_TEXTS
+    )
+    assert {pair.group for pair in pairs} == {"kennedy|Nixon|proper_name_1"}
+
+
+def test_kind_partitions_are_the_two_gate_metrics() -> None:
+    pairs = build_probe_pairs(
+        records=(_record(),), question_by_query=_QUESTIONS, text_by_document=_TEXTS
+    )
+    assert len([pair for pair in pairs if pair.kind in TWIN_NOT_SUPPORTED]) == 2
+    assert len([pair for pair in pairs if pair.kind in GOLD_SUPPORTS]) == 1
+    assert NEEDLE_REPLACEMENT in TWIN_NOT_SUPPORTED
+
+
+def test_skips_a_record_whose_documents_are_missing() -> None:
+    """A half-built probe would silently change the denominators Gate 0B is judged on."""
+    pairs = build_probe_pairs(
+        records=(_record(),),
+        question_by_query=_QUESTIONS,
+        text_by_document={"needle": "Kennedy won"},
+    )
+    assert pairs == ()
+
+
+def test_skips_a_record_whose_query_is_missing() -> None:
+    pairs = build_probe_pairs(
+        records=(_record(),), question_by_query={}, text_by_document=_TEXTS
+    )
+    assert pairs == ()
+
+
+def test_question_answer_form_drops_the_meta_frame() -> None:
+    """The frozen template asserts something ABOUT a question; this form asserts the answer
+    directly. Isolating that single difference is the whole point of the §2.4 ablation."""
+    assert build_question_answer("who won?", "Kennedy") == "who won? Kennedy."
+
+
+def test_question_answer_form_supplies_a_missing_question_mark() -> None:
+    """NQ questions arrive with no terminal punctuation at all."""
+    assert build_question_answer("who won", "Kennedy") == "who won? Kennedy."
+
+
+def test_question_answer_form_collapses_repeated_terminal_punctuation() -> None:
+    assert build_question_answer("who won???", "Kennedy") == "who won? Kennedy."
+
+
+def test_hypothesis_forms_registry_names_both_deterministic_forms() -> None:
+    """The form name is recorded in the Gate 0B report, so the registry is the protocol
+    record of which arms exist."""
+    assert HYPOTHESIS_FORMS["template"] is build_hypothesis
+    assert HYPOTHESIS_FORMS["question_answer"] is build_question_answer
+
+
+def test_probe_pairs_use_the_selected_hypothesis_form() -> None:
+    pairs = build_probe_pairs(
+        records=(_record(),),
+        question_by_query=_QUESTIONS,
+        text_by_document=_TEXTS,
+        hypothesis_form=build_question_answer,
+    )
+    assert {pair.hypothesis for pair in pairs} == {"who won? kennedy.", "who won? Nixon."}
+
+
+def test_probe_pairs_default_to_the_frozen_template() -> None:
+    """Omitting the form must not silently change the pre-registered main arm."""
+    pairs = build_probe_pairs(
+        records=(_record(),), question_by_query=_QUESTIONS, text_by_document=_TEXTS
+    )
+    assert all(pair.hypothesis.startswith('The answer to the question "') for pair in pairs)
+
+
+def test_multiple_records_are_emitted_independently() -> None:
+    pairs = build_probe_pairs(
+        records=(_record("q1"), _record("q2")),
+        question_by_query={"q1": "who won?", "q2": "who won?"},
+        text_by_document=_TEXTS,
+    )
+    assert len(pairs) == 8
+    assert {pair.query_id for pair in pairs} == {"q1", "q2"}
+
+
+def test_gold_claim_defaults_to_the_canonical_value() -> None:
+    """Omitting the source must not move the pre-registered arm: R012/R012b all ran on the
+    canonical string, and a silent switch would make them irreproducible."""
+    pairs = build_probe_pairs(
+        records=(_record(),), question_by_query=_QUESTIONS, text_by_document=_TEXTS
+    )
+    gold_claims = {pair.hypothesis for pair in pairs if pair.kind in (NEEDLE_GOLD, CF_GOLD)}
+    assert gold_claims == {'The answer to the question "who won?" is kennedy.'}
+
+
+def test_surface_source_uses_the_string_that_is_actually_in_the_document() -> None:
+    """R012d: `gold_value` is canonicalised (lowercased) while the needle document carries the
+    raw alias, so every gold claim is measured under a casing mismatch that a cased model eats.
+    This switches that one variable and nothing else — the replacement claim is untouched
+    because it was already the raw surface string."""
+    pairs = build_probe_pairs(
+        records=(_record(),),
+        question_by_query=_QUESTIONS,
+        text_by_document=_TEXTS,
+        gold_answer_source="surface",
+    )
+    gold_claims = {pair.hypothesis for pair in pairs if pair.kind in (NEEDLE_GOLD, CF_GOLD)}
+    assert gold_claims == {'The answer to the question "who won?" is Kennedy.'}
+    replacement = {pair.hypothesis for pair in pairs if pair.kind == CF_REPLACEMENT}
+    assert replacement == {'The answer to the question "who won?" is Nixon.'}

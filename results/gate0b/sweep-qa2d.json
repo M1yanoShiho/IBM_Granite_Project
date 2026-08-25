@@ -1,0 +1,34 @@
+{
+  "models": {
+    "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli": {
+      "task": {
+        "failures": [
+          "gold_supports_recall",
+          "twin_refutes_accuracy"
+        ],
+        "gold_supports_recall": 0.5869565217391305,
+        "n_gold": 1472,
+        "n_twin": 2944,
+        "twin_refutes_accuracy": 0.5186820652173914,
+        "unknown_rate": 0.35105298913043476
+      },
+      "tokenizer_variant": "fast"
+    },
+    "tals/albert-xlarge-vitaminc-mnli": {
+      "task": {
+        "failures": [
+          "gold_supports_recall",
+          "twin_refutes_accuracy"
+        ],
+        "gold_supports_recall": 0.5360054347826086,
+        "n_gold": 1472,
+        "n_twin": 2944,
+        "twin_refutes_accuracy": 0.53125,
+        "unknown_rate": 0.3680366847826087
+      },
+      "tokenizer_variant": "fast"
+    }
+  },
+  "n_external_pairs": 0,
+  "n_task_pairs": 5888
+}

@@ -1,0 +1,212 @@
+{
+  "alce-asqa": [
+    {
+      "configuration": "Full",
+      "metrics": {
+        "cp": 0.5683333333333334,
+        "cr": 0.58,
+        "rfc": 0.22599999999999995,
+        "rr": 0.9175,
+        "ucr": 0.21951219512195122,
+        "vrfc": 0.179875
+      },
+      "n_answered": 367,
+      "n_claims": 369,
+      "n_runtime_error": 0,
+      "n_scorer_error": 0,
+      "n_total": 400,
+      "n_undefined_ucr": 33
+    },
+    {
+      "configuration": "w/ BM25 Retriever",
+      "metrics": {
+        "cp": 0.4775,
+        "cr": 0.48375,
+        "rfc": 0.20254166666666662,
+        "rr": 0.8925,
+        "ucr": 0.30446927374301674,
+        "vrfc": 0.1497916666666667
+      },
+      "n_answered": 357,
+      "n_claims": 358,
+      "n_runtime_error": 0,
+      "n_scorer_error": 0,
+      "n_total": 400,
+      "n_undefined_ucr": 43
+    },
+    {
+      "configuration": "w/o Selector / Keep-all Top10",
+      "metrics": {
+        "cp": 0.5620833333333334,
+        "cr": 0.575,
+        "rfc": 0.2274583333333333,
+        "rr": 0.9025,
+        "ucr": 0.209366391184573,
+        "vrfc": 0.17933333333333337
+      },
+      "n_answered": 361,
+      "n_claims": 363,
+      "n_runtime_error": 0,
+      "n_scorer_error": 0,
+      "n_total": 400,
+      "n_undefined_ucr": 39
+    },
+    {
+      "configuration": "w/ Direct Generator",
+      "metrics": {
+        "cp": 0.4166815476190477,
+        "cr": 0.4821249999999999,
+        "rfc": 0.29754166666666665,
+        "rr": 0.9475,
+        "ucr": 0.2088167053364269,
+        "vrfc": 0.15904166666666664
+      },
+      "n_answered": 379,
+      "n_claims": 431,
+      "n_runtime_error": 0,
+      "n_scorer_error": 0,
+      "n_total": 400,
+      "n_undefined_ucr": 21
+    }
+  ],
+  "kilt-nq": [
+    {
+      "configuration": "Full",
+      "metrics": {
+        "cp": 0.6095833333333334,
+        "cr": 0.62,
+        "rfc": 0.5075,
+        "rr": 0.9325,
+        "ucr": 0.1931216931216931,
+        "vrfc": 0.3775
+      },
+      "n_answered": 373,
+      "n_claims": 378,
+      "n_runtime_error": 0,
+      "n_scorer_error": 0,
+      "n_total": 400,
+      "n_undefined_ucr": 27
+    },
+    {
+      "configuration": "w/ BM25 Retriever",
+      "metrics": {
+        "cp": 0.46,
+        "cr": 0.46625,
+        "rfc": 0.3825,
+        "rr": 0.915,
+        "ucr": 0.3216216216216216,
+        "vrfc": 0.2425
+      },
+      "n_answered": 366,
+      "n_claims": 370,
+      "n_runtime_error": 0,
+      "n_scorer_error": 0,
+      "n_total": 400,
+      "n_undefined_ucr": 34
+    },
+    {
+      "configuration": "w/o Selector / Keep-all Top10",
+      "metrics": {
+        "cp": 0.5995833333333334,
+        "cr": 0.61,
+        "rfc": 0.5025,
+        "rr": 0.9225,
+        "ucr": 0.1925133689839572,
+        "vrfc": 0.37
+      },
+      "n_answered": 369,
+      "n_claims": 374,
+      "n_runtime_error": 0,
+      "n_scorer_error": 0,
+      "n_total": 400,
+      "n_undefined_ucr": 31
+    },
+    {
+      "configuration": "w/ Direct Generator",
+      "metrics": {
+        "cp": 0.4925,
+        "cr": 0.5519642857142857,
+        "rfc": 0.605,
+        "rr": 0.97,
+        "ucr": 0.1774193548387097,
+        "vrfc": 0.3775
+      },
+      "n_answered": 388,
+      "n_claims": 434,
+      "n_runtime_error": 0,
+      "n_scorer_error": 0,
+      "n_total": 400,
+      "n_undefined_ucr": 12
+    }
+  ],
+  "kilt-tqa": [
+    {
+      "configuration": "Full",
+      "metrics": {
+        "cp": 0.5483333333333333,
+        "cr": 0.57875,
+        "rfc": 0.8075,
+        "rr": 0.905,
+        "ucr": 0.20107238605898123,
+        "vrfc": 0.5525
+      },
+      "n_answered": 362,
+      "n_claims": 373,
+      "n_runtime_error": 0,
+      "n_scorer_error": 0,
+      "n_total": 400,
+      "n_undefined_ucr": 38
+    },
+    {
+      "configuration": "w/ BM25 Retriever",
+      "metrics": {
+        "cp": 0.5229166666666667,
+        "cr": 0.5558333333333334,
+        "rfc": 0.7475,
+        "rr": 0.8825,
+        "ucr": 0.22465753424657534,
+        "vrfc": 0.5225
+      },
+      "n_answered": 353,
+      "n_claims": 365,
+      "n_runtime_error": 1,
+      "n_scorer_error": 0,
+      "n_total": 400,
+      "n_undefined_ucr": 47
+    },
+    {
+      "configuration": "w/o Selector / Keep-all Top10",
+      "metrics": {
+        "cp": 0.5483333333333333,
+        "cr": 0.57875,
+        "rfc": 0.8075,
+        "rr": 0.905,
+        "ucr": 0.20107238605898123,
+        "vrfc": 0.5525
+      },
+      "n_answered": 362,
+      "n_claims": 373,
+      "n_runtime_error": 0,
+      "n_scorer_error": 0,
+      "n_total": 400,
+      "n_undefined_ucr": 38
+    },
+    {
+      "configuration": "w/ Direct Generator",
+      "metrics": {
+        "cp": 0.47029166666666666,
+        "cr": 0.5233333333333333,
+        "rfc": 0.84,
+        "rr": 0.95,
+        "ucr": 0.2051948051948052,
+        "vrfc": 0.49
+      },
+      "n_answered": 380,
+      "n_claims": 385,
+      "n_runtime_error": 0,
+      "n_scorer_error": 0,
+      "n_total": 400,
+      "n_undefined_ucr": 20
+    }
+  ]
+}

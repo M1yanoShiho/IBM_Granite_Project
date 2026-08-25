@@ -1,0 +1,126 @@
+{
+  "artifacts": {
+    "chain_representatives.jsonl": {
+      "bytes": 0,
+      "records": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "component_map.jsonl": {
+      "bytes": 1691898,
+      "records": 3000,
+      "sha256": "394fb41123322b08c618ce3d94ec3dc6bb1f4666bceb1f32e1e7019e241fe298"
+    },
+    "recall_representatives.jsonl": {
+      "bytes": 0,
+      "records": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "role_assignments.jsonl": {
+      "bytes": 723243,
+      "records": 3000,
+      "sha256": "d435d526fc40ca5f463110ab95eb006736354f3fe343a37eba247f745e7d47fd"
+    }
+  },
+  "candidate_pool_manifest_verified": true,
+  "candidate_pool_status": "VERIFIED_SELECTOR_POOL_V2",
+  "canonical_projection_fingerprints": {
+    "chain_representative_rows": {
+      "bytes": 0,
+      "records": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "component_rows": {
+      "bytes": 480000,
+      "records": 3000,
+      "sha256": "9b0cd2a7fdf1568705fcc9b60b3688ac64c10d3ac2b14f60f5f54e58062dcfa8"
+    },
+    "recall_representative_rows": {
+      "bytes": 0,
+      "records": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "role_rows": {
+      "bytes": 538500,
+      "records": 3000,
+      "sha256": "8a5f473c46039a7e30dc16d0c9abfb87f27aa46a86d4ec2b7007bfc61a6a59fb"
+    },
+    "role_rows_by_role": {
+      "train-fit": {
+        "bytes": 483300,
+        "records": 2700,
+        "sha256": "2c77e63de106eb078d6762a4b3913dc276ee56b04d310727b0ee490c7b7d4a21"
+      },
+      "train-modelval": {
+        "bytes": 55200,
+        "records": 300,
+        "sha256": "58e9f46bb9af126a4d792b10f6dc48e3936252d3ce809812539820867f5435fe"
+      }
+    }
+  },
+  "counts": {
+    "candidate_windows": 3000,
+    "chain_eligible_components": 1226,
+    "chain_eligible_queries": 1257,
+    "components": 2324,
+    "dataset_queries": 3000,
+    "eligible_input_queries": 3000,
+    "gold_cases": 3000,
+    "max_component_queries": 20,
+    "niah_assignments": 0
+  },
+  "crossing": {
+    "components_across_folds": 0,
+    "components_across_roles": 0
+  },
+  "dataset_id": "2wiki/multihop",
+  "dataset_kind": "2wiki",
+  "dataset_signature": "036385693999c5bdf6932cd96a32019be6053fc2ac85f8ad3d458d1de1485f86",
+  "dataset_version": "train-subsample-3000",
+  "declared_dataset_split": "train",
+  "evaluation_semantics": {
+    "crc_representatives": "none",
+    "decision_dev_inference": null,
+    "train_modelval_chain": "diagnostic representatives only; never CRC"
+  },
+  "fold_query_counts": {
+    "0": 300,
+    "1": 300,
+    "2": 300,
+    "3": 300,
+    "4": 300,
+    "5": 300,
+    "6": 300,
+    "7": 300,
+    "8": 300,
+    "9": 300
+  },
+  "protocol_version": "selector-components-v1",
+  "representatives": {
+    "chain": {
+      "crc": false,
+      "records": 0,
+      "source_role": "train-modelval"
+    },
+    "recall": {
+      "crc": false,
+      "records": 0,
+      "source_role": "train-modelval"
+    }
+  },
+  "roles": {
+    "train-fit": {
+      "chain_eligible_components": 1093,
+      "chain_eligible_queries": 1118,
+      "components": 2094,
+      "queries": 2700
+    },
+    "train-modelval": {
+      "chain_eligible_components": 133,
+      "chain_eligible_queries": 139,
+      "components": 230,
+      "queries": 300
+    }
+  },
+  "schema_version": "1.0",
+  "source_split": "train"
+}

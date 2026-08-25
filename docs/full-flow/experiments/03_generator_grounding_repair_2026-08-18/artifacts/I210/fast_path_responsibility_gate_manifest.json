@@ -1,0 +1,93 @@
+{
+  "schema_version": "full-flow-i210-fast-path-responsibility-gate-v1",
+  "stage": "I210",
+  "status": "PASS",
+  "decision": "SYSTEMF_FAST_FREEZE_READY",
+  "date": "2026-08-21",
+  "system_candidate_id": "SystemF-fast-S0-GQ-2026-08-21",
+  "sq": "S0 TopK keep-all",
+  "dq_reuses_b_arm": true,
+  "claim_scope": {
+    "allowed": [
+      "GQ improves the fast-path system versus G0 on development evidence",
+      "unsupported ungrounded assertions decrease strongly on the checked unsupported safety slice"
+    ],
+    "not_allowed": [
+      "Utility Selector training succeeded",
+      "Legacy Selector improves the same GQ end-to-end",
+      "held-out generalization is known"
+    ]
+  },
+  "checks": {
+    "d_minus_a_correct_and_cited_positive": {
+      "status": "PASS",
+      "niah_delta": 0.061344158773116816,
+      "twowiki_delta": 0.3964912280701754
+    },
+    "primary_ci_lower_bound_positive": {
+      "status": "PASS",
+      "niah_ci95_low": 0.02629233511586453,
+      "twowiki_ci95_low": 0.2996563573883162
+    },
+    "answer_delta_ge_minus_2pp": {
+      "status": "PASS",
+      "niah_delta": 0.06269733874605321,
+      "twowiki_delta": 0.0694736842105263
+    },
+    "coverage_delta_ge_minus_2pp": {
+      "status": "PASS",
+      "niah_delta": 0.07126747857465043,
+      "twowiki_delta": 0.02526315789473683
+    },
+    "citation_precision_recall_delta_ge_minus_3pp": {
+      "status": "PASS",
+      "niah_precision_delta": 0.012742444745151146,
+      "niah_recall_delta": 0.019787572223296263,
+      "twowiki_precision_delta": 0.31368421052631584,
+      "twowiki_recall_delta": 0.3547368421052634
+    },
+    "unsupported_ungrounded_assertion_not_increased": {
+      "status": "PASS",
+      "baseline": 0.3007662835249042,
+      "fast_path": 0.001277139208173691,
+      "delta": -0.29948914431673057,
+      "ci95_low": -0.32729007633587787,
+      "ci95_high": -0.27105517909002896
+    },
+    "selector_net_effect": {
+      "status": "NOT_APPLICABLE",
+      "reason": "SQ=S0, so D=B and no learned Selector gain is claimed"
+    },
+    "runtime_boundary": {
+      "status": "PASS",
+      "runtime_errors_blocking": false,
+      "gold_loaded_by_generation_runtime": false,
+      "heldout_read": false
+    }
+  },
+  "source_artifacts": {
+    "i200_fast_path_dev_comparison": {
+      "path": "docs/full-flow/experiments/03_generator_grounding_repair_2026-08-18/artifacts/I200/fast_path_dev_comparison_manifest.json",
+      "sha256": "b2f78ab2fd947dc542af8f41bbda5f31a44ecbee6b7cbedec01b9bc3c7a373c3"
+    },
+    "g420_score_report": {
+      "path": "docs/full-flow/experiments/03_generator_grounding_repair_2026-08-18/artifacts/G420/G420_FORMAL_SCORE_REPORT.json",
+      "sha256": "bfeb5ce3a00b34c90bdb70cfa4abbc4f9ee1d0c7e8af71f7b2c70cbddc6e7e5d"
+    },
+    "s090_triage_manifest": {
+      "path": "docs/full-flow/experiments/03_generator_grounding_repair_2026-08-18/artifacts/S090/early_full_flow_triage_manifest.json",
+      "sha256": "0d955658018f9408ce8e7c665a4672494be0209bc28819140dc151caf5d3a80a"
+    }
+  },
+  "boundary": {
+    "new_generation_started": false,
+    "new_training_started": false,
+    "heldout_read": false,
+    "sealed600_read": false,
+    "selector_changed": false,
+    "generator_changed": false,
+    "retriever_changed": false,
+    "scoring_rule_changed": false
+  },
+  "next_stage": "I220 SystemF-fast freeze"
+}

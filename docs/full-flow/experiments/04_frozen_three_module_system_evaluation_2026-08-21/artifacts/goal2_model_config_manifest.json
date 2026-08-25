@@ -1,0 +1,135 @@
+{
+  "schema_version": "experiment04.model_config_manifest.v1",
+  "status": "FROZEN_BEFORE_HELD_OUT",
+  "frozen_at": "2026-08-22",
+  "scope": "Experiment 04 Goal 2 development-only wiring",
+  "models": {
+    "dense_embedder": {
+      "model_id": "ibm-granite/granite-embedding-english-r2",
+      "revision": "47ea694b257b703fee9253d75c2b1f2985180498",
+      "config_sha256": "bc4ad4e8cd50c0069292863117823f665da70bbbdea40fd4ea77d80609ade241",
+      "weights": [
+        {
+          "file": "model.safetensors",
+          "sha256": "23bd9625b32680f180703408ed9d8d7b3a9c1efe4c950111e3ae9d9695b21b29"
+        }
+      ]
+    },
+    "granite_reranker": {
+      "model_id": "ibm-granite/granite-embedding-reranker-english-r2",
+      "revision": "d09d3d6971b689bf9c23839e45a470874d46e13a",
+      "config_sha256": "bcefb1b941a5860a41cfe83a527cf50172cc59cd2b6275b67cbd228b02a9e12f",
+      "weights": [
+        {
+          "file": "model.safetensors",
+          "sha256": "e72c8f7087dbfbdbfb9d75077f7b7b05b01b459730f735b468cbde71d66090e6"
+        }
+      ],
+      "pool_size": 40,
+      "final_top_k": 10
+    },
+    "provence": {
+      "model_id": "naver/provence-reranker-debertav3-v1",
+      "revision": "ef49e233e3c6e50efc476c68f1390f8a63add4d4",
+      "config_sha256": "f2174e79a32cf0cc91b826440db15c8c285130a1905939f0a82e88230b787280",
+      "weights": [
+        {
+          "file": "model.safetensors",
+          "sha256": "227b473f30fa66d9163c678264082a023f39f632f493bed560964e016ab39bf2"
+        }
+      ],
+      "threshold": 0.1,
+      "always_select_title": true,
+      "reorder": false
+    },
+    "direct_and_grounded_base": {
+      "model_id": "ibm-granite/granite-4.1-3b",
+      "revision": "c0650403e44e78ec0262dab1c90914c65b196c4e",
+      "config_sha256": "9a0e589b69e7d3ad9fb9fb2c844aa7d7156e052cb7ea4211de7de48ab7c8525c",
+      "weights": [
+        {
+          "file": "model-00001-of-00002.safetensors",
+          "sha256": "895bf5f2d7c8b06ca902499567d3c3d9ed30061e4c5ad94bf8216286ca67e2fd"
+        },
+        {
+          "file": "model-00002-of-00002.safetensors",
+          "sha256": "de8c9efdaa6f669d595bda8b949213cba92ea69689fd2a27fbceed3d1ebeb2f7"
+        }
+      ]
+    },
+    "selector_backbone": {
+      "model_id": "cross-encoder/nli-deberta-v3-base",
+      "revision": "6c749ce3425cd33b46d187e45b92bbf96ee12ec7",
+      "config_sha256": "897e756eb59d3183adb505952e7910e7cbc7750a43f3b3747a96b688d2b02a47",
+      "weights": [
+        {
+          "file": "model.safetensors",
+          "sha256": "d8148c6d49e0a7925134294c56326c71fe0ab1dc390e37355e00c7efbb488afa"
+        }
+      ],
+      "runtime_checkpoint": "/scratch/fl25387/IBM_Granite_Project_latest/runs/selector-lean-v3/L002/NLI-base/seed13/model.safetensors",
+      "runtime_checkpoint_sha256": "86622bd9ab6391c9eb560133b01b0cf3744c3706638ff8b0bd38925b84bf72bf",
+      "safe_threshold": 0.9212157130241394,
+      "max_delete": 2,
+      "minimum_retained": 7
+    },
+    "true_runtime_verifier": {
+      "model_id": "google/t5_xxl_true_nli_mixture",
+      "revision": "aa6cfe1dd4257853bfdd772992045f41bfc14988",
+      "config_sha256": "69f089550c668f52d585adb6b482e771d8819a10c8c4ce2ca83f44c96178c6e9",
+      "weight_sha256": [
+        "dd1fccd740a717f82578a8fec4912772d36e0d3951ff6c57c0ea1ce76a018bb1",
+        "b6d133eade2bafc61c0ca5cc323044ae6d008b38096e97928506f0a49613905e",
+        "1705a1c6a4f5913cc681b48aa3f3e388bceb5a037cc966b6319d011be76641be",
+        "f68e2b1d98819f84b505355cd3e362b974356f98b28e4ce57c01047b590aece7",
+        "1f21dc75d2ad64c139b11310ae4b784659f464c59a24752e0515f6ecf3f7ddd3"
+      ]
+    },
+    "minicheck_scorer_only": {
+      "model_id": "lytang/MiniCheck-Flan-T5-Large",
+      "revision": "96eafd01cee2d16cf81aaa2fb226b14f422a37b3",
+      "config_sha256": "d8e91aa8739d845d2572fa8db9cb6523d06208c14fedb8f7623f49283a305653",
+      "weights": [
+        {
+          "file": "pytorch_model.bin",
+          "sha256": "41291881e13c6235ed47149cec903bee9493e45d9d7325587a9fa2e266c526c0"
+        }
+      ],
+      "role": "scorer_only_not_runtime"
+    }
+  },
+  "grc_adapters": {
+    "13": {
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G310-v1/formal-grc-seed13/adapter",
+      "weights_sha256": "492d336c7acc32785becded707220dbdf1a8acf9a895630147fc4e8cd28d0707",
+      "config_sha256": "1918333d819e6007d3faf17d3497c4f4665f7c0d3cb032f510986cfdb9837942"
+    },
+    "42": {
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G330-v1/formal-grc-seed42/adapter",
+      "weights_sha256": "96d8087e1dbed831ad795fb7a037677eeb7e2d6986a91df61a897b9c1b6d383c",
+      "config_sha256": "df6c8e4c39f3d7567849a4a32355aea4bb9176c784d089832fe14a8697a2d8f8"
+    },
+    "73": {
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G330-v1/formal-grc-seed73/adapter",
+      "weights_sha256": "d5f90954f3ac2829a213ab7c3b04e6d26b89990c42e95306bc74743d1ac2431c",
+      "config_sha256": "f1659959d9ffe7348c370e9f01a497066710793c9754e9d06c5d8963aaf45dd1"
+    }
+  },
+  "shared_runtime_contract": {
+    "hybrid_rrf_k": 60,
+    "hybrid_pool_size": 10,
+    "reranker_pool_size": 40,
+    "final_top_k": 10,
+    "max_selected": 10,
+    "generator_max_input_tokens": 2304,
+    "generator_max_new_tokens": 256,
+    "temperature": 0.0,
+    "top_p": 1.0,
+    "do_sample": false,
+    "overflow_policy": "error_no_silent_truncation",
+    "context_template": "[{index}] ({evidence_id}) {text}",
+    "citation_format": "inline_square_bracket_1_based",
+    "prompt_id": "experiment04_shared_inline_citation_v1",
+    "prompt_sha256": "50acd572f7c57ec25b20898d317a72cfc14c7aa6647c684c08210ed0bd1bd8f3"
+  }
+}

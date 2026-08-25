@@ -1,0 +1,29 @@
+schema_version = "experiment04.arm.v1"
+arm_id = "ours_seed73"
+table_role = "ours"
+model_manifest = "../../../docs/full-flow/experiments/04_frozen_three_module_system_evaluation_2026-08-21/artifacts/goal2_model_config_manifest.json"
+development_fixture = "../../../tests/fixtures/three_module_smoke_dataset/manifest.json"
+
+[modules]
+retriever = "hybrid"
+selector = "nli-risk-controlled"
+generator = "grounded-grc"
+generator_seed = 73
+
+[budget]
+final_top_k = 10
+hybrid_pool_size = 10
+reranker_pool_size = 40
+max_selected = 10
+generator_max_input_tokens = 2304
+generator_max_new_tokens = 256
+temperature = 0.0
+top_p = 1.0
+do_sample = false
+overflow_policy = "error_no_silent_truncation"
+
+[format]
+context_template = "[{index}] ({evidence_id}) {text}"
+citation_format = "inline_square_bracket_1_based"
+prompt_id = "experiment04_shared_inline_citation_v1"
+output_schema = "experiment04.system_output.v1"

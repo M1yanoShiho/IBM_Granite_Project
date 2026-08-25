@@ -1,0 +1,126 @@
+{
+  "artifacts": {
+    "chain_representatives.jsonl": {
+      "bytes": 0,
+      "records": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "component_map.jsonl": {
+      "bytes": 868038,
+      "records": 1023,
+      "sha256": "86be62b1fb6c25e335692ce1041284fbc8cc4341a30370224003ebf2872bc2ab"
+    },
+    "recall_representatives.jsonl": {
+      "bytes": 0,
+      "records": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "role_assignments.jsonl": {
+      "bytes": 220716,
+      "records": 1023,
+      "sha256": "afcffc5ebe57bf6ec86843149977b1f2534092b717725e1ae638f6421405aa00"
+    }
+  },
+  "candidate_pool_manifest_verified": true,
+  "candidate_pool_status": "VERIFIED_SELECTOR_POOL_V2",
+  "canonical_projection_fingerprints": {
+    "chain_representative_rows": {
+      "bytes": 0,
+      "records": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "component_rows": {
+      "bytes": 138083,
+      "records": 1023,
+      "sha256": "383d6bc32e6cdaea6a12a2a01a1346c28076d49d466a177ac0172c92f82d9679"
+    },
+    "recall_representative_rows": {
+      "bytes": 0,
+      "records": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "role_rows": {
+      "bytes": 158035,
+      "records": 1023,
+      "sha256": "bcc20e6c9d9b9b83e05e6be3e35756664549339d12ae180c5e9d768b1f057d43"
+    },
+    "role_rows_by_role": {
+      "train-fit": {
+        "bytes": 141662,
+        "records": 920,
+        "sha256": "e842c53220c5d55d38161c316900427d97d25c59839e3fdf3b9f93209d810bae"
+      },
+      "train-modelval": {
+        "bytes": 16373,
+        "records": 103,
+        "sha256": "187b378975e653ccb8a0697ebe91ce6c6b7a3257b61db3d85f70d4b54f4b5b63"
+      }
+    }
+  },
+  "counts": {
+    "candidate_windows": 2000,
+    "chain_eligible_components": 699,
+    "chain_eligible_queries": 745,
+    "components": 908,
+    "dataset_queries": 2000,
+    "eligible_input_queries": 1023,
+    "gold_cases": 2000,
+    "max_component_queries": 7,
+    "niah_assignments": 1023
+  },
+  "crossing": {
+    "components_across_folds": 0,
+    "components_across_roles": 0
+  },
+  "dataset_id": "niah/dpr-w100-nq",
+  "dataset_kind": "niah",
+  "dataset_signature": "9c389b69d5a74daba69a8577145ee65e27a092de8916ccd0f8e20772050a04e0",
+  "dataset_version": "subsample-100000+cf42",
+  "declared_dataset_split": "dev",
+  "evaluation_semantics": {
+    "crc_representatives": "none",
+    "decision_dev_inference": null,
+    "train_modelval_chain": "diagnostic representatives only; never CRC"
+  },
+  "fold_query_counts": {
+    "0": 103,
+    "1": 103,
+    "2": 103,
+    "3": 102,
+    "4": 102,
+    "5": 102,
+    "6": 102,
+    "7": 102,
+    "8": 102,
+    "9": 102
+  },
+  "protocol_version": "selector-components-v1",
+  "representatives": {
+    "chain": {
+      "crc": false,
+      "records": 0,
+      "source_role": "train-modelval"
+    },
+    "recall": {
+      "crc": false,
+      "records": 0,
+      "source_role": "train-modelval"
+    }
+  },
+  "roles": {
+    "train-fit": {
+      "chain_eligible_components": 632,
+      "chain_eligible_queries": 675,
+      "components": 817,
+      "queries": 920
+    },
+    "train-modelval": {
+      "chain_eligible_components": 67,
+      "chain_eligible_queries": 70,
+      "components": 91,
+      "queries": 103
+    }
+  },
+  "schema_version": "1.0",
+  "source_split": "train"
+}

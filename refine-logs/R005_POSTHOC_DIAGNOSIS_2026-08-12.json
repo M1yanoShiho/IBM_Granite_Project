@@ -1,0 +1,84 @@
+{
+  "analysis_date": "2026-08-12",
+  "status": "POSTHOC_DIAGNOSTIC_ONLY",
+  "formal_r005_status_unchanged": "FAIL",
+  "scope": {
+    "candidate_scores": "formal-r005-train-fit-only",
+    "modelval_read": false,
+    "dev_read": false,
+    "sealed_or_heldout_effect_read": false,
+    "training_run": false
+  },
+  "score_universe": {
+    "rows": 640,
+    "niah_rows": 320,
+    "twowiki_rows": 320,
+    "queries_per_dataset": 16,
+    "candidates_per_query": 20,
+    "identity_and_text_hash_checks": "PASS"
+  },
+  "formal_class_accuracy": {
+    "2wiki.protect.1": {"correct": 32, "n": 32, "accuracy": 1.0},
+    "niah.protect.0": {"correct": 16, "n": 16, "accuracy": 1.0},
+    "niah.protect.1": {"correct": 71, "n": 79, "accuracy": 0.8987341772151899},
+    "niah.harm.0": {"correct": 12, "n": 16, "accuracy": 0.75},
+    "niah.harm.1": {"correct": 14, "n": 16, "accuracy": 0.875}
+  },
+  "auc": {
+    "niah_protect": 0.9825949367088608,
+    "niah_harm": 0.9296875
+  },
+  "single_threshold_can_meet_original_gate": {
+    "niah_protect": false,
+    "niah_harm": false
+  },
+  "threshold_impossibility": {
+    "niah_protect": {
+      "required": "threshold > 0.30055094 and threshold <= 0.21464671",
+      "interval_empty": true,
+      "best_posthoc_worst_class_accuracy": 0.9375
+    },
+    "niah_harm": {
+      "required": "threshold > 0.55774343 and threshold <= 0.48020273",
+      "interval_empty": true,
+      "best_posthoc_worst_class_accuracy": 0.8125
+    }
+  },
+  "pair_margins": {
+    "protect": {"minimum": 0.000610, "median": 0.480644, "maximum": 0.871872},
+    "harm": {"minimum": 0.001140, "median": 0.516781, "maximum": 0.866053},
+    "safe": {"minimum": 0.001140, "median": 0.527457, "maximum": 0.866053},
+    "all_16_directions_correct": true
+  },
+  "implementation_fact": {
+    "snapshot_architecture": "DebertaV2ForSequenceClassification",
+    "snapshot_has_context_pooler_and_three_way_classifier": true,
+    "current_loader": "AutoModel",
+    "current_loaded_model": "DebertaV2Model",
+    "pretrained_pooler_and_classifier_used": false,
+    "current_pooling": "last_hidden_state[:,0,:]",
+    "current_heads": "two-random-linear-independent-sigmoid-heads",
+    "single_learning_rate_for_encoder_and_heads": 0.00002,
+    "causal_role_in_failure": "HYPOTHESIS_NOT_PROVEN"
+  },
+  "ranked_hypotheses": [
+    "representation-overlap-or-insufficient-one-span-sensitivity",
+    "objective-gate-mismatch",
+    "calibration-partial-but-insufficient",
+    "small-sample-or-seed-instability",
+    "data-or-provenance-defect-not-supported-by-current-audit"
+  ],
+  "fresh_component_disjoint_trainfit_inventory": {
+    "niah_fresh_queries": 893,
+    "niah_fresh_strict_pair_queries": 846,
+    "niah_fresh_eligible_pair_components": 766,
+    "twowiki_fresh_protect_positive_queries": 2677,
+    "twowiki_fresh_components": 2078
+  },
+  "forbidden_interpretations": [
+    "R005 upgraded to PASS",
+    "posthoc threshold proposed for deployment",
+    "natural-world misinformation accuracy established",
+    "R006 authorized"
+  ]
+}

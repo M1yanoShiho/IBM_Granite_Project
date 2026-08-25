@@ -1,0 +1,98 @@
+{
+  "answerable_train_updates": 8240,
+  "counts": {
+    "2wiki": {
+      "train-fit_answerable_groups": 824,
+      "train-fit_unsupported_groups": 1049,
+      "train-modelval_answerable_groups": 103
+    },
+    "niah": {
+      "train-fit_answerable_groups": 515,
+      "train-modelval_answerable_groups": 212
+    }
+  },
+  "dev_read": false,
+  "gates": {
+    "niah_new_modelval_groups": true,
+    "niah_train_groups": true,
+    "split_component_overlap_zero": true,
+    "split_group_overlap_zero": true,
+    "twowiki_modelval_groups": true,
+    "twowiki_train_groups": true,
+    "unsupported_update_ratio": true
+  },
+  "gold_use": "offline target repair only; runtime prompts contain evidence text and question only",
+  "input_sha256": {
+    "source_manifest": "0782877816719e13f2caa1ce53fd38be38c2e2d18756df91ba9095b0a0301df0",
+    "source_train_cases": "a8d0cd236b912fefd42cc2f06e43ccc71ed31e6349a2d84642c76784ffb309d7",
+    "source_validation_cases": "fdbb9b4003dcfa2984ed42b91cdab55db47bd2dae9e7c8ee89490672359f4c6d"
+  },
+  "ordered_ids_sha256": "804b785455f7a69d6c5671107fc7b878d2c42dd5995b3cdd0222e17d171f3d9a",
+  "removed_case_count": 1,
+  "removed_cases": [
+    {
+      "case_id": "niah-new-modelval::1015",
+      "dataset": "niah",
+      "reason": "acted_on_title_truncation",
+      "role": "train-modelval",
+      "split": "validation"
+    }
+  ],
+  "repair_counts": {
+    "niah_cases_filtered": 1,
+    "niah_filter_reason::acted_on_title_truncation": 1,
+    "twowiki_cases_changed": 553,
+    "twowiki_cases_unchanged": 374,
+    "twowiki_sentence_mode::prefix_anchor_label": 526,
+    "twowiki_sentence_mode::prepend_subject_to_born": 13,
+    "twowiki_sentence_mode::replace_after_release_it": 1,
+    "twowiki_sentence_mode::replace_leading_generic_noun": 17,
+    "twowiki_sentence_mode::replace_leading_pronoun": 95,
+    "twowiki_sentence_mode::replace_leading_suffix_anchor": 30,
+    "twowiki_sentence_mode::unchanged_already_anchored": 1184
+  },
+  "repair_reason": "systematic_target_self_containment_and_qa2d_filtering",
+  "repair_stage": "G218",
+  "requires_structural_true_rerun": true,
+  "review_inputs": [
+    {
+      "decisions": {
+        "FAIL": 8,
+        "PASS": 92
+      },
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G212M-v2/review/sample_review_rows.jsonl",
+      "rows": 100,
+      "sha256": "00f3f979f8ca0364226505da0dadb51f1a3d14c71c20724f88a9d0e803b91d6d"
+    },
+    {
+      "decisions": {
+        "FAIL": 8,
+        "PASS": 92
+      },
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G212M2-v1/review/sample_review_rows.jsonl",
+      "rows": 100,
+      "sha256": "630f21acd3dfa2e89126bfb9dabf1a191a505b0b240ce0638ad11919bbc759ce"
+    }
+  ],
+  "sample_review_required_before_training": true,
+  "schema_version": "full-flow-g218-target-repair-manifest-v1",
+  "sealed_or_heldout_read": false,
+  "source_manifest_schema_version": "full-flow-g216-sample-review-repair-manifest-v1",
+  "split_leakage": {
+    "component_overlap": 0,
+    "group_overlap": 0
+  },
+  "status": "PRE_AUDIT",
+  "target_construction": {
+    "2wiki": "title_anchored_support_sentence_v2",
+    "niah": "qa2d_single_claim_reuse_or_frozen_qa2d_g218_filtered"
+  },
+  "train_cases": 2388,
+  "train_cases_sha256": "e8fa2fa0931b02fb56ace430fd2ef34471f619833f4c1883d93500830f9ba046",
+  "training_started": false,
+  "unsupported_update_ratio": 0.11292927118096674,
+  "unsupported_updates": 1049,
+  "utility_labels_started": false,
+  "validation_cases": 315,
+  "validation_cases_sha256": "3d8a168a7a8249e5611db1ccda428ca9e106accc7ed67a86c230f79c4366d810"
+}

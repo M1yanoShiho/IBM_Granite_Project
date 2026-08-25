@@ -1,0 +1,20 @@
+[dataset]
+manifest = "../../tests/fixtures/reference_dataset/manifest.json"
+
+[output]
+directory = "../../runs/reference-baseline"
+
+[retriever]
+name = "bm25"
+parameters = { k1 = 1.5, b = 0.75 }
+
+[selector]
+name = "top-k"
+
+[generator]
+name = "extractive"
+
+[run]
+top_k = 3
+max_selected = 2
+seed = 7

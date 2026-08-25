@@ -1,0 +1,50 @@
+{
+  "schema_version": "full-flow-g221-execution-audit-v1",
+  "stage": "G221",
+  "date": "2026-08-18",
+  "status": "PRE_MANUAL_PASS_REQUIRES_G212R5_G212M5",
+  "source_head_before_stage": "a24b7409f424ceb61b5334af4d9a41d31e4d8c53",
+  "server_repo_head_at_execution": "a24b7409f424ceb61b5334af4d9a41d31e4d8c53",
+  "runtime_dir": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G221-v1",
+  "code_runtime_dir": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G221-code-v1",
+  "script_sha256": "38eebba936f6f1836aabd145e018fb45cac4df7b687d3b4dd8f7101c1436d9b7",
+  "test_sha256": "9ebb48bce3b0366661778f386f43769b144cafe58ad46db78f98b2cbdfe212c6",
+  "commands": {
+    "tests": "PYTHONPATH=G221-code-v1/scripts:repo/scripts python -m pytest -q G221 test + G220 test + G216 test",
+    "materialize": "PYTHONPATH=G221-code-v1/scripts:repo/scripts python G221 code --manifest G220-v2/data/manifest.json --train-cases G220-v2/data/train_cases.jsonl --validation-cases G220-v2/data/validation_cases.jsonl --review-rows G212M4/review/sample_review_rows.jsonl --review-summary G212M4/review/sample_review_summary.json --output-dir G221-v1/data"
+  },
+  "results": {
+    "data_status": "PRE_MANUAL_PASS",
+    "train_cases": 2374,
+    "validation_cases": 303,
+    "niah_train": 511,
+    "niah_validation": 207,
+    "twowiki_train": 817,
+    "twowiki_validation": 96,
+    "unsupported_groups": 1046,
+    "unsupported_update_ratio": 0.11346132986224103,
+    "split_group_overlap": 0,
+    "split_component_overlap": 0,
+    "excluded_sample_review_rows": 10,
+    "excluded_cases": 12,
+    "target_rewrite_started": false,
+    "requires_structural_true_rerun": false,
+    "next_stage": "G212R5 length/sample review"
+  },
+  "method_amendment": {
+    "twowiki_modelval_floor": 96,
+    "previous_floor": 99,
+    "reason": "G212M4 sample-driven quarantine removes three additional 2Wiki model-val groups from the internal screen. This reduced screen size must be reported and does not authorize held-out access or training by itself.",
+    "not_a_true_threshold_change": true,
+    "not_a_heldout_result": true
+  },
+  "artifacts": {
+    "data_manifest": "6a9ab588a16f9c46ff784b4e74aa0b39fafab8f98b266599c4af2b1b94ee5efc",
+    "data_ordered_ids": "377dea044dd66eb262644ef2a8ac0876e682eb6aa47a4ed875e91dc3e31b0726"
+  },
+  "training_started": false,
+  "utility_labels_started": false,
+  "dev_read": false,
+  "sealed_or_heldout_read": false,
+  "g300_unlocked": false
+}

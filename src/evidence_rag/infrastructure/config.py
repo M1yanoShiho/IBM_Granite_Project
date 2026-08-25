@@ -1,0 +1,225 @@
+import math
+import tomllib
+from pathlib import Path
+from typing import Annotated, Any, Literal
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+NonEmpty = Annotated[str, Field(min_length=1)]
+PositiveInteger = Annotated[int, Field(gt=0)]
+NonNegativeInteger = Annotated[int, Field(ge=0)]
+
+
+class FrozenModel(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
+
+
+def _validate_json_value(value: object) -> None:
+    if value is None or type(value) in {bool, int, str}:
+        return
+    if type(value) is float:
+        if math.isfinite(value):
+            return
+        raise ValueError("module parameters must be JSON-compatible")
+    if type(value) is list:
+        for item in value:
+            _validate_json_value(item)
+        return
+    if type(value) is dict:
+        for key, item in value.items():
+            if type(key) is not str:
+                raise ValueError("module parameters must be JSON-compatible")
+            _validate_json_value(item)
+        return
+    raise ValueError("module parameters must be JSON-compatible")
+
+
+class ModuleConfig(FrozenModel):
+    schema_version: Literal["1.0"] = "1.0"
+    name: NonEmpty
+    parameters: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("parameters", mode="before")
+    @classmethod
+    def parameters_must_be_json_compatible(cls, value: object) -> object:
+        _validate_json_value(value)
+        return value
+
+
+class ChunkerConfig(FrozenModel):
+    """Corpus chunking, which until now was fixed at ``WordChunker``'s own defaults.
+
+    The chunk is the unit of evidence for all three modules, so these two numbers set
+    what the selector ranks and what the generator can cite — yet no experiment could
+    vary them, and the values in use were never chosen on evidence. Defaults here are
+    exactly ``WordChunker()``'s, so a config without a ``[chunker]`` table produces the
+    same corpus, the same signature and the same recorded results as before.
+
+    Changing either value changes ``corpus_signature``, which is already folded into the
+    index signature, so a sweep cannot silently reuse another point's index — the runner
+    refuses before retrieving rather than after.
+    """
+
+    schema_version: Literal["1.0"] = "1.0"
+    name: Literal["word", "prechunked", "section"] = "word"
+    chunk_size: PositiveInteger = 120
+    overlap: NonNegativeInteger = 20
+
+    @model_validator(mode="after")
+    def overlap_must_be_smaller_than_chunk(self) -> "ChunkerConfig":
+        # WordChunker raises on this too, but failing at config load names the file and
+        # happens before a job reaches the cluster.
+        if self.overlap >= self.chunk_size:
+            raise ValueError(
+                f"chunker overlap must satisfy 0 <= overlap < chunk_size, "
+                f"got overlap={self.overlap} chunk_size={self.chunk_size}"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def window_settings_belong_to_word_chunking(self) -> "ChunkerConfig":
+        # "prechunked" emits each document as one chunk, so a chunk_size here would be
+        # silently inert — and two sweep points differing only in an inert number would
+        # look like distinct configurations while producing the identical corpus.
+        if self.name == "prechunked":
+            set_but_unused = sorted({"chunk_size", "overlap"} & self.model_fields_set)
+            if set_but_unused:
+                raise ValueError(
+                    f"chunker name='prechunked' does not split by a fixed window, so "
+                    f"{', '.join(set_but_unused)} must not be set"
+                )
+        return self
+
+
+class ExperimentConfig(FrozenModel):
+    schema_version: Literal["1.0"] = "1.0"
+    dataset_manifest_path: Path
+    output_directory: Path
+    retriever: ModuleConfig
+    selector: ModuleConfig
+    generator: ModuleConfig
+    chunker: ChunkerConfig = Field(default_factory=ChunkerConfig)
+    top_k: PositiveInteger
+    max_selected: PositiveInteger
+    seed: int
+
+
+class _DatasetToml(FrozenModel):
+    manifest: NonEmpty
+
+
+class _OutputToml(FrozenModel):
+    directory: NonEmpty
+
+
+class _RunToml(FrozenModel):
+    top_k: PositiveInteger
+    max_selected: PositiveInteger
+    seed: int
+
+
+class _TomlExperimentConfig(FrozenModel):
+    dataset: _DatasetToml
+    output: _OutputToml
+    retriever: ModuleConfig
+    selector: ModuleConfig
+    generator: ModuleConfig
+    # Optional so every config written before chunking was configurable keeps parsing,
+    # and keeps producing the identical corpus.
+    chunker: ChunkerConfig = Field(default_factory=ChunkerConfig)
+    run: _RunToml
+
+
+class IngestionConfig(FrozenModel):
+    """Config-file switches for directory ingestion (see ``loaders.load_directory``).
+
+    ``caption_pdf_pictures`` turns on Granite Vision captioning of embedded PDF
+    figures; with ``image_ocr`` (on by default) their in-figure text is OCR'd and
+    appended too. The optional string fields fall back to ``load_directory``'s own
+    defaults / environment variables when left unset.
+    """
+
+    schema_version: Literal["1.0"] = "1.0"
+    pdf_mode: Literal["chunks", "pages"] = "chunks"
+    # "markdown" hands DOCX/PPTX/HTML to the corpus chunker as one Markdown document, so
+    # `[chunker] name = "section"` can cut on the structure Docling recovered; "chunks"
+    # lets Docling's own HybridChunker split them (pair with `name = "prechunked"`).
+    office_mode: Literal["markdown", "chunks"] = "markdown"
+    caption_pdf_pictures: bool = False
+    image_ocr: bool = True
+    caption_prompt: NonEmpty | None = None
+    vision_model_id: NonEmpty | None = None
+    vision_device: NonEmpty | None = None
+    on_error: Literal["skip", "raise"] = "skip"
+    recursive: bool = True
+    cache_dir: Path | None = None
+
+
+class _TomlIngestionSection(FrozenModel):
+    schema_version: Literal["1.0"] = "1.0"
+    pdf_mode: Literal["chunks", "pages"] = "chunks"
+    caption_pdf_pictures: bool = False
+    image_ocr: bool = True
+    caption_prompt: NonEmpty | None = None
+    vision_model_id: NonEmpty | None = None
+    vision_device: NonEmpty | None = None
+    on_error: Literal["skip", "raise"] = "skip"
+    recursive: bool = True
+    cache_dir: NonEmpty | None = None
+
+
+class _TomlIngestionConfig(FrozenModel):
+    ingestion: _TomlIngestionSection = Field(default_factory=_TomlIngestionSection)
+
+
+def load_ingestion_config(path: Path) -> IngestionConfig:
+    """Load an ``[ingestion]`` TOML section into an :class:`IngestionConfig`.
+
+    A missing ``[ingestion]`` table yields all defaults. ``cache_dir`` is resolved
+    relative to the config file, matching ``load_experiment_config``.
+    """
+    config_path = Path(path).resolve()
+    try:
+        raw_config = tomllib.loads(config_path.read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError) as error:
+        raise ValueError(f"unable to load ingestion config {config_path}: {error}") from error
+
+    section = _TomlIngestionConfig.model_validate(raw_config).ingestion
+    cache_dir = (
+        (config_path.parent / section.cache_dir).resolve()
+        if section.cache_dir is not None
+        else None
+    )
+    return IngestionConfig(
+        pdf_mode=section.pdf_mode,
+        caption_pdf_pictures=section.caption_pdf_pictures,
+        image_ocr=section.image_ocr,
+        caption_prompt=section.caption_prompt,
+        vision_model_id=section.vision_model_id,
+        vision_device=section.vision_device,
+        on_error=section.on_error,
+        recursive=section.recursive,
+        cache_dir=cache_dir,
+    )
+
+
+def load_experiment_config(path: Path) -> ExperimentConfig:
+    config_path = Path(path).resolve()
+    try:
+        raw_config = tomllib.loads(config_path.read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError) as error:
+        raise ValueError(f"unable to load experiment config {config_path}: {error}") from error
+
+    parsed = _TomlExperimentConfig.model_validate(raw_config)
+    root = config_path.parent
+    return ExperimentConfig(
+        dataset_manifest_path=(root / parsed.dataset.manifest).resolve(),
+        output_directory=(root / parsed.output.directory).resolve(),
+        retriever=parsed.retriever,
+        selector=parsed.selector,
+        generator=parsed.generator,
+        chunker=parsed.chunker,
+        top_k=parsed.run.top_k,
+        max_selected=parsed.run.max_selected,
+        seed=parsed.run.seed,
+    )

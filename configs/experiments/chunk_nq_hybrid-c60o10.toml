@@ -1,0 +1,36 @@
+# R17: does the R9-R16 chain hold under the production retriever?
+# Mirrors ledger R14's NQ set B point (60 x 10) word for word -- same dataset, same
+# budget (chunk_size x max_selected == 600 words), same top_k, same generator -- and changes
+# only [retriever]. R16's mechanism rests on retrieval scoring by query terms: splitting a
+# passage separates the answer from the text matching the query, and strong-bm25 takes the
+# half with the query terms. A dense arm does not need the query terms to appear verbatim,
+# so the chain may not transfer to the shipped Hybrid RRF. Any difference from R14 beyond
+# [retriever] would destroy the comparison this entry exists to make.
+[dataset]
+manifest = "../../runs/niah-base/manifest.json"
+
+[output]
+directory = "../../runs/chunk-nq-hybrid-c60o10"
+
+[retriever]
+name = "hybrid"
+
+[retriever.parameters]
+fusion = "rrf"
+k = 60
+retrievers = [ { name = "strong-bm25" }, { name = "granite-dense" } ]
+
+[selector]
+name = "top-k"
+
+[generator]
+name = "extractive"
+
+[chunker]
+chunk_size = 60
+overlap = 10
+
+[run]
+top_k = 50
+max_selected = 10
+seed = 7

@@ -1,0 +1,76 @@
+{
+  "schema_version": "1.0",
+  "run_id": "R003",
+  "run_name": "topk-and-count-controls",
+  "status": "FROZEN",
+  "purpose": "Freeze literal TopK10/9/8/7 quantity controls and the future per-query count-matched random/bottom-rank generator protocol without evaluating a Selector.",
+  "code": {
+    "branch": "refactor/three-module-baseline",
+    "commit": "c23c4df71ba61c95b1acb72411684e6a62ff3e77"
+  },
+  "data_scope": {
+    "source_splits": [
+      "niah-train",
+      "niah-dev",
+      "2wiki-train",
+      "2wiki-dev"
+    ],
+    "niah_query_universe": "frozen assignment subset",
+    "twowiki_query_universe": "all source-split queries",
+    "sealed_or_heldout_selector_effect_accessed": false
+  },
+  "topk_controls": {
+    "protocol_version": "selector-topk-controls-v1",
+    "anchor": "TopK10 S0",
+    "systems": [
+      "topk10",
+      "topk9",
+      "topk8",
+      "topk7"
+    ],
+    "construction": "Each smaller system is the literal S0 prefix; ranks 11-20 never replace a deleted item.",
+    "candidate_pool_requirement": "VERIFIED_SELECTOR_POOL_V2",
+    "component_requirement": "matching frozen R002 component bundle",
+    "recall_identity": "document_id",
+    "chain_denominator": "queries whose TopK10 contains every official gold document",
+    "harm_denominators": [
+      "Top20 pool-conditional",
+      "TopK10 baseline-exposed",
+      "unconditional"
+    ],
+    "harm_metrics_scope": "NIAH only; 2Wiki has no harmful labels",
+    "paired_statistics": {
+      "alignment": "strict identical query keys and identical metric masks",
+      "resampling_unit": "frozen R002 component_id",
+      "point_estimate_weighting": "query-weighted",
+      "bootstrap_iterations": 10000,
+      "sign_flip_iterations": 10000,
+      "seed": 13,
+      "confidence_interval": "95% percentile paired component-cluster bootstrap",
+      "p_value": "two-sided Monte Carlo component sign-flip with plus-one correction"
+    }
+  },
+  "count_matched_control": {
+    "protocol_version": "selector-count-matched-v1",
+    "master_seed": 20260811,
+    "repeat_count": 100,
+    "repeat_index_range": [
+      0,
+      99
+    ],
+    "allowed_per_query_deletion_counts": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "controls": [
+      "random-priority deletion",
+      "bottom-rank deletion"
+    ],
+    "replacement": "forbidden",
+    "nesting": "within a query and repeat, the m-drop set is a prefix of one frozen priority order",
+    "result_status": "DEFERRED_UNTIL_REAL_SELECTOR_TRACE",
+    "reason": "The control must copy each query's actual Selector deletion count; R003 has no Selector trace and therefore must not fabricate count-matched outcomes."
+  }
+}

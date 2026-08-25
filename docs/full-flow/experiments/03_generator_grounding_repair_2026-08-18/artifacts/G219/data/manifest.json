@@ -1,0 +1,117 @@
+{
+  "answerable_train_updates": 8196,
+  "counts": {
+    "2wiki": {
+      "train-fit_answerable_groups": 820,
+      "train-fit_unsupported_groups": 1049,
+      "train-modelval_answerable_groups": 103
+    },
+    "niah": {
+      "train-fit_answerable_groups": 512,
+      "train-modelval_answerable_groups": 211
+    }
+  },
+  "dev_read": false,
+  "gates": {
+    "niah_new_modelval_groups": true,
+    "niah_train_groups": true,
+    "split_component_overlap_zero": true,
+    "split_group_overlap_zero": true,
+    "twowiki_modelval_groups": true,
+    "twowiki_train_groups": true,
+    "unsupported_update_ratio": true
+  },
+  "gold_use": "offline target repair only; runtime prompts contain evidence text and question only",
+  "input_sha256": {
+    "source_manifest": "a5c291e005ef1a9aa4d333079f583235e7a5c5f3ab4a87b9d073a59accdde2ca",
+    "source_train_cases": "1a6006e4466a62de9d2b81aeddf3976e523e27342383f13b576f9e66c3425172",
+    "source_validation_cases": "3d8a168a7a8249e5611db1ccda428ca9e106accc7ed67a86c230f79c4366d810"
+  },
+  "ordered_ids_sha256": "598c89cf21b94d9141b3ebaa529b8e2ede83a97dffba3c2efd2d9424ab5ec831",
+  "removed_case_count": 4,
+  "removed_cases": [
+    {
+      "case_id": "niah-old::10048",
+      "dataset": "niah",
+      "reason": "g212m3_failed_niah_qa2d_malformation,has_entity_phrase_lost",
+      "role": "train-fit",
+      "split": "train"
+    },
+    {
+      "case_id": "niah-old::10517",
+      "dataset": "niah",
+      "reason": "acted_on_title_truncation,g212m3_failed_niah_qa2d_malformation",
+      "role": "train-fit",
+      "split": "train"
+    },
+    {
+      "case_id": "niah-old::10751",
+      "dataset": "niah",
+      "reason": "g212m3_failed_niah_qa2d_malformation,qa2d_define_for_malformed",
+      "role": "train-fit",
+      "split": "train"
+    },
+    {
+      "case_id": "niah-new-modelval::1155",
+      "dataset": "niah",
+      "reason": "g212m3_failed_niah_qa2d_malformation,qa2d_duet_malformed",
+      "role": "train-modelval",
+      "split": "validation"
+    }
+  ],
+  "repair_counts": {
+    "niah_cases_filtered": 4,
+    "niah_filter_reason::acted_on_title_truncation": 1,
+    "niah_filter_reason::g212m3_failed_niah_qa2d_malformation": 4,
+    "niah_filter_reason::has_entity_phrase_lost": 1,
+    "niah_filter_reason::qa2d_define_for_malformed": 1,
+    "niah_filter_reason::qa2d_duet_malformed": 1,
+    "twowiki_cases_changed": 305,
+    "twowiki_cases_unchanged": 618,
+    "twowiki_sentence_mode::g218_anchor::unchanged_already_anchored": 1287,
+    "twowiki_sentence_mode::relation_explicit::country_of_citizenship": 296,
+    "twowiki_sentence_mode::relation_explicit::country_of_origin": 228,
+    "twowiki_sentence_mode::relation_explicit::place_of_birth": 47
+  },
+  "repair_reason": "controlled_relation_explicit_targets_and_qa2d_malformation_filtering",
+  "repair_stage": "G219",
+  "requires_structural_true_rerun": true,
+  "review_failure_case_ids": [
+    "niah-new-modelval::1155",
+    "niah-old::10048",
+    "niah-old::10517",
+    "niah-old::10751"
+  ],
+  "review_inputs": [
+    {
+      "decisions": {
+        "FAIL": 9,
+        "PASS": 91
+      },
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G212M3-v1/review/sample_review_rows.jsonl",
+      "rows": 100,
+      "sha256": "d47364c456e46fa2d0f826458f69c74da9b796cdfa58aaa64b2e4261299853b3"
+    }
+  ],
+  "sample_review_required_before_training": true,
+  "schema_version": "full-flow-g219-target-repair-manifest-v1",
+  "sealed_or_heldout_read": false,
+  "source_manifest_schema_version": "full-flow-g210-v2-final-manifest-v1",
+  "split_leakage": {
+    "component_overlap": 0,
+    "group_overlap": 0
+  },
+  "status": "PRE_AUDIT",
+  "target_construction": {
+    "2wiki": "relation_explicit_answer_target_v3",
+    "niah": "qa2d_single_claim_reuse_or_g219_filtered"
+  },
+  "train_cases": 2381,
+  "train_cases_sha256": "9dda01a644811a57abf8fe2b2274de88ba558eb87ec04715ea51f90567dcc99d",
+  "training_started": false,
+  "unsupported_update_ratio": 0.11346673877771768,
+  "unsupported_updates": 1049,
+  "utility_labels_started": false,
+  "validation_cases": 314,
+  "validation_cases_sha256": "6650c3665938fbe95607f138e1f0b325888357705b45246d3d29561b62439835"
+}

@@ -1,0 +1,104 @@
+{
+  "datasets": {
+    "hotpotqa": {
+      "w/ Dense Retriever": {
+        "ci95_high": 0.0,
+        "ci95_low": 0.0,
+        "difference": 0.0,
+        "method": "paired_component_cluster_percentile_bootstrap",
+        "n_components": 400,
+        "n_queries": 400,
+        "resamples": 10000,
+        "seed": 13
+      },
+      "w/ Direct Generator": {
+        "ci95_high": -0.015,
+        "ci95_low": -0.0525,
+        "difference": -0.0325,
+        "method": "paired_component_cluster_percentile_bootstrap",
+        "n_components": 400,
+        "n_queries": 400,
+        "resamples": 10000,
+        "seed": 13
+      },
+      "w/ Top-10": {
+        "ci95_high": 0.0,
+        "ci95_low": 0.0,
+        "difference": 0.0,
+        "method": "paired_component_cluster_percentile_bootstrap",
+        "n_components": 400,
+        "n_queries": 400,
+        "resamples": 10000,
+        "seed": 13
+      }
+    },
+    "musique-answerable": {
+      "w/ Dense Retriever": {
+        "ci95_high": 0.0,
+        "ci95_low": 0.0,
+        "difference": 0.0,
+        "method": "paired_component_cluster_percentile_bootstrap",
+        "n_components": 400,
+        "n_queries": 400,
+        "resamples": 10000,
+        "seed": 13
+      },
+      "w/ Direct Generator": {
+        "ci95_high": -0.0025,
+        "ci95_low": -0.02,
+        "difference": -0.01,
+        "method": "paired_component_cluster_percentile_bootstrap",
+        "n_components": 400,
+        "n_queries": 400,
+        "resamples": 10000,
+        "seed": 13
+      },
+      "w/ Top-10": {
+        "ci95_high": 0.0,
+        "ci95_low": 0.0,
+        "difference": 0.0,
+        "method": "paired_component_cluster_percentile_bootstrap",
+        "n_components": 400,
+        "n_queries": 400,
+        "resamples": 10000,
+        "seed": 13
+      }
+    },
+    "rgb-noise": {
+      "w/ Dense Retriever": {
+        "ci95_high": 0.0,
+        "ci95_low": 0.0,
+        "difference": 0.0,
+        "method": "paired_component_cluster_percentile_bootstrap",
+        "n_components": 300,
+        "n_queries": 300,
+        "resamples": 10000,
+        "seed": 13
+      },
+      "w/ Direct Generator": {
+        "ci95_high": 0.0,
+        "ci95_low": -0.016666666666666666,
+        "difference": -0.006666666666666667,
+        "method": "paired_component_cluster_percentile_bootstrap",
+        "n_components": 300,
+        "n_queries": 300,
+        "resamples": 10000,
+        "seed": 13
+      },
+      "w/ Top-10": {
+        "ci95_high": 0.0,
+        "ci95_low": 0.0,
+        "difference": 0.0,
+        "method": "paired_component_cluster_percentile_bootstrap",
+        "n_components": 300,
+        "n_queries": 300,
+        "resamples": 10000,
+        "seed": 13
+      }
+    }
+  },
+  "direction": "Full_minus_ablation",
+  "resamples": 10000,
+  "schema_version": "experiment04.goal4_paired_rar_bootstrap.v1",
+  "seed": 13
+}

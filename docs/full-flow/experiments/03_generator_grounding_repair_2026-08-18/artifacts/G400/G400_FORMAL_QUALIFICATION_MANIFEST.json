@@ -1,0 +1,164 @@
+{
+  "schema_version": "full-flow-g400-formal-qualification-v1",
+  "stage": "G400_FORMAL_LOCKED_NIAH_QUALIFICATION",
+  "status": "G400_NIAH_RESPONSIBILITY_PASS",
+  "date": "2026-08-20",
+  "candidate": {
+    "recipe": "GR-C",
+    "seeds": [13, 42, 73],
+    "code_commit": "5a79b759b76a00c4809833c357afb1e07252ac95"
+  },
+  "server": {
+    "host": "fl25387@10.70.71.11",
+    "repo": "/home/fl25387/projects/IBM_Granite_Project_latest",
+    "runtime": "/scratch/fl25387/IBM_Granite_Project_latest",
+    "repo_head_at_completion": "5a79b759b76a00c4809833c357afb1e07252ac95"
+  },
+  "scope": {
+    "tasks": 2873,
+    "answerable_tasks": 1829,
+    "unsupported_tasks": 1044,
+    "contexts": [
+      "K_topk",
+      "S_legacy_selected",
+      "O_support_only",
+      "OB_support_benign",
+      "OH_support_harmful",
+      "OP_support_last",
+      "train_unsupported_safety"
+    ]
+  },
+  "runtime_artifacts": {
+    "seed13": {
+      "dir": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G400-v1/formal-seed13-5a79b75",
+      "run_manifest_sha256": "31f6cb67a9d20e1d1d5c49a9ea93e9918c41ed7280c3b281e0fec8914fc63c1d",
+      "run_spec_sha256": "84b447cdbd5ea9445433113f1bfd23f265e9a20bcac292e1ebd50aedfcc6d1c4",
+      "generations_sha256": "26e142d76cf494494b9d2306dedfe00e7e3c471aa075019ffc5830b59f530222",
+      "status": "COMPLETE",
+      "tasks": 2873,
+      "errors": 0,
+      "trace_missing": 0
+    },
+    "seed42": {
+      "dir": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G400-v1/formal-seed42-5a79b75",
+      "run_manifest_sha256": "493f7fea045e57cd11f4dc2265531e6f9f5e50182f702e4d5098f00da47facc3",
+      "run_spec_sha256": "7fa13a9511cc75edd2bf4a76ec9de845aa244fffb1294bcbe68e120e5600457e",
+      "generations_sha256": "4f429ed4d281905af2c9f578e2eac76ec61cbca456a2b97b39cc6b0d43e353f9",
+      "status": "COMPLETE",
+      "tasks": 2873,
+      "errors": 0,
+      "trace_missing": 0
+    },
+    "seed73": {
+      "dir": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G400-v1/formal-seed73-5a79b75",
+      "run_manifest_sha256": "1628e23a0aa03cd4e62f9188905c6a8b72e2ff1e9edc6b2dab1e47be3a39f601",
+      "run_spec_sha256": "9da1603ec00f51f6c23844820f6cd8ac4b104582e769355403944d5422b45404",
+      "generations_sha256": "3afdaa1ec1e80e8220491693faf9efcdb9755e1da7479b443d0bf4ffbb6b62cb",
+      "status": "COMPLETE",
+      "tasks": 2873,
+      "errors": 0,
+      "trace_missing": 0
+    },
+    "score": {
+      "dir": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G400-v1/formal-score-5a79b75",
+      "score_report_sha256": "5400e4ce8072e53919867e4571eea447b006fe7cfb36b53ec242f3d7c773db2f",
+      "markdown_report_sha256": "c5a6a2a7f0a13f9be6f93612db00fa1fc78b2b27cce4efd0c17fc4644a155023",
+      "scored_rows_sha256": "028ad93ffe4eaab71c34af4a2ef435b21fda4cad9e211617fc42496fd63418b8"
+    }
+  },
+  "local_artifacts": {
+    "report": {
+      "path": "docs/full-flow/experiments/03_generator_grounding_repair_2026-08-18/G400_LOCKED_NIAH_QUALIFICATION_REPORT.md"
+    },
+    "manifest": {
+      "path": "docs/full-flow/experiments/03_generator_grounding_repair_2026-08-18/artifacts/G400/G400_FORMAL_QUALIFICATION_MANIFEST.json"
+    },
+    "runtime_score_report": {
+      "path": "docs/full-flow/experiments/03_generator_grounding_repair_2026-08-18/artifacts/G400/G400_FORMAL_RUNTIME_SCORE_REPORT.md",
+      "sha256": "c5a6a2a7f0a13f9be6f93612db00fa1fc78b2b27cce4efd0c17fc4644a155023"
+    },
+    "score_report": {
+      "path": "docs/full-flow/experiments/03_generator_grounding_repair_2026-08-18/artifacts/G400/G400_FORMAL_SCORE_REPORT.json",
+      "sha256": "5400e4ce8072e53919867e4571eea447b006fe7cfb36b53ec242f3d7c773db2f"
+    },
+    "seed13_run_manifest": {
+      "path": "docs/full-flow/experiments/03_generator_grounding_repair_2026-08-18/artifacts/G400/G400_FORMAL_SEED13_RUN_MANIFEST.json",
+      "sha256": "31f6cb67a9d20e1d1d5c49a9ea93e9918c41ed7280c3b281e0fec8914fc63c1d"
+    },
+    "seed42_run_manifest": {
+      "path": "docs/full-flow/experiments/03_generator_grounding_repair_2026-08-18/artifacts/G400/G400_FORMAL_SEED42_RUN_MANIFEST.json",
+      "sha256": "493f7fea045e57cd11f4dc2265531e6f9f5e50182f702e4d5098f00da47facc3"
+    },
+    "seed73_run_manifest": {
+      "path": "docs/full-flow/experiments/03_generator_grounding_repair_2026-08-18/artifacts/G400/G400_FORMAL_SEED73_RUN_MANIFEST.json",
+      "sha256": "1628e23a0aa03cd4e62f9188905c6a8b72e2ff1e9edc6b2dab1e47be3a39f601"
+    }
+  },
+  "score_summary": {
+    "family_deltas_vs_g0": {
+      "K_topk": {
+        "correct_and_cited": 0.06134415877311685,
+        "answer_match": 0.06269733874605328,
+        "coverage": 0.07126747857465039,
+        "unsupported_ungrounded_assertion": 0.0
+      },
+      "S_legacy_selected": {
+        "correct_and_cited": 0.10703363914373083,
+        "answer_match": 0.08868501529051982,
+        "coverage": 0.07951070336391435,
+        "unsupported_ungrounded_assertion": 0.0
+      },
+      "O_support_only": {
+        "correct_and_cited": 0.081039755351682,
+        "answer_match": 0.08562691131498475,
+        "coverage": 0.051987767584097844,
+        "unsupported_ungrounded_assertion": 0.0
+      },
+      "OB_support_benign": {
+        "correct_and_cited": 0.05351681957186549,
+        "answer_match": 0.08256880733944956,
+        "coverage": 0.053516819571865416,
+        "unsupported_ungrounded_assertion": 0.0
+      },
+      "OH_support_harmful": {
+        "correct_and_cited": 0.11926605504587158,
+        "answer_match": 0.11773700305810401,
+        "coverage": 0.07186544342507643,
+        "unsupported_ungrounded_assertion": 0.0
+      },
+      "OP_support_last": {
+        "correct_and_cited": 0.10856269113149848,
+        "answer_match": 0.1483180428134557,
+        "coverage": 0.061162079510703404,
+        "unsupported_ungrounded_assertion": 0.0
+      },
+      "train_unsupported_safety": {
+        "correct_and_cited": 0.0,
+        "answer_match": 0.0,
+        "coverage": -0.2994891443167305,
+        "unsupported_ungrounded_assertion": -0.2994891443167305
+      }
+    }
+  },
+  "gate": {
+    "status": "G400_NIAH_RESPONSIBILITY_PASS",
+    "technical_pass": true,
+    "technical_failures": [],
+    "responsibility_pass": true,
+    "positive_signal": true,
+    "tripwires": [],
+    "strong_claim": "PENDING_G420_STATISTICS",
+    "cross_data_checks": "PENDING_G410"
+  },
+  "boundaries": {
+    "gold_loaded_by_run_command": false,
+    "score_uses_gold_after_generation": true,
+    "sealed_or_heldout_read": false,
+    "utility_labels_started": false,
+    "teacher_generator_frozen": false,
+    "retriever_changed": false,
+    "selector_changed": false,
+    "recipe_or_seed_changed": false
+  },
+  "next_stage": "G410_CROSS_DATA_QUALIFICATION"
+}

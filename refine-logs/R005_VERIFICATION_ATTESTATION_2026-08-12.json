@@ -1,0 +1,83 @@
+{
+  "attestation_version": "1.0",
+  "recorded_at_utc": "2026-08-12T04:00:05Z",
+  "server": "fl25387@10.70.71.11",
+  "repo_root": "/home/fl25387/projects/IBM_Granite_Project_latest",
+  "formal_run_root": "/scratch/fl25387/IBM_Granite_Project_latest/runs/selector-adaptive-risk-v1/R005",
+  "git": {
+    "commit": "33c95a84c4edeb6d9ec85a3fa74cbf9d62fc0e3b",
+    "dirty": false
+  },
+  "verifications": [
+    {
+      "kind": "runner-semantic-recomputation",
+      "exit_code": 0,
+      "command": [
+        "ssh",
+        "fl25387@10.70.71.11",
+        "env",
+        "CUDA_VISIBLE_DEVICES=0",
+        "PYTHONPATH=/home/fl25387/projects/IBM_Granite_Project_latest/src",
+        "/scratch/fl25387/IBM_Granite_Project_latest/envs/selector_mis_py311/bin/python",
+        "/home/fl25387/projects/IBM_Granite_Project_latest/src/evidence_rag/cli/run_selector_sanity.py",
+        "--config",
+        "/home/fl25387/projects/IBM_Granite_Project_latest/configs/selector/adaptive_risk_r005_sanity.toml",
+        "--repo-root",
+        "/home/fl25387/projects/IBM_Granite_Project_latest",
+        "--model-snapshot",
+        "/scratch/fl25387/IBM_Granite_Project_latest/hf-cache/hub/models--cross-encoder--nli-deberta-v3-base/snapshots/6c749ce3425cd33b46d187e45b92bbf96ee12ec7",
+        "--r004-root",
+        "/scratch/fl25387/IBM_Granite_Project_latest/runs/selector-adaptive-risk-v1/R004",
+        "--count-matched-protocol-dir",
+        "/home/fl25387/projects/IBM_Granite_Project_latest/results/selector-adaptive-risk-v1/R003/count-matched-protocol",
+        "--output-dir",
+        "/scratch/fl25387/IBM_Granite_Project_latest/runs/selector-adaptive-risk-v1/R005",
+        "--device",
+        "cuda:0",
+        "--verify-only"
+      ],
+      "output": {
+        "action": "independently-verified",
+        "candidate_scores": 640,
+        "checkpoint_weights_sha256": "6ec87f8f07cb0275b28d7fbf126ea14d5992683988b28ddae52f300dcfe8d0bd",
+        "epochs_completed": 30,
+        "status": "FAIL",
+        "termination_reason": "completed",
+        "training_gate": "FAIL"
+      }
+    },
+    {
+      "kind": "finalizer-structure-and-hash",
+      "started_at_utc": "2026-08-12T03:59:54Z",
+      "finished_at_utc": "2026-08-12T04:00:05Z",
+      "exit_code": 0,
+      "command": [
+        "ssh",
+        "fl25387@10.70.71.11",
+        "env",
+        "PYTHONPATH=/home/fl25387/projects/IBM_Granite_Project_latest/src",
+        "/scratch/fl25387/IBM_Granite_Project_latest/envs/selector_mis_py311/bin/python",
+        "/home/fl25387/projects/IBM_Granite_Project_latest/src/evidence_rag/cli/finalize_selector_r005.py",
+        "--run-root",
+        "/scratch/fl25387/IBM_Granite_Project_latest/runs/selector-adaptive-risk-v1/R005",
+        "--verify-only"
+      ],
+      "output": {
+        "action": "verified",
+        "checksums_sha256": "384e54dac8e3871e41c58ef55638243df6454cb990ccabe5a0fddad0f8522567",
+        "kind": "selector-r005-finalization",
+        "manifest_sha256": "3d5707358cd4a02f96b094c71ae5910b2c769ca90311583127a88c13ac203a5a",
+        "status": "FAIL"
+      }
+    }
+  ],
+  "content_hashes_after_verification": {
+    "CHECKSUMS.sha256": "384e54dac8e3871e41c58ef55638243df6454cb990ccabe5a0fddad0f8522567",
+    "sanity/candidate_scores.jsonl": "11afdc70c63df49dac81a469b9ecbfb6ccb6d61c982cd10d2c65e6bb1d2b9d1c",
+    "sanity/sanity_report.json": "7f60c4b490d36f16e119dbfbdc0d6d8601ea4ba1794c502bc36cc74d4b130ec9",
+    "selector_experiment_manifest.json": "3d5707358cd4a02f96b094c71ae5910b2c769ca90311583127a88c13ac203a5a"
+  },
+  "status": "PASS_CURRENT_REVERIFICATION_OF_FORMAL_FAIL",
+  "does_not_change_r005_status": true,
+  "authorizes_r006": false
+}

@@ -1,0 +1,24 @@
+# R7 arm. Identical to pipe_2wiki_{strong-bm25,hybrid-rrf,decompose} except [retriever],
+# so any downstream difference is attributable to retrieval alone. top_k and
+# max_selected match the retr_2wiki_* configs, so the retriever metrics reproduce the
+# recorded matrix and act as a harness check.
+[dataset]
+manifest = "../../runs/twowiki/manifest.json"
+
+[output]
+directory = "../../runs/pipe8-2wiki-bm25"
+
+[retriever]
+name = "bm25"
+parameters = { k1 = 1.5, b = 0.75 }
+
+[selector]
+name = "top-k"
+
+[generator]
+name = "granite"
+
+[run]
+top_k = 50
+max_selected = 5
+seed = 7

@@ -1,0 +1,17 @@
+{
+  "schema_version": "full-flow-f001-run-manifest-v1",
+  "status": "COMPLETE",
+  "queries": 739,
+  "selector_changed_queries": 109,
+  "errors_by_arm": {
+    "A_topk_basic": 0,
+    "B_selector_basic": 0,
+    "C_topk_verify": 0,
+    "D_selector_verify": 0
+  },
+  "gold_loaded_at_runtime": false,
+  "nli_backend": "true",
+  "nli_model_id": "/scratch/fl25387/IBM_Granite_Project_latest/model-cache/models--google--t5_xxl_true_nli_mixture/snapshots/aa6cfe1dd4257853bfdd772992045f41bfc14988",
+  "max_new_tokens": 256,
+  "generations_sha256": "6b7316a7d84075d36265a283f95c7879ebe95d4aa4971075f1b75f854b9c1e23"
+}

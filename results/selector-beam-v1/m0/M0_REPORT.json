@@ -1,0 +1,187 @@
+{
+  "candidate_pools": {
+    "2wiki-dev": {
+      "dataset_signature": "69dce7a2d909808ddf6c509005181a4741f22c471551ecf117b399eddef38afc",
+      "harmful_pool_hit_rate": null,
+      "manifest_path": "/home/fl25387/projects/IBM_Granite_Project_latest/runs/selector-beam-v1/m0/pools/2wiki-dev.json",
+      "manifest_sha256": "ac974cb5520e82e14b15046c65ba314c85b3801f8ad239977f4685e083382ee6",
+      "path": "/home/fl25387/projects/IBM_Granite_Project_latest/runs/selector-reliability-mis/2wiki/pool/candidate_sets.jsonl",
+      "query_count": 2000,
+      "required_recall_at_top20": 0.7715,
+      "sha256": "26442003e230c93e53fe71f4b9a16d269fc5b02674ba6137f6cfceabb721607f",
+      "source_parent_sha256": "482ccd4c28fc8312282cb551898beb12bd4b26efbbf210c4ec5fbe5f5510ee34"
+    },
+    "2wiki-heldout": {
+      "dataset_signature": "ba8b6c950962191a3a3799fb4b7fe44f65ef416e3fcd5f32644957e745c689cc",
+      "harmful_pool_hit_rate": null,
+      "manifest_path": "/home/fl25387/projects/IBM_Granite_Project_latest/runs/selector-beam-v1/m0/pools/2wiki-heldout.json",
+      "manifest_sha256": "fd53e365e41574ceda935cf2d0b85d3645f4e4f54a08cec807269161e4435f5b",
+      "path": "/home/fl25387/projects/IBM_Granite_Project_latest/runs/selector-beam-v1/pools/2wiki-heldout/candidate_sets.jsonl",
+      "query_count": 2000,
+      "required_recall_at_top20": 0.773625,
+      "sha256": "fcca691ed0867bfdc8c6491452d82b4a5701218c8bac7ead0bb486a8469ee219",
+      "source_parent_sha256": "171c5b5091ea3ddd18af537bc8de9400e83f2b4ed76ed926992158a2bcf5a549"
+    },
+    "2wiki-train": {
+      "dataset_signature": "036385693999c5bdf6932cd96a32019be6053fc2ac85f8ad3d458d1de1485f86",
+      "harmful_pool_hit_rate": null,
+      "manifest_path": "/home/fl25387/projects/IBM_Granite_Project_latest/runs/selector-beam-v1/m0/pools/2wiki-train.json",
+      "manifest_sha256": "f7fdc36cb6e72445897d3c98cc3b19b6fd2d88edd4a1c7bcd05e6d3b0d17baf8",
+      "path": "/home/fl25387/projects/IBM_Granite_Project_latest/runs/selector-beam-v1/pools/2wiki-train/candidate_sets.jsonl",
+      "query_count": 3000,
+      "required_recall_at_top20": 0.7354166666666667,
+      "sha256": "0ab0fc92f95add1c5d514f531e7b567c4e67d1e5430c401f37ec6f719dbc8887",
+      "source_parent_sha256": "1af322fb6bf749ce5f7897ced3674758b100dfd2c5f7ab80b7021d07a5b7d76e"
+    },
+    "niah-dev": {
+      "dataset_signature": "eb7760674bf3aace707acd932c67c86694d560510f949e3c73dea1ca7353db87",
+      "harmful_pool_hit_rate": 0.8945233265720081,
+      "manifest_path": "/home/fl25387/projects/IBM_Granite_Project_latest/runs/selector-beam-v1/m0/pools/niah-dev.json",
+      "manifest_sha256": "9d09806bcba8e5a1bcc636617a16be5e2ebe75a79da35a37a4507797154d5aa4",
+      "path": "/home/fl25387/projects/IBM_Granite_Project_latest/runs/selector-beam-v1/pools/niah-dev/candidate_sets.jsonl",
+      "query_count": 2000,
+      "required_recall_at_top20": 0.9148921974764103,
+      "sha256": "89ede8249e0682568ea0a85d00eac4881323c992d8d16362016810bd8cb96ee3",
+      "source_parent_sha256": "b3d4e5c58d79ae2b56fe5842229b8135483efa699bd9ab9ad283ab998a230378"
+    },
+    "niah-train": {
+      "dataset_signature": "9c389b69d5a74daba69a8577145ee65e27a092de8916ccd0f8e20772050a04e0",
+      "harmful_pool_hit_rate": 0.9042119565217391,
+      "manifest_path": "/home/fl25387/projects/IBM_Granite_Project_latest/runs/selector-beam-v1/m0/pools/niah-train.json",
+      "manifest_sha256": "5d92f36a7b694d95aaec0a6ea69e3cc8d1358322e4cca132dc72bbd7ba740db2",
+      "path": "/home/fl25387/projects/IBM_Granite_Project_latest/runs/selector-beam-v1/pools/niah-train/candidate_sets.jsonl",
+      "query_count": 2000,
+      "required_recall_at_top20": 0.9300491376081481,
+      "sha256": "09e8c9b4972f48a67661c8b06dcf220f178528156699da671a16dd8d08fb908f",
+      "source_parent_sha256": "721c1b23668c5576d60cf80db592dcf3d6b4bc60ab2b282acce08a737f9582d5"
+    },
+    "sealed600": {
+      "dataset_signature": "57b89ef69e409623f38ac111311dddb47248c9c2ed84f4cdba0d4854ae5ec7bb",
+      "harmful_pool_hit_rate": 0.9516666666666667,
+      "manifest_path": "/home/fl25387/projects/IBM_Granite_Project_latest/runs/selector-beam-v1/m0/pools/sealed600.json",
+      "manifest_sha256": "720a1c477b0ea1bd2055cdd4d535c07fc810cf98504ac258275b1fa2545b54da",
+      "path": "/home/fl25387/projects/IBM_Granite_Project_latest/runs/selector-reliability-mis/sealed600/pool/candidate_sets.jsonl",
+      "query_count": 600,
+      "required_recall_at_top20": 0.9635879616039511,
+      "sha256": "777391fac4854448a47a7cdc9543cd77710b17f4e960084a26f4640f340ae590",
+      "source_parent_sha256": "e5a20e0f99ccff6697aec921dcfe74fc79f7962dd8c03a6f1ea42ef33117e766"
+    }
+  },
+  "model": {
+    "config_sha256": "a9f845a5034008d705d7236b92c9141a3e14a4358327df52df445c94712a7cf6",
+    "model_id": "cross-encoder/nli-deberta-v3-base",
+    "model_sha256": "d8148c6d49e0a7925134294c56326c71fe0ab1dc390e37355e00c7efbb488afa",
+    "revision": "6c749ce3425cd33b46d187e45b92bbf96ee12ec7"
+  },
+  "niah": {
+    "assignments": {
+      "dev": {
+        "path": "/home/fl25387/projects/IBM_Granite_Project_latest/runs/selector-beam-v1/data/niah/niah_dev_assignments.jsonl",
+        "sha256": "e3fa105bafb85157c343da15133ef3240b6b9601603ebcddcf3aec26dd818b84"
+      },
+      "train": {
+        "path": "/home/fl25387/projects/IBM_Granite_Project_latest/runs/selector-beam-v1/data/niah/niah_train_assignments.jsonl",
+        "sha256": "47442a1df218eaef4b97cc1489cefef9bd17597692d3054b8c0393fc3ec57e93"
+      }
+    },
+    "counts": {
+      "dev": 1479,
+      "sealed": 600,
+      "source_dev": 1479,
+      "source_train": 1472,
+      "train": 1023
+    },
+    "datasets": {
+      "dev": {
+        "artifact_sha256": {
+          "documents.jsonl": "ad6899113bf2d5d8f7e4112fe638e3c02693551cbb40ec621d77e6b1b128332f",
+          "gold_cases.jsonl": "500115399a04405c71ebf8effdd8eb5aa63a3ce74476f7be60e79ff4747d22e7",
+          "manifest.json": "edc2f870837a9e44a4bd95167c1c3c6024fef6548512e0037bc71fd76c63b3cf",
+          "provenance.jsonl": "dc8c0b720cc1a01f1da9fe5a2571988bd89ee0ebe7b7e91493c4def9d1830953",
+          "queries.jsonl": "03cf4369197470f5b76872bd8c25050afd71aa15ce8435e8f75a8bee6aa6ccf1"
+        },
+        "dataset_signature": "eb7760674bf3aace707acd932c67c86694d560510f949e3c73dea1ca7353db87",
+        "documents": 101479,
+        "queries": 2000,
+        "split": "dev"
+      },
+      "sealed": {
+        "artifact_sha256": {
+          "documents.jsonl": "6904f09c09703dec678e13d0032c246b6931aa21d22773203357be0ca929d857",
+          "gold_cases.jsonl": "b1a3fcf131247a5f9a11916accbb495280f8e65acdd00f218d2bedd988aabab4",
+          "manifest.json": "cd091bfd1d298e1c5d12a2b9b4e1efcb00465c4746f99381657e0a69e492ab2d",
+          "provenance.jsonl": "6b328fc3c62702abf1dedaff3c7fe0108e2f67f3b4ff8de690c23150d0769685",
+          "queries.jsonl": "20a3f8d548aaf6713d1f1c514e548cf4a3b11f36062fe8c8747a8b09a81be748"
+        },
+        "dataset_signature": "57b89ef69e409623f38ac111311dddb47248c9c2ed84f4cdba0d4854ae5ec7bb",
+        "documents": 100600,
+        "queries": 600,
+        "split": "sealed-test"
+      },
+      "train": {
+        "artifact_sha256": {
+          "documents.jsonl": "9c48829d2579f5ae174ca82cd71e094958111c6bfff64378946021a891f711a6",
+          "gold_cases.jsonl": "91af72dba9e8ccc97286f5933475bd21e43701a16727d0dfe0c442c55be90699",
+          "manifest.json": "edc2f870837a9e44a4bd95167c1c3c6024fef6548512e0037bc71fd76c63b3cf",
+          "provenance.jsonl": "50dbbb3941a65e47363f1aa1acb8bdff7eb755bba9e22000a485d1f233769898",
+          "queries.jsonl": "02af9b4ef8458ce35c9caf99833421d7098f07e704d2c1f534909ea2a64be1fe"
+        },
+        "dataset_signature": "9c389b69d5a74daba69a8577145ee65e27a092de8916ccd0f8e20772050a04e0",
+        "documents": 101472,
+        "queries": 2000,
+        "split": "dev"
+      }
+    },
+    "overlap_after_filtering": {
+      "dev_sealed": {
+        "query_id": 0,
+        "source_parent_id": 0,
+        "synthetic_family": 0
+      },
+      "train_dev": {
+        "query_id": 0,
+        "source_parent_id": 0,
+        "synthetic_family": 0
+      },
+      "train_sealed": {
+        "query_id": 0,
+        "source_parent_id": 0,
+        "synthetic_family": 0
+      }
+    },
+    "split_audit_sha256": "627aea3f14339a197362eaa81730141123d74269a837f9dc19301bbd6658c31a"
+  },
+  "schema_version": "1.0",
+  "status": "PASS",
+  "twowiki": {
+    "dev": {
+      "dataset_signature": "69dce7a2d909808ddf6c509005181a4741f22c471551ecf117b399eddef38afc",
+      "documents": 11585,
+      "manifest_sha256": "0ee9905bcc3be8fe81bc6b8bb76a70881dbc40cf60f84c09f937400d425e0fd1",
+      "queries": 2000,
+      "source_parent_sha256": "482ccd4c28fc8312282cb551898beb12bd4b26efbbf210c4ec5fbe5f5510ee34",
+      "split": "dev"
+    },
+    "heldout": {
+      "dataset_signature": "ba8b6c950962191a3a3799fb4b7fe44f65ef416e3fcd5f32644957e745c689cc",
+      "documents": 11681,
+      "manifest_sha256": "c4fadeeadb40fee908dca7b2fc66225d145ae7d1d07574aa33311118be6369ca",
+      "queries": 2000,
+      "source_parent_sha256": "171c5b5091ea3ddd18af537bc8de9400e83f2b4ed76ed926992158a2bcf5a549",
+      "split": "heldout"
+    },
+    "train": {
+      "dataset_signature": "036385693999c5bdf6932cd96a32019be6053fc2ac85f8ad3d458d1de1485f86",
+      "documents": 15631,
+      "manifest_sha256": "a16f3e76e8072cc68a8df350fa1e7928d88f3df0a3b21415d4bbad8dffd9fe0e",
+      "queries": 3000,
+      "source_parent_sha256": "1af322fb6bf749ce5f7897ced3674758b100dfd2c5f7ab80b7021d07a5b7d76e",
+      "split": "train"
+    }
+  },
+  "twowiki_query_overlap": {
+    "dev_heldout": 0,
+    "train_dev": 0,
+    "train_heldout": 0
+  }
+}

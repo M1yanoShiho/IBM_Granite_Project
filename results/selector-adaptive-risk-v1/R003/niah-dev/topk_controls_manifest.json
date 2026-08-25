@@ -1,0 +1,112 @@
+{
+  "candidate_pool_manifest_verified": true,
+  "candidate_pool_status": "VERIFIED_SELECTOR_POOL_V2",
+  "counts": {
+    "components": 1057,
+    "dataset_queries": 2000,
+    "eligible_input_queries": 1479,
+    "trace_rows": 5916
+  },
+  "dataset_id": "niah/dpr-w100-nq",
+  "dataset_kind": "niah",
+  "dataset_signature": "eb7760674bf3aace707acd932c67c86694d560510f949e3c73dea1ca7353db87",
+  "dataset_version": "subsample-100000+cf42",
+  "inputs": {
+    "candidate_pool": {
+      "bytes": 36265904,
+      "sha256": "89ede8249e0682568ea0a85d00eac4881323c992d8d16362016810bd8cb96ee3"
+    },
+    "dataset_documents": {
+      "bytes": 78489303,
+      "sha256": "ad6899113bf2d5d8f7e4112fe638e3c02693551cbb40ec621d77e6b1b128332f"
+    },
+    "dataset_gold_cases": {
+      "bytes": 340049,
+      "sha256": "500115399a04405c71ebf8effdd8eb5aa63a3ce74476f7be60e79ff4747d22e7"
+    },
+    "dataset_manifest": {
+      "bytes": 245,
+      "sha256": "edc2f870837a9e44a4bd95167c1c3c6024fef6548512e0037bc71fd76c63b3cf"
+    },
+    "dataset_queries": {
+      "bytes": 199884,
+      "sha256": "03cf4369197470f5b76872bd8c25050afd71aa15ce8435e8f75a8bee6aa6ccf1"
+    },
+    "niah_assignment": {
+      "bytes": 622685,
+      "sha256": "e3fa105bafb85157c343da15133ef3240b6b9601603ebcddcf3aec26dd818b84"
+    },
+    "selector_candidate_pool_manifest_v2": {
+      "bytes": 274066,
+      "sha256": "8022427218b25cd787db35297c444277ded202f007ae1671414fe54d37756472"
+    },
+    "selector_components": {
+      "chain_representatives.jsonl": {
+        "bytes": 179242,
+        "sha256": "0b12fa3587df3e712cab1a775984dbf9290dbdfd3df168f725f927067a78575c"
+      },
+      "component_map.jsonl": {
+        "bytes": 1466103,
+        "sha256": "a2371b540bad82eab71eb4f6b38bdc0afdc186ab967475b67868b15c79e29dbf"
+      },
+      "recall_representatives.jsonl": {
+        "bytes": 231102,
+        "sha256": "fefc275921e4e2446eda6747482d28d6f2bae4a6e68d1ac240ccc0b5ee83e7c8"
+      },
+      "role_assignments.jsonl": {
+        "bytes": 323588,
+        "sha256": "93fe654a8a81ba65402dfae1f911f691a8dd07367e698fabf9dc63d5a3a58410"
+      },
+      "selector_components_manifest.json": {
+        "bytes": 4848,
+        "sha256": "d5a3b834f08349cee7cb7ca1e688e6bdcd794863e7a5a3ea379abcfde4d4f0be"
+      },
+      "selector_components_report.json": {
+        "bytes": 3467,
+        "sha256": "8f7d3d06a4856bcc95209881316c016cbbaf9867d9d49aa0d3e17310d7f18fe4"
+      }
+    },
+    "source_parent": {
+      "bytes": 7657253,
+      "sha256": "b3d4e5c58d79ae2b56fe5842229b8135483efa699bd9ab9ad283ab998a230378"
+    }
+  },
+  "outputs": {
+    "topk_controls.jsonl": {
+      "bytes": 7873404,
+      "records": 5916,
+      "sha256": "b3ce137c3c58b1e8b7b7b7d3b2de4df1ef5f48b0863739aef58b4ab126618851"
+    },
+    "topk_controls_report.json": {
+      "bytes": 46777,
+      "sha256": "b1dbe603a87147817d3206f68453420fb71af8052d33621942b0e9bcd4e669cc"
+    }
+  },
+  "protocol_version": "selector-topk-controls-v1",
+  "r002_manifest_file": "selector_components_manifest.json",
+  "rules": {
+    "anchor": "TopK10 S0",
+    "chain_denominator": "queries whose TopK10 contains every official gold document",
+    "niah_query_universe": "frozen assignment subset",
+    "paired_alignment": "strict identical query keys and identical metric masks",
+    "paired_bootstrap_and_sign_flip_iterations": 10000,
+    "paired_bootstrap_and_sign_flip_seed": 13,
+    "paired_ci": "95% percentile paired component-cluster bootstrap",
+    "paired_p_value": "two-sided Monte Carlo sign-flip with plus-one correction",
+    "paired_resampling_unit": "frozen R002 component_id",
+    "paired_scopes": "overall and each frozen R002 derived role separately",
+    "pool": "same frozen Hybrid Top20 for every system",
+    "recall_unit": "document_id",
+    "smaller_systems": "literal S0 prefix; ranks 11-20 never replace a deletion",
+    "systems": [
+      "topk10",
+      "topk9",
+      "topk8",
+      "topk7"
+    ],
+    "twowiki_harmful_metrics": "not defined and not emitted",
+    "twowiki_query_universe": "all source-split queries"
+  },
+  "schema_version": "1.0",
+  "source_split": "dev"
+}

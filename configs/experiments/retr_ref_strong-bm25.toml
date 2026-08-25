@@ -1,0 +1,21 @@
+# Local CPU-only smoke config (tiny 3-doc fixture) — validates TOML/CLI wiring only.
+[dataset]
+manifest = "../../tests/fixtures/reference_dataset/manifest.json"
+
+[output]
+directory = "../../runs/retr-ref-strong-bm25"
+
+[retriever]
+name = "strong-bm25"
+parameters = { k1 = 0.9, b = 0.4 }
+
+[selector]
+name = "top-k"
+
+[generator]
+name = "extractive"
+
+[run]
+top_k = 3
+max_selected = 2
+seed = 7

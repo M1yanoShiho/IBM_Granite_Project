@@ -1,0 +1,56 @@
+{
+  "schema_version": "selector-experiment-source-manifest-v1",
+  "experiment_id": "05_reliability_mis_2026-08-08",
+  "archive_date": "2026-08-12",
+  "archive_status": "COMPLETE / FAIL / RETIRED",
+  "archive_policy": {
+    "snapshots_are_exact_source_copies": true,
+    "snapshots_are_execution_entrypoints": false,
+    "archive_operation_moved_or_renamed_sources": false,
+    "some_sources_may_exist_only_in_git_history": true,
+    "production_default": "TopK10"
+  },
+  "entries": [
+    {
+      "role": "implementation_plan",
+      "source_kind": "git_blob",
+      "source_commit": "39e573935ddcb79a2fe7c8a9610c0d6d6f47e5e0",
+      "source_path": "docs/selector/RELIABILITY_MIS_IMPLEMENTATION_PLAN.md",
+      "current_worktree_path_exists": false,
+      "source_blob": "cbfdce19536b3d2f0aeb5005e842f432cb6d8165",
+      "snapshot_path": "snapshots/RELIABILITY_MIS_IMPLEMENTATION_PLAN.md",
+      "snapshot_blob": "cbfdce19536b3d2f0aeb5005e842f432cb6d8165",
+      "integrity": "MATCH"
+    },
+    {
+      "role": "execution_notes",
+      "source_kind": "local_ignored_result",
+      "source_path": "results/selector-reliability-mis/EXECUTION_NOTES.md",
+      "current_worktree_path_exists": true,
+      "source_sha256": "3cf1970cfbbfee22daeeb13f0e5905c5a07f02c817d64586573d62429aa769b8",
+      "snapshot_path": "snapshots/EXECUTION_NOTES.md",
+      "snapshot_sha256": "3cf1970cfbbfee22daeeb13f0e5905c5a07f02c817d64586573d62429aa769b8",
+      "integrity": "MATCH"
+    },
+    {
+      "role": "final_report_cn",
+      "source_kind": "local_ignored_result",
+      "source_path": "results/selector-reliability-mis/FINAL_REPORT_CN.md",
+      "current_worktree_path_exists": true,
+      "source_sha256": "9867dd9adc523b183c6c2ec2070d94efe3470cdc3a60f3bcb5c0d567cf0d409a",
+      "snapshot_path": "snapshots/FINAL_REPORT_CN.md",
+      "snapshot_sha256": "9867dd9adc523b183c6c2ec2070d94efe3470cdc3a60f3bcb5c0d567cf0d409a",
+      "integrity": "MATCH"
+    },
+    {
+      "role": "local_result_checksum_index",
+      "source_kind": "local_ignored_result",
+      "source_path": "results/selector-reliability-mis/checksums.sha256",
+      "current_worktree_path_exists": true,
+      "source_sha256": "5155baa6b60a842ee1e5f32e4a6ef7f35a90427a226be9e99a756784cc7d86f5",
+      "snapshot_path": "snapshots/checksums.sha256",
+      "snapshot_sha256": "5155baa6b60a842ee1e5f32e4a6ef7f35a90427a226be9e99a756784cc7d86f5",
+      "integrity": "MATCH"
+    }
+  ]
+}

@@ -1,0 +1,192 @@
+{
+  "artifacts": {
+    "pre_manual_manifest": {
+      "bytes": 1771,
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G210R-v2/pre-manual/manifest.json",
+      "sha256": "49a181f53a5f425ce104515462111fa2752f6bfa65c80fbe15b76686cef3284b"
+    },
+    "pre_manual_ordered_ids": {
+      "bytes": 125773,
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G210R-v2/pre-manual/ordered_ids.json",
+      "sha256": "31e64be349709b3004d476f18776dc714e488406879c08c2f088956e503022af"
+    },
+    "pre_manual_train_cases": {
+      "bytes": 54639180,
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G210R-v2/pre-manual/train_cases.jsonl",
+      "records": 2396,
+      "sha256": "ffcf925178f5992401340da44310eb1e38e7b15081a7208efe246c22878d39fd"
+    },
+    "pre_manual_validation_cases": {
+      "bytes": 12226319,
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G210R-v2/pre-manual/validation_cases.jsonl",
+      "records": 321,
+      "sha256": "cd2ba2309349ce99665701ac05077ed522c5cdbe1a1660dfd742a3d6a292a6e1"
+    },
+    "structural_rows": {
+      "bytes": 1849653,
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G210R-v2/structural/structural_audit_rows.jsonl",
+      "records": 3061,
+      "sha256": "0c003c18aa5d7922917a7d37473a007b87e8c21b5aff13a6ea61ee7e030bc7be"
+    },
+    "structural_summary": {
+      "bytes": 1076,
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G210R-v2/structural/structural_summary.json",
+      "sha256": "e22f1a6e10e799ba35df95ec64df1425fab31f6cd3fcecec0fbf980c954399d7"
+    },
+    "true_audit_manifest": {
+      "bytes": 667,
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G210R-v2/true-audit/true_audit_manifest.json",
+      "sha256": "b24bdbbc4adcade0c59f962a4bcd88796a463ca7d6360e097310829bfbf6bade"
+    },
+    "true_audit_rows": {
+      "bytes": 976250,
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G210R-v2/true-audit/true_audit_rows.jsonl",
+      "records": 2708,
+      "sha256": "8fb179a6615fe7a5ca48c86a0c7ccb3fbc42aaeda1f14dbde0399a75d1d2fedf"
+    },
+    "true_worklist": {
+      "bytes": 2470421,
+      "path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G210R-v2/structural/true_worklist.jsonl",
+      "records": 2708,
+      "sha256": "e058e24229561442c5a8752093cacaceece15b972da50b840c009be98e6eea81"
+    }
+  },
+  "commands": [
+    {
+      "model_calls": false,
+      "status": "exit_0",
+      "step": "structural",
+      "training_started": false
+    },
+    {
+      "judge": "google/t5_xxl_true_nli_mixture",
+      "model_calls": true,
+      "status": "exit_0",
+      "step": "true-audit",
+      "training_started": false
+    },
+    {
+      "model_calls": false,
+      "status": "exit_0",
+      "step": "finalize",
+      "training_started": false
+    }
+  ],
+  "created_unix": 1787071824,
+  "git": {
+    "branch": "refactor/three-module-baseline",
+    "head_at_runtime": "aa38952e84355915dd8f4363d3a22e27604a7d08",
+    "status_short": ""
+  },
+  "pre_manual_summary": {
+    "answerable_train_updates": 8260,
+    "counts": {
+      "2wiki": {
+        "train-fit_answerable_groups": 828,
+        "train-fit_unsupported_groups": 1053,
+        "train-modelval_answerable_groups": 106
+      },
+      "niah": {
+        "train-fit_answerable_groups": 515,
+        "train-modelval_answerable_groups": 215
+      }
+    },
+    "dev_read": false,
+    "excluded": {
+      "true_fail": 344
+    },
+    "gates": {
+      "niah_new_modelval_groups": true,
+      "niah_train_groups": true,
+      "split_component_overlap_zero": true,
+      "split_group_overlap_zero": true,
+      "twowiki_modelval_groups": true,
+      "twowiki_train_groups": true,
+      "unsupported_update_ratio": true
+    },
+    "input_sha256": {
+      "source_train_cases": "131fe0daacccc5c71a81db2f2eec55ecf56f6661263317299a40c991f19da1ec",
+      "source_validation_cases": "87a47d81dc87ba311f4819e6f872671d2eb1dde7c1b315ecc13f9ed775a3d035",
+      "structural_rows": "0c003c18aa5d7922917a7d37473a007b87e8c21b5aff13a6ea61ee7e030bc7be",
+      "true_audit_rows": "8fb179a6615fe7a5ca48c86a0c7ccb3fbc42aaeda1f14dbde0399a75d1d2fedf"
+    },
+    "manual_audit_required_before_training": true,
+    "ordered_ids_sha256": "31e64be349709b3004d476f18776dc714e488406879c08c2f088956e503022af",
+    "schema_version": "full-flow-g210-v2-final-manifest-v1",
+    "sealed_or_heldout_read": false,
+    "split_leakage": {
+      "component_overlap": 0,
+      "group_overlap": 0
+    },
+    "status": "PRE_MANUAL_PASS",
+    "train_cases": 2396,
+    "train_cases_sha256": "ffcf925178f5992401340da44310eb1e38e7b15081a7208efe246c22878d39fd",
+    "training_started": false,
+    "true_rows": 2708,
+    "unsupported_update_ratio": 0.11306775475142274,
+    "unsupported_updates": 1053,
+    "validation_cases": 321,
+    "validation_cases_sha256": "cd2ba2309349ce99665701ac05077ed522c5cdbe1a1660dfd742a3d6a292a6e1"
+  },
+  "runtime_boundaries": {
+    "dev_read": false,
+    "gold_loaded_at_runtime": false,
+    "manual_audit_required_before_training": true,
+    "reference_answers_loaded_at_runtime": false,
+    "sealed_or_heldout_read": false,
+    "training_started": false,
+    "utility_labels_started": false
+  },
+  "schema_version": "full-flow-g210r2-execution-audit-v1",
+  "server": {
+    "host": "it097952",
+    "python": "/scratch/fl25387/IBM_Granite_Project_latest/envs/selector_mis_py311/bin/python",
+    "repo": "/home/fl25387/projects/IBM_Granite_Project_latest",
+    "runtime": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G210R-v2",
+    "true_snapshot": "/scratch/fl25387/IBM_Granite_Project_latest/model-cache/models--google--t5_xxl_true_nli_mixture/snapshots/aa6cfe1dd4257853bfdd772992045f41bfc14988"
+  },
+  "status": "COMPLETE_PRE_MANUAL_PASS_MANUAL_LENGTH_PENDING",
+  "structural_summary": {
+    "cases": 3061,
+    "counts": {
+      "train:2wiki:twowiki_evidence_chain:pass": 1053,
+      "train:2wiki:unsupported_support_removed:pass": 1053,
+      "train:niah:niah_qa2d_single_claim:pass": 515,
+      "validation:2wiki:twowiki_evidence_chain:pass": 133,
+      "validation:niah:niah_qa2d_single_claim:pass": 307
+    },
+    "dev_read": false,
+    "input_sha256": {
+      "data_manifest": "84e8fc6f7701e91e289d51df3916c29beccd760391fa4f67c0e6a8d93a84cff5",
+      "train_cases": "131fe0daacccc5c71a81db2f2eec55ecf56f6661263317299a40c991f19da1ec",
+      "validation_cases": "87a47d81dc87ba311f4819e6f872671d2eb1dde7c1b315ecc13f9ed775a3d035"
+    },
+    "schema_version": "full-flow-g210-v2-structural-summary-v1",
+    "sealed_or_heldout_read": false,
+    "split_leakage": {
+      "component_overlap": 0,
+      "group_overlap": 0
+    },
+    "status": "PASS",
+    "structural_audit_rows_sha256": "0c003c18aa5d7922917a7d37473a007b87e8c21b5aff13a6ea61ee7e030bc7be",
+    "training_started": false,
+    "true_worklist_rows": 2708,
+    "true_worklist_sha256": "e058e24229561442c5a8752093cacaceece15b972da50b840c009be98e6eea81"
+  },
+  "true_audit_summary": {
+    "entailed": 2338,
+    "input_sha256": {
+      "true_worklist": "e058e24229561442c5a8752093cacaceece15b972da50b840c009be98e6eea81"
+    },
+    "judge": "google/t5_xxl_true_nli_mixture",
+    "judge_snapshot": "/scratch/fl25387/IBM_Granite_Project_latest/model-cache/models--google--t5_xxl_true_nli_mixture/snapshots/aa6cfe1dd4257853bfdd772992045f41bfc14988",
+    "not_entailed": 370,
+    "schema_version": "full-flow-g210-v2-true-audit-manifest-v1",
+    "sealed_or_heldout_read": false,
+    "status": "COMPLETE",
+    "threshold": 0.5,
+    "training_started": false,
+    "true_audit_rows_sha256": "8fb179a6615fe7a5ca48c86a0c7ccb3fbc42aaeda1f14dbde0399a75d1d2fedf",
+    "worklist_rows": 2708
+  }
+}

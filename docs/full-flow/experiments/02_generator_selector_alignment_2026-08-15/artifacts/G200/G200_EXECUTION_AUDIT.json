@@ -1,0 +1,64 @@
+{
+  "schema_version": "full-flow-g200-execution-audit-v1",
+  "status": "COMPLETE",
+  "server": {
+    "hostname": "it097952",
+    "runtime_path": "/scratch/fl25387/IBM_Granite_Project_latest/runs/full-flow/G200-v1"
+  },
+  "git": {
+    "selection_commit": "6f376420f957b672ae1f718834ab2fa72caa8bb3",
+    "final_materialization_commit": "1488bbd8d3293c766c35964a3d31bf09e3fe0dc9"
+  },
+  "selection": {
+    "queries": 1023,
+    "changed_queries": 336,
+    "dropped_candidates": 367,
+    "gold_loaded_at_runtime": false,
+    "reference_answers_loaded_at_runtime": false,
+    "trace_sha256": "227f014d82bc76fe65f1ce7075678ad18ea36a72e765a7bacab7bb3add948b08"
+  },
+  "qa2d": {
+    "model": "MarkS/bart-base-qa2d",
+    "revision": "94f286a9102dd7e178778d531d4aefcfbcbe5a07",
+    "queries": 1023,
+    "answer_preserved": 997,
+    "answer_not_preserved": 26,
+    "unknown_references": 1,
+    "targets_sha256": "2875bcd8fb19b8803bbe1eb85fe647f915b6e260b46c35d008f2fc6510955308"
+  },
+  "target_support_audit": {
+    "judge_snapshot": "google/t5_xxl_true_nli_mixture@aa6cfe1dd4257853bfdd772992045f41bfc14988",
+    "threshold": 0.5,
+    "queries": 817,
+    "entailed": 577,
+    "not_entailed": 240,
+    "audit_sha256": "af32dbbc781ceca4bb5efb0b1a529c72bf6e4710b04a35a2b7e0f5ac456689bc"
+  },
+  "final_data": {
+    "train_queries": 515,
+    "validation_queries": 62,
+    "variants_per_query": 8,
+    "gc_examples": 4120,
+    "gm_examples": 4120,
+    "train_cases_sha256": "c045fc40495d4852fdb930663257970e000f4b597fd51522c8474f4b732ff5ed",
+    "validation_cases_sha256": "26db5bd771c37849a1018e154c69baccb66057afcafaa876114cacc5425eb9a2",
+    "train_validation_component_overlap": 0,
+    "decision_dev_query_overlap": 0,
+    "sealed600_query_overlap": 0,
+    "all_cases_have_eight_variants": true,
+    "all_semantic_target_hashes_valid": true,
+    "true_score_min": 0.5117166042327881,
+    "true_score_median": 0.9887554049491882,
+    "true_score_max": 0.9998133778572083
+  },
+  "runtime_boundaries": {
+    "source": "NIAH train only",
+    "dev_answers_or_scores_used_for_training_or_filtering": false,
+    "dev_query_ids_used_for_posthoc_overlap_audit": true,
+    "sealed600_used_for_training_or_filtering": false,
+    "sealed600_query_ids_used_for_posthoc_overlap_audit": true,
+    "system_heldout_read": false,
+    "qa2d_runtime_component": false,
+    "main_generator_family": "IBM Granite 4.1-3B"
+  }
+}

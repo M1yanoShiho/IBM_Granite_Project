@@ -1,0 +1,3 @@
+# R005A/R005B final adversarial state-machine audit request
+
+Perform an independent read-only adversarial audit of the stable R005A/R005B amendment Markdown, machine-readable JSON contract, and tracker. Try to find any remaining path that permits looking at held-out information and retrying, running duplicate formal-fit jobs and selecting a checkpoint, replacing a failed terminal, publishing an incomplete bundle, accepting inconsistent derived statistics, bypassing a burned split by changing namespace, or authorizing downstream work from an incomplete result. Do not edit project files. Return P0/P1/P2 counts and whether the protocol is ready for A001 implementation; do not imply that the scientific gates will pass.

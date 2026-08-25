@@ -1,0 +1,79 @@
+{
+  "arms": {
+    "dense_rag": {
+      "count": 400,
+      "file_sha256": "2aab3a2c3f34663fd67266a12272f9c034ae2ada772bb6dc1ca0af08a76ee56c",
+      "ordered_ids_sha256": "37626d4b1890bdc239d0904c9f406a06023f73382ccd9aabfa44bf65189761fb",
+      "runtime_error_rate": 0.0,
+      "runtime_errors": 0,
+      "valid_at_1pct_guard": true
+    },
+    "granite_rerank_rag": {
+      "count": 400,
+      "file_sha256": "ff170da342850aa3a67b3d9c6e64e947696369eebc71a273dc40f287b16db0b9",
+      "ordered_ids_sha256": "37626d4b1890bdc239d0904c9f406a06023f73382ccd9aabfa44bf65189761fb",
+      "runtime_error_rate": 0.0,
+      "runtime_errors": 0,
+      "valid_at_1pct_guard": true
+    },
+    "hybrid_rag": {
+      "count": 400,
+      "file_sha256": "a7df808e33c1c2fe0de59950704a4801ecc0e12ec58080e792a5bbbbd23bb946",
+      "ordered_ids_sha256": "37626d4b1890bdc239d0904c9f406a06023f73382ccd9aabfa44bf65189761fb",
+      "runtime_error_rate": 0.0,
+      "runtime_errors": 0,
+      "valid_at_1pct_guard": true
+    },
+    "ours_seed13": {
+      "count": 400,
+      "file_sha256": "6383c97aac73695388b52d42bfa03e56bacd771f9372c82cb39811150b7c894b",
+      "ordered_ids_sha256": "37626d4b1890bdc239d0904c9f406a06023f73382ccd9aabfa44bf65189761fb",
+      "runtime_error_rate": 0.0,
+      "runtime_errors": 0,
+      "valid_at_1pct_guard": true
+    },
+    "ours_seed42": {
+      "count": 400,
+      "file_sha256": "9a3f3f6b38df753c3f3ac24922dfdd7bea0f14742a93028e5901824187ad4c8e",
+      "ordered_ids_sha256": "37626d4b1890bdc239d0904c9f406a06023f73382ccd9aabfa44bf65189761fb",
+      "runtime_error_rate": 0.0,
+      "runtime_errors": 0,
+      "valid_at_1pct_guard": true
+    },
+    "ours_seed73": {
+      "count": 400,
+      "file_sha256": "584fda6120b1709735cadbb905bb859cc9bf736d0522ed1866a3c0fc6d52b4a8",
+      "ordered_ids_sha256": "37626d4b1890bdc239d0904c9f406a06023f73382ccd9aabfa44bf65189761fb",
+      "runtime_error_rate": 0.0,
+      "runtime_errors": 0,
+      "valid_at_1pct_guard": true
+    },
+    "provence_rag": {
+      "count": 400,
+      "file_sha256": "8d41c8338f8801b66fbb6d146537d950640f509d8e6f595e67741c545d419ad5",
+      "ordered_ids_sha256": "37626d4b1890bdc239d0904c9f406a06023f73382ccd9aabfa44bf65189761fb",
+      "runtime_error_rate": 0.0,
+      "runtime_errors": 0,
+      "valid_at_1pct_guard": true
+    }
+  },
+  "attempt_id": "exp04-g3-musique-20260822d",
+  "bundle_status": "PASS",
+  "dataset": "musique-answerable",
+  "implementation_sha256": {
+    "citation_metrics": "d11a832c6b5a5361c8c92d0a668427c7f1f9bd44b719329493704e9a1fff719a",
+    "dataset_slurm": "679c8df066eeb1ec4db22ff3261bafe1ea4b8dc42fe9104aa99c87de4fba3613",
+    "goal3_cli": "8a8f91987f092dd51deb65c864b37cec5c5f06d4a777920cdd6cb9a6b016e064",
+    "goal3_contract": "82a24c675f8be6057eecf3aaa6318ee114da075dae6c072f9245b4a41b2fc29f"
+  },
+  "model_manifest_sha256": "eed13e3a645a526d97b869e15c1bac0af2e2dc8c8001928806ac182938544ff2",
+  "ordered_ids_sha256": "37626d4b1890bdc239d0904c9f406a06023f73382ccd9aabfa44bf65189761fb",
+  "outputs_frozen_before_scoring": true,
+  "preflight_sha256": "200f6f975ac4b966f073b0ea250e59074a10acfa012b13a9acaa0378ce0ff644",
+  "prepared_sha256": "2f09a4b239093487a7df23889b510c2911436c0f8213691078d6002a20053428",
+  "query_count": 400,
+  "runtime_sha256": "3e5ba175fd7e0ed7190c1f4af23536dc0f9f531c864d26fbbb7740ed9f71644a",
+  "schema_version": "experiment04.generation_manifest.v1",
+  "selector_fail_open_queries": 0,
+  "selector_fail_open_rate": 0.0
+}

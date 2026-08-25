@@ -1,0 +1,206 @@
+{
+  "checkpoint_sha256_by_seed": {
+    "13": "86622bd9ab6391c9eb560133b01b0cf3744c3706638ff8b0bd38925b84bf72bf",
+    "42": "c258a9b4794dcb01c17d1150c91d631e6a5bb91211676224e3a6258cee02d421"
+  },
+  "datasets": {
+    "2wiki": {
+      "projection_sha256": "0d6e44879102609fd39f587265baa8e3f9bd7e7c5cb4bf9619d939c5de7faeff",
+      "queries": 1000
+    },
+    "niah": {
+      "projection_sha256": "dcca3e076576f858cce321730d60d5f4ba131f2b2ddeda6641471e8e528d2d60",
+      "queries": 740
+    }
+  },
+  "development_projection_sha256": "f0da6329a75241de938e3061f4a12bd99ac47c726cdfd3ab35bed8fe70441049",
+  "results": [
+    {
+      "cap": 1,
+      "harmful_reduction_seed13": 0.05918057663125948,
+      "harmful_reduction_seed42": 0.036418816388467376,
+      "mean_deletions_per_query": 0.026724137931034484,
+      "niah_chain_loss_seed13_pp": 0.0,
+      "niah_chain_loss_seed42_pp": 0.0,
+      "niah_recall_loss_seed13_pp": 0.0,
+      "niah_recall_loss_seed42_pp": 0.0,
+      "quantile": 0.995,
+      "seed13_harm_beats_bottom": true,
+      "seed13_harm_beats_random": true,
+      "seed13_precision_beats_bottom": true,
+      "seed13_precision_beats_random": true,
+      "thresholds_by_seed": {
+        "13": 0.9838195443153381,
+        "42": 0.9194272756576538
+      },
+      "twowiki_chain_loss_seed13_pp": 0.0,
+      "twowiki_chain_loss_seed42_pp": 0.0,
+      "twowiki_recall_loss_seed13_pp": 0.0,
+      "twowiki_recall_loss_seed42_pp": 0.0
+    },
+    {
+      "cap": 2,
+      "harmful_reduction_seed13": 0.06069802731411229,
+      "harmful_reduction_seed42": 0.03793626707132018,
+      "mean_deletions_per_query": 0.029022988505747128,
+      "niah_chain_loss_seed13_pp": 0.0,
+      "niah_chain_loss_seed42_pp": 0.0,
+      "niah_recall_loss_seed13_pp": 0.0,
+      "niah_recall_loss_seed42_pp": 0.0,
+      "quantile": 0.995,
+      "seed13_harm_beats_bottom": true,
+      "seed13_harm_beats_random": true,
+      "seed13_precision_beats_bottom": true,
+      "seed13_precision_beats_random": true,
+      "thresholds_by_seed": {
+        "13": 0.9838195443153381,
+        "42": 0.9194272756576538
+      },
+      "twowiki_chain_loss_seed13_pp": 0.0,
+      "twowiki_chain_loss_seed42_pp": 0.0,
+      "twowiki_recall_loss_seed13_pp": 0.0,
+      "twowiki_recall_loss_seed42_pp": 0.0
+    },
+    {
+      "cap": 1,
+      "harmful_reduction_seed13": 0.10318664643399089,
+      "harmful_reduction_seed42": 0.09863429438543247,
+      "mean_deletions_per_query": 0.05545977011494253,
+      "niah_chain_loss_seed13_pp": 0.22172949002217296,
+      "niah_chain_loss_seed42_pp": 0.0,
+      "niah_recall_loss_seed13_pp": 0.06756756756756757,
+      "niah_recall_loss_seed42_pp": 0.0,
+      "quantile": 0.99,
+      "seed13_harm_beats_bottom": true,
+      "seed13_harm_beats_random": true,
+      "seed13_precision_beats_bottom": true,
+      "seed13_precision_beats_random": true,
+      "thresholds_by_seed": {
+        "13": 0.9212157130241394,
+        "42": 0.8249509334564209
+      },
+      "twowiki_chain_loss_seed13_pp": 0.0,
+      "twowiki_chain_loss_seed42_pp": 0.0,
+      "twowiki_recall_loss_seed13_pp": 0.0,
+      "twowiki_recall_loss_seed42_pp": 0.0
+    },
+    {
+      "cap": 2,
+      "harmful_reduction_seed13": 0.10773899848254932,
+      "harmful_reduction_seed42": 0.1047040971168437,
+      "mean_deletions_per_query": 0.06321839080459771,
+      "niah_chain_loss_seed13_pp": 0.22172949002217296,
+      "niah_chain_loss_seed42_pp": 0.0,
+      "niah_recall_loss_seed13_pp": 0.06756756756756757,
+      "niah_recall_loss_seed42_pp": 0.0,
+      "quantile": 0.99,
+      "seed13_harm_beats_bottom": true,
+      "seed13_harm_beats_random": true,
+      "seed13_precision_beats_bottom": true,
+      "seed13_precision_beats_random": true,
+      "thresholds_by_seed": {
+        "13": 0.9212157130241394,
+        "42": 0.8249509334564209
+      },
+      "twowiki_chain_loss_seed13_pp": 0.0,
+      "twowiki_chain_loss_seed42_pp": 0.0,
+      "twowiki_recall_loss_seed13_pp": 0.0,
+      "twowiki_recall_loss_seed42_pp": 0.0
+    },
+    {
+      "cap": 1,
+      "harmful_reduction_seed13": 0.2898330804248862,
+      "harmful_reduction_seed42": 0.29893778452200304,
+      "mean_deletions_per_query": 0.1732758620689655,
+      "niah_chain_loss_seed13_pp": 1.9955654101995564,
+      "niah_chain_loss_seed42_pp": 1.1086474501108647,
+      "niah_recall_loss_seed13_pp": 0.532049298430781,
+      "niah_recall_loss_seed42_pp": 0.4218782887390329,
+      "quantile": 0.975,
+      "seed13_harm_beats_bottom": true,
+      "seed13_harm_beats_random": true,
+      "seed13_precision_beats_bottom": true,
+      "seed13_precision_beats_random": true,
+      "thresholds_by_seed": {
+        "13": 0.07248193025588989,
+        "42": 0.029239118099212646
+      },
+      "twowiki_chain_loss_seed13_pp": 0.0,
+      "twowiki_chain_loss_seed42_pp": 0.0,
+      "twowiki_recall_loss_seed13_pp": 0.0,
+      "twowiki_recall_loss_seed42_pp": 0.0
+    },
+    {
+      "cap": 2,
+      "harmful_reduction_seed13": 0.3110773899848255,
+      "harmful_reduction_seed42": 0.3232169954476479,
+      "mean_deletions_per_query": 0.2057471264367816,
+      "niah_chain_loss_seed13_pp": 3.9911308203991127,
+      "niah_chain_loss_seed42_pp": 1.9955654101995564,
+      "niah_recall_loss_seed13_pp": 1.1888221427036252,
+      "niah_recall_loss_seed42_pp": 0.5516021684629127,
+      "quantile": 0.975,
+      "seed13_harm_beats_bottom": true,
+      "seed13_harm_beats_random": true,
+      "seed13_precision_beats_bottom": true,
+      "seed13_precision_beats_random": true,
+      "thresholds_by_seed": {
+        "13": 0.07248193025588989,
+        "42": 0.029239118099212646
+      },
+      "twowiki_chain_loss_seed13_pp": 0.0,
+      "twowiki_chain_loss_seed42_pp": 0.0,
+      "twowiki_recall_loss_seed13_pp": 0.0,
+      "twowiki_recall_loss_seed42_pp": 0.0
+    },
+    {
+      "cap": 1,
+      "harmful_reduction_seed13": 0.424886191198786,
+      "harmful_reduction_seed42": 0.40819423368740515,
+      "mean_deletions_per_query": 0.33017241379310347,
+      "niah_chain_loss_seed13_pp": 6.430155210643015,
+      "niah_chain_loss_seed42_pp": 4.878048780487805,
+      "niah_recall_loss_seed13_pp": 1.9771273239917069,
+      "niah_recall_loss_seed42_pp": 1.7599347572467405,
+      "quantile": 0.95,
+      "seed13_harm_beats_bottom": true,
+      "seed13_harm_beats_random": true,
+      "seed13_precision_beats_bottom": true,
+      "seed13_precision_beats_random": true,
+      "thresholds_by_seed": {
+        "13": 0.0028490424156188965,
+        "42": 0.0055942535400390625
+      },
+      "twowiki_chain_loss_seed13_pp": 0.0,
+      "twowiki_chain_loss_seed42_pp": 0.0,
+      "twowiki_recall_loss_seed13_pp": 0.0,
+      "twowiki_recall_loss_seed42_pp": 0.0
+    },
+    {
+      "cap": 2,
+      "harmful_reduction_seed13": 0.48710166919575115,
+      "harmful_reduction_seed42": 0.48861911987860396,
+      "mean_deletions_per_query": 0.5201149425287357,
+      "niah_chain_loss_seed13_pp": 15.96452328159645,
+      "niah_chain_loss_seed42_pp": 13.747228381374724,
+      "niah_recall_loss_seed13_pp": 5.640649573190137,
+      "niah_recall_loss_seed42_pp": 4.5183340627370345,
+      "quantile": 0.95,
+      "seed13_harm_beats_bottom": true,
+      "seed13_harm_beats_random": true,
+      "seed13_precision_beats_bottom": true,
+      "seed13_precision_beats_random": true,
+      "thresholds_by_seed": {
+        "13": 0.0028490424156188965,
+        "42": 0.0055942535400390625
+      },
+      "twowiki_chain_loss_seed13_pp": 0.0,
+      "twowiki_chain_loss_seed42_pp": 0.0,
+      "twowiki_recall_loss_seed13_pp": 0.0,
+      "twowiki_recall_loss_seed42_pp": 0.0
+    }
+  ],
+  "role": "crc-calibration",
+  "schema_version": "selector-lean-development-results-v1",
+  "variant": "NLI-base"
+}

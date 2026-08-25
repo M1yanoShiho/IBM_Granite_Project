@@ -1,0 +1,70 @@
+{
+  "schema_version": "selector-experiment-source-manifest-v1",
+  "experiment_id": "02_ml_selector_v1_2026-07-10",
+  "archive_date": "2026-08-12",
+  "archive_status": "COMPLETE / GATE FAIL / STOPPED",
+  "archive_policy": {
+    "snapshots_are_exact_source_copies": true,
+    "snapshots_are_execution_entrypoints": false,
+    "archive_operation_moved_or_renamed_sources": false,
+    "some_sources_may_exist_only_in_git_history": true,
+    "production_default": "TopK10"
+  },
+  "entries": [
+    {
+      "role": "v1_plan",
+      "source_kind": "git_blob",
+      "source_commit": "eb498eb043f63f3623a7d55aabe0f1a6d0652ef3",
+      "source_path": "docs/ml-selector-experiment-plan.md",
+      "current_worktree_path_exists": false,
+      "source_blob": "e91d7bbab56867e59ab653dc401de75b59b5655b",
+      "snapshot_path": "snapshots/ML_SELECTOR_V1_EXPERIMENT_PLAN.md",
+      "snapshot_blob": "e91d7bbab56867e59ab653dc401de75b59b5655b",
+      "integrity": "MATCH"
+    },
+    {
+      "role": "v1_tracker",
+      "source_kind": "git_blob",
+      "source_commit": "eb498eb043f63f3623a7d55aabe0f1a6d0652ef3",
+      "source_path": "docs/ml-selector-experiment-tracker.md",
+      "current_worktree_path_exists": false,
+      "source_blob": "10dad17095d7361725c6d109ad59a1b5b1da08a9",
+      "snapshot_path": "snapshots/ML_SELECTOR_V1_EXPERIMENT_TRACKER.md",
+      "snapshot_blob": "10dad17095d7361725c6d109ad59a1b5b1da08a9",
+      "integrity": "MATCH"
+    },
+    {
+      "role": "v1_record",
+      "source_kind": "git_blob",
+      "source_commit": "071e4358dc2e2accc9358b67fc5146539bf790a6",
+      "source_path": "docs/ml-selector/V1_EXPERIMENT_RECORD.md",
+      "current_worktree_path_exists": false,
+      "source_blob": "36a435853f32859b04d0a0f348c73629add8bf72",
+      "snapshot_path": "snapshots/V1_EXPERIMENT_RECORD.md",
+      "snapshot_blob": "36a435853f32859b04d0a0f348c73629add8bf72",
+      "integrity": "MATCH"
+    },
+    {
+      "role": "superseded_v2_plan",
+      "source_kind": "git_blob",
+      "source_commit": "071e4358dc2e2accc9358b67fc5146539bf790a6",
+      "source_path": "docs/ml-selector/V2_EXPERIMENT_PLAN.md",
+      "current_worktree_path_exists": false,
+      "source_blob": "1347494c6818944e0f061b4544541db5674615be",
+      "snapshot_path": "snapshots/superseded/V2_EXPERIMENT_PLAN.md",
+      "snapshot_blob": "1347494c6818944e0f061b4544541db5674615be",
+      "integrity": "MATCH"
+    },
+    {
+      "role": "superseded_v2_tracker",
+      "source_kind": "git_blob",
+      "source_commit": "071e4358dc2e2accc9358b67fc5146539bf790a6",
+      "source_path": "docs/ml-selector/V2_EXPERIMENT_TRACKER.md",
+      "current_worktree_path_exists": false,
+      "source_blob": "a3a6830843e50034a8a5a09e9eec6522d6a05fac",
+      "snapshot_path": "snapshots/superseded/V2_EXPERIMENT_TRACKER.md",
+      "snapshot_blob": "a3a6830843e50034a8a5a09e9eec6522d6a05fac",
+      "integrity": "MATCH"
+    }
+  ]
+}

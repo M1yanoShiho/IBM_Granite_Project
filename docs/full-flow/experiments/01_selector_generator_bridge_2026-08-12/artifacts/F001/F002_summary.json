@@ -1,0 +1,43 @@
+{
+  "schema_version": "full-flow-f002-summary-v1",
+  "status": "COMPLETE",
+  "scope": "F001 selector-changed cases only; post-generation gold diagnosis",
+  "queries": 109,
+  "comparisons": {
+    "basic": {
+      "transitions": {
+        "right_stayed_right": 59,
+        "right_to_wrong": 6,
+        "wrong_stayed_wrong": 41,
+        "wrong_to_right": 3
+      },
+      "primary_diagnoses": {
+        "answer_extraction_failure_with_evidence_present": 15,
+        "correct_preserved": 59,
+        "empty_output": 11,
+        "generator_context_sensitivity": 6,
+        "multi_document_composition_candidate": 11,
+        "partial_evidence_or_other": 4,
+        "selector_helped_generation": 3
+      }
+    },
+    "verify": {
+      "transitions": {
+        "right_stayed_right": 57,
+        "right_to_wrong": 7,
+        "wrong_stayed_wrong": 41,
+        "wrong_to_right": 4
+      },
+      "primary_diagnoses": {
+        "answer_extraction_failure_with_evidence_present": 16,
+        "correct_preserved": 57,
+        "empty_output": 15,
+        "generator_context_sensitivity": 7,
+        "multi_document_composition_candidate": 9,
+        "partial_evidence_or_other": 1,
+        "selector_helped_generation": 4
+      }
+    }
+  },
+  "interpretation_boundary": "categories are conservative triage signals; answer extraction and multi-document labels identify candidates for inspection rather than proving a causal mechanism"
+}

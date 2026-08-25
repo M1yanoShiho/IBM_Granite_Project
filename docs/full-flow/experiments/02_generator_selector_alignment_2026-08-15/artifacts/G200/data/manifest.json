@@ -1,0 +1,61 @@
+{
+  "schema_version": "full-flow-g200-data-manifest-v1",
+  "status": "COMPLETE",
+  "source_role": "NIAH train only",
+  "sealed_or_heldout_read": false,
+  "dev_read": false,
+  "gold_use": "offline target construction and support audit only",
+  "selection_runtime_gold_loaded": false,
+  "split_rule": "pre-existing component-grouped train-fit/train-modelval roles",
+  "provenance_component_overlap": 0,
+  "semantic_target": "frozen QA2D(question, single NIAH reference); answer-preserving and TRUE-entailed",
+  "qa2d": {
+    "model": "MarkS/bart-base-qa2d",
+    "revision": "94f286a9102dd7e178778d531d4aefcfbcbe5a07",
+    "runtime_component": false
+  },
+  "draft_model": "ibm-granite/granite-4.1-3b",
+  "draft_prompt_sha256": "50acd572f7c57ec25b20898d317a72cfc14c7aa6647c684c08210ed0bd1bd8f3",
+  "variant_order": [
+    "support_only",
+    "topk",
+    "legacy_selected",
+    "support_benign",
+    "support_harmful",
+    "support_first",
+    "support_middle",
+    "support_last"
+  ],
+  "counts": {
+    "role_assigned_queries": 1023,
+    "eligible": 577,
+    "eligible_train-fit": 515,
+    "excluded_no_harmful": 111,
+    "excluded_no_benign": 55,
+    "excluded_unknown_reference": 1,
+    "excluded_true_not_entailed": 240,
+    "eligible_train-modelval": 62,
+    "excluded_no_support": 12,
+    "excluded_qa2d_answer_not_preserved": 26,
+    "excluded_target_unsupported_in_legacy_selected": 1
+  },
+  "train_queries": 515,
+  "validation_queries": 62,
+  "variants_per_query": 8,
+  "gc_examples": 4120,
+  "gm_examples": 4120,
+  "gc_definition": "support_only duplicated once per frozen mixed variant",
+  "gm_definition": "one example from each frozen context variant",
+  "train_cases_sha256": "c045fc40495d4852fdb930663257970e000f4b597fd51522c8474f4b732ff5ed",
+  "validation_cases_sha256": "26db5bd771c37849a1018e154c69baccb66057afcafaa876114cacc5425eb9a2",
+  "input_sha256": {
+    "queries": "02af9b4ef8458ce35c9caf99833421d7098f07e704d2c1f534909ea2a64be1fe",
+    "candidate_pool": "09e8c9b4972f48a67661c8b06dcf220f178528156699da671a16dd8d08fb908f",
+    "gold": "91af72dba9e8ccc97286f5933475bd21e43701a16727d0dfe0c442c55be90699",
+    "role_assignments": "afcffc5ebe57bf6ec86843149977b1f2534092b717725e1ae638f6421405aa00",
+    "component_map": "86be62b1fb6c25e335692ce1041284fbc8cc4341a30370224003ebf2872bc2ab",
+    "selection_trace": "227f014d82bc76fe65f1ce7075678ad18ea36a72e765a7bacab7bb3add948b08",
+    "qa2d_targets": "2875bcd8fb19b8803bbe1eb85fe647f915b6e260b46c35d008f2fc6510955308",
+    "target_support_audit": "af32dbbc781ceca4bb5efb0b1a529c72bf6e4710b04a35a2b7e0f5ac456689bc"
+  }
+}

@@ -1,0 +1,250 @@
+{
+  "schema_version": "selector-lean-plan-v3",
+  "plan_id": "selector-r005ab-v3-lean",
+  "date": "2026-08-12",
+  "status": "USER_APPROVED_LEAN_SCOPE_L000_PASS_FROZEN_FOR_IMPLEMENTATION_NOT_RUN",
+  "production_default": "TopK10",
+  "supersedes": [
+    "EXPERIMENT_PLAN_AMENDMENT_2026-08-12_R005AB_v2.md"
+  ],
+  "claims": [
+    {
+      "id": "C1",
+      "role": "primary",
+      "statement": "On identical TopK10 inputs, conservative delete-only selection reduces NIAH synthetic harmful evidence while protecting required/supporting evidence and complete chains."
+    },
+    {
+      "id": "C2",
+      "role": "evidence_level_supporting",
+      "statement": "Selector point performance is better than query-wise count-matched random and bottom-rank deletion; a paired CI determines whether evidence-level selectivity is statistically supported."
+    }
+  ],
+  "method": {
+    "baseline_k": 10,
+    "replacement_from_rank_11_to_20": false,
+    "safe_score": "min(harm_score,1-protect_score)",
+    "delete_comparison": "safe_score>=threshold",
+    "candidate_caps": [1, 2],
+    "per_query_deletion": "0_to_cap",
+    "fallback": "KEEP_ALL",
+    "primary_variant": "NLI-base",
+    "fallback_variant": "NLI-pair",
+    "raw_cls_v0": "OPTIONAL_APPENDIX_NOT_RUN_NOT_A_GATE"
+  },
+  "model": {
+    "architecture_version": "nli-aware-independent-dual-head-v1",
+    "model_id": "cross-encoder/nli-deberta-v3-base",
+    "revision": "6c749ce3425cd33b46d187e45b92bbf96ee12ec7",
+    "weights_sha256": "d8148c6d49e0a7925134294c56326c71fe0ab1dc390e37355e00c7efbb488afa",
+    "input_fields": ["question", "candidate_text"],
+    "max_length": 512,
+    "label_map": {
+      "contradiction": 0,
+      "entailment": 1,
+      "neutral": 2
+    },
+    "shared_modules": ["deberta_encoder", "context_pooler", "single_dropout_call"],
+    "heads": "two_independent_copies_of_pretrained_three_logit_classifier",
+    "protect_logit": "entailment-logsumexp(contradiction,neutral)",
+    "harm_logit": "contradiction-logsumexp(entailment,neutral)",
+    "fine_tune": "encoder_pooler_and_both_classifiers",
+    "checkpoint_sidecar_required": [
+      "architecture_version",
+      "label_map",
+      "base_snapshot_sha256",
+      "config_sha256",
+      "checkpoint_sha256"
+    ]
+  },
+  "training": {
+    "seeds": [13, 42],
+    "optimizer": "AdamW",
+    "learning_rate": 0.00002,
+    "weight_decay": 0.01,
+    "betas": [0.9, 0.999],
+    "epsilon": 1e-8,
+    "scheduler": "none",
+    "gradient_clipping": "none",
+    "epochs": 3,
+    "batch_size": 4,
+    "gradient_accumulation_steps": 4,
+    "dataset_microbatch_ratio": "NIAH:2Wiki=1:1",
+    "supervision": "train_fit_active_masks_only",
+    "class_weighting": "inverse_sqrt_frequency_per_dataset_head_binary_class",
+    "class_weight_normalization": "mean_active_example_weight_one_per_dataset_head",
+    "masked_bce_normalization": "active_count_per_head",
+    "expected_active_rows": {"niah": 5312, "2wiki": 5311},
+    "expected_niah_strict_pairs": 870,
+    "expected_microbatches_per_source_per_epoch": 1328,
+    "expected_total_microbatches_per_epoch": 2656,
+    "expected_optimizer_steps_per_epoch": 664,
+    "source_order": "deterministic_hash_by_seed_epoch",
+    "batch_epoch_range": [1, 2, 3],
+    "pair_digest": "sha256(\"selector-lean-v3\\n\" + str(seed) + \"\\n\" + str(epoch) + \"\\nPAIR\\n\" + query_id + \"\\n\" + clean_evidence_id + \"\\n\" + cf_evidence_id)",
+    "row_digest": "sha256(\"selector-lean-v3\\n\" + str(seed) + \"\\n\" + str(epoch) + \"\\n\" + dataset + \"\\n\" + query_id + \"\\n\" + evidence_id)",
+    "unit_sort": "ascending_digest_then_query_id_then_evidence_id",
+    "niah_packing": "sorted_pairs_each_take_next_up_to_two_sorted_singletons_then_remaining_singletons_in_consecutive_groups_of_four",
+    "2wiki_packing": "sorted_rows_in_consecutive_groups_of_four",
+    "source_schedule": "niah_pair_batches_with_up_to_two_singletons_then_singleton_batches_alternated_one_to_one_with_2wiki_no_row_repeat_or_omission",
+    "checkpoint_rule": "final_epoch_only",
+    "training_health_gate": "no_nan_or_oom_and_each_active_loss_finite_and_both_head_parameters_changed_from_initialization",
+    "epoch_mean_loss": "record_only_not_monotonic_or_acceptance_gate"
+  },
+  "pair_objective": {
+    "NLI-base_weight": 0.0,
+    "NLI-pair_weight": 0.5,
+    "eligible": "train_fit_niah_same_query_exactly_one_verified_clean_1_0_and_one_counterfactual_0_1",
+    "formula": "mean_microbatch_pairs(0.5*(softplus(-(protect_clean-protect_cf))+softplus(-(harm_cf-harm_clean))))",
+    "total_loss": "masked_dual_head_bce+variant_weight*pair_mean",
+    "batch_rule": "each_strict_pair_once_per_epoch_same_microbatch_same_forward_with_up_to_two_singletons",
+    "other_niah": "bce_only",
+    "2wiki": "protect_bce_only_pair_and_harm_graph_connected_zero",
+    "invalid_pair": "do_not_fabricate_pair",
+    "same_batch_schedule_for_both_variants": true
+  },
+  "data_roles": {
+    "train": {
+      "role": "train-fit",
+      "niah": {"queries": 920, "components": 817},
+      "2wiki": {"queries": 2700, "components": 2094}
+    },
+    "development": {
+      "role": "crc-calibration",
+      "meaning_in_v3": "ordinary_development_not_crc",
+      "niah": {"queries": 740, "components": 523},
+      "2wiki": {"queries": 1000, "components": 866}
+    },
+    "final_blind": {
+      "role": "decision-dev",
+      "niah": {"queries": 739, "components": 534},
+      "2wiki": {"queries": 1000, "components": 866},
+      "component_crossing_with_development": 0,
+      "one_shot_after_freeze": true
+    },
+    "unused_and_unread": ["train-modelval", "sealed600", "2wiki-official-heldout"],
+    "isolation_claim": "query_and_derived_component_disjoint_between_development_and_final_cross_split_supporting_parent_overlap_disclosed",
+    "2wiki_train_dev_supporting_parent_overlap": 449
+  },
+  "evaluation_projection": {
+    "implementation_location": "src/evidence_rag/evaluation/selector_lean.py",
+    "freeze_stage": "L001",
+    "training_labels": "reuse_R004_train_fit_labels_only",
+    "development_and_final": "join_R002_role_and_component_then_rebuild_metrics_fields_from_R001_pinned_official_gold_niah_assignment_provenance_and_source_parent",
+    "development_materialization": "L002_only",
+    "final_materialization": "L003_only",
+    "freeze_before_final": "development_projection_hash_plus_final_raw_input_pins_and_projection_code",
+    "final_projection_hash": "record_in_L003_final_run_manifest_not_equal_to_development_projection_hash",
+    "separate_materializer_or_state_machine": false
+  },
+  "policy_grid": {
+    "train_safe_score_quantiles": [0.995, 0.99, 0.975, 0.95],
+    "threshold_scope": "one_global_threshold_per_seed_no_dataset_specific_thresholds",
+    "quantile_pool": "all_train_fit_topk10_float32_safe_scores_ordered_by_frozen_role_assignment_then_retrieval_rank_concatenated_niah_then_2wiki",
+    "quantile_method": "nearest_rank_ascending_index_ceil_pN",
+    "duplicate_thresholds": "retain_grid_identity",
+    "caps": [1, 2],
+    "include_p0": true,
+    "common_quantile_and_cap_across_seeds": true,
+    "absolute_threshold_per_seed_from_own_train_scores": true,
+    "tie_epsilon_pp": 0.5,
+    "selection_effect": "arithmetic_mean_of_seed13_and_seed42_niah_harmful_reduction",
+    "equivalent_set": "all_eligible_candidates_within_0.5pp_of_global_maximum_selection_effect",
+    "tie_break": ["higher_quantile", "smaller_cap", "fewer_mean_deletions"]
+  },
+  "development_gate": {
+    "nonzero_deletion": true,
+    "harmful_reduction_each_seed": ">0",
+    "seed13_recall_and_chain_loss_pp": "<=1",
+    "seed42_recall_and_chain_loss_pp": "<=3",
+    "seed13_count_matched": "harmful_reduction_and_deletion_precision_each_greater_than_random_100_mean_and_bottom_rank_point",
+    "seed42_control_role": "direction_and_protection_replication_only",
+    "variant_order": ["NLI-base", "NLI-pair"],
+    "failure": "STOP_KEEP_TOPK10_DO_NOT_OPEN_FINAL"
+  },
+  "statistics": {
+    "bootstrap_samples": 10000,
+    "bootstrap_seed": 13,
+    "interval": "two_sided_percentile_95",
+    "primary_inference": "seed13_query_delta_then_component_cluster_bootstrap",
+    "seed42_role": "separate_direction_and_protection_point_replication_no_pooling",
+    "never_use_as_independent_units": ["candidate_rows", "seed_times_query"],
+    "answer_macro": "independently_cluster_resample_each_dataset_compute_query_weighted_delta_then_half_niah_plus_half_2wiki"
+  },
+  "count_matched_controls": {
+    "primary_seed": 13,
+    "random_repeats": 100,
+    "bottom_rank_repeats": 1,
+    "deletion_counts": "copy_selector_per_query",
+    "random_point": "mean_over_100_repeats",
+    "harm_ci": "two_predefined_paired_component_intervals_selector_minus_random_mean_and_selector_minus_bottom_rank",
+    "generator_not_run_for_controls": true
+  },
+  "generator": {
+    "name": "granite",
+    "implementation": "GraniteGenerator",
+    "model_id": "ibm-granite/granite-4.1-3b",
+    "revision": "c0650403e44e78ec0262dab1c90914c65b196c4e",
+    "weight_shard_sha256": [
+      "895bf5f2d7c8b06ca902499567d3c3d9ed30061e4c5ad94bf8216286ca67e2fd",
+      "de8c9efdaa6f669d595bda8b949213cba92ea69689fd2a27fbceed3d1ebeb2f7"
+    ],
+    "snapshot_file_sha256": {
+      "config.json": "9a0e589b69e7d3ad9fb9fb2c844aa7d7156e052cb7ea4211de7de48ab7c8525c",
+      "tokenizer.json": "e2bad66439538cb4d5a7580680932432ed9ece9d3b8577e675512bdf11599253",
+      "tokenizer_config.json": "a5ec5daab12ba090a90f3dd169c8f9c275557013a87b9c1258dc7cb497a35c86",
+      "special_tokens_map.json": "c08676c49fd7969a3130f72be6d4bf34da66aa484a6e21dffe359893a1bd5f2e",
+      "chat_template.jinja": "fed2756d2d24e127b951dcf139d0b03ab7db8ef23a456128ebc9c2db4901d476"
+    },
+    "load_contract": "verify_resolved_snapshot_basename_revision_and_all_pinned_hashes_then_pass_resolved_local_snapshot_path_to_GraniteLLMClient_model_id_no_environment_or_network_fallback",
+    "prompt": "CITATION_RAG_PROMPT",
+    "prompt_utf8_sha256": "691fb659d6f81a5df84c89e205de56858de4926ffc6aed9af3f24d7c5670b45f",
+    "max_new_tokens": 32,
+    "temperature": 0.0,
+    "top_p": 1.0,
+    "do_sample": false,
+    "paired_rule": "same_loaded_model_prompt_config_process_and_inputs_except_selected_topk10_subset",
+    "run_only_after_evidence_gate": true
+  },
+  "final_gate": {
+    "primary_checkpoint": "seed13",
+    "harmful_reduction_seed13_ci_lower": ">0",
+    "harmful_reduction_seed42_point": ">0",
+    "seed13_recall_and_chain_loss_point_pp": "<=1",
+    "seed13_recall_and_chain_loss_ci_upper_pp": "<=3",
+    "seed42_recall_and_chain_loss_point_pp": "<=3",
+    "seed13_count_matched": "selector_harmful_reduction_and_deletion_precision_point_better_than_random_mean_and_bottom_rank",
+    "c2_harmful_difference_ci": "report_separately_against_random_mean_and_bottom_rank",
+    "c2_statistical_support": "both_paired_ci_lowers_gt_zero",
+    "c2_if_either_difference_ci_crosses_zero": "point_support_only_not_statistically_established",
+    "answer_metric": "macro_equal_dataset_system.core.answer_match",
+    "answer_delta": ">0",
+    "per_dataset_answer_loss_pp": "<=1",
+    "answer_ci_lower_gt_zero": "stronger_claim_only_not_hard_gate"
+  },
+  "minimal_safeguards": [
+    "train_development_final_query_and_component_isolation",
+    "cross_official_split_parent_overlap_disclosed",
+    "freeze_variant_checkpoints_quantile_cap_code_final_input_pins_development_projection_and_generator_before_final",
+    "paired_same_query_same_topk10_comparison",
+    "no_method_change_after_final_effect_access",
+    "record_commit_config_model_data_checkpoint_hashes",
+    "preserve_failures_and_keep_topk10_default"
+  ],
+  "explicitly_removed": [
+    "four_small_ab_roles",
+    "clopper_pearson_classification_gates",
+    "formal_fit_registry_claims_and_terminals",
+    "flock_fsync_inode_and_no_replace_protocol",
+    "reveal_state_machine_and_permanent_burn",
+    "ordered_projection_manifests_and_closed_world_bundle",
+    "bit_exact_reforward_verifier",
+    "crc_policy_ladder_and_conformal_claim",
+    "mandatory_raw_cls_v0"
+  ],
+  "runs": [
+    {"id": "L000", "purpose": "freeze_plan_contract_tracker", "status": "PASS"},
+    {"id": "L001", "purpose": "minimal_implementation_and_tests", "status": "NOT_RUN"},
+    {"id": "L002", "purpose": "two_seed_training_and_development_selection", "status": "NOT_RUN"},
+    {"id": "L003", "purpose": "one_shot_decision_dev_evidence_then_answer_evaluation", "status": "NOT_RUN"}
+  ]
+}

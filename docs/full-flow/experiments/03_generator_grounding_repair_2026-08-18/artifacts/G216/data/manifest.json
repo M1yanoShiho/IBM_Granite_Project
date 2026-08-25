@@ -1,0 +1,217 @@
+{
+  "answerable_train_updates": 8240,
+  "counts": {
+    "2wiki": {
+      "train-fit_answerable_groups": 824,
+      "train-fit_unsupported_groups": 1049,
+      "train-modelval_answerable_groups": 103
+    },
+    "niah": {
+      "train-fit_answerable_groups": 515,
+      "train-modelval_answerable_groups": 213
+    }
+  },
+  "dev_read": false,
+  "excluded": {
+    "sample_review_rows": 8,
+    "total_cases": 11,
+    "train_cases": 6,
+    "validation_cases": 5
+  },
+  "excluded_cases": [
+    {
+      "answerable": true,
+      "case_id": "2wiki::3b46e32e0bb011ebab90acde48001122",
+      "dataset": "2wiki",
+      "group_id": "3b46e32e0bb011ebab90acde48001122",
+      "role": "train-fit",
+      "target_kind": "twowiki_evidence_chain",
+      "variant_count": 5
+    },
+    {
+      "answerable": true,
+      "case_id": "2wiki::8c4e731309b311ebbdb0ac1f6bf848b6",
+      "dataset": "2wiki",
+      "group_id": "8c4e731309b311ebbdb0ac1f6bf848b6",
+      "role": "train-fit",
+      "target_kind": "twowiki_evidence_chain",
+      "variant_count": 5
+    },
+    {
+      "answerable": true,
+      "case_id": "2wiki::f2ff9630084c11ebbd56ac1f6bf848b6",
+      "dataset": "2wiki",
+      "group_id": "f2ff9630084c11ebbd56ac1f6bf848b6",
+      "role": "train-fit",
+      "target_kind": "twowiki_evidence_chain",
+      "variant_count": 5
+    },
+    {
+      "answerable": false,
+      "case_id": "unsupported::2wiki::3b46e32e0bb011ebab90acde48001122",
+      "dataset": "2wiki",
+      "group_id": "3b46e32e0bb011ebab90acde48001122",
+      "role": "train-fit",
+      "target_kind": "unsupported_support_removed",
+      "variant_count": 1
+    },
+    {
+      "answerable": false,
+      "case_id": "unsupported::2wiki::8c4e731309b311ebbdb0ac1f6bf848b6",
+      "dataset": "2wiki",
+      "group_id": "8c4e731309b311ebbdb0ac1f6bf848b6",
+      "role": "train-fit",
+      "target_kind": "unsupported_support_removed",
+      "variant_count": 1
+    },
+    {
+      "answerable": false,
+      "case_id": "unsupported::2wiki::f2ff9630084c11ebbd56ac1f6bf848b6",
+      "dataset": "2wiki",
+      "group_id": "f2ff9630084c11ebbd56ac1f6bf848b6",
+      "role": "train-fit",
+      "target_kind": "unsupported_support_removed",
+      "variant_count": 1
+    },
+    {
+      "answerable": true,
+      "case_id": "niah-new-modelval::1024",
+      "dataset": "niah",
+      "group_id": "1024",
+      "role": "train-modelval",
+      "target_kind": "niah_qa2d_single_claim",
+      "variant_count": 7
+    },
+    {
+      "answerable": true,
+      "case_id": "niah-new-modelval::10597",
+      "dataset": "niah",
+      "group_id": "10597",
+      "role": "train-modelval",
+      "target_kind": "niah_qa2d_single_claim",
+      "variant_count": 7
+    },
+    {
+      "answerable": true,
+      "case_id": "2wiki::37886d7208e311ebbda4ac1f6bf848b6",
+      "dataset": "2wiki",
+      "group_id": "37886d7208e311ebbda4ac1f6bf848b6",
+      "role": "train-modelval",
+      "target_kind": "twowiki_evidence_chain",
+      "variant_count": 5
+    },
+    {
+      "answerable": true,
+      "case_id": "2wiki::6dee720a0bde11eba7f7acde48001122",
+      "dataset": "2wiki",
+      "group_id": "6dee720a0bde11eba7f7acde48001122",
+      "role": "train-modelval",
+      "target_kind": "twowiki_evidence_chain",
+      "variant_count": 5
+    },
+    {
+      "answerable": true,
+      "case_id": "2wiki::a8cde8280bda11eba7f7acde48001122",
+      "dataset": "2wiki",
+      "group_id": "a8cde8280bda11eba7f7acde48001122",
+      "role": "train-modelval",
+      "target_kind": "twowiki_evidence_chain",
+      "variant_count": 5
+    }
+  ],
+  "excluded_sample_review_rows": [
+    {
+      "case_id": "2wiki::f2ff9630084c11ebbd56ac1f6bf848b6",
+      "review_decision": "FAIL",
+      "review_reason": "Question asks whether two people were born in the same place, but the target only gives occupation/school facts and does not preserve a birthplace comparison chain.",
+      "sample_index": 3,
+      "sample_stratum": "2wiki:train-fit:twowiki_evidence_chain:answerable"
+    },
+    {
+      "case_id": "2wiki::3b46e32e0bb011ebab90acde48001122",
+      "review_decision": "FAIL",
+      "review_reason": "Second target sentence starts with an unanchored pronoun, making the paternal-grandfather chain ambiguous rather than self-contained.",
+      "sample_index": 16,
+      "sample_stratum": "2wiki:train-fit:twowiki_evidence_chain:answerable"
+    },
+    {
+      "case_id": "2wiki::8c4e731309b311ebbdb0ac1f6bf848b6",
+      "review_decision": "FAIL",
+      "review_reason": "Second target sentence starts with an unanchored pronoun, so the Mount Babel fact is not self-contained in the generated target.",
+      "sample_index": 19,
+      "sample_stratum": "2wiki:train-fit:twowiki_evidence_chain:answerable"
+    },
+    {
+      "case_id": "2wiki::37886d7208e311ebbda4ac1f6bf848b6",
+      "review_decision": "FAIL",
+      "review_reason": "Second target sentence omits Jolliff Spring Branch and does not state the country, so the same-country answer chain is not preserved.",
+      "sample_index": 42,
+      "sample_stratum": "2wiki:train-modelval:twowiki_evidence_chain:answerable"
+    },
+    {
+      "case_id": "2wiki::6dee720a0bde11eba7f7acde48001122",
+      "review_decision": "FAIL",
+      "review_reason": "First relation sentence starts with an unanchored pronoun and does not name Sancha, so the husband relation is not self-contained.",
+      "sample_index": 45,
+      "sample_stratum": "2wiki:train-modelval:twowiki_evidence_chain:answerable"
+    },
+    {
+      "case_id": "2wiki::a8cde8280bda11eba7f7acde48001122",
+      "review_decision": "FAIL",
+      "review_reason": "Relation sentence starts with an unanchored pronoun and does not name Tedi Sarafian, so the father relation is not self-contained.",
+      "sample_index": 60,
+      "sample_stratum": "2wiki:train-modelval:twowiki_evidence_chain:answerable"
+    },
+    {
+      "case_id": "niah-new-modelval::1024",
+      "review_decision": "FAIL",
+      "review_reason": "Question asks both who wrote True Law and what it was about, but the target only preserves the topic and omits the author.",
+      "sample_index": 95,
+      "sample_stratum": "niah:train-modelval:niah_qa2d_single_claim:answerable"
+    },
+    {
+      "case_id": "niah-new-modelval::10597",
+      "review_decision": "FAIL",
+      "review_reason": "Question asks who the song was written for, but the target says it was written for 1973, which is a semantic QA2D mismatch.",
+      "sample_index": 97,
+      "sample_stratum": "niah:train-modelval:niah_qa2d_single_claim:answerable"
+    }
+  ],
+  "gates": {
+    "niah_new_modelval_groups": true,
+    "niah_train_groups": true,
+    "split_component_overlap_zero": true,
+    "split_group_overlap_zero": true,
+    "twowiki_modelval_groups": true,
+    "twowiki_train_groups": true,
+    "unsupported_update_ratio": true
+  },
+  "input_sha256": {
+    "g212m_review_rows": "00f3f979f8ca0364226505da0dadb51f1a3d14c71c20724f88a9d0e803b91d6d",
+    "g212m_review_summary": "3893f2cdcbfa5923df6cc0b9fa089b8e523d57ecf29cf6d95d5026568c0326e8",
+    "source_manifest": "d9b59e1ab660d65643979bda29bcf694a2004954bee9240bd36a906324eb1ffb",
+    "source_train_cases": "a387baa78f05c45f5952e1b695b587ea91736d041d384ce80f689f6ae056a9f2",
+    "source_validation_cases": "cd2ba2309349ce99665701ac05077ed522c5cdbe1a1660dfd742a3d6a292a6e1"
+  },
+  "manual_audit_required_before_training": true,
+  "ordered_ids_sha256": "99dab16a2b776a8466dee1edd5394c8a8ac99e3fef7e58bb3c3a966430fc6c9b",
+  "repair_reason": "exclude_g212m_failed_sample_review_cases",
+  "repair_stage": "G216",
+  "sample_review_required_before_training": true,
+  "schema_version": "full-flow-g216-sample-review-repair-manifest-v1",
+  "sealed_or_heldout_read": false,
+  "source_manifest_schema_version": "full-flow-g214-length-repair-manifest-v1",
+  "split_leakage": {
+    "component_overlap": 0,
+    "group_overlap": 0
+  },
+  "status": "PRE_MANUAL_PASS",
+  "train_cases": 2388,
+  "train_cases_sha256": "a8d0cd236b912fefd42cc2f06e43ccc71ed31e6349a2d84642c76784ffb309d7",
+  "training_started": false,
+  "unsupported_update_ratio": 0.11292927118096674,
+  "unsupported_updates": 1049,
+  "utility_labels_started": false,
+  "validation_cases": 316,
+  "validation_cases_sha256": "fdbb9b4003dcfa2984ed42b91cdab55db47bd2dae9e7c8ee89490672359f4c6d"
+}

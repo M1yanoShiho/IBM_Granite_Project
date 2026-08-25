@@ -1,0 +1,82 @@
+{
+  "artifacts": {
+    "selector_labels.jsonl": {
+      "bytes": 34154372,
+      "records": 60000,
+      "sha256": "9a39cdd05b096d24e77ff89c01027b973870afddbfb0497ecfa668c04f9bbf8c"
+    }
+  },
+  "counts": {
+    "both_masked": 54078,
+    "both_supervised": 0,
+    "candidate_rows": 60000,
+    "components": 2324,
+    "harm_masked": 60000,
+    "harm_supervised": 0,
+    "label_pairs": {
+      "protect=1,harm=mask": 5922,
+      "protect=mask,harm=mask": 54078
+    },
+    "protect_masked": 54078,
+    "protect_supervised": 5922,
+    "queries": 3000,
+    "roles": {
+      "train-fit": 54000,
+      "train-modelval": 6000
+    }
+  },
+  "dataset_id": "2wiki/multihop",
+  "dataset_kind": "2wiki",
+  "dataset_signature": "036385693999c5bdf6932cd96a32019be6053fc2ac85f8ad3d458d1de1485f86",
+  "dataset_version": "train-subsample-3000",
+  "model_text_projection": {
+    "bytes": 12000000,
+    "records": 60000,
+    "sha256": "c994f011e14e9c7a20e30bfc6f24becf7b80ac8a1a6aacdb92a20be76b8e03d5"
+  },
+  "niah_candidate_text_semantics": {
+    "verified_clean_candidates_with_gold_alias": 0,
+    "verified_harmful_candidates_with_replacement_and_no_gold_alias": 0,
+    "violations": 0
+  },
+  "niah_provenance_scope": {
+    "outside_pinned_dataset_records": 0,
+    "source_train_records": 0,
+    "unused_source_train_records": 0,
+    "used_assignment_records": 0
+  },
+  "niah_verified_clean_counterfactual_pairs": 0,
+  "protocol_version": "selector-labels-v2",
+  "rules": {
+    "explicit_irrelevant": "none: no audited irrelevant sidecar exists in the frozen R004 inputs",
+    "forbidden_model_input_fields": [
+      "query_id",
+      "evidence_id",
+      "document_id",
+      "retrieval_rank",
+      "retrieval_score",
+      "source_uri",
+      "metadata",
+      "component_id",
+      "role",
+      "source_parent_id",
+      "synthetic_family",
+      "provenance",
+      "labels"
+    ],
+    "heads": "two independent binary targets with independent masks",
+    "model_input_fields": [
+      "question",
+      "candidate_text"
+    ],
+    "niah_official_required": "protect=1; harm is masked except verified clean needle",
+    "niah_other_candidates": "protect=mask,harm=mask",
+    "niah_own_counterfactual": "protect=0,harm=1",
+    "niah_verified_clean_needle": "protect=1,harm=0",
+    "twowiki_official_supporting": "protect=1,harm=mask",
+    "twowiki_unjudged_top20": "protect=mask,harm=mask"
+  },
+  "schema_version": "1.0",
+  "source_split": "train",
+  "status": "LABEL_AUDIT_READY"
+}

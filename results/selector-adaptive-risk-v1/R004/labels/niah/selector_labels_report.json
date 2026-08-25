@@ -1,0 +1,84 @@
+{
+  "artifacts": {
+    "selector_labels.jsonl": {
+      "bytes": 10974785,
+      "records": 20460,
+      "sha256": "936c3fc0757be62802c10087f74f8cb2dc31c93bbe4e7083c40578e7da8d73b1"
+    }
+  },
+  "counts": {
+    "both_masked": 14506,
+    "both_supervised": 1938,
+    "candidate_rows": 20460,
+    "components": 908,
+    "harm_masked": 18522,
+    "harm_supervised": 1938,
+    "label_pairs": {
+      "protect=0,harm=1": 965,
+      "protect=1,harm=0": 973,
+      "protect=1,harm=mask": 4016,
+      "protect=mask,harm=mask": 14506
+    },
+    "protect_masked": 14506,
+    "protect_supervised": 5954,
+    "queries": 1023,
+    "roles": {
+      "train-fit": 18400,
+      "train-modelval": 2060
+    }
+  },
+  "dataset_id": "niah/dpr-w100-nq",
+  "dataset_kind": "niah",
+  "dataset_signature": "9c389b69d5a74daba69a8577145ee65e27a092de8916ccd0f8e20772050a04e0",
+  "dataset_version": "subsample-100000+cf42",
+  "model_text_projection": {
+    "bytes": 3580060,
+    "records": 20460,
+    "sha256": "a74f9d3c5d84322da99dcbf179618e0171221ed0c55183a95c424c1ff2152ada"
+  },
+  "niah_candidate_text_semantics": {
+    "verified_clean_candidates_with_gold_alias": 973,
+    "verified_harmful_candidates_with_replacement_and_no_gold_alias": 965,
+    "violations": 0
+  },
+  "niah_provenance_scope": {
+    "outside_pinned_dataset_records": 0,
+    "source_train_records": 1472,
+    "unused_source_train_records": 449,
+    "used_assignment_records": 1023
+  },
+  "niah_verified_clean_counterfactual_pairs": 1023,
+  "protocol_version": "selector-labels-v2",
+  "rules": {
+    "explicit_irrelevant": "none: no audited irrelevant sidecar exists in the frozen R004 inputs",
+    "forbidden_model_input_fields": [
+      "query_id",
+      "evidence_id",
+      "document_id",
+      "retrieval_rank",
+      "retrieval_score",
+      "source_uri",
+      "metadata",
+      "component_id",
+      "role",
+      "source_parent_id",
+      "synthetic_family",
+      "provenance",
+      "labels"
+    ],
+    "heads": "two independent binary targets with independent masks",
+    "model_input_fields": [
+      "question",
+      "candidate_text"
+    ],
+    "niah_official_required": "protect=1; harm is masked except verified clean needle",
+    "niah_other_candidates": "protect=mask,harm=mask",
+    "niah_own_counterfactual": "protect=0,harm=1",
+    "niah_verified_clean_needle": "protect=1,harm=0",
+    "twowiki_official_supporting": "protect=1,harm=mask",
+    "twowiki_unjudged_top20": "protect=mask,harm=mask"
+  },
+  "schema_version": "1.0",
+  "source_split": "train",
+  "status": "LABEL_AUDIT_READY"
+}

@@ -1,0 +1,58 @@
+{
+  "schema_version": "full-flow-g331-continuation-gate-amendment-v1",
+  "stage": "G331",
+  "status": "CONTINUATION_GATE_AMENDED",
+  "date": "2026-08-19",
+  "created_utc": "2026-08-19T19:50:18Z",
+  "source_git_head_before_stage": "ab1af5977ab300d9360a184d76c387618c5ef9c7",
+  "user_requested_change": {
+    "summary": "Do not treat a missed single numeric gate as proof that the route is meaningless when there is clear positive signal.",
+    "avoid_wording": "Do not emphasize the actor of sample review; use neutral decision wording.",
+    "continue_when_positive_signal": true,
+    "preserve_no_blind_progress": true
+  },
+  "decision_layers": {
+    "technical_validity": "Runs, hashes, model/data identity, row counts, and prohibited-data controls must be valid.",
+    "responsibility_usability": "A component can continue when core responsibilities do not show unacceptable practical regression and at least one main or mechanism metric gives interpretable positive signal.",
+    "strong_claim": "Strong statistical wording requires the frozen pre-registered statistical rule.",
+    "controlled_continuation": "Positive, localized, reproducible signal without leakage or tripwire can proceed with restricted claims."
+  },
+  "hard_stops_preserved": [
+    "heldout_or_sealed_read",
+    "runtime_gold_or_reference_read",
+    "unreproducible_hashes_or_row_counts",
+    "serious_unsupported_answer_or_citation_tripwire",
+    "insufficient_utility_labels_for_training",
+    "complete_system_responsibility_gate_failure"
+  ],
+  "files": {
+    "plan": {
+      "path": "docs/full-flow/experiments/03_generator_grounding_repair_2026-08-18/PLAN.md",
+      "sha256": "6a245698c3b1411129c10244544d2d9cba28191e0bf59cafaf4044c57f214a5a"
+    },
+    "readme": {
+      "path": "docs/full-flow/experiments/03_generator_grounding_repair_2026-08-18/README.md",
+      "sha256": "489fc83640a5d367386b9c8ed1674e4a377b89e5f84af86fe8392aec716fea24"
+    },
+    "tracker": {
+      "path": "docs/full-flow/experiments/03_generator_grounding_repair_2026-08-18/TRACKER.md",
+      "sha256": "6049e5c1d733b83b6350b79b962ba0314dbeac3c1c910c0d116900b9863ee6c2"
+    },
+    "report": {
+      "path": "docs/full-flow/experiments/03_generator_grounding_repair_2026-08-18/G331_CONTINUATION_GATE_AMENDMENT.md",
+      "sha256": "d4baedbd265feaf9765367bfd57e5d7484d22249d6171c07c9aa9d7230547fbf"
+    }
+  },
+  "boundaries": {
+    "planning_only": true,
+    "model_changed": false,
+    "data_changed": false,
+    "training_started": false,
+    "utility_labels_started": false,
+    "heldout_read": false,
+    "sealed600_read": false,
+    "retriever_changed": false,
+    "g330_recipe_changed": false
+  },
+  "next_stage": "G400 locked NIAH qualification"
+}

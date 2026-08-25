@@ -1,0 +1,75 @@
+{
+  "audit_snapshot_status": "SUPERSEDED_V1_FALSE_NEGATIVE_NEVER_APPROVED_NEVER_RUN",
+  "superseded_by": "refine-logs/R005AB_CORRECTIVE_REAUDIT_2026-08-12.json",
+  "later_discovered_gap_count": 4,
+  "audit_date": "2026-08-12",
+  "scope": [
+    "sample-partition-and-leakage",
+    "statistical-gates-and-reveal-order",
+    "model-loader-initialization-loss-and-batching",
+    "fail-closed-state-machine-formal-fit-registry-and-semantic-recomputation",
+    "final-cross-document-consistency"
+  ],
+  "independent_read_only_audits": 5,
+  "persisted_reviewer_traces": [
+    ".aris/traces/experiment-audit/2026-08-12_r005ab_sample",
+    ".aris/traces/experiment-audit/2026-08-12_r005ab_stats",
+    ".aris/traces/experiment-audit/2026-08-12_r005ab_code",
+    ".aris/traces/experiment-audit/2026-08-12_r005ab_final_state_machine",
+    ".aris/traces/experiment-audit/2026-08-12_r005ab_final_consistency"
+  ],
+  "auditors_edited_project_files": false,
+  "pre_revision_blocking_requirements": [
+    "freeze-all-three-a-fit-variants-before-screen-first-read",
+    "freeze-both-b-fit-seeds-before-confirm-first-read",
+    "one-shot-two-seed-confirm-all-four-cells-must-pass",
+    "query-component-composite-primary-endpoint",
+    "pair-preserving-batch-manifest-shared-across-variants",
+    "variant-aware-checkpoint-builder-with-old-r005-compatibility",
+    "2wiki-at-least-one-topk10-official-support-eligibility",
+    "precise-composite-identity-and-text-pair-isolation-wording",
+    "full-fit-eval-dropout-off-loss-comparison",
+    "atomic-reveal-and-burn-split-after-any-score-on-error",
+    "implementation-before-sealed-heldout-materialization",
+    "five-literal-formal-fit-jobs-with-global-claims-locks-and-mutually-exclusive-terminals",
+    "fixed-reveal-namespace-split-anchor-veto-and-owner-lock",
+    "no-replace-eight-file-closed-world-bundle",
+    "semantic-recomputation-from-strict-checkpoint-through-exact-statistical-gate",
+    "five-artifact-valid-complete-chain-and-fixed-authorization-events"
+  ],
+  "all_blocking_requirements_incorporated_into_plan": true,
+  "current_plan_p0_count": 0,
+  "current_plan_p1_count": 0,
+  "current_plan_p2_count": 0,
+  "final_audited_blobs": {
+    "amendment_md": "a1073626ec6560b5dbea37477ff728e20ade68cd",
+    "machine_json": "d52e76c4be5814b74bb77834915a40eb26e9b8e1",
+    "tracker_md": "f97f89598d5e1e650b33c86831953eebe7b1af58"
+  },
+  "ready_for": "NO_LONGER_AUTHORIZING_ANY_ACTION_REFER_TO_CORRECTIVE_REAUDIT_V2",
+  "experiment_status": "NOT_APPROVED_NOT_IMPLEMENTED_NOT_RUN",
+  "verified_counts": {
+    "niah_eligible_queries": 778,
+    "niah_eligible_components": 719,
+    "2wiki_eligible_queries": 2677,
+    "2wiki_eligible_components": 2078
+  },
+  "exact_gate_counts": {
+    "fit_without_confidence_bound": "61/64",
+    "screen": "92/96",
+    "confirm": "122/128"
+  },
+  "model_facts": {
+    "snapshot_architecture": "DebertaV2ForSequenceClassification",
+    "label_map": {
+      "0": "contradiction",
+      "1": "entailment",
+      "2": "neutral"
+    },
+    "old_auto_model_drops_pretrained_pooler_and_classifier": true,
+    "exact_one_vs_rest_initialization_feasible": true,
+    "pair_preserving_batching_required": true
+  },
+  "conclusion": "HISTORICAL_V1_AUDIT_SUPERSEDED_FALSE_NEGATIVE",
+  "does_not_predict_experiment_pass": true
+}

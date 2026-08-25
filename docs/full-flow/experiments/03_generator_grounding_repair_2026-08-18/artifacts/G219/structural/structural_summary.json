@@ -1,0 +1,27 @@
+{
+  "cases": 2695,
+  "counts": {
+    "train:2wiki:twowiki_evidence_chain:pass": 820,
+    "train:2wiki:unsupported_support_removed:pass": 1049,
+    "train:niah:niah_qa2d_single_claim:pass": 512,
+    "validation:2wiki:twowiki_evidence_chain:pass": 103,
+    "validation:niah:niah_qa2d_single_claim:pass": 211
+  },
+  "dev_read": false,
+  "input_sha256": {
+    "data_manifest": "85d1d4006ab6e1f6e40e1c4349fa754569a39a1948bc1dc992654bd1852cf71e",
+    "train_cases": "9dda01a644811a57abf8fe2b2274de88ba558eb87ec04715ea51f90567dcc99d",
+    "validation_cases": "6650c3665938fbe95607f138e1f0b325888357705b45246d3d29561b62439835"
+  },
+  "schema_version": "full-flow-g210-v2-structural-summary-v1",
+  "sealed_or_heldout_read": false,
+  "split_leakage": {
+    "component_overlap": 0,
+    "group_overlap": 0
+  },
+  "status": "PASS",
+  "structural_audit_rows_sha256": "baf67d9a48a582f6f43d68b6c4cd34279381c51aac8aae1c08e1d202804071da",
+  "training_started": false,
+  "true_worklist_rows": 2069,
+  "true_worklist_sha256": "90ebdaf448eca0f2ce18e7ca15ea4c31f7bebff8d676437feb0e0bd12aa7a6e4"
+}

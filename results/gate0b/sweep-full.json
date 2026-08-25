@@ -1,0 +1,62 @@
+{
+  "models": {
+    "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli": {
+      "external": {
+        "failures": [
+          "macro_f1",
+          "non_unknown_coverage",
+          "refutes_coverage"
+        ],
+        "macro_f1": 0.7582379949558993,
+        "n": 55197,
+        "non_unknown_coverage": 0.6750185698498107,
+        "refutes_coverage": 0.5434986429805083,
+        "refutes_precision": 0.9126615843553199,
+        "refutes_recall": 0.5434986429805083,
+        "support_coverage": 0.79786003470214,
+        "supports_precision": 0.8761859394228098,
+        "supports_recall": 0.79786003470214
+      },
+      "task": {
+        "failures": [
+          "gold_supports_recall",
+          "twin_refutes_accuracy"
+        ],
+        "gold_supports_recall": 0.7941576086956522,
+        "n_gold": 1472,
+        "n_twin": 2944,
+        "twin_refutes_accuracy": 0.6375679347826086,
+        "unknown_rate": 0.17578125
+      },
+      "tokenizer_variant": "fast"
+    },
+    "tals/albert-xlarge-vitaminc-mnli": {
+      "external": {
+        "failures": [],
+        "macro_f1": 0.9215112105529577,
+        "n": 55197,
+        "non_unknown_coverage": 0.8716959255031976,
+        "refutes_coverage": 0.8944979027880582,
+        "refutes_precision": 0.9026491385320187,
+        "refutes_recall": 0.8944979027880582,
+        "support_coverage": 0.9507663389242337,
+        "supports_precision": 0.9382513466271893,
+        "supports_recall": 0.9507663389242337
+      },
+      "task": {
+        "failures": [
+          "gold_supports_recall",
+          "twin_refutes_accuracy"
+        ],
+        "gold_supports_recall": 0.19157608695652173,
+        "n_gold": 1472,
+        "n_twin": 2944,
+        "twin_refutes_accuracy": 0.6735733695652174,
+        "unknown_rate": 0.48233695652173914
+      },
+      "tokenizer_variant": "fast"
+    }
+  },
+  "n_external_pairs": 55197,
+  "n_task_pairs": 5888
+}

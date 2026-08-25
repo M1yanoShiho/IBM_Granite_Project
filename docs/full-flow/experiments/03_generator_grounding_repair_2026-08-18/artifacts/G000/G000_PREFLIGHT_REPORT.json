@@ -1,0 +1,96 @@
+{
+  "checks": {
+    "g230_archive_hashes": {
+      "archive_manifest_sha256": "53ddd20376db7478d91cbf1a20bfca20118df314c5b20c8cf98a992ae471f8be",
+      "generation_archives": {
+        "gn": {
+          "decompressed_sha256": "3c84b5dd55248a174b9c1c2aa4bcf534d2b8dca85594582f3d714193c898600d",
+          "expected_decompressed_sha256": "3c84b5dd55248a174b9c1c2aa4bcf534d2b8dca85594582f3d714193c898600d",
+          "expected_gzip_sha256": "e353c0d69ac127a347d87828578c50fc21484ae0402107051a665b3581712668",
+          "gzip_sha256": "e353c0d69ac127a347d87828578c50fc21484ae0402107051a665b3581712668",
+          "path": "docs/full-flow/experiments/02_generator_selector_alignment_2026-08-15/artifacts/G230/gn/generations.jsonl.gz",
+          "status": "PASS"
+        },
+        "seed13": {
+          "decompressed_sha256": "5dae0e4a775c7ae2a9a0f8433cf061f188eb64b12112fddb6197c1da8ed2012d",
+          "expected_decompressed_sha256": "5dae0e4a775c7ae2a9a0f8433cf061f188eb64b12112fddb6197c1da8ed2012d",
+          "expected_gzip_sha256": "0862d130b8860422892068d3e3c77f512d6ebe7054e9dc639bd0d677809422f8",
+          "gzip_sha256": "0862d130b8860422892068d3e3c77f512d6ebe7054e9dc639bd0d677809422f8",
+          "path": "docs/full-flow/experiments/02_generator_selector_alignment_2026-08-15/artifacts/G230/seed13/generations.jsonl.gz",
+          "status": "PASS"
+        },
+        "seed42": {
+          "decompressed_sha256": "9318a47af3fd5abbb37e05c022019d600d1ca77436e4be88eea3765ab764f6ed",
+          "expected_decompressed_sha256": "9318a47af3fd5abbb37e05c022019d600d1ca77436e4be88eea3765ab764f6ed",
+          "expected_gzip_sha256": "57dca00a67387d246f1d2373b95495534911c232e34eb530741b340c7bd223cc",
+          "gzip_sha256": "57dca00a67387d246f1d2373b95495534911c232e34eb530741b340c7bd223cc",
+          "path": "docs/full-flow/experiments/02_generator_selector_alignment_2026-08-15/artifacts/G230/seed42/generations.jsonl.gz",
+          "status": "PASS"
+        },
+        "seed73": {
+          "decompressed_sha256": "b93a3a996c68a05fc12344e2f30b3a107bd658583d3980687829c43c432f397b",
+          "expected_decompressed_sha256": "b93a3a996c68a05fc12344e2f30b3a107bd658583d3980687829c43c432f397b",
+          "expected_gzip_sha256": "851ae8a1addd3febd45aee734e8fc45af5ef5738b16e157eaae282f5064fc7cc",
+          "gzip_sha256": "851ae8a1addd3febd45aee734e8fc45af5ef5738b16e157eaae282f5064fc7cc",
+          "path": "docs/full-flow/experiments/02_generator_selector_alignment_2026-08-15/artifacts/G230/seed73/generations.jsonl.gz",
+          "status": "PASS"
+        }
+      },
+      "status": "PASS"
+    },
+    "git_branch": {
+      "actual": "refactor/three-module-baseline",
+      "expected": "refactor/three-module-baseline",
+      "status": "PASS"
+    },
+    "git_remote_sync": {
+      "head": "907ab80b7ccecd7690bbc17f473f355a529557bc",
+      "origin_head": "907ab80b7ccecd7690bbc17f473f355a529557bc",
+      "status": "PASS"
+    },
+    "heldout_boundary": {
+      "heldout_content_or_scores_loaded": false,
+      "heldout_ids_frozen": true,
+      "requires_separate_authorization": true,
+      "status": "PASS"
+    },
+    "route_authorized": {
+      "detail": "PLAN/README/TRACKER are marked authorized and G000 in progress",
+      "status": "PASS"
+    },
+    "runtime_gold_boundary": {
+      "generator": false,
+      "reference_answers_loaded_at_runtime": false,
+      "retriever": false,
+      "selector": false,
+      "status": "PASS"
+    },
+    "server_entity_verification": {
+      "audit_path": "docs/full-flow/experiments/03_generator_grounding_repair_2026-08-18/artifacts/G000/G000_SERVER_AUDIT.json",
+      "audit_sha256": "ca8f87d25a76cf773341befb17b52457608cfbf7bb8b9f22b42749de8137d9e3",
+      "audited_at_utc": "2026-08-18T13:48:55Z",
+      "checks": {
+        "g200_runtime_data": "PASS",
+        "g220_runtime_adapters": "PASS",
+        "g230_runtime_archive": "PASS",
+        "prior_a000_model_and_heldout_boundary": "PASS",
+        "repo_sync": "PASS",
+        "runtime_roots": "PASS"
+      },
+      "server": {
+        "hostname": "it097952",
+        "repo": "/home/fl25387/projects/IBM_Granite_Project_latest",
+        "runtime": "/scratch/fl25387/IBM_Granite_Project_latest",
+        "ssh_target": "fl25387@10.70.71.11"
+      },
+      "status": "PASS"
+    },
+    "training_or_utility_generation_started": {
+      "status": "PASS",
+      "value": false
+    }
+  },
+  "next_allowed_stage": "G010 and G100 only after G000 artifacts are committed, pushed, and server-synced",
+  "schema_version": "full-flow-g000-preflight-report-v1",
+  "status": "PASS"
+}

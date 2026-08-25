@@ -1,0 +1,78 @@
+[build-system]
+requires = ["hatchling>=1.25,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "evidence-rag"
+version = "0.1.0"
+description = "Clean Retriever-Selector-Generator pipeline"
+requires-python = ">=3.11,<3.12"
+dependencies = ["pydantic>=2.7,<3"]
+
+[project.optional-dependencies]
+benchmark = ["ir-datasets==0.5.11"]
+data-prep = [
+  "pandas>=2,<3",
+  "pyarrow>=16,<24",
+]
+granite = [
+  "nltk>=3.8,<4",
+  "peft>=0.13,<1",
+  "sentencepiece>=0.1.99,<0.3",
+  "sentence-transformers>=3,<6",
+  "torch>=2,<3",
+  "transformers>=4.45,<5",
+]
+ingestion = [
+  "docling>=2,<3",
+  "docling-core[chunking]>=2,<3",
+  "pillow>=10,<12",
+]
+# Graph 2.0 relation layer: VitaminC loading, plus the sentencepiece backend the ALBERT
+# checkpoint needs (without it AutoTokenizer silently reuses the fast class and crashes).
+relations = ["datasets>=2,<5", "sentencepiece>=0.1.99,<0.3"]
+# Optional upgrade for the Generator's entity check only: SpacyEntityExtractor.
+# The default RuleBasedEntityExtractor needs nothing beyond the stdlib, and the
+# NLI verifier reuses the 'granite' extra's transformers/torch.
+verification = ["spacy>=3.7,<4"]
+dev = [
+  "build>=1.2,<2",
+  "mypy>=1.10,<2",
+  # pillow duplicated from 'ingestion' so the real-PIL loader tests run
+  # without the heavy docling stack; tests importorskip PIL either way.
+  "pillow>=10,<12",
+  "pytest>=8,<9",
+  "ruff>=0.5,<1",
+]
+
+[project.scripts]
+evidence-rag-experiment = "evidence_rag.cli.experiment:main"
+evidence-rag-harm-report = "evidence_rag.evaluation.harm_cli:main"
+evidence-rag-ingest = "evidence_rag.cli.ingest:main"
+evidence-rag-load-niah-base = "evidence_rag.materializer.base_cli:main"
+evidence-rag-materialize-benchmark = "evidence_rag.cli.materialize_benchmark:main"
+evidence-rag-materialize-niah = "evidence_rag.materializer.cli:main"
+evidence-rag-smoke = "evidence_rag.cli.smoke:main"
+
+[tool.hatch.build]
+include = ["src/evidence_rag/**"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/evidence_rag"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --import-mode=importlib"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+files = ["src", "tests/typecheck.py"]

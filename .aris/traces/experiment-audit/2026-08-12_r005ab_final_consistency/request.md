@@ -1,0 +1,3 @@
+# R005A/R005B final cross-document consistency audit request
+
+Independently and read-only audit the stable amendment Markdown, JSON contract, and tracker. Verify that the A001-to-sealed-A002 order, held-out boundary, formal-fit registry and terminal rules, canonical namespace and locking, no-replace closed-world publication, semantic recomputation, valid-COMPLETE acceptance chain, veto behavior, and downstream authorization agree across all three files. Check JSON validity, local links, and diff formatting. Return P0/P1/P2 counts and whether the protocol can enter A001; do not claim experimental success. Do not edit files.

@@ -1,0 +1,24 @@
+# Ingestion config for `evidence-rag-ingest --config <this file>`.
+# Every key is optional; omitting the whole [ingestion] table uses these defaults.
+
+[ingestion]
+# PDF parsing: "chunks" keeps Docling's structure-aware chunks (tables/sections
+# intact); "pages" emits one record per page.
+pdf_mode = "chunks"
+
+# Turn on Granite Vision captioning of figures/charts embedded in PDFs.
+# Off by default because it loads a multi-GB vision model and is slow.
+caption_pdf_pictures = true
+
+# OCR the in-figure text of captioned pictures (and standalone images) and append
+# it to the caption, so exact numbers/axis labels survive the lossy caption.
+image_ocr = true
+
+# Skip a failed file with a warning ("skip") or fail fast ("raise").
+on_error = "skip"
+
+# Optional overrides (unset -> load_directory defaults / env vars):
+# caption_prompt = "Describe this chart, including axis labels and exact values."
+# vision_model_id = "ibm-granite/granite-vision-3.3-2b"
+# vision_device = "cuda"
+# cache_dir = "../../.cache/ingestion"   # resolved relative to this file
