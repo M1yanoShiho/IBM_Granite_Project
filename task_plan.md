@@ -11,7 +11,7 @@
 
 ## 当前阶段
 
-G1 已冻结远端 archive；G2 已完成 release 边界；G3 已冻结最终 runtime/API；G4 已完成研究复现包；G5 正在审计外部资产。
+G1–G6 已完成；正式候选版本准备进入 G7 独立验证。
 
 ## 固定决策与边界
 
@@ -61,8 +61,8 @@ G1 已冻结远端 archive；G2 已完成 release 边界；G3 已冻结最终 ru
 | G2 | 建立干净 release 文件树 | `release/dissertation-v1` 和受控保留树 | complete |
 | G3 | 冻结可运行的最终三模块系统 | 最终运行入口、配置、API 边界、核心测试 | complete |
 | G4 | 整理研究复现包 | 训练、基线、消融、评分和表格复现入口 | complete |
-| G5 | 发布外部模型与数据资产清单 | 公开链接/DOI、许可证、版本和 SHA-256 | in_progress |
-| G6 | 完成公开文档与项目元数据 | README、架构、复现、结果、限制、引用 | pending |
+| G5 | 发布外部模型与数据资产清单 | 公开链接/DOI、许可证、版本和 SHA-256 | complete |
+| G6 | 完成公开文档与项目元数据 | README、架构、复现、结果、限制、引用 | complete |
 | G7 | 独立验证正式候选版本 | clean clone、CI、CPU/HPC smoke、审计报告 | pending |
 | G8 | 接入 main 并发布毕设版本 | `main`、release tag、GitHub Release、交付记录 | pending |
 
@@ -476,13 +476,13 @@ G1 已冻结远端 archive；G2 已完成 release 边界；G3 已冻结最终 ru
 
 ### 验收门
 
-- [ ] 新读者可以只从 README 完成安装和 CPU smoke。
-- [ ] 所有命令、文件路径和链接在 release tree 中有效。
-- [ ] 不使用旧 TopK/Corroboration 说明代替最终 trained NLI Selector。
-- [ ] 正向和负向结论同时呈现且与冻结报告一致。
-- [ ] 许可证已由有权人员确认，而不是自动选择。
-- [ ] `CITATION.cff` 可被解析。
-- [ ] 文档不含个人/HPC 绝对路径。
+- [x] 新读者可以只从 README 完成安装和 CPU smoke。
+- [x] 所有命令、文件路径和链接在 release tree 中有效。
+- [x] 不使用旧 TopK/Corroboration 说明代替最终 trained NLI Selector。
+- [x] 正向和负向结论同时呈现且与冻结报告一致。
+- [x] 用户已明确确认采用 MIT，许可证不是由整理过程自动选择。
+- [x] `CITATION.cff` 可被解析。
+- [x] 文档不含个人/HPC 绝对路径。
 
 ### 禁止事项
 
@@ -490,7 +490,7 @@ G1 已冻结远端 archive；G2 已完成 release 边界；G3 已冻结最终 ru
 - 不把内部 tracker 作为公开主文档。
 - 不复制大量旧计划或运行流水账到正式 README。
 
-**状态：** in_progress
+**状态：** complete
 
 ## G7：独立验证正式候选版本
 
@@ -607,14 +607,14 @@ G1 已冻结远端 archive；G2 已完成 release 边界；G3 已冻结最终 ru
 
 ## 跨 Goal 关键问题
 
-1. 团队/导师选择并批准哪一种代码许可证？
-2. 前端是否属于本仓库正式交付范围；若属于，采用何种最小 HTTP API？
-3. Selector 与三个 Generator adapters 是否允许公开再分发？
-4. raw generations/per-query metrics 的第三方数据许可是否允许外部归档？
-5. data.bris、Zenodo、Hugging Face 或 GitHub Release 分别承载哪些资产？
-6. 当前仓库所有者是否能执行 main、默认分支、archive 和 Release 设置？
-
-这些问题不阻止 G1–G2 的本地准备，但可能阻塞 G5、G6 或 G8 的验收。
+| 问题 | 当前决定 | 状态 |
+|---|---|---|
+| 团队/导师选择并批准哪一种代码许可证？ | 用户已明确选择 MIT；使用 `Evidence RAG project contributors` 作为集体版权主体。 | RESOLVED in G6 |
+| 前端是否属于正式交付范围？ | 属于；仓库提供最小 HTTP API、mock response 和冻结 schema，前端不加载权重。 | RESOLVED in G3 |
+| Selector 与三个 Generator adapters 是否允许公开再分发？ | 未记录授权，全部标为 `restricted-not-published`。 | RESOLVED conservatively in G5 |
+| raw generations/per-query metrics 是否公开？ | 不进入 Git 或公共下载；只发布小型聚合与 archive/hash 恢复边界。 | RESOLVED conservatively in G4/G5 |
+| 外部资产由哪里承载？ | 公开上游资产使用固定官方 revision；受限衍生资产不伪造公共 URL。 | RESOLVED in G5 |
+| 是否具备 main、archive、tag 和 Release 权限？ | archive/release push 已验证；G8 仍需实际验证 main/tag/Release 操作。 | PARTIAL，G8 验证 |
 
 ## 已做决策
 

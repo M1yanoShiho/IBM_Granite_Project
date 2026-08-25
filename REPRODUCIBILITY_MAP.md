@@ -4,7 +4,7 @@ This map connects each paper-facing claim to its frozen implementation, configur
 identity, result, and recovery source. It distinguishes technical completion from scientific
 support and includes negative findings.
 
-## Runtime method
+## 🏗️ Runtime method
 
 | Component | Code | Frozen configuration / identity | Verification |
 |---|---|---|---|
@@ -13,7 +13,7 @@ support and includes negative findings.
 | Grounded GR-C Generator | `src/evidence_rag/generator/`; eight Generator reproduction scripts | `experiments/generator/frozen_provenance.json`; seed13 adapter SHA in final model manifest | Generator focused tests and qualification scripts |
 | Three-module composition | `src/evidence_rag/pipeline/`; `src/evidence_rag/composition.py` | `configs/runtime/final_seed13.toml` | offline CPU smoke and API contract tests |
 
-## Scientific claims and results
+## 📊 Scientific claims and results
 
 | Claim or table | Code and statistical rule | Input identity | Public result | Scientific decision |
 |---|---|---|---|---|
@@ -26,7 +26,7 @@ support and includes negative findings.
 | Exp05 Table 2: three module ablations | Same scorer; Full seed13 vs one substitution at a time | 3 datasets × 3 new ablations × 400 plus Full reuse | `results/experiment05/table2.json` | Selector inactive on ordinary datasets; Generator/Retriever effects are dataset-dependent |
 | Exp05 registered Claim A/B | `experiment05_compile_results.py`; 10,000 bootstrap resamples, seed 13, frozen harm/noninferiority/superiority rules | 12,000 outputs and 12,000 query scores; 0 scorer errors | `results/experiment05/bootstrap.json`, `results/experiment05/claim_labels.json`, `results/experiment05/final_audit.json` | Both `NOT SUPPORTED`; technical `FINAL PASS` |
 
-## Rebuild commands
+## 🧪 Rebuild commands
 
 ```bash
 python experiments/experiment04/build_tables.py --output-dir build/experiment04
@@ -39,7 +39,7 @@ pytest -q tests/evaluation/test_public_table_rebuild.py \
 The builders operate only on small committed aggregate inputs and compare against frozen
 bytes/hashes. They do not recalculate model scores or change claim labels.
 
-## External and archived inputs
+## 🔒 External and archived inputs
 
 Model weights, dataset caches, indexes, raw generations, per-query scores, and full training
 bundles are not committed to the public release tree. Content hashes are recorded in the final

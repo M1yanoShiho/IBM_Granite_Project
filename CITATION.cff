@@ -1,0 +1,22 @@
+{
+  "cff-version": "1.2.0",
+  "message": "If you use this software, please cite it using these metadata.",
+  "title": "Evidence RAG",
+  "type": "software",
+  "version": "1.0.0-dissertation",
+  "date-released": "2026-08-25",
+  "authors": [
+    {
+      "name": "Evidence RAG project contributors"
+    }
+  ],
+  "abstract": "A research implementation of a Hybrid Retriever, trained NLI Selector, and grounded GR-C Generator with a versioned API and reproducible aggregate evaluations.",
+  "keywords": [
+    "retrieval-augmented generation",
+    "evidence selection",
+    "question answering",
+    "natural language inference"
+  ],
+  "repository-code": "https://github.com/M1yanoShiho/IBM_Granite_Project",
+  "url": "https://github.com/M1yanoShiho/IBM_Granite_Project"
+}

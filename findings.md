@@ -166,6 +166,28 @@
 - 三个 Exp04 上游源已进一步固定到不可变 revision：HotpotQA mirror `1908d6af…10ab`、MuSiQue mirror `22873a40…d2df`、RGB repo `65ec39e4…6615`；这些 revision 的远端 bytes/SHA 与冻结 Goal 1 manifest 完全一致。
 - 共享保留副本的权限不完全一致：seed13 adapter 与 Selector 为 owner/group-readable，seed42/73 仅 owner-readable。这个内部团队访问状态不等于公共发布；G5 不在未确认授权时扩大权限或上传权重。
 
+## G6 公开文档审计
+
+- 根 `README.md` 只有数行，无法支持安装、CPU smoke、架构、复现、结果边界和引用；必须以最终三模块方法重写。
+- 旧 `docs/README.md` 仍把 Query2Doc、TopK 和 Corroboration 写成主线，并引用已外置的开发材料；它应改为英文公开文档导航，而不是继续承担历史 tracker 职责。
+- 正式树已有 runtime handoff、frontend integration、models/data 和研究结果文档，但缺少公开的 setup、architecture、reproduction、results、limitations 以及 Selector/Generator model cards。
+- G6 开始时正式树尚无 `LICENSE`、`CITATION.cff`、`CHANGELOG.md`、`CONTRIBUTING.md` 和 `AUTHORS.md`；这些文件现已建立。许可证没有自动选择，用户于 2026-08-25 明确确认采用 MIT。
+- Git 历史可作为贡献事实来源，但不能据此推断团队成员角色、单位或论文作者顺序；公开作者页只应记录 commit identity 或使用团队实体名称。
+- 本地没有 PyYAML；`CITATION.cff` 可采用兼容 YAML 1.2 的 JSON 语法，并用标准库 `json` 做解析契约，避免为元数据验证引入运行依赖。
+- CFF 1.2.0 官方 JSON Schema 已复核：根字段必须包含 authors、cff-version、message 和 title；entity author 只要求 name，因此可合法使用不推断个人顺序的 `Evidence RAG project contributors` 团队实体。
+- 公开结果说明必须直接依据冻结聚合 JSON：misleading-evidence evidence gate PASS、blind answer gate FAIL、ordinary Experiment 05 Selector 大多未触发、Exp04 superiority 与 Exp05 Claim A/B 均未获支持。
+- README 的系统图采用无主题指令、无 inline style、含 `accTitle`/`accDescr` 的 Mermaid flowchart，并控制在十个节点内。
+- 当前离线 `evidence-rag-smoke` 已实际运行成功：使用最终模块类和确定性 CPU doubles，候选 10 条，NLI Selector 删除 poison evidence，Generator 返回并只引用 clean evidence；公开 quick start 可以据此写出可验证预期。
+- 归档 commit history 显示 9 个 contributor identities；公开 AUTHORS 可按 commit identity 列出，但不附邮箱、不猜角色、不推断论文作者顺序。
+- G6 当前所有变更都局限在公开文档、package metadata、文档契约测试和三份内部规划记录；没有模型、结果 JSON、runtime 算法或归档引用被修改。
+- 本机没有预装 `mmdc`，但有 Node 20/npm；Mermaid 实际渲染可用临时 `npx @mermaid-js/mermaid-cli` 验证，不需要把生成 SVG/PNG 提交进仓库。
+- npm 当前 Mermaid CLI 为 11.16.0；该版本已分别解析并实际渲染 README 与 architecture 中的两张图，证明 `accTitle`、`accDescr`、节点、边和 classDef 语法可执行。
+- G6 新增的 14 个唯一外部文档 URL（仓库、issues、docs、5 个数据源和 5 个固定模型 revision）均从当前无 HPC 依赖环境返回 HTTP 200。
+- GitHub 当前状态：仓库仍为 public、默认分支为 main，当前登录者权限是 WRITE 而非 ADMIN；仓库 owner 是 `M1yanoShiho`。正式代码许可证应由仓库 owner/团队确认，当前登录权限本身不证明可代表全部贡献者授权。
+- 全 Git 历史没有既有 LICENSE/COPYING/NOTICE 提交；正式源码范围也没有 SPDX/copyright/license header 可继承。因此不存在一个可自动沿用的项目代码许可证。
+- 首次 wheel 内容审计发现 Hatchling 的默认 license-file glob 会把 `AUTHORS.md` 与 `LICENSE` 一起放入 `dist-info/licenses/`。显式设置 `license-files = ["LICENSE"]` 后，新构建 wheel 只含 LICENSE 且 METADATA 只有一条 `License-File: LICENSE`。
+- 扩大链接审计到全部 30 份读者可见 Markdown 后，发现 16 个 G2/G4 迁移遗留的旧相对链接；根因是先前契约只扫描核心 G6 文档，没有覆盖 `docs/research/` 和 `results/`。这些链接现已指向 canonical aggregate/report，archive-only 原始 manifest 则改为明确 archive ref。
+
 ## 技术决策
 
 | 决策 | 理由 |
@@ -186,7 +208,7 @@
 
 | 问题 | 影响 | 解决 Goal |
 |---|---|---|
-| 代码许可证尚未确定 | 阻塞正式开源声明和 release metadata | G6 |
+| 代码许可证 | 用户已明确选择 MIT；G6 使用集体主体 `Evidence RAG project contributors` | G6 resolved |
 | 前端是否属于同仓库交付范围 | 决定是否必须实现 HTTP API | G3 |
 | 模型 adapters 是否允许公开再分发 | 阻塞公众真实 runtime 下载 | G5 |
 | raw outputs 是否允许按数据许可归档 | 决定 DOI archive 内容 | G5 |
@@ -195,7 +217,7 @@
 
 ## 规划验证发现
 
-- P0/P1/G1 complete；G2 in progress；G3–G8 pending。
+- P0/P1/G1–G6 complete；MIT、公开文档、package metadata 和完整回归均已通过；G7–G8 pending。
 - G1–G8 均包含目的、前置条件、允许动作、产物、验收门和禁止事项。
 - P0 初版缺少部分同名结构标题，已在自检后补齐。
 - cleanup inventory 已链接到 `task_plan.md`，执行状态不会在两份文件中重复维护。
@@ -211,8 +233,10 @@
 - `docs/PUBLIC_RELEASE_CLEANUP_MANIFEST.md`
 - `docs/PROPOSED_PUBLIC_REPOSITORY_STRUCTURE.md`
 - `docs/three-module-runtime-handoff.md`
-- `configs/models/three_module_seed13.json`
-- `configs/experiments/systemf_three_module_smoke_seed13.toml`
+- `configs/models/final_seed13.json`
+- `configs/runtime/final_seed13.toml`
+- `ARTIFACT_MANIFEST.json`
+- `REPRODUCIBILITY_MAP.md`
 - Experiment 04 final report and result tables
 - Experiment 05 findings, final report, tables, and integrity audit
 

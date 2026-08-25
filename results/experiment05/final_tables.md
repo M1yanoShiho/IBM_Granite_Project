@@ -137,6 +137,10 @@ For the five higher-is-better metrics, `Δ = Full − ablation`. For `UCR`, the 
 
 ## Source of frozen values
 
-- Experiment 05 audited main results: [`results/final/table1.csv`](results/final/table1.csv) and [`results/final/table2.csv`](results/final/table2.csv).
-- Experiment 05 technical audit: [`results/final/final_audit.json`](results/final/final_audit.json), status `FINAL PASS`, `12,000` generation outputs, `12,000` scored outputs, and `0` scorer errors.
-- Dedicated Selector stress test: [`../../../selector/experiments/08_r005ab_repair_current_2026-08-12/L003_FINAL_REPORT.md`](../../../selector/experiments/08_r005ab_repair_current_2026-08-12/L003_FINAL_REPORT.md).
+- Experiment 05 audited main results: [`table1.csv`](table1.csv) and
+  [`table2.csv`](table2.csv).
+- Experiment 05 technical audit: [`final_audit.json`](final_audit.json), status `FINAL PASS`,
+  `12,000` generation outputs, `12,000` scored outputs, and `0` scorer errors.
+- Dedicated Selector evidence: [`misleading_evidence_summary.json`](../selector/misleading_evidence_summary.json)
+  and [`blind_answer_gate.json`](../selector/blind_answer_gate.json), both derived from the same
+  frozen archive report and SHA-256.

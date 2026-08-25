@@ -52,13 +52,14 @@ The valid negative findings are:
 
 ## Final artifacts
 
-- Frozen report tables: [`FINAL_TABLES.md`](results/FINAL_TABLES.md)
-- Unified long-form metrics: [`summary_metrics.csv`](results/summary_metrics.csv)
-- Combined machine result: [`final_results.json`](results/final_results.json)
-- LaTeX tables: [`TABLE1.tex`](results/TABLE1.tex), [`TABLE2.tex`](results/TABLE2.tex)
-- Final machine audit: [`final_audit.json`](results/final_audit.json)
-- Goal 3 evidence: [`GOAL3_MAIN_SYSTEM_RESULTS.md`](reports/GOAL3_MAIN_SYSTEM_RESULTS.md)
-- Goal 4 evidence: [`GOAL4_MODULE_ABLATION_RESULTS.md`](reports/GOAL4_MODULE_ABLATION_RESULTS.md)
+- Frozen report tables: [`final_tables.md`](../../results/experiment04/final_tables.md)
+- Unified long-form metrics: [`summary_metrics.csv`](../../results/experiment04/summary_metrics.csv)
+- Combined machine result: [`final_results.json`](../../results/experiment04/final_results.json)
+- LaTeX tables: [`table1.tex`](../../results/experiment04/table1.tex),
+  [`table2.tex`](../../results/experiment04/table2.tex)
+- Final machine audit: [`final_audit.json`](../../results/experiment04/final_audit.json)
+- Goal 3 evidence: [`experiment04-main-results.md`](experiment04-main-results.md)
+- Goal 4 evidence: [`experiment04-ablation-results.md`](experiment04-ablation-results.md)
 
 ## Final boundary
 

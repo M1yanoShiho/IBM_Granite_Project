@@ -82,11 +82,12 @@ under the joint RAR criterion.
   artifact hashes: `PASS`.
 - All three Slurm jobs: `COMPLETED 0:0`.
 
-Machine-readable evidence is in
-[`goal4_pass_manifest.json`](../artifacts/goal4_pass_manifest.json),
-[`goal4_audit.json`](../results/goal4_audit.json),
-[`table2.json`](../results/table2.json), and
-[`bootstrap_goal4_ci.json`](../results/bootstrap_goal4_ci.json).
+The release-facing machine evidence is in
+[`final_audit.json`](../../results/experiment04/final_audit.json),
+[`table2.json`](../../results/experiment04/table2.json), and
+[`final_results.json`](../../results/experiment04/final_results.json), whose `paired_bootstrap.goal4`
+field contains the frozen intervals. The original Goal 4 pass manifest and standalone bootstrap
+file remain recoverable from `research-archive-2026-08-25`.
 
 ## Handoff
 

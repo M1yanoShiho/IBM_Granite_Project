@@ -176,8 +176,35 @@
 
 ### G6：完成公开文档与项目元数据
 
-- **状态：** in_progress
+- **状态：** complete
 - G5 验收门已满足；开始审计 README、文档导航、LICENSE/CITATION/CHANGELOG、作者贡献和 model cards。
+- 已完成公开文档盘点：根 README 与旧 docs 导航均不足或过时；setup/architecture/reproduction/results/limitations、两个 model cards、citation/changelog/contribution/author 元数据尚缺。
+- 已确认文档会使用最终 Hybrid Retriever → trained NLI Selector → grounded GR-C Generator，并把正向 evidence gate 与负向 answer/whole-system gates 同时呈现。
+- 已按文档规范确定无 inline style、含可访问性描述的 Mermaid flowchart；接下来先写公开文档契约测试，再实现文档。
+- 许可证仍等待项目所有者明确选择，不会自动写入开源授权文本；其余 G6 工作不因此暂停。
+- G6 文档契约已先写测试并取得预期 RED：9 项全部失败，分别锁定缺失文件、README 主入口、系统图、科学边界、CFF、package metadata、相对链接、路径隐私和许可证确认。
+- 已在当前 release worktree 实际复跑 CPU smoke 并确认输出契约，且从归档 Git history 提取仅含 commit identity 的 contributor 清单；两者将分别用于 quick start 与 AUTHORS，不引入个人路径或邮箱。
+- 已从 CFF 1.2.0 官方 schema 确认 entity author 和根必需字段，可用标准 JSON/YAML 1.2 语法生成无需新增依赖且不虚构个人作者顺序的 `CITATION.cff`。
+- 已重写根 README 与文档导航，新增 architecture/setup/reproduction/results/limitations、Selector/Generator model cards、CITATION、CHANGELOG、CONTRIBUTING 和 AUTHORS，并更新 package metadata 到 1.0.0。
+- 当前文档契约 8 passed、1 failed；唯一失败是 owner-selected license。`LICENSE` 目前是明确不授予许可的临时保护文本，避免在所有者确认前自动开放权限。
+- CFF 已通过标准库 JSON、Ruby YAML 和官方 CFF 1.2.0 JSON Schema 验证；Schema 验证需把 `.cff` 临时复制为 `.json`，因为 AJV CLI 按扩展名误解析 `.cff`。
+- Package 1.0.0 已成功构建 sdist/wheel、重新 editable install，`pip check` 与安装后 CPU smoke 均通过；文档标题契约首次运行发现测试自己的批准 emoji 集漏列官方 `💾`，已补全测试词表。
+- 首轮 G6 全量回归除许可证外还发现 1 个旧测试仍强制从已重写的 `docs/README.md` 查找 reference baseline 命令；已把这份仍有效的运行说明迁移到正式 reproduction 文档，并同步测试读取新的权威位置。
+- baseline 文档契约修正后，全量非许可证回归为 1655 passed、20 skipped、1 deselected；ruff、154-source strict mypy、两个 Slurm shell 语法、package build/install、pip check、CPU smoke、CFF schema、内部链接和 whitespace 全部通过。
+- G6 七项验收门已有六项通过；唯一未通过的是项目所有者尚未确认 MIT、Apache-2.0 或保留 All Rights Reserved。G6 保持 in_progress，G7 不提前启动。
+- 自动 continuation 重新读取计划并复核工作区：当前确为 linked worktree `release/dissertation-v1`，不是 submodule；归档现场仍与 release 修改隔离。计划仍只允许 G6 in_progress，许可证未确认前不启动 G7。
+- continuation 恢复检查未报告未同步上下文；磁盘上的 `task_plan.md`、`findings.md`、`progress.md` 与 Git 工作树是本轮继续验证的权威状态。
+- 当前 G6 diff 边界已复核：只含公开 Markdown、CFF/LICENSE/作者/变更记录、pyproject 和相关文档契约；未改冻结结果、模型 manifest、runtime 源码或 archive refs。下一步用 Node 临时工具实际渲染两份 Mermaid 图。
+- Mermaid CLI 11.16.0 已实际渲染 README 和 architecture 各 1 张图，两次均报告成功；生成物仅用于临时验证，不进入 release tree。
+- 公开文档新增的 14 个外部 URL 全部实时返回 HTTP 200。GitHub 只读权限审计确认仓库 public/default main，当前登录者为 WRITE（非 ADMIN）；历史与源码没有可继承的项目 LICENSE/header，因此仍需 owner/团队明确选择。
+- 已同步内部计划的跨 Goal 问题：前端、衍生资产、raw outputs 和外部承载边界均标为已保守解决；许可证保持唯一 G6 open 项，G8 权限保留到实际操作验证。旧 config 资源名也更新到 final canonical 路径。
+- Wheel 内容审计发现 AUTHORS 被构建工具误归为 license file；按 TDD 先新增 metadata 契约并取得缺少 `license-files` 的预期 RED，再加入精确 `license-files = ["LICENSE"]`。focused test GREEN，新 sdist/wheel 构建通过，wheel 只含 LICENSE。
+- 全读者文档链接审计稳定复现 16 个旧路径。根因是文件已在 G2/G4 迁移到 canonical `results/`，而早期 research/final_tables 文档和窄范围契约未同步。扩展 link test 后先取得 16-link RED，再把 12 个 Exp04 与 4 个 Exp05 链接映射到正式结果/报告或 archive boundary；GREEN 且独立 30-document scanner 为 missing 0。
+- 链接与 wheel metadata 修正后的全量非许可证回归再次通过：1655 passed、20 skipped、1 license test deselected；全范围 ruff、154-source strict mypy、两个 Slurm 语法、pip check 和 whitespace 均 PASS。冻结表格/结果契约包含在该全量测试中且未出现回归。
+- 本轮结束前单独复跑许可证契约，仍按设计 1 failed：临时 `LICENSE` 不含 MIT/Apache/All Rights Reserved 任一 owner-selected policy。工作树未暂存、未提交、未推送；等待 owner/团队确认后才能完成 G6。
+- 用户已明确回复 `MIT`，解除唯一许可证阻塞；`LICENSE` 已替换为标准 MIT 文本，版权主体与 CFF/AUTHORS 的团队实体保持一致。
+- MIT 精确许可证契约通过；随后完整回归为 1656 passed、20 skipped，ruff、154-source strict mypy、两个 Slurm 语法、package 1.0.0 sdist/wheel、`pip check`、CFF JSON、CPU smoke 和 whitespace 全部退出码 0。
+- G6 diff 边界与大文件/密钥扫描通过：只包含公开文档、metadata、文档契约及规划记录，没有新模型权重、冻结算法或聚合结果数据改写。
 
 ### G7–G8
 
@@ -238,6 +265,18 @@
 | G5 external links | 27 个唯一 source/download URL | 无 HPC 账号可访问 | 全部 HTTP 200；restricted assets 明确无 URL | PASS |
 | G5 real download | pinned HotpotQA parquet | 原子下载后 bytes/SHA 一致 | 27,452,575 bytes，SHA `c20b638c…f7c6`，PASS | PASS |
 | G5 full regression | release tree | 0 failed | 1646 passed、20 skipped；ruff/mypy/pip check/CLI 均 PASS | PASS |
+| G6 documentation TDD RED | 9 项公开文档契约 | 在实现前因缺失/过时内容失败 | 9 failed，失败面与计划产物一致 | EXPECTED-FAIL |
+| G6 documentation partial GREEN | 9 项公开文档契约 | 除许可证确认外均通过 | 8 passed、1 expected license blocker | PARTIAL |
+| G6 CFF parse/schema | `CITATION.cff` | JSON、YAML 与 CFF 1.2 schema 有效 | 三种验证均 PASS | PASS |
+| G6 package build/install | package 1.0.0 + API/dev extras | sdist/wheel、editable install、pip check、smoke 通过 | 全部 PASS | PASS |
+| G6 wheel license boundary | wheel metadata/files | 只把 LICENSE 标为 license file | RED→GREEN；新 wheel 仅 `dist-info/licenses/LICENSE` | PASS |
+| G6 full regression excluding license blocker | release tree | 0 unexpected failures | 1655 passed、20 skipped、1 license test deselected；ruff/mypy/shell/pip 全 PASS | PASS |
+| G6 post-link full regression | release tree after full-link and wheel fixes | 0 unexpected failures | 1655 passed、20 skipped、1 license test deselected；all static gates PASS | PASS |
+| G6 Mermaid rendering | README + architecture | 两张图可由当前 Mermaid CLI 渲染 | 2/2 charts rendered successfully | PASS |
+| G6 public documentation URLs | 14 unique external URLs | 当前无 HPC 账号环境可访问 | 14/14 HTTP 200 | PASS |
+| G6 full public relative links | 30 reader-visible Markdown files | 所有相对链接目标存在 | RED 16 missing → GREEN 0 missing | PASS |
+| G6 license owner confirmation | `LICENSE` + exact public-release contract | 由仓库 owner/团队明确选择许可证 | 用户明确选择 MIT；exact contract 1 passed | PASS |
+| G6 final regression | MIT + complete public documentation tree | 0 failures，构建/静态检查/smoke 完整 | 1656 passed、20 skipped；ruff/mypy/build/pip/shell/CFF/smoke/whitespace 全 PASS | PASS |
 
 ## 错误日志
 
@@ -282,16 +321,25 @@
 | 2026-08-25 | G5 远端全工作区 `du` 与宽层级查找超过 30 秒，只返回登录目录与缺失 scratch 信息 | 1 | 停止扫描大目录；改用已知共享项目根的精确存在性/文件名查询，确认其中没有正式权重。 |
 | 2026-08-25 | G5 首次 URL 审计命令包含临时文件 `rm -f` 清理，被安全策略拒绝且未执行 | 1 | 改用 shell process substitution，不创建临时文件；27 个 URL 全部完成 HTTP 200 验证。 |
 | 2026-08-25 | G5 正式配置一致性检查沿用旧计划名，引用了不存在的 `three_module_seed13.json` 和 `final_three_module.toml` | 1 | 先枚举当前 `configs/`，改用 G3 已定稿的 `final_seed13.json` 与 `final_seed13.toml`；七项 runtime identity 比对全部通过。 |
+| 2026-08-25 | G5 提交前 whitespace 检查发现三个新 Python 文件末尾多余空行 | 1 | 提交被安全中止；用精确补丁移除空行、重新暂存并验证后提交。 |
+| 2026-08-25 | Ruby 版本没有 `YAML.safe_load_file`，首次 CFF YAML 命令报 `NoMethodError` | 1 | 改用 `YAML.safe_load(File.read(...))`，解析通过。 |
+| 2026-08-25 | 首次 AJV CFF schema 验证直接读取 `.cff` 报 `Unexpected token ':'`；带 `rm -f` 的临时清理命令又被安全策略拒绝 | 2 | 不删除或覆盖项目文件；把 CFF 精确复制到 `/tmp` 的 `.json` 路径再对官方 schema 验证，结果 valid。 |
+| 2026-08-25 | 新增 H2 可扫描性契约漏列 Mermaid 规范允许的 `💾`，导致 architecture 文档误报 1 项失败 | 1 | 文档用法正确；补齐测试中的批准 emoji 集并重新运行。 |
+| 2026-08-25 | G6 首轮全量 pytest 有 1 个非许可证失败：历史测试仍把旧 `docs/README.md` 当 reference baseline 命令说明；同时 shell 语法检查猜错两个 Slurm 路径 | 1 | 将仍有效的 baseline/索引说明迁移到 `docs/reproduction.md` 并更新契约；枚举后改用 `scripts/run_experiment04_goal3_dataset.slurm` 与 `scripts/run_experiment04_goal4_dataset.slurm`。 |
+| 2026-08-25 | 迁移后的 baseline 文档把契约短语 `live Pipeline` 在 Markdown 源码中换行，focused test 仍失败 | 1 | 合并该句源码行，不改变渲染内容；重新运行精确契约。 |
+| 2026-08-25 | Mermaid CLI 输出把 SVG 的相对显示写成 `./...`，误以为文件落在 worktree 根并尝试移动时报告不存在 | 1 | `git status` 与根目录精确查找确认没有生成物进入 worktree；不重复移动，后续只检查 `/tmp` 输出目录。 |
+| 2026-08-25 | 扩大 G6 文档扫描后发现 16 个相对链接仍指向已迁移/归档路径 | 1 | 追踪到 G2/G4 文件迁移与测试覆盖不足；扩展契约范围，链接 canonical aggregates/reports，并把 archive-only 文件改为明确 archive ref。 |
+| 2026-08-25 | 用户恢复被阻塞目标后，`create_goal` 拒绝新建，因为原目标仍被系统视为 unfinished | 1 | 不创建重复目标；沿用原 G1–G8 目标继续执行，并只在全部验收后更新为 complete。 |
 
 ## 五问重启检查
 
 | 问题 | 答案 |
 |---|---|
-| 我在哪里？ | P0/P1/G1–G5 已完成；G6 正在收敛公开文档与项目元数据。 |
-| 我要去哪里？ | 完成 G6 公开文档，然后依次完成 G7–G8。 |
+| 我在哪里？ | P0/P1/G1–G6 已完成；正式候选版本准备进入 G7。 |
+| 我要去哪里？ | 执行 G7 clean-clone/CI/HPC 验证，再执行 G8 正式发布。 |
 | 目标是什么？ | 同仓库内形成可提交毕设的干净可用正式 main，同时保留完整研究历史。 |
 | 我学到了什么？ | 见 `findings.md`。 |
-| 我做了什么？ | 已冻结历史、建立干净 release，交付三模块 runtime/API 与复现包，并完成模型/数据资产的可下载、可校验和权限边界清单。 |
+| 我做了什么？ | 已冻结历史、建立干净 release，交付三模块 runtime/API、复现包、资产清单和公开文档；现按用户决定写入 MIT。 |
 
 ---
 *每个 Goal 完成后或遇到错误时更新此文件。*
