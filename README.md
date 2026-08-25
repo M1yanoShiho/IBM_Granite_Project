@@ -7,7 +7,7 @@ versioned HTTP interface, reproducible aggregate results, and explicit negative 
 The repository contains source, tests, portable configuration, compact result aggregates, and
 asset checksums. Model weights, raw datasets, indexes, and per-query outputs remain outside Git.
 
-## 🚀 Quick start
+## Quick start
 
 Python 3.11 is required. The CPU smoke uses deterministic test doubles, downloads nothing, and
 does not require a GPU:
@@ -25,7 +25,7 @@ A successful run prints a JSON trace with ten retrieved candidates, the misleadi
 removed by the Selector, and an answer that cites only the retained clean evidence. See the
 [setup guide](docs/setup.md) for Windows activation, development checks, and real-model setup.
 
-## 🏗️ Architecture
+## Architecture
 
 The browser or API client never loads model files. The backend owns the external assets and passes
 immutable evidence records through the three modules.
@@ -35,12 +35,12 @@ flowchart LR
     accTitle: Evidence RAG Request Pipeline
     accDescr: A frontend query passes through the HTTP API, Hybrid Retriever, trained NLI Selector, and grounded GR-C Generator before the cited response returns to the client
 
-    frontend([👤 Frontend client]) --> api[🌐 HTTP API]
-    api --> retriever[🔍 Hybrid Retriever]
-    retriever --> selector[🧠 Trained NLI Selector]
-    selector --> generator[⚙️ Grounded GR-C Generator]
-    generator --> response([📤 Answer and citations])
-    assets[(💾 External assets)] -.-> retriever
+    frontend([Frontend client]) --> api[HTTP API]
+    api --> retriever[Hybrid Retriever]
+    retriever --> selector[Trained NLI Selector]
+    selector --> generator[Grounded GR-C Generator]
+    generator --> response([Answer and citations])
+    assets[(External assets)] -.-> retriever
     assets -.-> selector
     assets -.-> generator
 
@@ -57,7 +57,7 @@ The Pipeline resolves selected IDs back to the Retriever's original evidence and
 Generator from citing unselected evidence. The [architecture guide](docs/architecture.md) defines
 the module contracts, runtime loading, and front-end boundary.
 
-## 🌐 Run the HTTP API
+## Run the HTTP API
 
 UI work can use [the committed mock response](examples/mock_frontend_response.json) without any
 models. For an integrated backend, first configure the authorized assets described in
@@ -75,7 +75,7 @@ The service exposes `GET /health` and `POST /v1/query`. The pipeline loads lazil
 query. The frozen request, response, citation, and error schemas are documented in the
 [front-end integration guide](docs/frontend-integration.md).
 
-## 📊 Research evidence
+## Research evidence
 
 The release reports technical completion separately from scientific support:
 
@@ -92,7 +92,7 @@ mean that a superiority claim passed. Read the [results](docs/results.md) and
 [reproducibility map](REPRODUCIBILITY_MAP.md) links every public claim to code, configuration,
 frozen inputs, result files, and the immutable archive reference.
 
-## 🧪 Reproduce the public tables
+## Reproduce the public tables
 
 The checked-in aggregate inputs are sufficient to rebuild the dissertation tables without model
 weights or restricted raw outputs:
@@ -108,7 +108,7 @@ pytest -q tests/evaluation/test_public_table_rebuild.py \
 The [reproduction guide](docs/reproduction.md) distinguishes public table verification from full
 raw recomputation and model training.
 
-## 📁 Repository map
+## Repository map
 
 ```text
 configs/       Frozen runtime, model, Selector, and experiment configuration
@@ -124,7 +124,7 @@ tests/         Unit, contract, integration, research, and documentation tests
 The full development record remains recoverable from `research-archive-2026-08-25`; the release
 tree intentionally omits obsolete stages and large raw artifacts.
 
-## 📚 Documentation
+## Documentation
 
 - [Documentation index](docs/README.md)
 - [Setup](docs/setup.md)
@@ -135,7 +135,7 @@ tree intentionally omits obsolete stages and large raw artifacts.
 - [Limitations](docs/limitations.md)
 - [Contributing](CONTRIBUTING.md)
 
-## 📝 Citation and license
+## Citation and license
 
 Use the machine-readable metadata in [CITATION.cff](CITATION.cff) and the contributor policy in
 [AUTHORS.md](AUTHORS.md). Project-authored code is released under the [MIT License](LICENSE).

@@ -40,6 +40,15 @@ def _text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
+def _contains_emoji(text: str) -> bool:
+    return any(
+        0x1F000 <= ord(character) <= 0x1FAFF
+        or 0x2600 <= ord(character) <= 0x27BF
+        or ord(character) == 0xFE0F
+        for character in text
+    )
+
+
 def test_public_release_documents_exist() -> None:
     expected = (*PUBLIC_DOCS, ROOT / "CITATION.cff", ROOT / "LICENSE")
 
@@ -77,6 +86,7 @@ def test_readme_mermaid_is_accessible_and_theme_neutral() -> None:
     assert "classDef" in text
     assert "%%{init" not in text
     assert "\nstyle " not in text
+    assert not _contains_emoji(text)
 
 
 def test_results_and_limitations_preserve_frozen_claim_boundaries() -> None:
@@ -170,6 +180,9 @@ def test_public_markdown_has_one_h1_and_scannable_h2_headings() -> None:
         headings = _text(document).splitlines()
         assert sum(line.startswith("# ") for line in headings) == 1, document
         for heading in (line.removeprefix("## ") for line in headings if line.startswith("## ")):
+            if document == ROOT / "README.md":
+                assert heading
+                continue
             assert heading.startswith(approved_h2_prefixes), f"{document}: {heading}"
 
 
