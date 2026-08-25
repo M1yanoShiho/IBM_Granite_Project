@@ -53,7 +53,7 @@ def test_readme_is_a_complete_canonical_entrypoint() -> None:
         "Hybrid Retriever",
         "trained NLI Selector",
         "grounded GR-C Generator",
-        "python -m pip install -e '.[dev,api]'",
+        "python -m pip install -e '.[dev,api,data-prep]'",
         "evidence-rag-smoke",
         "evidence-rag-serve",
         "docs/setup.md",

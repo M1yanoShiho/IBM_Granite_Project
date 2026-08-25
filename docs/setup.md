@@ -11,7 +11,7 @@ cd IBM_Granite_Project
 python3.11 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
-python -m pip install -e '.[dev,api]'
+python -m pip install -e '.[dev,api,data-prep]'
 evidence-rag-smoke
 ```
 
@@ -21,6 +21,9 @@ model cache, GPU, or private data. A successful JSON trace shows that the mislea
 not selected and that the answer cited only retained evidence.
 
 ## 🧪 Run development checks
+
+The `data-prep` extra above supplies NumPy and PyArrow for the complete Experiment 05 test
+collection. CI uses the exact transitive versions in `requirements-dev.lock`.
 
 ```bash
 pytest

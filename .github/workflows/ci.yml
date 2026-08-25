@@ -16,7 +16,7 @@ jobs:
           cache: pip
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -r requirements-dev.lock
-      - run: python -m pip install --no-deps -e ".[api]"
+      - run: python -m pip install --no-deps -e ".[api,data-prep]"
       - run: pytest
       - run: ruff check src tests
       - run: mypy src tests/typecheck.py

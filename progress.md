@@ -213,6 +213,11 @@
 - 下一步从远端重新 clone，在独立 Python 3.11 环境执行安装、测试、静态检查、构建、CPU smoke、文档/manifest/secret/path/large-file 审计，并验证 GitHub CI 与 HPC 真实三模块。
 - 第一份 fresh clone 位于临时目录，HEAD 与远端 `20c9717` 一致；读取 README 时发现发布页仍写着“license pending”，与已经提交的 MIT `LICENSE`/metadata 不一致。按 G7 第一次失败协议记录并进入文档契约修复。
 - 测试设计规则明确指出面向人的 prose 不应增加脆弱的精确文本断言；因此没有把 README 句子固化成 grep 型测试，而是最小修正文档，并将通过完整公开文档/链接/metadata 验证和第二次 fresh clone 复核。
+- 第二份 fresh clone `5b36d74` 按 README 的 `.[dev,api]` 安装后，build、pip check、CPU smoke、公开表格重建、ruff、shell/CFF/manifest/secret/large-file 检查通过；全量 pytest 在 collection 因缺少 numpy/pyarrow 失败，strict mypy 同样报告这两个缺失模块。
+- 根因是全量 Experiment 05 tests 需要 `data-prep` extra，但 setup 的开发检查命令与 `requirements-dev.lock`/CI 都没有安装该 extra。公开一键安装现显式包含该 extra，以保证紧接着的完整开发/复现命令可运行；CPU smoke 本身仍不加载模型、GPU 或私有数据。
+- GitHub Actions run `32807346012` 的失败日志与本地 clean clone 完全一致：pytest collection 只缺 numpy/pyarrow，证明修复目标是 CI dependency closure，而不是隐藏其他测试失败。
+- 补齐 data-prep 及 dev Pillow pins 后，本地全新 lock 环境可完整安装、`pip check` 通过；修复过程中未含 Pillow 的中间 lock 已能达到 1654 passed/22 skipped，加入声明中的 Pillow 后将复验正式 1656/20 基线。
+- 修正后的精确 lock 环境已复验为 1656 passed、20 skipped；全范围 ruff、154-source strict mypy 和 `pip check` 均通过。CI workflow 同步安装 `[api,data-prep]` metadata，公开安装/复现文档统一列出 `[dev,api,data-prep]`。
 
 ### G8：接入 main 并发布毕设版本
 
@@ -339,6 +344,8 @@
 | 2026-08-25 | 扩大 G6 文档扫描后发现 16 个相对链接仍指向已迁移/归档路径 | 1 | 追踪到 G2/G4 文件迁移与测试覆盖不足；扩展契约范围，链接 canonical aggregates/reports，并把 archive-only 文件改为明确 archive ref。 |
 | 2026-08-25 | 用户恢复被阻塞目标后，`create_goal` 拒绝新建，因为原目标仍被系统视为 unfinished | 1 | 不创建重复目标；沿用原 G1–G8 目标继续执行，并只在全部验收后更新为 complete。 |
 | 2026-08-25 | G7 fresh clone 发现 README 的许可证说明仍为 pending，与 MIT 文件和 metadata 冲突 | 1 | 测试设计审计判定人类 prose 不应增加精确文本断言；最小改为明确 MIT，并用 docs suite、链接扫描与第二次 fresh clone 复核。 |
+| 2026-08-25 | G7 第二份 fresh clone 的全量 pytest/mypy 缺少 numpy 与 pyarrow | 1 | 确认 Experiment 05 full suite 需要 `data-prep`；更新 dev lock/CI/完整开发安装说明并在新 clone 重跑。CPU smoke 仍不加载模型、GPU 或私有数据。 |
+| 2026-08-25 | 首次 data-prep lock 补丁假设 `requirements-dev.lock` 已含 Pillow 行，导致上下文验证失败 | 1 | 文件未改变；读取精确 lock 内容后用实际相邻行重新应用补丁，不复用错误上下文。 |
 
 ## 五问重启检查
 

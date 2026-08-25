@@ -39,7 +39,7 @@ external files. Personal HPC paths and model binaries must not be committed.
 The CPU smoke downloads nothing and needs no GPU:
 
 ```bash
-python -m pip install -e '.[dev,api]'
+python -m pip install -e '.[dev,api,data-prep]'
 evidence-rag-smoke
 ```
 

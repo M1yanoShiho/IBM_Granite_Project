@@ -17,7 +17,7 @@ git clone https://github.com/M1yanoShiho/IBM_Granite_Project.git
 cd IBM_Granite_Project
 python3.11 -m venv .venv
 source .venv/bin/activate
-python -m pip install -e '.[dev,api]'
+python -m pip install -e '.[dev,api,data-prep]'
 evidence-rag-smoke
 ```
 

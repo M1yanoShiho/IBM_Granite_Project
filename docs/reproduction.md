@@ -17,7 +17,7 @@ implementation, frozen configuration, result, and immutable archive source.
 ## 🧪 Verify the runtime contract
 
 ```bash
-python -m pip install -e '.[dev,api]'
+python -m pip install -e '.[dev,api,data-prep]'
 evidence-rag-smoke
 pytest -q tests/runtime tests/api tests/pipeline tests/contracts
 ```
