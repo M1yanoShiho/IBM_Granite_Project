@@ -57,6 +57,7 @@ evidence-rag-ingest = "evidence_rag.cli.ingest:main"
 evidence-rag-load-niah-base = "evidence_rag.materializer.base_cli:main"
 evidence-rag-materialize-benchmark = "evidence_rag.cli.materialize_benchmark:main"
 evidence-rag-materialize-niah = "evidence_rag.materializer.cli:main"
+evidence-rag-selector-train = "evidence_rag.cli.run_selector_lean:main"
 evidence-rag-smoke = "evidence_rag.cli.smoke:main"
 evidence-rag-serve = "evidence_rag.cli.serve:main"
 

@@ -1,0 +1,60 @@
+{
+  "schema_version": "evidence-rag.selector-misleading-evidence-summary.v1",
+  "source": {
+    "archive_ref": "research-archive-2026-08-25",
+    "path": "docs/selector/experiments/08_r005ab_repair_current_2026-08-12/artifacts/L003_FINAL_REPORT.json",
+    "sha256": "b031b6f29051fed94a76220ac829ebe2acffe086e253dec9f3b24c090252495c"
+  },
+  "status": "PASS",
+  "scope": "evidence-level misleading-evidence gate only",
+  "method": {
+    "variant": "NLI-base",
+    "quantile": 0.99,
+    "cap": 2,
+    "thresholds_by_seed": {
+      "13": 0.9212157130241394,
+      "42": 0.8249509334564209
+    },
+    "checkpoint_sha256_by_seed": {
+      "13": "86622bd9ab6391c9eb560133b01b0cf3744c3706638ff8b0bd38925b84bf72bf",
+      "42": "c258a9b4794dcb01c17d1150c91d631e6a5bb91211676224e3a6258cee02d421"
+    },
+    "bootstrap_samples": 10000,
+    "bootstrap_seed": 13
+  },
+  "metrics_by_seed": {
+    "13": {
+      "harmful_reduction": 0.12951807228915663,
+      "harmful_reduction_ci95": [
+        0.10339256865912763,
+        0.15844544095665172
+      ],
+      "deletion_precision": 0.7543859649122807,
+      "mean_deletions_per_query": 0.0655549166187464,
+      "required_recall_loss_pp": 0.0,
+      "required_chain_loss_pp": 0.0
+    },
+    "42": {
+      "harmful_reduction": 0.13102409638554216,
+      "harmful_reduction_ci95": [
+        0.10454545454545454,
+        0.1589825119236884
+      ],
+      "deletion_precision": 0.8055555555555556,
+      "mean_deletions_per_query": 0.0621046578493387,
+      "required_recall_loss_pp": 0.0,
+      "required_chain_loss_pp": 0.0
+    }
+  },
+  "seed13_controls": {
+    "random_deletion": {
+      "harmful_reduction": 0.01621987951807228,
+      "deletion_precision": 0.09447368421052632
+    },
+    "bottom_rank_deletion": {
+      "harmful_reduction": 0.0030120481927710845,
+      "deletion_precision": 0.017543859649122806
+    }
+  },
+  "claim_boundary": "Evidence filtering passed, but the separate blind answer gate failed. This file does not establish final-answer improvement."
+}

@@ -27,6 +27,8 @@ venv/
 !/results/experiment04/**
 !/results/experiment05/
 !/results/experiment05/**
+!/results/selector/
+!/results/selector/**
 /runs/
 /artifacts/
 /outputs/

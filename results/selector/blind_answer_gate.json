@@ -1,0 +1,34 @@
+{
+  "schema_version": "evidence-rag.selector-blind-answer-gate.v1",
+  "source": {
+    "archive_ref": "research-archive-2026-08-25",
+    "path": "docs/selector/experiments/08_r005ab_repair_current_2026-08-12/artifacts/L003_FINAL_REPORT.json",
+    "sha256": "b031b6f29051fed94a76220ac829ebe2acffe086e253dec9f3b24c090252495c"
+  },
+  "status": "FAIL",
+  "overall_decision": "KEEP_TOPK10",
+  "role": "decision-dev",
+  "datasets": {
+    "niah": {
+      "queries": 739,
+      "projection_sha256": "9d1d4c99340e63d2c0d8c2cc394ea48698c794c63e7d4b8cc91d3febdcee3f4e"
+    },
+    "2wiki": {
+      "queries": 1000,
+      "projection_sha256": "8ea3add4701713c607b305c6617ce8a38e5bd2c492355b78e78c6fed4fcf15ae"
+    }
+  },
+  "answer_match_delta": {
+    "niah": -0.0027063599458728013,
+    "2wiki": 0.0,
+    "macro": -0.0013531799729364006,
+    "ci95": [
+      -0.0056179775280898875,
+      0.002770083102493075
+    ],
+    "dataset_weight": "equal-0.5-0.5",
+    "bootstrap_samples": 10000,
+    "bootstrap_seed": 13
+  },
+  "claim_boundary": "The interval crosses zero and the point estimate is negative. The frozen experiment does not support a Selector-driven final-answer improvement."
+}
