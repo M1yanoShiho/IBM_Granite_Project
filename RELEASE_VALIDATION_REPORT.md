@@ -4,7 +4,7 @@
 
 - Repository: `M1yanoShiho/IBM_Granite_Project`
 - Branch: `release/dissertation-v1`
-- Candidate commit: `044978fe69aa9db9a66785ce8ea1cce648591a80`
+- Full clean-clone basis commit: `044978fe69aa9db9a66785ce8ea1cce648591a80`
 - Validation date: 2026-08-25
 - Overall status: **PARTIAL — local clean-clone and GitHub CI pass; authorized HPC real-model smoke pending cluster connectivity**
 
@@ -22,7 +22,7 @@ scientific outcomes reported in `docs/results.md` and `docs/limitations.md`.
 | Package build | Version 1.0.0 sdist and wheel built in isolation | PASS |
 | CPU three-module smoke | Model-free JSON trace parsed; Selector removed misleading evidence | PASS |
 | Dependency health | `pip check` reported no broken requirements | PASS |
-| GitHub Actions | Workflow run [32807749477](https://github.com/M1yanoShiho/IBM_Granite_Project/actions/runs/32807749477) completed successfully | PASS |
+| GitHub Actions | Node 24 workflow run [32808187612](https://github.com/M1yanoShiho/IBM_Granite_Project/actions/runs/32808187612) completed successfully with zero annotations | PASS |
 | Public table rebuild | Six Experiment 04 and four Experiment 05 outputs matched byte for byte | PASS |
 | Manifest and metadata | Artifact manifest and CFF parsed; MIT license packaged once | PASS |
 | Repository safety | No personal account, obvious secret, model-weight, or non-exempt large-file finding | PASS |
@@ -81,8 +81,8 @@ evidence/answer gates, artifact identities, and document-link contracts.
    public setup/reproduction commands now include the `data-prep` extra. A new clean environment
    and GitHub Actions both passed after this correction.
 3. A successful CI run warned that the older checkout/setup actions used the retired Node 20
-   runtime. Their official current v7 releases use Node 24, so the workflow was upgraded and must
-   pass again without that deprecation warning.
+   runtime. Their official current v7 releases use Node 24, so the workflow was upgraded. The
+   subsequent run passed every step with zero annotations.
 
 ## Pending authorized HPC smoke
 
