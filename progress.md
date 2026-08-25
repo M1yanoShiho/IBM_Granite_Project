@@ -206,10 +206,18 @@
 - MIT 精确许可证契约通过；随后完整回归为 1656 passed、20 skipped，ruff、154-source strict mypy、两个 Slurm 语法、package 1.0.0 sdist/wheel、`pip check`、CFF JSON、CPU smoke 和 whitespace 全部退出码 0。
 - G6 diff 边界与大文件/密钥扫描通过：只包含公开文档、metadata、文档契约及规划记录，没有新模型权重、冻结算法或聚合结果数据改写。
 
-### G7–G8
+### G7：独立验证正式候选版本
+
+- **状态：** in_progress
+- G6 commit `20c9717` 已推送，远端 `release/dissertation-v1` 与本地 HEAD 完全一致且工作树干净。
+- 下一步从远端重新 clone，在独立 Python 3.11 环境执行安装、测试、静态检查、构建、CPU smoke、文档/manifest/secret/path/large-file 审计，并验证 GitHub CI 与 HPC 真实三模块。
+- 第一份 fresh clone 位于临时目录，HEAD 与远端 `20c9717` 一致；读取 README 时发现发布页仍写着“license pending”，与已经提交的 MIT `LICENSE`/metadata 不一致。按 G7 第一次失败协议记录并进入文档契约修复。
+- 测试设计规则明确指出面向人的 prose 不应增加脆弱的精确文本断言；因此没有把 README 句子固化成 grep 型测试，而是最小修正文档，并将通过完整公开文档/链接/metadata 验证和第二次 fresh clone 复核。
+
+### G8：接入 main 并发布毕设版本
 
 - **状态：** pending
-- 在 G6 验收通过后按 `task_plan.md` 顺序接替执行。
+- 仅在 G7 全部验收门通过后启动。
 
 ## 测试结果
 
@@ -330,6 +338,7 @@
 | 2026-08-25 | Mermaid CLI 输出把 SVG 的相对显示写成 `./...`，误以为文件落在 worktree 根并尝试移动时报告不存在 | 1 | `git status` 与根目录精确查找确认没有生成物进入 worktree；不重复移动，后续只检查 `/tmp` 输出目录。 |
 | 2026-08-25 | 扩大 G6 文档扫描后发现 16 个相对链接仍指向已迁移/归档路径 | 1 | 追踪到 G2/G4 文件迁移与测试覆盖不足；扩展契约范围，链接 canonical aggregates/reports，并把 archive-only 文件改为明确 archive ref。 |
 | 2026-08-25 | 用户恢复被阻塞目标后，`create_goal` 拒绝新建，因为原目标仍被系统视为 unfinished | 1 | 不创建重复目标；沿用原 G1–G8 目标继续执行，并只在全部验收后更新为 complete。 |
+| 2026-08-25 | G7 fresh clone 发现 README 的许可证说明仍为 pending，与 MIT 文件和 metadata 冲突 | 1 | 测试设计审计判定人类 prose 不应增加精确文本断言；最小改为明确 MIT，并用 docs suite、链接扫描与第二次 fresh clone 复核。 |
 
 ## 五问重启检查
 

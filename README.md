@@ -138,5 +138,6 @@ tree intentionally omits obsolete stages and large raw artifacts.
 ## 📝 Citation and license
 
 Use the machine-readable metadata in [CITATION.cff](CITATION.cff) and the contributor policy in
-[AUTHORS.md](AUTHORS.md). The code license is pending explicit project-owner confirmation and will
-be finalized before the release is merged into `main`.
+[AUTHORS.md](AUTHORS.md). Project-authored code is released under the [MIT License](LICENSE).
+Third-party models and datasets retain the separate terms recorded in
+[models and data](docs/models-and-data.md).

@@ -187,6 +187,7 @@
 - 全 Git 历史没有既有 LICENSE/COPYING/NOTICE 提交；正式源码范围也没有 SPDX/copyright/license header 可继承。因此不存在一个可自动沿用的项目代码许可证。
 - 首次 wheel 内容审计发现 Hatchling 的默认 license-file glob 会把 `AUTHORS.md` 与 `LICENSE` 一起放入 `dist-info/licenses/`。显式设置 `license-files = ["LICENSE"]` 后，新构建 wheel 只含 LICENSE 且 METADATA 只有一条 `License-File: LICENSE`。
 - 扩大链接审计到全部 30 份读者可见 Markdown 后，发现 16 个 G2/G4 迁移遗留的旧相对链接；根因是先前契约只扫描核心 G6 文档，没有覆盖 `docs/research/` 和 `results/`。这些链接现已指向 canonical aggregate/report，archive-only 原始 manifest 则改为明确 archive ref。
+- G7 第一次从远端 clone `20c9717` 后发现 README 末尾仍保留许可证 pending 句子；`LICENSE` 和 wheel metadata 已是 MIT，因此这是发布说明一致性缺口，不是许可证文件或代码错误。
 
 ## 技术决策
 

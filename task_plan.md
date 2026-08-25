@@ -11,7 +11,7 @@
 
 ## 当前阶段
 
-G1–G6 已完成；正式候选版本准备进入 G7 独立验证。
+G1–G6 已完成；G7 正在对远端正式候选版本做独立 clean-clone、CI、CPU/HPC 与完整性验证。
 
 ## 固定决策与边界
 
@@ -63,7 +63,7 @@ G1–G6 已完成；正式候选版本准备进入 G7 独立验证。
 | G4 | 整理研究复现包 | 训练、基线、消融、评分和表格复现入口 | complete |
 | G5 | 发布外部模型与数据资产清单 | 公开链接/DOI、许可证、版本和 SHA-256 | complete |
 | G6 | 完成公开文档与项目元数据 | README、架构、复现、结果、限制、引用 | complete |
-| G7 | 独立验证正式候选版本 | clean clone、CI、CPU/HPC smoke、审计报告 | pending |
+| G7 | 独立验证正式候选版本 | clean clone、CI、CPU/HPC smoke、审计报告 | in_progress |
 | G8 | 接入 main 并发布毕设版本 | `main`、release tag、GitHub Release、交付记录 | pending |
 
 ## P0：计划与清单冻结
@@ -551,7 +551,7 @@ G1–G6 已完成；正式候选版本准备进入 G7 独立验证。
 - 不使用当前脏工作区代替 fresh clone。
 - 不在验证阶段改变科学方法或冻结评分定义。
 
-**状态：** pending
+**状态：** in_progress
 
 ## G8：接入 main 并发布毕设版本
 
