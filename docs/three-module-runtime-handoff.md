@@ -1,79 +1,72 @@
 # Three-module runtime handoff
 
-The shared Git repository contains the reproducible code and metadata for:
+The frozen runtime is:
 
 ```text
 Hybrid Retriever -> trained NLI Selector -> grounded GR-C Generator
 ```
 
-Large model weights, caches, indexes, datasets, and raw job outputs remain in
-HPC/model storage. They must not be committed to Git.
+The repository contains its source, versioned API contract, portable configuration,
+model manifest, CPU smoke, and tests. Model weights, datasets, indexes, caches, and raw
+job output remain outside Git.
 
-## Repository contents
+## Canonical files
 
-- Runtime implementations and module registration under `src/evidence_rag/`.
-- Portable configuration in
-  `configs/experiments/systemf_three_module_smoke_seed13.toml`.
-- Model identities, revisions, checksums, and frozen policy values in
-  `configs/models/three_module_seed13.json`.
-- Mocked integration tests that do not require model weights or a GPU.
-- `.env.example`, which documents the three external runtime paths.
+- `configs/runtime/final_seed13.toml`: deployable seed-13 runtime configuration.
+- `configs/runtime/cpu_smoke.toml`: offline contract smoke using the final module classes.
+- `configs/models/final_seed13.json`: model revisions, SHA-256 values, and storage policy.
+- `src/evidence_rag/composition.py`: three-module construction and asset validation.
+- `src/evidence_rag/api/`: stable HTTP schema, service, and application factory.
+- `examples/mock_frontend_response.json`: model-free frontend fixture.
 
-## External runtime assets
+## External assets
 
-| Asset | Environment variable | Storage |
-|---|---|---|
-| Public Retriever, Selector, Granite, and TRUE snapshots | `EVIDENCE_RAG_MODEL_CACHE` | HPC Hugging Face cache |
-| Trained Selector seed-13 checkpoint | `EVIDENCE_RAG_SELECTOR_CHECKPOINT` | HPC model storage |
-| Trained GR-C seed-13 adapter directory | `EVIDENCE_RAG_GENERATOR_ADAPTER` | HPC model storage |
+| Asset | Environment variable |
+|---|---|
+| Dataset manifest | `EVIDENCE_RAG_DATASET_MANIFEST` |
+| Writable output directory | `EVIDENCE_RAG_OUTPUT_DIR` |
+| Frozen public model snapshots | `EVIDENCE_RAG_MODEL_CACHE` |
+| Trained Selector seed-13 checkpoint | `EVIDENCE_RAG_SELECTOR_CHECKPOINT` |
+| Trained GR-C seed-13 adapter directory | `EVIDENCE_RAG_GENERATOR_ADAPTER` |
+| Optional prebuilt Retriever index | `EVIDENCE_RAG_INDEX_DIR` |
 
-The committed model manifest is the authority for revisions and SHA-256
-values. Personal HPC paths are deliberately absent from committed files.
+The manifest is the authority for model revisions and checksums. Startup checks all
+required variables before model loading and verifies the committed checksums against the
+external files. Personal HPC paths and model binaries must not be committed.
 
-## Backend setup
+## Verification and launch
+
+The CPU smoke downloads nothing and needs no GPU:
 
 ```bash
-cp .env.example .env.local
-# Edit .env.local to point at readable HPC paths.
+python -m pip install -e '.[dev,api]'
+evidence-rag-smoke
+```
+
+To run the real backend, copy `.env.example` to an ignored `.env.local`, set the five
+required paths, load them into the shell, and start the service:
+
+```bash
 set -a
 . ./.env.local
 set +a
+evidence-rag-serve --host 127.0.0.1 --port 8000
 ```
 
-The runtime config expands explicit `${NAME}` references when it constructs the
-real Selector and Generator. Missing variables fail with a clear error before
-model loading. `HF_HOME` should point at the same shared model cache so the
-Retriever resolves its public embedding model without adding personal paths to
-the TOML file.
+Use `--allow-origin http://localhost:3000` when a browser frontend is served from that
+origin. Do not use a wildcard origin for an authenticated deployment.
 
-## Front-end boundary
+## Frontend boundary
 
-The browser front end does not load `.safetensors` files. It should call a
-backend process that owns the three-module pipeline. For UI-only development,
-use a mock response with candidate evidence, selected evidence, answer, and
-citation fields. This repository currently provides the Python pipeline but no
-HTTP API, so an API adapter remains a separate integration task.
+The frontend calls `POST /v1/query`; it never reads `.safetensors`, adapters, caches, or
+HPC paths. `GET /health` is intentionally cheap and does not load models. The backend
+loads the pipeline on the first query and reuses it for later requests.
 
-## Commit boundary
+See `docs/frontend-integration.md` for the frozen request/response contract. When the
+backend is unavailable, use `examples/mock_frontend_response.json` in the frontend.
 
-Commit source code, portable configuration, manifests, tests, small fixtures,
-and aggregate reports. Keep model files, full datasets, indexes, caches,
-virtual environments, secrets, and raw per-query/job outputs outside Git.
+## Git boundary
 
-## Recommended first pull request
-
-Keep the deployable three-module wiring separate from the large Experiment 04
-and Experiment 05 result archives. The first pull request should contain only:
-
-- `.env.example`, `.gitignore`, `README.md`, and `pyproject.toml`;
-- `src/evidence_rag/composition.py`;
-- the required Retriever/Selector/Generator runtime modules under
-  `src/evidence_rag/`;
-- `configs/experiments/systemf_three_module_smoke_seed13.toml` and
-  `configs/models/three_module_seed13.json`;
-- the three-module smoke fixture and focused runtime tests;
-- this handoff document and the three-module wiring smoke report.
-
-Experiment 04 and Experiment 05 scripts, per-query outputs, audits, and report
-archives should be reviewed in separate commits. This prevents front-end
-integration from depending on unrelated experimental history.
+Commit source code, portable configuration, manifests, tests, small fixtures, aggregate
+reports, and documentation. Keep model files, full datasets, indexes, caches, virtual
+environments, secrets, and raw per-query/job outputs outside Git.
