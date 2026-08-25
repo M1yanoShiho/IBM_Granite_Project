@@ -90,10 +90,15 @@ def test_nli_risk_selector_loads_the_frozen_checkpoint_from_config(
     checkpoint = tmp_path / "model.safetensors"
     checkpoint.write_bytes(b"frozen-selector-checkpoint")
     checkpoint_sha256 = hashlib.sha256(checkpoint.read_bytes()).hexdigest()
+    model_snapshot = tmp_path / "nli-base"
+    model_snapshot.mkdir()
+    model_config = model_snapshot / "config.json"
+    model_config.write_bytes(b"frozen-selector-base-config")
+    model_config_sha256 = hashlib.sha256(model_config.read_bytes()).hexdigest()
     model = _FrozenSelectorModel()
     model.loaded = False
     monkeypatch.setenv("TEST_SELECTOR_CHECKPOINT", str(checkpoint))
-    monkeypatch.setenv("TEST_SELECTOR_MODEL", "fixture://nli-base")
+    monkeypatch.setenv("TEST_SELECTOR_MODEL", str(model_snapshot))
 
     def load_model(
         model_snapshot: str,
@@ -103,7 +108,7 @@ def test_nli_risk_selector_loads_the_frozen_checkpoint_from_config(
         local_files_only: bool,
         device: str,
     ) -> _FrozenSelectorModel:
-        assert model_snapshot == "fixture://nli-base"
+        assert model_snapshot == str(tmp_path / "nli-base")
         assert revision == "selector-revision"
         assert identity_model_id == "fixture/nli-base"
         assert local_files_only is True
@@ -126,6 +131,7 @@ def test_nli_risk_selector_loads_the_frozen_checkpoint_from_config(
                 "model_snapshot": "${TEST_SELECTOR_MODEL}",
                 "model_id": "fixture/nli-base",
                 "revision": "selector-revision",
+                "model_config_sha256": model_config_sha256,
                 "checkpoint_path": "${TEST_SELECTOR_CHECKPOINT}",
                 "checkpoint_sha256": checkpoint_sha256,
                 "safe_threshold": 0.9212157130241394,
@@ -162,6 +168,7 @@ def test_nli_risk_selector_reports_a_missing_runtime_path_variable(
                     "model_snapshot": "fixture://nli-base",
                     "model_id": "fixture/nli-base",
                     "revision": "selector-revision",
+                    "model_config_sha256": "0" * 64,
                     "checkpoint_path": "${MISSING_SELECTOR_CHECKPOINT}",
                     "checkpoint_sha256": "0" * 64,
                 },

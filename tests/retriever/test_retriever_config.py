@@ -1,7 +1,9 @@
+import hashlib
 from pathlib import Path
 
 import pytest
 
+import evidence_rag.composition as composition_module
 from evidence_rag.composition import build_retriever, prepare_retriever_index
 from evidence_rag.contracts.models import Document, Query
 from evidence_rag.infrastructure.config import ModuleConfig
@@ -74,6 +76,51 @@ def test_build_hybrid_convex_from_nested_config() -> None:
         snapshot,
     )
     assert isinstance(retriever, ConvexHybridRetriever)
+
+
+def test_granite_dense_loads_and_verifies_a_pinned_local_snapshot(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    snapshot = tmp_path / "granite-embedding"
+    snapshot.mkdir()
+    model_config = snapshot / "config.json"
+    model_config.write_bytes(b"pinned-embedding-config")
+    monkeypatch.setenv("TEST_EMBEDDING_SNAPSHOT", str(snapshot))
+    loaded_model_ids: list[str] = []
+
+    class _PinnedEmbedder:
+        def __init__(
+            self,
+            *,
+            model_id: str,
+            query_prefix: str,
+            document_prefix: str,
+        ) -> None:
+            loaded_model_ids.append(model_id)
+
+        def embed_documents(self, texts: list[str]) -> tuple[tuple[float, ...], ...]:
+            return tuple((1.0, 0.0) for _ in texts)
+
+        def embed_query(self, text: str) -> tuple[float, ...]:
+            return (1.0, 0.0)
+
+    monkeypatch.setattr(composition_module, "GraniteEmbedder", _PinnedEmbedder)
+
+    retriever = build_retriever(
+        config(
+            "granite-dense",
+            embedder_model_id="ibm-granite/granite-embedding-english-r2",
+            model_snapshot="${TEST_EMBEDDING_SNAPSHOT}",
+            revision="embedding-revision",
+            model_config_sha256=hashlib.sha256(model_config.read_bytes()).hexdigest(),
+            local_files_only=True,
+        ),
+        corpus(),
+    )
+
+    assert isinstance(retriever, composition_module.GraniteDenseRetriever)
+    assert loaded_model_ids == [str(snapshot)]
 
 
 def test_unknown_retriever_name_is_rejected() -> None:

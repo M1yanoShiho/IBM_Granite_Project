@@ -1,4 +1,6 @@
 import math
+import os
+import re
 import tomllib
 from pathlib import Path
 from typing import Annotated, Any, Literal
@@ -8,6 +10,21 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 NonEmpty = Annotated[str, Field(min_length=1)]
 PositiveInteger = Annotated[int, Field(gt=0)]
 NonNegativeInteger = Annotated[int, Field(ge=0)]
+
+_ENV_REFERENCE = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
+
+
+def expand_environment_references(value: object, *, label: str) -> str:
+    """Expand explicit ``${NAME}`` references and report missing variables."""
+
+    raw = str(value)
+    names = {match.group(1) for match in _ENV_REFERENCE.finditer(raw)}
+    missing = sorted(
+        name for name in names if name not in os.environ or not os.environ[name].strip()
+    )
+    if missing:
+        raise ValueError(f"{label} requires environment variable(s): {', '.join(missing)}")
+    return _ENV_REFERENCE.sub(lambda match: os.environ[match.group(1)], raw)
 
 
 class FrozenModel(BaseModel):
@@ -212,9 +229,17 @@ def load_experiment_config(path: Path) -> ExperimentConfig:
 
     parsed = _TomlExperimentConfig.model_validate(raw_config)
     root = config_path.parent
+    dataset_manifest = expand_environment_references(
+        parsed.dataset.manifest,
+        label="dataset manifest",
+    )
+    output_directory = expand_environment_references(
+        parsed.output.directory,
+        label="output directory",
+    )
     return ExperimentConfig(
-        dataset_manifest_path=(root / parsed.dataset.manifest).resolve(),
-        output_directory=(root / parsed.output.directory).resolve(),
+        dataset_manifest_path=(root / dataset_manifest).resolve(),
+        output_directory=(root / output_directory).resolve(),
         retriever=parsed.retriever,
         selector=parsed.selector,
         generator=parsed.generator,

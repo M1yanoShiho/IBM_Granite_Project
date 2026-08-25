@@ -19,7 +19,8 @@ from evidence_rag.infrastructure.corpus import CorpusBuilder
 from evidence_rag.infrastructure.datasets import JsonlDatasetAdapter
 
 ROOT = Path(__file__).resolve().parents[2]
-SYSTEM_CONFIG = ROOT / "configs/experiments/systemf_three_module_smoke_seed13.toml"
+CPU_SMOKE_CONFIG = ROOT / "configs/runtime/cpu_smoke.toml"
+FINAL_CONFIG = ROOT / "configs/runtime/final_seed13.toml"
 
 
 class _Embedder:
@@ -117,7 +118,7 @@ def _corpus(config):
 
 
 def _config():
-    return load_experiment_config(SYSTEM_CONFIG)
+    return load_experiment_config(CPU_SMOKE_CONFIG)
 
 
 def test_three_module_pipeline_removes_harm_before_grounded_generation() -> None:
@@ -145,6 +146,40 @@ def test_three_module_pipeline_removes_harm_before_grounded_generation() -> None
     assert client.adapter_prompts and "poison" not in client.adapter_prompts[0]
     assert run.generation.answer == "IBM acquired Red Hat in 2019."
     assert run.generation.cited_evidence_ids
+
+
+def test_real_pipeline_reports_all_missing_model_variables_before_loading(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "EVIDENCE_RAG_DATASET_MANIFEST",
+        str(ROOT / "tests/fixtures/three_module_smoke_dataset/manifest.json"),
+    )
+    monkeypatch.setenv("EVIDENCE_RAG_OUTPUT_DIR", str(tmp_path / "output"))
+    for name in (
+        "EVIDENCE_RAG_MODEL_CACHE",
+        "EVIDENCE_RAG_SELECTOR_CHECKPOINT",
+        "EVIDENCE_RAG_GENERATOR_ADAPTER",
+    ):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("EVIDENCE_RAG_MODEL_CACHE", "   ")
+    config = load_experiment_config(FINAL_CONFIG)
+
+    def unexpected_retriever_load(*args: object, **kwargs: object) -> object:
+        raise AssertionError("retriever loaded before runtime environment validation")
+
+    monkeypatch.setattr(composition_module, "build_retriever", unexpected_retriever_load)
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            r"runtime configuration requires environment variable\(s\): "
+            "EVIDENCE_RAG_GENERATOR_ADAPTER, EVIDENCE_RAG_MODEL_CACHE, "
+            "EVIDENCE_RAG_SELECTOR_CHECKPOINT"
+        ),
+    ):
+        build_pipeline_from_config(config, _corpus(config))
 
 
 def test_grounded_generator_loads_frozen_adapter_and_true_from_config(

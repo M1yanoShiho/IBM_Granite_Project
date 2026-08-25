@@ -1,0 +1,40 @@
+# Offline contract smoke for the final module classes. The executable injects
+# deterministic CPU doubles, so this config never downloads or opens real weights.
+[dataset]
+manifest = "../../tests/fixtures/three_module_smoke_dataset/manifest.json"
+
+[output]
+directory = "../../.smoke-output"
+
+[retriever]
+name = "hybrid"
+
+[retriever.parameters]
+fusion = "rrf"
+k = 60
+retrievers = [
+  { name = "strong-bm25", parameters = { k1 = 0.9, b = 0.4 } },
+  { name = "granite-dense", parameters = { embedder_model_id = "offline-smoke-embedder" } },
+]
+
+[selector]
+name = "nli-risk-controlled"
+
+[selector.parameters]
+safe_threshold = 0.9212157130241394
+max_delete = 2
+
+[generator]
+name = "grounded-grc"
+
+[generator.parameters]
+adapter_name = "grc"
+max_new_tokens = 64
+temperature = 0.0
+top_p = 1.0
+entity_gate = "observe"
+
+[run]
+top_k = 10
+max_selected = 10
+seed = 13

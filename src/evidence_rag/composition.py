@@ -25,7 +25,11 @@ from evidence_rag.generator.verify_annotate import (
     CitationRoutedVerifier,
     VerifyAnnotateGenerator,
 )
-from evidence_rag.infrastructure.config import ExperimentConfig, ModuleConfig
+from evidence_rag.infrastructure.config import (
+    ExperimentConfig,
+    ModuleConfig,
+    expand_environment_references,
+)
 from evidence_rag.infrastructure.corpus import CorpusSnapshot
 from evidence_rag.pipeline.service import EvidenceRAGPipeline
 from evidence_rag.retriever.bm25 import BM25Retriever, validate_bm25_parameters
@@ -79,12 +83,56 @@ def _verify_file_sha256(path: Path, expected: str, *, label: str) -> None:
 def _expand_runtime_value(value: object, *, label: str) -> str:
     """Resolve explicit ``${NAME}`` references without storing HPC paths in Git."""
 
-    raw = str(value)
-    names = {match.group(1) for match in _ENV_REFERENCE.finditer(raw)}
-    missing = sorted(name for name in names if name not in os.environ)
+    return expand_environment_references(value, label=label)
+
+
+def _environment_reference_names(value: object) -> set[str]:
+    if isinstance(value, str):
+        return {match.group(1) for match in _ENV_REFERENCE.finditer(value)}
+    if isinstance(value, Mapping):
+        names: set[str] = set()
+        for item in value.values():
+            names.update(_environment_reference_names(item))
+        return names
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+        names = set()
+        for item in value:
+            names.update(_environment_reference_names(item))
+        return names
+    return set()
+
+
+def _validate_runtime_environment(
+    config: ExperimentConfig,
+    *,
+    embedder: TextEmbedder | None,
+    selector_model: Any | None,
+    grc_client: Any | None,
+    nli: NLIModel | None,
+) -> None:
+    values: list[object] = []
+    if embedder is None:
+        values.append(config.retriever.parameters)
+    if selector_model is None:
+        values.append(config.selector.parameters)
+    generator_parameters = config.generator.parameters
+    if grc_client is None:
+        values.extend(
+            generator_parameters.get(name)
+            for name in ("model_snapshot", "adapter_path")
+        )
+    if nli is None:
+        values.append(generator_parameters.get("true_snapshot"))
+    names: set[str] = set()
+    for value in values:
+        names.update(_environment_reference_names(value))
+    missing = sorted(
+        name for name in names if name not in os.environ or not os.environ[name].strip()
+    )
     if missing:
-        raise ValueError(f"{label} requires environment variable(s): {', '.join(missing)}")
-    return _ENV_REFERENCE.sub(lambda match: os.environ[match.group(1)], raw)
+        raise ValueError(
+            "runtime configuration requires environment variable(s): " + ", ".join(missing)
+        )
 
 
 # The retriever registry: each name maps to an implementation version. Parameter
@@ -182,17 +230,45 @@ def _sparse_parameters(name: str, parameters: Mapping[str, Any]) -> dict[str, An
 
 
 def _dense_parameters(parameters: Mapping[str, Any]) -> dict[str, Any]:
-    _reject_unknown(parameters, {"embedder_model_id", "query_prefix", "document_prefix"})
+    _reject_unknown(
+        parameters,
+        {
+            "embedder_model_id",
+            "query_prefix",
+            "document_prefix",
+            "model_snapshot",
+            "revision",
+            "model_config_sha256",
+            "local_files_only",
+        },
+    )
     model_id = (
         parameters.get("embedder_model_id")
         or os.getenv("GRANITE_EMBEDDING_MODEL_ID")
         or DEFAULT_GRANITE_EMBEDDING_MODEL_ID
     )
-    return {
+    result: dict[str, Any] = {
         "embedder_model_id": str(model_id),
         "query_prefix": str(parameters.get("query_prefix", "")),
         "document_prefix": str(parameters.get("document_prefix", "")),
     }
+    pinned_names = {"model_snapshot", "revision", "model_config_sha256", "local_files_only"}
+    if pinned_names & set(parameters):
+        required = {"model_snapshot", "revision", "model_config_sha256"}
+        missing = sorted(required - set(parameters))
+        if missing:
+            raise ValueError(f"pinned granite-dense retriever is missing parameters: {missing}")
+        result.update(
+            {
+                "model_snapshot": str(parameters["model_snapshot"]),
+                "revision": str(parameters["revision"]),
+                "model_config_sha256": str(parameters["model_config_sha256"]),
+                "local_files_only": _flag(
+                    "local_files_only", parameters.get("local_files_only", True)
+                ),
+            }
+        )
+    return result
 
 
 def _hybrid_parameters(parameters: Mapping[str, Any]) -> dict[str, Any]:
@@ -291,8 +367,22 @@ def _construct_retriever(
     if name == "strong-bm25":
         return StrongBM25Retriever.from_corpus(corpus, k1=parameters["k1"], b=parameters["b"])
     if name == "granite-dense":
+        model_id = parameters["embedder_model_id"]
+        if "model_snapshot" in parameters:
+            model_snapshot = Path(
+                _expand_runtime_value(
+                    parameters["model_snapshot"],
+                    label="Granite embedding model snapshot",
+                )
+            )
+            _verify_file_sha256(
+                model_snapshot / "config.json",
+                str(parameters["model_config_sha256"]),
+                label="Granite embedding model config",
+            )
+            model_id = str(model_snapshot)
         active_embedder = embedder or GraniteEmbedder(
-            model_id=parameters["embedder_model_id"],
+            model_id=model_id,
             query_prefix=parameters["query_prefix"],
             document_prefix=parameters["document_prefix"],
         )
@@ -426,6 +516,7 @@ def build_selector(config: ModuleConfig, *, model: Any | None = None) -> Selecto
                 "model_snapshot",
                 "model_id",
                 "revision",
+                "model_config_sha256",
                 "checkpoint_path",
                 "checkpoint_sha256",
                 "safe_threshold",
@@ -441,6 +532,7 @@ def build_selector(config: ModuleConfig, *, model: Any | None = None) -> Selecto
                 "model_snapshot",
                 "model_id",
                 "revision",
+                "model_config_sha256",
                 "checkpoint_path",
                 "checkpoint_sha256",
             }
@@ -462,6 +554,11 @@ def build_selector(config: ModuleConfig, *, model: Any | None = None) -> Selecto
             model_snapshot = _expand_runtime_value(
                 parameters["model_snapshot"],
                 label="Selector model snapshot",
+            )
+            _verify_file_sha256(
+                Path(model_snapshot) / "config.json",
+                str(parameters["model_config_sha256"]),
+                label="Selector base config",
             )
             model = load_nli_dual_head_model(
                 model_snapshot,
@@ -644,6 +741,13 @@ def build_pipeline_from_config(
     grc_client: Any | None = None,
     entity_checker: Any | None = None,
 ) -> EvidenceRAGPipeline:
+    _validate_runtime_environment(
+        config,
+        embedder=embedder,
+        selector_model=selector_model,
+        grc_client=grc_client,
+        nli=nli,
+    )
     return EvidenceRAGPipeline(
         retriever=build_retriever(
             config.retriever,
