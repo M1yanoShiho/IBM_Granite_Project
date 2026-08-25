@@ -530,14 +530,14 @@ G1–G6 已完成；G7 正在对远端正式候选版本做独立 clean-clone、
 
 ### 验收门
 
-- [ ] fresh clone 安装、pytest、ruff、mypy、build、CPU smoke 全部通过。
-- [ ] GitHub CI 全绿。
+- [x] fresh clone 安装、pytest、ruff、mypy、build、CPU smoke 全部通过。
+- [x] GitHub CI 全绿。
 - [ ] HPC 真实三模块 smoke 通过且 checkpoint hashes 一致。
-- [ ] release tree 个人路径/明显密钥扫描为零。
-- [ ] release tree 不含非豁免大文件。
-- [ ] README 命令与实际执行一致。
-- [ ] Experiment 04/05 关键表格与冻结结果一致。
-- [ ] 所有已知限制已写入公开文档。
+- [x] release tree 个人路径/明显密钥扫描为零。
+- [x] release tree 不含非豁免大文件。
+- [x] README 命令与实际执行一致。
+- [x] Experiment 04/05 关键表格与冻结结果一致。
+- [x] 所有已知限制已写入公开文档。
 
 ### 三次失败协议
 

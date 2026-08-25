@@ -218,6 +218,11 @@
 - GitHub Actions run `32807346012` 的失败日志与本地 clean clone 完全一致：pytest collection 只缺 numpy/pyarrow，证明修复目标是 CI dependency closure，而不是隐藏其他测试失败。
 - 补齐 data-prep 及 dev Pillow pins 后，本地全新 lock 环境可完整安装、`pip check` 通过；修复过程中未含 Pillow 的中间 lock 已能达到 1654 passed/22 skipped，加入声明中的 Pillow 后将复验正式 1656/20 基线。
 - 修正后的精确 lock 环境已复验为 1656 passed、20 skipped；全范围 ruff、154-source strict mypy 和 `pip check` 均通过。CI workflow 同步安装 `[api,data-prep]` metadata，公开安装/复现文档统一列出 `[dev,api,data-prep]`。
+- 第三份正式 fresh clone 从远端取得 `044978f`，按 README 从空 Python 3.11 venv 安装成功；全量结果为 1656 passed、20 skipped，ruff、154-source mypy、sdist/wheel、pip check、CPU smoke、两组 table rebuild、CFF/manifest/shell/whitespace、个人账号/密钥/大文件/权重扫描全部通过。
+- GitHub CI run `32807749477` 已触发并处于运行中。HPC 首次连接误用未配置的 `bluepebble` 名称，读取 SSH host 列表后改用实际 alias `bp`；该登录节点连接在 10 秒内超时，下一步检查备用节点/当前网络可达性。
+- GitHub CI run `32807749477` 已完成 success：锁定依赖安装、pytest、ruff、mypy、build 和 CPU smoke 各步骤均通过。
+- Exp04 六个与 Exp05 四个公开重建产物和冻结文件 10/10 byte-identical；远端 archive branch 与 peeled archive tag 仍共同指向 `ea4d617…14bb`，release branch 指向 `044978f`。
+- 已生成 `RELEASE_VALIDATION_REPORT.md`，记录 candidate、fresh clone、CI、树体积、安全扫描、表格一致性、两项已修复问题及 HPC pending 边界。G7 七项本地/远端验收通过，只剩 authorized HPC real-model smoke。
 
 ### G8：接入 main 并发布毕设版本
 
@@ -346,6 +351,9 @@
 | 2026-08-25 | G7 fresh clone 发现 README 的许可证说明仍为 pending，与 MIT 文件和 metadata 冲突 | 1 | 测试设计审计判定人类 prose 不应增加精确文本断言；最小改为明确 MIT，并用 docs suite、链接扫描与第二次 fresh clone 复核。 |
 | 2026-08-25 | G7 第二份 fresh clone 的全量 pytest/mypy 缺少 numpy 与 pyarrow | 1 | 确认 Experiment 05 full suite 需要 `data-prep`；更新 dev lock/CI/完整开发安装说明并在新 clone 重跑。CPU smoke 仍不加载模型、GPU 或私有数据。 |
 | 2026-08-25 | 首次 data-prep lock 补丁假设 `requirements-dev.lock` 已含 Pillow 行，导致上下文验证失败 | 1 | 文件未改变；读取精确 lock 内容后用实际相邻行重新应用补丁，不复用错误上下文。 |
+| 2026-08-25 | G7 HPC 首次连接使用不存在的本地 alias `bluepebble` | 1 | 只读列出 SSH hosts，确认实际 alias 为 `bp`，不再猜别名。 |
+| 2026-08-25 | G7 使用 `bp` 连接首个 BluePebble 登录节点超时 | 1 | 不把超时写成 smoke 通过；检查备用登录节点和当前网络/VPN可达性。 |
+| 2026-08-25 | G7 猜测的第二个 BluePebble 登录主机名无法解析 | 1 | 停止猜测未配置端点；保留唯一已配置 alias，等待校园网/VPN恢复后重试。 |
 
 ## 五问重启检查
 
