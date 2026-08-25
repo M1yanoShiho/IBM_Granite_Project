@@ -3,7 +3,7 @@ name: ci
 on:
   pull_request:
   push:
-    branches: [main, refactor/three-module-baseline]
+    branches: [main, release/dissertation-v1]
 
 jobs:
   test:
@@ -16,7 +16,7 @@ jobs:
           cache: pip
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -r requirements-dev.lock
-      - run: python -m pip install --no-deps -e .
+      - run: python -m pip install --no-deps -e ".[api]"
       - run: pytest
       - run: ruff check src tests
       - run: mypy src tests/typecheck.py
