@@ -28,6 +28,7 @@ venv/
 *.log
 
 /.superpowers/
+/.worktrees/
 /.reasonix/
 /.aris/
 
