@@ -11,6 +11,10 @@ dependencies = ["pydantic>=2.7,<3"]
 
 [project.optional-dependencies]
 benchmark = ["ir-datasets==0.5.11"]
+data-prep = [
+  "pandas>=2,<3",
+  "pyarrow>=16,<24",
+]
 granite = [
   "nltk>=3.8,<4",
   "peft>=0.13,<1",
