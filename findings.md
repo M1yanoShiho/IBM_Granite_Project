@@ -106,7 +106,7 @@
 
 ## 规划验证发现
 
-- P0/P1 complete；G1 in progress；G2–G8 pending。
+- P0/P1/G1 complete；G2 in progress；G3–G8 pending。
 - G1–G8 均包含目的、前置条件、允许动作、产物、验收门和禁止事项。
 - P0 初版缺少部分同名结构标题，已在自检后补齐。
 - cleanup inventory 已链接到 `task_plan.md`，执行状态不会在两份文件中重复维护。
@@ -115,6 +115,7 @@
 - 结构预览包含建议新增的最小 HTTP API；这是后续 G3 的实现/验证项，不是对当前仓库已有能力的陈述。
 - 当前实际 loader 和部分 Generator/Selector 辅助文件名已对照预览修正；最终删除边界仍须由 G3/G4 的依赖闭包和测试决定。
 - G1 必须先在当前开发工作区冻结尚未提交的 Experiment 04/05；G2 起采用隔离 worktree，避免正式树整理污染归档现场。
+- G1 的远端 archive branch 和 annotated tag 均解析到 `ea4d617753aff868fff8f846964f7cfb050414bb`；tag 已验证可直接读取 Exp05 final audit、scorer 源码和 `ARCHIVE_INDEX.md`。
 
 ## 资源
 
