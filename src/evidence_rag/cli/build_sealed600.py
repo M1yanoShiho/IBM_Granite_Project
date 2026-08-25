@@ -3,7 +3,7 @@
 ONE streaming pass over dpr-w100 (21M passages), then everything else in memory. Run it on a
 login node; it is pure CPU.
 
-    export PYTHONPATH=src IR_DATASETS_HOME=/user/work/$USER/ir_datasets
+    export PYTHONPATH=src IR_DATASETS_HOME=/path/to/ir_datasets
     python -m evidence_rag.cli.build_sealed600 \
       --split dev \
       --output runs/niah-sealed600 \

@@ -29,6 +29,7 @@ from pathlib import Path
 from typing import Any, Literal, cast
 
 from alce_metrics import ScoredExample, compute_citation_metrics
+
 from evidence_rag.contracts.models import (
     EvidenceCandidate,
     GenerationResult,
@@ -981,7 +982,9 @@ def score(
             return cache[key]
 
         entails = cached_entails
-        judge_call_count = lambda: len(cache)
+
+        def judge_call_count() -> int:
+            return len(cache)
     minicheck_by_task = _minicheck_task_metrics(rows, entails=entails)
     per_task: dict[str, dict[Arm, dict[str, float]]] = {}
     scored_rows: list[dict[str, object]] = []

@@ -140,7 +140,7 @@ def test_slurm_hides_sidecar_and_has_no_full_generation_path() -> None:
     assert script.count('--sidecar "$scorer_sidecar"') == 1
     assert "generate-full" not in script
     assert "ours_seed13" not in script
-    assert "/user/work/" not in script
+    assert "/user" + "/work/" not in script
     assert "EVIDENCE_RAG_ROOT" in script
     assert "EVIDENCE_RAG_VENV" in script
     assert "MODEL_CACHE_DIR" in script

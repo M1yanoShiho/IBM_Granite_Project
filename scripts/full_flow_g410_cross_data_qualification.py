@@ -18,7 +18,6 @@ import platform
 import subprocess
 import sys
 import time
-from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -27,6 +26,7 @@ from typing import Any
 import full_flow_g310_seed13_screen as g310
 import full_flow_g400_niah_qualification as g400
 from alce_metrics import ScoredExample, compute_citation_metrics
+
 from evidence_rag.contracts.models import (
     EvidenceCandidate,
     GenerationResult,
@@ -888,7 +888,7 @@ def score(
     evidence = {task.task_id: task.evidence for task in tasks}
     baseline = _baseline_g0(baseline_g310_generations_path, wanted)
     configs: dict[str, dict[str, Mapping[str, object]]] = {"G0": baseline}
-    for seed, path in sorted(seed_generations.items()):
+    for seed, _path in sorted(seed_generations.items()):
         config = f"GRC{seed}"
         configs[config] = candidate_rows[seed]
     config_names = tuple(configs)
@@ -908,7 +908,9 @@ def score(
             return cache[key]
 
         entails = cached_entails
-        judge_call_count = lambda: len(cache)
+
+        def judge_call_count() -> int:
+            return len(cache)
     minicheck_by_task = _minicheck_task_metrics(
         configs=configs,
         evidence=evidence,

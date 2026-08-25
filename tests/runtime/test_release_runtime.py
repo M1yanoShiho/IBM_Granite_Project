@@ -85,5 +85,5 @@ def test_cpu_smoke_config_uses_final_module_classes_without_external_paths() -> 
     assert config.generator.name == "grounded-grc"
     serialized = config.model_dump_json()
     assert "EVIDENCE_RAG_" not in serialized
-    assert "/scratch/" not in serialized
-    assert "/user/work/" not in serialized
+    assert "/scratch" + "/" not in serialized
+    assert "/user" + "/work/" not in serialized

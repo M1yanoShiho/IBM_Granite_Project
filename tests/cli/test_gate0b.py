@@ -318,7 +318,7 @@ def test_label_order_matches_the_verified_id2label_of_each_checkpoint() -> None:
       cross-encoder/nli-deberta-v3-base -> {0: contradiction, 1: entailment, 2: neutral}
 
     The first two were read on 2026-07-30; the third on bp1 2026-08-06 by
-    `scripts/a3_preflight.py`, and it is A3's training base.
+    the archived A3 preflight measurement, and it is A3's training base.
 
     A test that only checked the three labels are present would let a future wrong entry swap
     REFUTES and SUPPORTS while every downstream number stayed plausible. The third entry

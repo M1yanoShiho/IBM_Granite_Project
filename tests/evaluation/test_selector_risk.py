@@ -192,7 +192,7 @@ def test_nested_policy_sets_reject_an_id_reintroduced_by_a_stronger_policy() -> 
         validate_nested_policy_sets(policies, baseline_ids={"a", "b"})
 
 
-def test_nested_policy_sets_require_p0_to_equal_the_frozen_topk_baseline() -> None:
+def test_nested_policy_sets_require_p0_to_equal_the_frozen_top_k_baseline() -> None:
     policies = tuple({"a"} for _ in range(7))
     with pytest.raises(ValueError, match="P0 must be exactly"):
         validate_nested_policy_sets(policies, baseline_ids={"a", "b"})

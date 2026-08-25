@@ -18,7 +18,6 @@ import platform
 import subprocess
 import sys
 import time
-from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -29,6 +28,7 @@ import full_flow_g230 as g230
 import full_flow_g310_seed13_screen as g310
 import full_flow_joint as joint
 from alce_metrics import ScoredExample, compute_citation_metrics
+
 from evidence_rag.contracts.models import (
     EvidenceCandidate,
     GenerationResult,
@@ -1114,7 +1114,9 @@ def score(
             return cache[key]
 
         entails = cached_entails
-        judge_call_count = lambda: len(cache)
+
+        def judge_call_count() -> int:
+            return len(cache)
     minicheck = _minicheck_task_metrics(
         configs=configs,
         evidence=canonical_evidence,
