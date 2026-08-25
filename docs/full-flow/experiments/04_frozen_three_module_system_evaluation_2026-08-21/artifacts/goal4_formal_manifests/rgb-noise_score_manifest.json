@@ -1,0 +1,35 @@
+{
+  "arms": {
+    "ablation_dense_retriever": {
+      "generation_sha256": "693ec912c87c08094fedc790c0dc56f143edfc93f7837ec913818bc5b014821b",
+      "judge_calls": 294,
+      "n_queries": 300,
+      "score_file": "/user/work/fl25387/experiment04_goal4_runs/rgb-noise/attempt-20260822a/scores/ablation_dense_retriever.json",
+      "score_sha256": "a97a5a75852f7e76734208e7fabcc3d248b619bf1154d5a1f22f011dd20eb59e"
+    },
+    "ablation_direct_generator": {
+      "generation_sha256": "49816f39c0124ebde50c5e464bcf9205b23b2aa7d5cfdb261c7b35fcf808f0cf",
+      "judge_calls": 1153,
+      "n_queries": 300,
+      "score_file": "/user/work/fl25387/experiment04_goal4_runs/rgb-noise/attempt-20260822a/scores/ablation_direct_generator.json",
+      "score_sha256": "3c2c207c22eabf474ea2725dfd2089a3026f0273504dc6be4ce4e65e412a8051"
+    },
+    "ablation_top10": {
+      "generation_sha256": "830685a7303920f556eef87b307ce3d1b7302b3c2a75455ac51a76f3824aeb85",
+      "judge_calls": 292,
+      "n_queries": 300,
+      "score_file": "/user/work/fl25387/experiment04_goal4_runs/rgb-noise/attempt-20260822a/scores/ablation_top10.json",
+      "score_sha256": "8f03129818ac85d1b3d955bb85cd1f5041c9be26da69313efdbb12239c190828"
+    }
+  },
+  "dataset": "rgb-noise",
+  "full_regenerated": false,
+  "generation_frozen_before_sidecar_read": true,
+  "generation_manifest_sha256": "e60ac3401883cb51bfe661f8409e87e5ffd412c22a9135d3c2e737713ffcb4da",
+  "minicheck_config_sha256": "d8e91aa8739d845d2572fa8db9cb6523d06208c14fedb8f7623f49283a305653",
+  "ordered_ids_sha256": "25ed22988cb9684a8de9fc74c603e79ef44792f0e3bfd4c3b9e74c2e2a301c87",
+  "query_count": 300,
+  "schema_version": "experiment04.goal4_dataset_score_manifest.v1",
+  "scorer_sidecar_sha256": "2ed3102dfa8db4d81e0759d67ccd35c0dfd693e00f385df9a57ef1a2f009b12f",
+  "status": "PASS"
+}

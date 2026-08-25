@@ -1,0 +1,43 @@
+{
+  "arms": [
+    "dense_rag",
+    "hybrid_rag",
+    "granite_rerank_rag",
+    "provence_rag",
+    "ours_seed13",
+    "ours_seed42",
+    "ours_seed73"
+  ],
+  "artifacts": {
+    "bootstrap_sha256": "e27afbbec668e089dc83c7025814dd997b0c8c425ef96c33bf3c11e429099c56",
+    "per_query_metrics_sha256": "ba7eb59b8eb6942852cf88065faed579c6080a1da9010a5c86ab1a8f899d97bf",
+    "table1_json_sha256": "6627247caa3109ee3c29b2de284ef3d67ad61dc93f330349ea97031bd07dae0f",
+    "table1_markdown_sha256": "ac3bef58cf0706deed915515a7e66ae6dbc92aafafeea4c23ac84bceea99378c"
+  },
+  "datasets": {
+    "hotpotqa": {
+      "directory": "/user/work/fl25387/experiment04_goal3_runs/hotpotqa/attempt-20260822d",
+      "generation_manifest_sha256": "08d7e627ce956628ae01c3effae65c385934ad6b85acd90f245eecebeb6fca15",
+      "score_manifest_sha256": "57276a17d6d0a450e1c19cc60142b8f7dd157afe743bf34707352ebb3acede1f"
+    },
+    "musique-answerable": {
+      "directory": "/user/work/fl25387/experiment04_goal3_runs/musique-answerable/attempt-20260822d",
+      "generation_manifest_sha256": "faffbf3bd31a0d74c0a200bc1d46a75a4d0f434b0b505ad89574ae6ce6b1eddf",
+      "score_manifest_sha256": "77ed67b75156eaa9245f8d20eda5dcc8456736f8a2f8e7847d0d346b331e0fa8"
+    },
+    "rgb-noise": {
+      "directory": "/user/work/fl25387/experiment04_goal3_runs/rgb-noise/attempt-20260822d",
+      "generation_manifest_sha256": "020cf9b379b70af9c3a2ea59e2312e984d5a0c2acd52d2167fd652ed3b4db67e",
+      "score_manifest_sha256": "f274004c65db9064bd77379cc5046eaed12de963b4666d3cef6080bfef234e00"
+    }
+  },
+  "expected_total_outputs": 7700,
+  "observed_total_outputs": 7700,
+  "ours_seed_policy": "all_three_independent_training_seeds_mean_sample_sd_no_selection",
+  "paired_rar_bootstrap": {
+    "resamples": 10000,
+    "seed": 13
+  },
+  "schema_version": "experiment04.goal3_audit.v1",
+  "status": "PASS"
+}

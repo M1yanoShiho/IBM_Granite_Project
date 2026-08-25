@@ -2,13 +2,30 @@
 
 **Date:** 2026-08-21
 
-**Status:** `CURRENT_STATE_INDEX_COMPLETE / LOCAL_DIRTY_CLEANED / REPORTS_ORGANIZED`
+**Status:** `CURRENT_STATE_INDEX_COMPLETE / THREE_MODULE_PLAN_ADDED`
 
 This file is the first place to read before continuing the project.  It separates the current usable route from paused work, historical evidence, server runtime outputs, and the cleaned local workspace.
 
 ## One-Sentence Current State
 
-The current frozen candidate is `SystemF-fast-S0-GQ-2026-08-21`: frozen Hybrid RRF Retriever + `S0` TopK keep-all Selector + frozen GQ Generator.  Final held-out H has not been run and still needs separate user authorization.
+The historical deadline-prioritized freeze is `SystemF-fast-S0-GQ-2026-08-21`.  After that freeze, the user directed the next system candidate to use the already-frozen Lean harm/protect Selector instead of `S0`; that three-module candidate is now connected and has passed a one-query wiring smoke, but it has not yet run the overall development experiment or any held-out evaluation.
+
+## Three-Module Wiring Update
+
+The new wiring-only candidate is:
+
+```text
+frozen Hybrid RRF Retriever
+-> frozen NLI harm/protect Selector (seed 13, q=.99, cap=2)
+-> frozen GQ GR-C Generator (seed-13 smoke member) + frozen TRUE verifier
+-> one answer
+```
+
+The single configuration entry point is `configs/experiments/systemf_three_module_smoke_seed13.toml`.  It binds the frozen Selector checkpoint, Generator adapter, Granite base snapshot and TRUE snapshot to their recorded SHA-256 values before loading them.
+
+The smoke used one synthetic development-only question and ten fixture documents.  All three real server modules loaded in one process; the Retriever produced ten candidates, the Selector emitted ten live harm/protect score rows, and the Generator returned `IBM acquired Red Hat in 2019.` with a verified citation.  The Selector deleted zero rows on this particular fixture, which is a valid conservative-policy outcome rather than a skipped module.
+
+This smoke establishes wiring only.  It is not evidence of overall quality improvement, does not supersede the historical I220 results, and does not authorize reading or scoring HotpotQA, MuSiQue-Full, RGB, or any other held-out data.  The separate overall experiment design is now frozen in `../04_frozen_three_module_system_evaluation_2026-08-21/PLAN.md`; no held-out run has started.
 
 ## What Is Paused
 
@@ -36,6 +53,7 @@ These are the current source-of-truth files:
 | Detailed stage reports | `reports/` |
 | Frozen fast-path system report | `reports/I220_SYSTEMF_FAST_FREEZE_REPORT.md` |
 | Frozen fast-path system manifest | `artifacts/I220/systemf_fast_s0_gq_freeze_manifest.json` |
+| Current three-module final experiment plan | `../04_frozen_three_module_system_evaluation_2026-08-21/PLAN.md` |
 
 ## Current Main Results
 
@@ -144,13 +162,8 @@ The experiment root is now intentionally small:
 
 Detailed stage reports live in `reports/`.  Machine-readable artifacts stay in `artifacts/`.
 
-## Recommended Next Discussion
+## Recommended Next Action
 
-Before any new experiment is launched, decide the final development plan in this order:
+The datasets, four baselines plus Ours, three ablations, statistics, runtime budget and artifact layout are now fixed in experiment 04 v4. The roadmap is split into five separately authorized goals. Only Goal 1 is currently open: prepare per-query data isolation and the scorer on synthetic or already-revealed development fixtures. Do not connect baselines, run the 10-arm smoke check, generate or score held-out answers, or begin Goal 2 until Goal 1 has passed and the user separately starts the next goal.
 
-1. Define the exact full-flow comparison we still need on development data.
-2. Decide whether existing Legacy Selector should be tested once more with frozen GQ as a diagnostic, or whether I200 already covers enough.
-3. Decide the final held-out authorization package: datasets, baselines, ablations, expected runtime, and stop rules.
-4. Only after that, launch H100 or any extra development run.
-
-Do not restart S110 unless the discussion concludes that Selector retraining is necessary and worth the time.
+Do not restart S110 and do not retrain or retune Selector unless the user explicitly opens a new route.

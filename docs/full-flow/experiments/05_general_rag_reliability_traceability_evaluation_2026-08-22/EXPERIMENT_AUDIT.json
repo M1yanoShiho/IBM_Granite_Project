@@ -1,0 +1,54 @@
+{
+  "schema_version": "experiment05.independent_integrity_audit.v1",
+  "audit_date": "2026-08-24",
+  "reviewer": {
+    "independent": true,
+    "model": "gpt-5.5",
+    "mode": "read-only"
+  },
+  "overall_verdict": "WARN",
+  "core_execution_verdict": "PASS",
+  "final_technical_status": "FINAL PASS",
+  "scientific_claims": {
+    "claim_a": "NOT SUPPORTED",
+    "claim_b": "NOT SUPPORTED"
+  },
+  "checks": {
+    "ground_truth_provenance": "PASS",
+    "score_normalization": "PASS",
+    "result_existence": "WARN",
+    "dead_code": "WARN",
+    "scope": "PASS",
+    "evaluation_type": "PASS"
+  },
+  "mechanical_recheck": {
+    "generation_files": 30,
+    "generation_outputs": 12000,
+    "scoring_arms": 30,
+    "query_scores": 12000,
+    "claim_traces": 12000,
+    "ordered_ids_match": true,
+    "scorer_errors": 0,
+    "bootstrap_datasets": 3,
+    "bootstrap_metrics_per_dataset": 6,
+    "bootstrap_resamples": 10000,
+    "bootstrap_seed": 13,
+    "bootstrap_all_estimable": true,
+    "bootstrap_invalid_ucr_replicates": 0,
+    "table1_rows": 15,
+    "table2_rows": 12,
+    "final_artifact_hashes_match": true,
+    "final_job": {
+      "job_id": "18686047",
+      "state": "COMPLETED",
+      "exit_code": "0:0",
+      "elapsed": "00:00:16"
+    }
+  },
+  "warn_reasons": [
+    "Local status documentation was stale when the independent reviewer inspected it; corrected after the finding.",
+    "compute_appendix_diagnostics is tested but not used by the final compiler; final appendix values are computed by a separate live path."
+  ],
+  "integrity_failures_found": false,
+  "goal5_reopened": false
+}

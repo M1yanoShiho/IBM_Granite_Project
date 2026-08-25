@@ -9,6 +9,6 @@
 - `docs/generator/`：只记录 Generator 的方法与模块实验；
 - `docs/full-flow/`：记录三个阶段如何连接，以及局部改善能否传递到最终答案。
 
-当前入口：[Selector–Generator 跨阶段桥接实验](experiments/01_selector_generator_bridge_2026-08-12/README.md)。
+当前入口：[冻结三模块系统完整评估](experiments/04_frozen_three_module_system_evaluation_2026-08-21/README.md)。该路线使用五个防偏移执行目标并在 PASS 后自动接力；Goal 2 已 `PASS (= READY)`，Goal 3 当前 active。其 runner/评分实现与公开模型缓存已就绪，但冻结自定义 checkpoint 需从备份恢复；尚未生成或评分 held-out。
 
 全部文件与状态见 [MANIFEST.md](MANIFEST.md)。

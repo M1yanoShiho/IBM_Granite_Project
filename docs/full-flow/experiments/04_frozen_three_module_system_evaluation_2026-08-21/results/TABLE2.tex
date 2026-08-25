@@ -1,0 +1,25 @@
+\begin{table*}[t]
+\centering
+\caption{Frozen single-module ablations (percent). Full reuses Goal 3 seed 13.}
+\label{tab:experiment04-ablation}
+\begin{tabular}{llrrrrr}
+\toprule
+Dataset & Configuration & Ret. & Sel. & Ans. & Cit. & RAR \\
+\midrule
+hotpotqa & Full & 100.00 & 99.88 & 13.45 & 63.17 & 0.25 \\
+ & w/ Dense Retriever & 100.00 & 99.88 & 13.92 & 66.47 & 0.25 \\
+ & w/ Top-10 & 100.00 & 100.00 & 13.53 & 63.17 & 0.25 \\
+ & w/ Direct Generator & 100.00 & 99.88 & 25.76 & 45.29 & 3.50 \\
+\midrule
+musique-answerable & Full & 84.92 & 84.92 & 6.60 & 41.53 & 0.00 \\
+ & w/ Dense Retriever & 87.98 & 87.90 & 7.05 & 41.34 & 0.00 \\
+ & w/ Top-10 & 84.92 & 84.92 & 6.60 & 41.53 & 0.00 \\
+ & w/ Direct Generator & 84.92 & 84.92 & 15.81 & 27.83 & 1.00 \\
+\midrule
+rgb-noise & Full & 47.85 & 46.25 & 0.00 & 90.56 & 0.00 \\
+ & w/ Dense Retriever & 46.67 & 46.22 & 0.00 & 89.47 & 0.00 \\
+ & w/ Top-10 & 47.85 & 46.27 & 0.00 & 90.56 & 0.00 \\
+ & w/ Direct Generator & 47.85 & 46.25 & 0.67 & 79.11 & 0.67 \\
+\bottomrule
+\end{tabular}
+\end{table*}

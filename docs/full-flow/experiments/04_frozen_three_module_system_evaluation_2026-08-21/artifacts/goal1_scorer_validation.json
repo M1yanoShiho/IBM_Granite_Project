@@ -1,0 +1,59 @@
+{
+  "checks": {
+    "aggregate_known_answers": true,
+    "all_metrics_keep_common_denominator": true,
+    "ans_hotpot_musique_token_f1": true,
+    "ans_rgb_accuracy": true,
+    "cit_harmonic_f1": true,
+    "empty_answer_zeroed": true,
+    "failure_reasons_machine_readable": true,
+    "generation_failure_zeroed_not_dropped": true,
+    "invalid_citation_zeroes_cit_rar": true,
+    "missing_output_zeroed_not_dropped": true,
+    "rar_exact_valid_fully_supported": true,
+    "rar_rejects_non_exact_or_partial_support": true,
+    "ret_known_answer": true,
+    "scoring_failure_zeroed_not_dropped": true,
+    "sel_same_gold_denominator": true
+  },
+  "denominators": {
+    "ans": 8,
+    "cit": 8,
+    "rar": 8,
+    "ret": 8,
+    "sel": 8
+  },
+  "expected_aggregate": {
+    "ans": 0.4375,
+    "cit": 0.3333333333333333,
+    "rar": 0.25,
+    "ret": 0.8125,
+    "sel": 0.75
+  },
+  "failure_counts": {
+    "empty_answer": 1,
+    "generation_failure": 1,
+    "invalid_citation": 1,
+    "missing_output": 1,
+    "scoring_failure": 1
+  },
+  "fixture": "synthetic_revealed_only",
+  "metric_definitions": {
+    "ans": "token F1 for HotpotQA/MuSiQue; normalized exact accuracy for RGB",
+    "cit": "macro per-query F1 from frozen MiniCheck precision/recall",
+    "rar": "normalized alias exact match + legal citation + MiniCheck precision=recall=1",
+    "ret": "macro support-unit recall in Retriever final Top10",
+    "sel": "macro support-unit recall in final Generator context, using Ret. denominator"
+  },
+  "minicheck_model_run": false,
+  "n_fixture_queries": 8,
+  "observed_aggregate": {
+    "ans": 0.4375,
+    "cit": 0.3333333333333333,
+    "rar": 0.25,
+    "ret": 0.8125,
+    "sel": 0.75
+  },
+  "overall_pass": true,
+  "validation_version": "experiment04.goal1.scorer_validation.v1"
+}

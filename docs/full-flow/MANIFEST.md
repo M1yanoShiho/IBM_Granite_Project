@@ -1,6 +1,6 @@
 # Full-flow 文档清单
 
-**更新时间：** 2026-08-18
+**更新时间：** 2026-08-22
 
 | 文件 | 用途 | 状态 |
 |---|---|---|
@@ -26,6 +26,19 @@
 | [`experiments/03_generator_grounding_repair_2026-08-18/PLAN.md`](experiments/03_generator_grounding_repair_2026-08-18/PLAN.md) | Generator 修复、冻结教师、Utility Selector 和完整系统分阶段计划 | revised-draft-for-review |
 | [`experiments/03_generator_grounding_repair_2026-08-18/TRACKER.md`](experiments/03_generator_grounding_repair_2026-08-18/TRACKER.md) | G000–H100 条件执行表 | revised-planned |
 | [`experiments/03_generator_grounding_repair_2026-08-18/snapshots/PLAN_v1_generator_only_2026-08-18.md`](experiments/03_generator_grounding_repair_2026-08-18/snapshots/PLAN_v1_generator_only_2026-08-18.md) | 修订前的 Generator-only 严格资格门方案 | superseded-snapshot |
+| [`experiments/04_frozen_three_module_system_evaluation_2026-08-21/README.md`](experiments/04_frozen_three_module_system_evaluation_2026-08-21/README.md) | 冻结三模块系统最终实验的零基础入口 | current |
+| [`experiments/04_frozen_three_module_system_evaluation_2026-08-21/PLAN.md`](experiments/04_frozen_three_module_system_evaluation_2026-08-21/PLAN.md) | 五个独立目标组成的总路线、实验矩阵、公平规则与停止边界 | v4-master-roadmap |
+| [`experiments/04_frozen_three_module_system_evaluation_2026-08-21/TRACKER.md`](experiments/04_frozen_three_module_system_evaluation_2026-08-21/TRACKER.md) | 五个独立目标的启动条件和执行状态 | v4-current |
+| [`experiments/04_frozen_three_module_system_evaluation_2026-08-21/GOAL_1_HANDOFF.md`](experiments/04_frozen_three_module_system_evaluation_2026-08-21/GOAL_1_HANDOFF.md) | 数据与评分准备目标的独立交接和强制停止边界 | complete-pass-stopped |
+| [`experiments/04_frozen_three_module_system_evaluation_2026-08-21/reports/GOAL2_SYSTEM_WIRING_READINESS.md`](experiments/04_frozen_three_module_system_evaluation_2026-08-21/reports/GOAL2_SYSTEM_WIRING_READINESS.md) | 10-arm 接线、真实 baseline GPU smoke、隔离和自动测试的 Goal 2 交付 | complete-pass-ready |
+| [`experiments/04_frozen_three_module_system_evaluation_2026-08-21/reports/GOAL3_EXECUTION_READINESS.md`](experiments/04_frozen_three_module_system_evaluation_2026-08-21/reports/GOAL3_EXECUTION_READINESS.md) | 七臂 runner、评分/统计、服务器准备与冻结 checkpoint 恢复阻塞证据 | active-restore-blocker |
+| [`experiments/04_frozen_three_module_system_evaluation_2026-08-21/RESULT_TABLES.md`](experiments/04_frozen_three_module_system_evaluation_2026-08-21/RESULT_TABLES.md) | 两张英文报告表：五系统主表与模块消融表 | v4-compatible-template |
+| [`experiments/04_frozen_three_module_system_evaluation_2026-08-21/snapshots/PLAN_v1_2026-08-21.md`](experiments/04_frozen_three_module_system_evaluation_2026-08-21/snapshots/PLAN_v1_2026-08-21.md) | 被 v2 取代的首版系统实验计划 | superseded-snapshot |
+| [`experiments/04_frozen_three_module_system_evaluation_2026-08-21/snapshots/RESULT_TABLES_v1_2026-08-21.md`](experiments/04_frozen_three_module_system_evaluation_2026-08-21/snapshots/RESULT_TABLES_v1_2026-08-21.md) | 被 v2 取代的首版表格模板 | superseded-snapshot |
+| [`experiments/04_frozen_three_module_system_evaluation_2026-08-21/snapshots/PLAN_v2_2026-08-22.md`](experiments/04_frozen_three_module_system_evaluation_2026-08-21/snapshots/PLAN_v2_2026-08-22.md) | 被 v3 取代的两个 baseline 计划 | superseded-snapshot |
+| [`experiments/04_frozen_three_module_system_evaluation_2026-08-21/snapshots/RESULT_TABLES_v2_2026-08-22.md`](experiments/04_frozen_three_module_system_evaluation_2026-08-21/snapshots/RESULT_TABLES_v2_2026-08-22.md) | 被 v3 取代的两个 baseline 表格模板 | superseded-snapshot |
+| [`experiments/04_frozen_three_module_system_evaluation_2026-08-21/snapshots/PLAN_v3_2026-08-22.md`](experiments/04_frozen_three_module_system_evaluation_2026-08-21/snapshots/PLAN_v3_2026-08-22.md) | 改为五个独立目标前的单一连续计划 | superseded-snapshot |
+| [`experiments/04_frozen_three_module_system_evaluation_2026-08-21/snapshots/TRACKER_v3_2026-08-22.md`](experiments/04_frozen_three_module_system_evaluation_2026-08-21/snapshots/TRACKER_v3_2026-08-22.md) | 改为五个独立目标前的逐步骤跟踪表 | superseded-snapshot |
 
 ## 更新规则
 

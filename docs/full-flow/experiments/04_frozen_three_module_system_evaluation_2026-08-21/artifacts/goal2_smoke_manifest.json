@@ -1,0 +1,183 @@
+{
+  "all_arms_completed": true,
+  "arm_count": 10,
+  "arms": [
+    {
+      "answer_present": true,
+      "arm_id": "dense_rag",
+      "canonical_output_sha256": "938af08506e4ff9444d78d04008a86f657cc97975d2fbbc44177155c83e8f081",
+      "completed_queries": 1,
+      "gold_leakage_keys": [],
+      "modules": {
+        "generator": "direct",
+        "generator_seed": null,
+        "retriever": "dense",
+        "selector": "keep-all"
+      },
+      "retrieval_trace_present": true,
+      "score_present": true,
+      "scorer_readable": true,
+      "selected_context_present": true
+    },
+    {
+      "answer_present": true,
+      "arm_id": "hybrid_rag",
+      "canonical_output_sha256": "5ff12f83af5788aed1e390354e1f37e98a9600c5ec8e8fee9f1a97dbda4b87fc",
+      "completed_queries": 1,
+      "gold_leakage_keys": [],
+      "modules": {
+        "generator": "direct",
+        "generator_seed": null,
+        "retriever": "hybrid",
+        "selector": "keep-all"
+      },
+      "retrieval_trace_present": true,
+      "score_present": true,
+      "scorer_readable": true,
+      "selected_context_present": true
+    },
+    {
+      "answer_present": true,
+      "arm_id": "granite_rerank_rag",
+      "canonical_output_sha256": "b6749cb33b9a2b5d761ad9ddbd34c76a1f20c5ea6cd1fb245ba96120c021b96a",
+      "completed_queries": 1,
+      "gold_leakage_keys": [],
+      "modules": {
+        "generator": "direct",
+        "generator_seed": null,
+        "retriever": "granite-rerank",
+        "selector": "keep-all"
+      },
+      "retrieval_trace_present": true,
+      "score_present": true,
+      "scorer_readable": true,
+      "selected_context_present": true
+    },
+    {
+      "answer_present": true,
+      "arm_id": "provence_rag",
+      "canonical_output_sha256": "8c4edb013ebb296e8cf19117c958a73efe9fa356b24d09c4c802c2cdabe2f60a",
+      "completed_queries": 1,
+      "gold_leakage_keys": [],
+      "modules": {
+        "generator": "direct",
+        "generator_seed": null,
+        "retriever": "hybrid",
+        "selector": "provence"
+      },
+      "retrieval_trace_present": true,
+      "score_present": true,
+      "scorer_readable": true,
+      "selected_context_present": true
+    },
+    {
+      "answer_present": true,
+      "arm_id": "ours_seed13",
+      "canonical_output_sha256": "01d3784a200e3085ec3d4263fc5010a5f96903f17cbfbf1a62d8b1dda2358943",
+      "completed_queries": 1,
+      "gold_leakage_keys": [],
+      "modules": {
+        "generator": "grounded-grc",
+        "generator_seed": 13,
+        "retriever": "hybrid",
+        "selector": "nli-risk-controlled"
+      },
+      "retrieval_trace_present": true,
+      "score_present": true,
+      "scorer_readable": true,
+      "selected_context_present": true
+    },
+    {
+      "answer_present": true,
+      "arm_id": "ours_seed42",
+      "canonical_output_sha256": "b74417ba509ce069084bc86ae117b9bb9487fe10b801286dccdd24acf5ca73d7",
+      "completed_queries": 1,
+      "gold_leakage_keys": [],
+      "modules": {
+        "generator": "grounded-grc",
+        "generator_seed": 42,
+        "retriever": "hybrid",
+        "selector": "nli-risk-controlled"
+      },
+      "retrieval_trace_present": true,
+      "score_present": true,
+      "scorer_readable": true,
+      "selected_context_present": true
+    },
+    {
+      "answer_present": true,
+      "arm_id": "ours_seed73",
+      "canonical_output_sha256": "7c462fdc4d9d274a84c38fc5b8abae4f67505052ba5282f2ee1147646e25a910",
+      "completed_queries": 1,
+      "gold_leakage_keys": [],
+      "modules": {
+        "generator": "grounded-grc",
+        "generator_seed": 73,
+        "retriever": "hybrid",
+        "selector": "nli-risk-controlled"
+      },
+      "retrieval_trace_present": true,
+      "score_present": true,
+      "scorer_readable": true,
+      "selected_context_present": true
+    },
+    {
+      "answer_present": true,
+      "arm_id": "ablation_dense_retriever",
+      "canonical_output_sha256": "750fe93dfb3922bad6fc47b539ba144209ffe896dbfbcdbbb958f651e52fddbf",
+      "completed_queries": 1,
+      "gold_leakage_keys": [],
+      "modules": {
+        "generator": "grounded-grc",
+        "generator_seed": 13,
+        "retriever": "dense",
+        "selector": "nli-risk-controlled"
+      },
+      "retrieval_trace_present": true,
+      "score_present": true,
+      "scorer_readable": true,
+      "selected_context_present": true
+    },
+    {
+      "answer_present": true,
+      "arm_id": "ablation_top10",
+      "canonical_output_sha256": "916df925c909c26e18f2fb329a0de42f419afd4da1ec7e52efa4f376456e41dd",
+      "completed_queries": 1,
+      "gold_leakage_keys": [],
+      "modules": {
+        "generator": "grounded-grc",
+        "generator_seed": 13,
+        "retriever": "hybrid",
+        "selector": "keep-all"
+      },
+      "retrieval_trace_present": true,
+      "score_present": true,
+      "scorer_readable": true,
+      "selected_context_present": true
+    },
+    {
+      "answer_present": true,
+      "arm_id": "ablation_direct_generator",
+      "canonical_output_sha256": "3ae7b7e614130834f03758d7a79a24287472e4cd6959a13ecf15658913206647",
+      "completed_queries": 1,
+      "gold_leakage_keys": [],
+      "modules": {
+        "generator": "direct",
+        "generator_seed": null,
+        "retriever": "hybrid",
+        "selector": "nli-risk-controlled"
+      },
+      "retrieval_trace_present": true,
+      "score_present": true,
+      "scorer_readable": true,
+      "selected_context_present": true
+    }
+  ],
+  "expected_arm_count": 10,
+  "fixture_kind": "revealed_synthetic_development",
+  "fixture_query_count": 1,
+  "formal_output_directory_empty": true,
+  "runtime_output_directory": "runs/experiment04/goal2-development-smoke",
+  "schema_version": "experiment04.goal2_smoke.v1",
+  "status": "PASS"
+}

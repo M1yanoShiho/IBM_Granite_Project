@@ -1,0 +1,174 @@
+{
+  "schema_version": "experiment04.goal3_execution_readiness.v1",
+  "checked_at": "2026-08-22",
+  "goal": 3,
+  "status": "COMPLETE_PASS",
+  "heldout_generation_started": true,
+  "heldout_scoring_started": true,
+  "sealed_inputs": {
+    "runtime_directory": "/user/work/fl25387/experiment04_goal3_inputs/runtime",
+    "scorer_only_directory": "/user/work/fl25387/experiment04_goal3_scorer_only",
+    "scorer_only_mode": "0700",
+    "all_six_file_hashes_match_goal1": true,
+    "generation_process_receives_scorer_path": false
+  },
+  "public_model_cache": {
+    "directory": "/user/work/fl25387/experiment04_goal3_cache",
+    "selector_backbone_hashes_verified": true,
+    "true_runtime_verifier_hashes_verified": true,
+    "previously_cached_goal2_models_reused": true,
+    "cache_size_after_verification": "60G",
+    "status": "PASS"
+  },
+  "runtime_dependencies": {
+    "spacy": "3.8.15",
+    "en_core_web_sm": "3.8.0"
+  },
+  "checkpoint_audits": [
+    {
+      "slurm_job": "18671757",
+      "node": "bp1-compute049",
+      "state": "COMPLETED",
+      "exit_code": "0:0",
+      "result": "ALL_SEVEN_EXPECTED_FILES_MISSING"
+    },
+    {
+      "slurm_job": "18671828",
+      "node": "bp1-gpu037",
+      "state": "COMPLETED",
+      "exit_code": "0:0",
+      "result": "ALL_SEVEN_EXPECTED_FILES_MISSING"
+    },
+    {
+      "slurm_job": "18672935",
+      "node": "bp1-gpu035",
+      "state": "COMPLETED",
+      "exit_code": "0:0",
+      "result": "ALL_SEVEN_EXPECTED_FILES_MISSING"
+    },
+    {
+      "slurm_job": "18672936",
+      "node": "bp1-gpu036",
+      "state": "COMPLETED",
+      "exit_code": "0:0",
+      "result": "ALL_SEVEN_EXPECTED_FILES_MISSING"
+    },
+    {
+      "slurm_job": "18672937",
+      "node": "bp1-gpu040",
+      "state": "COMPLETED",
+      "exit_code": "0:0",
+      "result": "ALL_SEVEN_EXPECTED_FILES_MISSING"
+    }
+  ],
+  "required_custom_files": {
+    "selector_seed13/model.safetensors": "86622bd9ab6391c9eb560133b01b0cf3744c3706638ff8b0bd38925b84bf72bf",
+    "grc_seed13/adapter_model.safetensors": "492d336c7acc32785becded707220dbdf1a8acf9a895630147fc4e8cd28d0707",
+    "grc_seed13/adapter_config.json": "1918333d819e6007d3faf17d3497c4f4665f7c0d3cb032f510986cfdb9837942",
+    "grc_seed42/adapter_model.safetensors": "96d8087e1dbed831ad795fb7a037677eeb7e2d6986a91df61a897b9c1b6d383c",
+    "grc_seed42/adapter_config.json": "df6c8e4c39f3d7567849a4a32355aea4bb9176c784d089832fe14a8697a2d8f8",
+    "grc_seed73/adapter_model.safetensors": "d5f90954f3ac2829a213ab7c3b04e6d26b89990c42e95306bc74743d1ac2431c",
+    "grc_seed73/adapter_config.json": "f1659959d9ffe7348c370e9f01a497066710793c9754e9d06c5d8963aaf45dd1"
+  },
+  "restore_directory": "/user/work/fl25387/experiment04_goal3_custom_checkpoints",
+  "checkpoint_restore": {
+    "source_host": "it097952",
+    "source_file_hashes_match_frozen_manifest": true,
+    "destination_file_hashes_match_frozen_manifest": true,
+    "destination_file_mode": "0600",
+    "retrained": false,
+    "substituted": false,
+    "status": "PASS"
+  },
+  "formal_preflight": {
+    "status": "PASS",
+    "datasets": {
+      "hotpotqa": 400,
+      "musique-answerable": 400,
+      "rgb-noise": 300
+    },
+    "substitution_allowed": false,
+    "retraining_allowed": false
+  },
+  "invalid_first_attempt": {
+    "attempt_id": "attempt-20260822a",
+    "hotpotqa_job": "18673236",
+    "hotpotqa_state": "CANCELLED",
+    "musique_answerable_job": "18673237",
+    "musique_answerable_state": "CANCELLED",
+    "rgb_noise_job": "18673238",
+    "rgb_noise_state": "FAILED",
+    "scorer_started": false,
+    "outputs_eligible_for_table1": false,
+    "cross_attempt_reuse_allowed": false
+  },
+  "prompt_budget_repair": {
+    "status": "PASS",
+    "frozen_max_input_tokens": 2304,
+    "method": "rank_ordered_maximal_whole_evidence_prefix",
+    "sealed_arm_query_contexts_checked": 7700,
+    "contexts_shortened": 602,
+    "overflow_after_repair": 0,
+    "manifest": "artifacts/goal3_prompt_budget_repair_manifest.json"
+  },
+  "launch_only_failed_attempt": {
+    "attempt_id": "attempt-20260822b",
+    "hotpotqa_job": "18674659",
+    "musique_answerable_job": "18674660",
+    "rgb_noise_job": "18674661",
+    "all_states": "FAILED",
+    "elapsed_each": "00:00:06",
+    "failure_stage": "preflight_before_runtime_read",
+    "reason": "selector_directory_passed_instead_of_checkpoint_file",
+    "heldout_generation_started": false,
+    "scorer_started": false
+  },
+  "prelaunch_cancelled_attempt": {
+    "attempt_id": "attempt-20260822c",
+    "hotpotqa_job": "18674663",
+    "musique_answerable_job": "18674664",
+    "rgb_noise_job": "18674665",
+    "all_states": "CANCELLED",
+    "elapsed_each": "00:00:00",
+    "reason": "runtime_directory_detected_in_login_node_precheck_before_scheduler_start",
+    "heldout_generation_started": false,
+    "scorer_started": false
+  },
+  "formal_jobs": {
+    "attempt_id": "attempt-20260822d",
+    "hotpotqa": "18674672",
+    "musique-answerable": "18674673",
+    "rgb-noise": "18674674",
+    "submission_state": "COMPLETED",
+    "node": "bp1-gpu035",
+    "in_job_preflight_status": "PASS",
+    "independent_preflight_counts": {
+      "hotpotqa": 400,
+      "musique-answerable": 400,
+      "rgb-noise": 300
+    },
+    "all_seven_arms_per_dataset_in_one_job": true,
+    "scorer_only_after_generation_freeze": true
+  },
+  "final_result": {
+    "status": "PASS",
+    "expected_outputs": 7700,
+    "observed_outputs": 7700,
+    "all_arm_runtime_errors": 0,
+    "table1_complete": true,
+    "paired_rar_ci_complete": true,
+    "goal3_audit": "results/goal3_audit.json",
+    "pass_manifest": "artifacts/goal3_pass_manifest.json"
+  },
+  "implementation_validation": {
+    "local_goal3_tests": 19,
+    "server_goal3_tests": 19,
+    "local_full_regression_excluding_known_stale_experiment03_assertion": "PASS",
+    "local_targeted_ruff": "PASS",
+    "server_targeted_ruff": "PASS",
+    "repository_wide_ruff": "26_PRE_EXISTING_UNRELATED_FINDINGS",
+    "local_full_mypy_source_files": 137,
+    "mypy_goal3_modules": "PASS",
+    "slurm_syntax": "PASS"
+  }
+}

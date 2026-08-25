@@ -1,0 +1,84 @@
+{
+  "schema_version": "experiment04.goal3_prompt_budget_repair.v1",
+  "checked_at": "2026-08-22",
+  "goal": 3,
+  "status": "PASS_READY_FOR_FULL_RERUN",
+  "scope": "generation_prompt_budget_only",
+  "heldout_content_inspected": false,
+  "heldout_answers_inspected": false,
+  "heldout_support_labels_inspected": false,
+  "scorer_started_on_invalid_attempts": false,
+  "invalid_attempts": {
+    "attempt_id": "attempt-20260822a",
+    "cross_job_results_reused": false,
+    "datasets": {
+      "hotpotqa": {
+        "slurm_job": "18673236",
+        "state": "CANCELLED",
+        "generation_frozen": false,
+        "reason": "prompt_overflow_above_one_percent_in_completed_baseline_arms"
+      },
+      "musique-answerable": {
+        "slurm_job": "18673237",
+        "state": "CANCELLED",
+        "generation_frozen": false,
+        "reason": "full_rerun_required_for_one_repaired_implementation_across_all_datasets"
+      },
+      "rgb-noise": {
+        "slurm_job": "18673238",
+        "state": "FAILED",
+        "exit_code": "2:0",
+        "generation_frozen": true,
+        "bundle_status": "INVALID_REQUIRES_FULL_RERUN",
+        "reason": "runtime_error_rate_above_one_percent"
+      }
+    }
+  },
+  "diagnosis": {
+    "method": "machine_only_exact_chat_prompt_token_counts",
+    "runtime_errors_equal_prompt_overflows": true,
+    "runtime_error_without_overflow": 0,
+    "overflow_without_runtime_error": 0,
+    "frozen_max_input_tokens": 2304,
+    "error_type": "generation_valueerror",
+    "content_or_label_access_required": false
+  },
+  "repair_contract": {
+    "max_input_tokens_changed": false,
+    "silent_token_truncation_enabled": false,
+    "selection": "rank_ordered_maximal_whole_evidence_prefix",
+    "skip_middle_units": false,
+    "partial_evidence_units": false,
+    "actual_budgeted_source_and_unit_ids_recorded": true,
+    "applied_to_all_seven_arms": true,
+    "fresh_full_dataset_bundles_required": true
+  },
+  "sealed_runtime_audit": {
+    "arm_query_contexts_checked": 7700,
+    "contexts_shortened": 602,
+    "overflow_after_repair": 0,
+    "maximum_exact_chat_prompt_tokens_after_repair": {
+      "hotpotqa": 2303,
+      "musique-answerable": 2300,
+      "rgb-noise": 2303
+    },
+    "budget_induced_empty_contexts_in_non_provence_arms": 0
+  },
+  "validation": {
+    "local_targeted_tests": 19,
+    "server_targeted_tests": 19,
+    "local_full_regression_excluding_recorded_stale_experiment03_assertion": "PASS",
+    "targeted_ruff": "PASS",
+    "server_targeted_ruff": "PASS",
+    "mypy_src": "PASS",
+    "mypy_source_files": 137,
+    "full_ruff": "NOT_A_GOAL3_GATE_26_PRE_EXISTING_UNRELATED_FINDINGS",
+    "slurm_syntax": "PASS"
+  },
+  "implementation_sha256": {
+    "src/evidence_rag/generator/granite.py": "804c732d8e1fe9e52b1bffaab7e9487e04a78544ef937e3802cfa34565fa5661",
+    "src/evidence_rag/evaluation/experiment04_goal3.py": "82a24c675f8be6057eecf3aaa6318ee114da075dae6c072f9245b4a41b2fc29f",
+    "scripts/experiment04_goal3.py": "8a8f91987f092dd51deb65c864b37cec5c5f06d4a777920cdd6cb9a6b016e064",
+    "scripts/run_experiment04_goal3_dataset.slurm": "679c8df066eeb1ec4db22ff3261bafe1ea4b8dc42fe9104aa99c87de4fba3613"
+  }
+}

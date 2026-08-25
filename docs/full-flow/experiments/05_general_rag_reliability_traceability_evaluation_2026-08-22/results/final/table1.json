@@ -1,0 +1,422 @@
+{
+  "alce-asqa": [
+    {
+      "metrics": {
+        "cp": 0.3832680375180375,
+        "cr": 0.43544318181818187,
+        "rfc": 0.24612500000000004,
+        "rr": 0.9,
+        "ucr": 0.2711864406779661,
+        "vrfc": 0.149125
+      },
+      "n_answered": 360,
+      "n_claims": 413,
+      "n_runtime_error": 0,
+      "n_scorer_error": 0,
+      "n_total": 400,
+      "n_undefined_ucr": 40,
+      "system": "BM25 RAG"
+    },
+    {
+      "metrics": {
+        "cp": 0.42900793650793667,
+        "cr": 0.4933749999999999,
+        "rfc": 0.2999583333333333,
+        "rr": 0.9425,
+        "ucr": 0.20689655172413793,
+        "vrfc": 0.16604166666666664
+      },
+      "n_answered": 377,
+      "n_claims": 435,
+      "n_runtime_error": 0,
+      "n_scorer_error": 0,
+      "n_total": 400,
+      "n_undefined_ucr": 23,
+      "system": "Hybrid RAG"
+    },
+    {
+      "metrics": {
+        "cp": 0.47748115079365067,
+        "cr": 0.5742083333333333,
+        "rfc": 0.33325000000000005,
+        "rr": 0.97,
+        "ucr": 0.1581196581196581,
+        "vrfc": 0.21420833333333322
+      },
+      "n_answered": 388,
+      "n_claims": 468,
+      "n_runtime_error": 0,
+      "n_scorer_error": 0,
+      "n_total": 400,
+      "n_undefined_ucr": 12,
+      "system": "Granite Rerank RAG"
+    },
+    {
+      "metrics": {
+        "cp": 0.46310073260073253,
+        "cr": 0.5456458333333334,
+        "rfc": 0.28670833333333334,
+        "rr": 0.9175,
+        "ucr": 0.2571428571428571,
+        "vrfc": 0.1822083333333333
+      },
+      "n_answered": 367,
+      "n_claims": 420,
+      "n_runtime_error": 0,
+      "n_scorer_error": 0,
+      "n_total": 400,
+      "n_undefined_ucr": 33,
+      "system": "Provence RAG"
+    },
+    {
+      "metrics": {
+        "cp": {
+          "by_seed": {
+            "ours_seed13": 0.5683333333333334,
+            "ours_seed42": 0.5820833333333333,
+            "ours_seed73": 0.5658333333333334
+          },
+          "mean": 0.5720833333333334,
+          "sample_sd": 0.00874999999999994
+        },
+        "cr": {
+          "by_seed": {
+            "ours_seed13": 0.58,
+            "ours_seed42": 0.59625,
+            "ours_seed73": 0.5775
+          },
+          "mean": 0.5845833333333333,
+          "sample_sd": 0.01018065976905882
+        },
+        "rfc": {
+          "by_seed": {
+            "ours_seed13": 0.22599999999999995,
+            "ours_seed42": 0.230875,
+            "ours_seed73": 0.23920833333333336
+          },
+          "mean": 0.23202777777777778,
+          "sample_sd": 0.006679198291323239
+        },
+        "rr": {
+          "by_seed": {
+            "ours_seed13": 0.9175,
+            "ours_seed42": 0.905,
+            "ours_seed73": 0.885
+          },
+          "mean": 0.9025,
+          "sample_sd": 0.01639359631075499
+        },
+        "ucr": {
+          "by_seed": {
+            "ours_seed13": 0.21951219512195122,
+            "ours_seed42": 0.2032967032967033,
+            "ours_seed73": 0.2084507042253521
+          },
+          "mean": 0.2104198675480022,
+          "sample_sd": 0.008285152196980049
+        },
+        "vrfc": {
+          "by_seed": {
+            "ours_seed13": 0.179875,
+            "ours_seed42": 0.18400000000000002,
+            "ours_seed73": 0.1844166666666667
+          },
+          "mean": 0.18276388888888892,
+          "sample_sd": 0.0025105103140670632
+        }
+      },
+      "n_claims_by_seed": {
+        "ours_seed13": 369,
+        "ours_seed42": 364,
+        "ours_seed73": 355
+      },
+      "n_runtime_error_by_seed": {
+        "ours_seed13": 0,
+        "ours_seed42": 0,
+        "ours_seed73": 0
+      },
+      "n_total": 400,
+      "system": "Ours"
+    }
+  ],
+  "kilt-nq": [
+    {
+      "metrics": {
+        "cp": 0.4056432005494506,
+        "cr": 0.4445416666666666,
+        "rfc": 0.475,
+        "rr": 0.9425,
+        "ucr": 0.3091334894613583,
+        "vrfc": 0.2625
+      },
+      "n_answered": 377,
+      "n_claims": 427,
+      "n_runtime_error": 0,
+      "n_scorer_error": 0,
+      "n_total": 400,
+      "n_undefined_ucr": 23,
+      "system": "BM25 RAG"
+    },
+    {
+      "metrics": {
+        "cp": 0.4959583333333334,
+        "cr": 0.5502380952380952,
+        "rfc": 0.6075,
+        "rr": 0.965,
+        "ucr": 0.17339667458432304,
+        "vrfc": 0.375
+      },
+      "n_answered": 386,
+      "n_claims": 421,
+      "n_runtime_error": 0,
+      "n_scorer_error": 0,
+      "n_total": 400,
+      "n_undefined_ucr": 14,
+      "system": "Hybrid RAG"
+    },
+    {
+      "metrics": {
+        "cp": 0.4929568556443557,
+        "cr": 0.572576388888889,
+        "rfc": 0.64,
+        "rr": 0.9675,
+        "ucr": 0.18018018018018017,
+        "vrfc": 0.4125
+      },
+      "n_answered": 387,
+      "n_claims": 444,
+      "n_runtime_error": 0,
+      "n_scorer_error": 0,
+      "n_total": 400,
+      "n_undefined_ucr": 13,
+      "system": "Granite Rerank RAG"
+    },
+    {
+      "metrics": {
+        "cp": 0.5030069444444443,
+        "cr": 0.5726666666666667,
+        "rfc": 0.605,
+        "rr": 0.955,
+        "ucr": 0.19911504424778761,
+        "vrfc": 0.4
+      },
+      "n_answered": 382,
+      "n_claims": 452,
+      "n_runtime_error": 0,
+      "n_scorer_error": 0,
+      "n_total": 400,
+      "n_undefined_ucr": 18,
+      "system": "Provence RAG"
+    },
+    {
+      "metrics": {
+        "cp": {
+          "by_seed": {
+            "ours_seed13": 0.6095833333333334,
+            "ours_seed42": 0.5858333333333333,
+            "ours_seed73": 0.6045833333333334
+          },
+          "mean": 0.6,
+          "sample_sd": 0.012520816001097293
+        },
+        "cr": {
+          "by_seed": {
+            "ours_seed13": 0.62,
+            "ours_seed42": 0.5975,
+            "ours_seed73": 0.6154166666666667
+          },
+          "mean": 0.6109722222222222,
+          "sample_sd": 0.011890219292124709
+        },
+        "rfc": {
+          "by_seed": {
+            "ours_seed13": 0.5075,
+            "ours_seed42": 0.5175,
+            "ours_seed73": 0.5075
+          },
+          "mean": 0.5108333333333333,
+          "sample_sd": 0.005773502691896263
+        },
+        "rr": {
+          "by_seed": {
+            "ours_seed13": 0.9325,
+            "ours_seed42": 0.93,
+            "ours_seed73": 0.9025
+          },
+          "mean": 0.9216666666666666,
+          "sample_sd": 0.016645820296198512
+        },
+        "ucr": {
+          "by_seed": {
+            "ours_seed13": 0.1931216931216931,
+            "ours_seed42": 0.19414893617021275,
+            "ours_seed73": 0.1766304347826087
+          },
+          "mean": 0.18796702135817153,
+          "sample_sd": 0.009831197966631856
+        },
+        "vrfc": {
+          "by_seed": {
+            "ours_seed13": 0.3775,
+            "ours_seed42": 0.3775,
+            "ours_seed73": 0.385
+          },
+          "mean": 0.38,
+          "sample_sd": 0.004330127018922197
+        }
+      },
+      "n_claims_by_seed": {
+        "ours_seed13": 378,
+        "ours_seed42": 376,
+        "ours_seed73": 368
+      },
+      "n_runtime_error_by_seed": {
+        "ours_seed13": 0,
+        "ours_seed42": 0,
+        "ours_seed73": 0
+      },
+      "n_total": 400,
+      "system": "Ours"
+    }
+  ],
+  "kilt-tqa": [
+    {
+      "metrics": {
+        "cp": 0.42133333333333334,
+        "cr": 0.47125,
+        "rfc": 0.81,
+        "rr": 0.9275,
+        "ucr": 0.2127659574468085,
+        "vrfc": 0.435
+      },
+      "n_answered": 371,
+      "n_claims": 376,
+      "n_runtime_error": 0,
+      "n_scorer_error": 0,
+      "n_total": 400,
+      "n_undefined_ucr": 29,
+      "system": "BM25 RAG"
+    },
+    {
+      "metrics": {
+        "cp": 0.4707083333333334,
+        "cr": 0.5283333333333333,
+        "rfc": 0.84,
+        "rr": 0.95,
+        "ucr": 0.2051948051948052,
+        "vrfc": 0.4925
+      },
+      "n_answered": 380,
+      "n_claims": 385,
+      "n_runtime_error": 0,
+      "n_scorer_error": 0,
+      "n_total": 400,
+      "n_undefined_ucr": 20,
+      "system": "Hybrid RAG"
+    },
+    {
+      "metrics": {
+        "cp": 0.4791319444444444,
+        "cr": 0.5775,
+        "rfc": 0.885,
+        "rr": 0.96,
+        "ucr": 0.1636828644501279,
+        "vrfc": 0.5475
+      },
+      "n_answered": 384,
+      "n_claims": 391,
+      "n_runtime_error": 0,
+      "n_scorer_error": 0,
+      "n_total": 400,
+      "n_undefined_ucr": 16,
+      "system": "Granite Rerank RAG"
+    },
+    {
+      "metrics": {
+        "cp": 0.4184444444444445,
+        "cr": 0.49458333333333326,
+        "rfc": 0.8225,
+        "rr": 0.935,
+        "ucr": 0.2682291666666667,
+        "vrfc": 0.4575
+      },
+      "n_answered": 374,
+      "n_claims": 384,
+      "n_runtime_error": 0,
+      "n_scorer_error": 0,
+      "n_total": 400,
+      "n_undefined_ucr": 26,
+      "system": "Provence RAG"
+    },
+    {
+      "metrics": {
+        "cp": {
+          "by_seed": {
+            "ours_seed13": 0.5483333333333333,
+            "ours_seed42": 0.54375,
+            "ours_seed73": 0.5310416666666666
+          },
+          "mean": 0.5410416666666666,
+          "sample_sd": 0.008958333333333348
+        },
+        "cr": {
+          "by_seed": {
+            "ours_seed13": 0.57875,
+            "ours_seed42": 0.5837499999999999,
+            "ours_seed73": 0.5641666666666666
+          },
+          "mean": 0.5755555555555555,
+          "sample_sd": 0.010174973837440192
+        },
+        "rfc": {
+          "by_seed": {
+            "ours_seed13": 0.8075,
+            "ours_seed42": 0.78,
+            "ours_seed73": 0.77
+          },
+          "mean": 0.7858333333333334,
+          "sample_sd": 0.01941863366288506
+        },
+        "rr": {
+          "by_seed": {
+            "ours_seed13": 0.905,
+            "ours_seed42": 0.89,
+            "ours_seed73": 0.8575
+          },
+          "mean": 0.8841666666666667,
+          "sample_sd": 0.02428133714055577
+        },
+        "ucr": {
+          "by_seed": {
+            "ours_seed13": 0.20107238605898123,
+            "ours_seed42": 0.1793478260869565,
+            "ours_seed73": 0.17183098591549295
+          },
+          "mean": 0.18408373268714356,
+          "sample_sd": 0.01518507422050253
+        },
+        "vrfc": {
+          "by_seed": {
+            "ours_seed13": 0.5525,
+            "ours_seed42": 0.55,
+            "ours_seed73": 0.5375
+          },
+          "mean": 0.5466666666666666,
+          "sample_sd": 0.008036375634160814
+        }
+      },
+      "n_claims_by_seed": {
+        "ours_seed13": 373,
+        "ours_seed42": 368,
+        "ours_seed73": 355
+      },
+      "n_runtime_error_by_seed": {
+        "ours_seed13": 0,
+        "ours_seed42": 0,
+        "ours_seed73": 0
+      },
+      "n_total": 400,
+      "system": "Ours"
+    }
+  ]
+}

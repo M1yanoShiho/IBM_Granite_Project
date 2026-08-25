@@ -1,0 +1,35 @@
+{
+  "arms": {
+    "ablation_dense_retriever": {
+      "generation_sha256": "3571e88d9a0bb30d40477b19640522974035b697f2ef99165af547b7f6cb151b",
+      "judge_calls": 498,
+      "n_queries": 400,
+      "score_file": "/user/work/fl25387/experiment04_goal4_runs/hotpotqa/attempt-20260822a/scores/ablation_dense_retriever.json",
+      "score_sha256": "75b42c0024f40664f5179c6efe2713c32ad3092542cd11002dc53858d6242d02"
+    },
+    "ablation_direct_generator": {
+      "generation_sha256": "7e888046878d4da9c2d2e609fa7d3168b22f2fb1c81f127096451ca2679920ec",
+      "judge_calls": 535,
+      "n_queries": 400,
+      "score_file": "/user/work/fl25387/experiment04_goal4_runs/hotpotqa/attempt-20260822a/scores/ablation_direct_generator.json",
+      "score_sha256": "f646067a7f20589b1a049a163f9e0395fa70c29ebce2585ef2d084d8677a756e"
+    },
+    "ablation_top10": {
+      "generation_sha256": "775f7491a8f620106874dfd997b29ad9eab1e1a9d88a929e7f01507a484feaab",
+      "judge_calls": 487,
+      "n_queries": 400,
+      "score_file": "/user/work/fl25387/experiment04_goal4_runs/hotpotqa/attempt-20260822a/scores/ablation_top10.json",
+      "score_sha256": "f2fdd1788fd5442c64c5e9dcc5179469cbcf857577ad9e00be12b85d17073b56"
+    }
+  },
+  "dataset": "hotpotqa",
+  "full_regenerated": false,
+  "generation_frozen_before_sidecar_read": true,
+  "generation_manifest_sha256": "2717bf50c57ed00bccdeee2634a9656ffa27f94eb7a78cc409d31b81e61293d9",
+  "minicheck_config_sha256": "d8e91aa8739d845d2572fa8db9cb6523d06208c14fedb8f7623f49283a305653",
+  "ordered_ids_sha256": "1c1b822c8942b3e14979de187b63d06f5b64ebcdd2303cf5b6b56c9bea92755d",
+  "query_count": 400,
+  "schema_version": "experiment04.goal4_dataset_score_manifest.v1",
+  "scorer_sidecar_sha256": "3a8f4febff0f66715ab07d7b1be31e9040608cd75d336d45b575e941a23957f4",
+  "status": "PASS"
+}
