@@ -61,6 +61,21 @@ checkpoint hashes and evaluation configurations are not changed in this cleanup 
 removed merely because they are old or numerous. Their final boundary is decided only after import,
 test and reproduction-entry analysis in Goals 3 and 4.
 
+At the G2 acceptance gate, the tracked release tree contains 682 files and 5,684,279 bytes. There
+are no tracked files above 1 MiB. The largest remaining groups are intentionally deferred code
+surfaces: 146 source files, 150 scripts, 231 tests, and 112 configurations. Goals 3 and 4 reduce
+those groups only after final runtime and reproduction dependency tests identify the required
+closure.
+
+The G2 audit also verified:
+
+- all 896 removed or relocated source paths can be read from the immutable archive tag;
+- all 25 public report/result relocations are byte-identical to their archive sources;
+- model weights, caches, indexes, per-query outputs, raw generations and logs are absent;
+- account names and personal absolute HPC paths are absent from the public tracked tree;
+- `src/`, frozen Experiment 04/05 Python entry points, metrics, claim labels and checkpoint hashes
+  were not changed by the file-boundary cleanup.
+
 ## Final-tree note
 
 This mapping is an execution record. Before the dissertation release is integrated into `main`, its

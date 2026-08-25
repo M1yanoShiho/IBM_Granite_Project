@@ -85,7 +85,7 @@
 
 ### G2：建立干净 release 文件树
 
-- **状态：** in_progress
+- **状态：** complete
 - 开始条件已满足：G1 complete，archive branch/tag 已在远端验证。
 - 下一步：建立隔离 worktree，从 archive commit 创建 `release/dissertation-v1`，形成受控保留树和归档映射。
 - worktree 预检确认当前是普通 checkout，项目原先没有 `.worktrees/` 且未忽略该目录；按隔离执行规则在开发分支增加 `/.worktrees/` 防护。
@@ -100,8 +100,16 @@
 - 第二批移出 21 个带个人服务器地址且不再属于最终入口的旧启动/冻结脚本及对应历史测试；两个仍被 Exp04 复现测试引用的 dataset launcher 改为要求 `EVIDENCE_RAG_ROOT`、`EVIDENCE_RAG_VENV` 和 `MODEL_CACHE_DIR`，不再内嵌账号或绝对存储路径。
 - 第二批首次全量 pytest 出现 16 个失败，均为 release 已移出文档/artifact 的路径依赖：2 个旧文档检查、5 个 Exp04 中间 artifact 检查、4 个 Exp04 最终结果旧路径检查、5 个旧 full-flow artifact 检查。处理边界：最终结果测试迁移到 canonical `results/`；只验证 archive-only 材料的测试从 release 移出。
 - 16 个路径型失败已分类处理：Exp04 最终 audit/summary/表格测试改指 canonical 结果；其余 real-history artifact 断言移出，同时保留不依赖历史文件的 checker/unit tests。受影响测试 26 项通过，随后全量 pytest 退出码 0。
+- 最终验收全部通过：release 来自 archive；远端 archive branch/tag 未变；896 个移出/迁移源路径可恢复；tracked tree 为 682 files/5,684,279 bytes；无 >1 MiB 文件、模型/缓存/index/raw output/个人路径；frozen source/config 未改。
+- G2 commits：`396c08a`（外置历史记录和 raw artifacts）、`6ac02a5`（移出账号绑定启动器并迁移结果测试）。
 
-### G3–G8
+### G3：冻结可运行的最终三模块系统
+
+- **状态：** in_progress
+- 开始条件已满足：G2 complete；用户已授权顺序接替执行。
+- 下一步：重新审计最终 composition/config/model manifest、CPU smoke、真实权重失败边界与前端 API 交付面。
+
+### G4–G8
 
 - **状态：** pending
 - 按 `task_plan.md` 顺序和验收门执行。

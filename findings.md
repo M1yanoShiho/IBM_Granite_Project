@@ -59,6 +59,8 @@
 - 清理后个人/HPC 路径启发式匹配已从约 242 个 tracked 文件降到 23 个，全部位于仍待依赖审计的历史 `scripts/`；G2 的下一精简批次应以正式 runtime/复现入口的依赖闭包决定保留项。
 - 23 个剩余路径匹配中，21 个是 archive-only 的旧 server/Slurm/freeze 入口；另外两个是最终 Exp04 dataset launcher。前者可安全移出，后者可只把 workspace、venv 和 cache 变为必需环境变量，不改变实验阶段顺序或 scorer 隔离边界。
 - 第一批外置后的 16 个 pytest 失败不是 runtime 回归：它们全部读取已移出的历史文档或中间 artifacts。将三项最终 Exp04 聚合契约改指 `results/experiment04/`，并移除纯 archive artifact 集成断言后，全量 release 测试重新通过。
+- G2 最终验收：release tag ancestry、远端 immutable archive refs、896 个移出/迁移路径恢复、frozen source/config diff、artifact/path scan、5.68 MB 体积门和 clean worktree 全部通过。
+- 92 个旧 sweep/adaptive Selector 配置被识别为后续 archive 候选；其中 15 个仍由 legacy launchers/Selector tests 直接引用。它们连同相关源码/测试应在 G3/G4 依赖闭包中成组移出，避免 G2 只删配置却留下失效入口。
 
 ### G1 mypy 根因分析
 

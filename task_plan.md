@@ -11,7 +11,7 @@
 
 ## 当前阶段
 
-G1 已完成并冻结远端 archive branch/tag；G2 正在建立干净 release 文件树。
+G1 已完成并冻结远端 archive branch/tag；G2 已完成干净 release 边界；G3 正在冻结最终三模块 runtime。
 
 ## 固定决策与边界
 
@@ -58,8 +58,8 @@ G1 已完成并冻结远端 archive branch/tag；G2 正在建立干净 release �
 | P0 | 计划与清单冻结 | 本计划、发现记录、进度日志、整理清单 | complete |
 | P1 | 正式仓库结构预览与确认 | 目标目录树、逐文件职责、用户视角和边界说明 | complete |
 | G1 | 冻结完整研究历史 | 完整提交、归档分支、归档标签、归档索引 | complete |
-| G2 | 建立干净 release 文件树 | `release/dissertation-v1` 和受控保留树 | in_progress |
-| G3 | 冻结可运行的最终三模块系统 | 最终运行入口、配置、API 边界、核心测试 | pending |
+| G2 | 建立干净 release 文件树 | `release/dissertation-v1` 和受控保留树 | complete |
+| G3 | 冻结可运行的最终三模块系统 | 最终运行入口、配置、API 边界、核心测试 | in_progress |
 | G4 | 整理研究复现包 | 训练、基线、消融、评分和表格复现入口 | pending |
 | G5 | 发布外部模型与数据资产清单 | 公开链接/DOI、许可证、版本和 SHA-256 | pending |
 | G6 | 完成公开文档与项目元数据 | README、架构、复现、结果、限制、引用 | pending |
@@ -253,14 +253,14 @@ G1 已完成并冻结远端 archive branch/tag；G2 正在建立干净 release �
 
 ### 验收门
 
-- [ ] release 分支来自已冻结归档提交。
-- [ ] 所有移出内容仍可从归档分支或标签读取。
-- [ ] release 文件树不含模型权重、数据缓存、索引、逐题输出或原始运行日志。
-- [ ] release 文件树不含个人账号名和绝对 HPC 路径。
-- [ ] 普通被跟踪文件不超过 1 MiB，除非有明确最终交付理由。
-- [ ] checked-out release 树目标体积不超过 25 MiB。
-- [ ] `HOLD` 文件未经依赖验证不会被移出。
-- [ ] 此 Goal 没有改变任何 frozen metric、claim label 或 checkpoint checksum。
+- [x] release 分支来自已冻结归档提交。
+- [x] 所有移出内容仍可从归档分支或标签读取。
+- [x] release 文件树不含模型权重、数据缓存、索引、逐题输出或原始运行日志。
+- [x] release 文件树不含个人账号名和绝对 HPC 路径。
+- [x] 普通被跟踪文件不超过 1 MiB，除非有明确最终交付理由。
+- [x] checked-out release 树目标体积不超过 25 MiB。
+- [x] `HOLD` 文件未经依赖验证不会被移出。
+- [x] 此 Goal 没有改变任何 frozen metric、claim label 或 checkpoint checksum。
 
 ### 禁止事项
 
@@ -269,7 +269,7 @@ G1 已完成并冻结远端 archive branch/tag；G2 正在建立干净 release �
 - 不为了减小体积删除复现最终论文结果必需的代码。
 - 不重写 Git 历史。
 
-**状态：** in_progress
+**状态：** complete
 
 ## G3：冻结可运行的最终三模块系统
 
@@ -324,7 +324,7 @@ G1 已完成并冻结远端 archive branch/tag；G2 正在建立干净 release �
 - 不把基线描述成最终 trained Selector。
 - 不改变冻结 checkpoint 或最终实验配置。
 
-**状态：** pending
+**状态：** in_progress
 
 ## G4：整理研究复现包
 
