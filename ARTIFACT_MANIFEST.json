@@ -1,0 +1,345 @@
+{
+  "schema_version": "evidence-rag.artifacts.v1",
+  "release": "v1.0.0-dissertation",
+  "generated_at": "2026-08-25",
+  "policy": {
+    "git_contains_model_weights": false,
+    "git_contains_raw_evaluation_bundles": false,
+    "restricted_assets_are_publicly_reproducible": false,
+    "notes": "Licenses describe upstream metadata, not legal advice or a new grant from this project."
+  },
+  "assets": [
+    {
+      "asset_id": "granite-embedding-r2",
+      "kind": "upstream-model",
+      "role": "dense-retriever",
+      "model_id": "ibm-granite/granite-embedding-english-r2",
+      "revision": "47ea694b257b703fee9253d75c2b1f2985180498",
+      "config_sha256": "bc4ad4e8cd50c0069292863117823f665da70bbbdea40fd4ea77d80609ade241",
+      "availability": "upstream-public",
+      "redistribution": "not-mirrored-use-upstream",
+      "license": {"identifier": "Apache-2.0", "source": "upstream-model-card"},
+      "source_url": "https://huggingface.co/ibm-granite/granite-embedding-english-r2/tree/47ea694b257b703fee9253d75c2b1f2985180498",
+      "download_url": null,
+      "files": [
+        {
+          "name": "model.safetensors",
+          "bytes": 298041696,
+          "size_status": "verified-upstream-revision-api",
+          "sha256": "23bd9625b32680f180703408ed9d8d7b3a9c1efe4c950111e3ae9d9695b21b29",
+          "download_url": "https://huggingface.co/ibm-granite/granite-embedding-english-r2/resolve/47ea694b257b703fee9253d75c2b1f2985180498/model.safetensors"
+        }
+      ]
+    },
+    {
+      "asset_id": "granite-reranker-r2",
+      "kind": "upstream-model",
+      "role": "reranker-baseline",
+      "model_id": "ibm-granite/granite-embedding-reranker-english-r2",
+      "revision": "d09d3d6971b689bf9c23839e45a470874d46e13a",
+      "config_sha256": "bcefb1b941a5860a41cfe83a527cf50172cc59cd2b6275b67cbd228b02a9e12f",
+      "availability": "upstream-public",
+      "redistribution": "not-mirrored-use-upstream",
+      "license": {"identifier": "Apache-2.0", "source": "upstream-model-card"},
+      "source_url": "https://huggingface.co/ibm-granite/granite-embedding-reranker-english-r2/tree/d09d3d6971b689bf9c23839e45a470874d46e13a",
+      "download_url": null,
+      "files": [
+        {
+          "name": "model.safetensors",
+          "bytes": 598436708,
+          "size_status": "verified-upstream-revision-api",
+          "sha256": "e72c8f7087dbfbdbfb9d75077f7b7b05b01b459730f735b468cbde71d66090e6",
+          "download_url": "https://huggingface.co/ibm-granite/granite-embedding-reranker-english-r2/resolve/d09d3d6971b689bf9c23839e45a470874d46e13a/model.safetensors"
+        }
+      ]
+    },
+    {
+      "asset_id": "granite-4.1-3b",
+      "kind": "upstream-model",
+      "role": "generator-base",
+      "model_id": "ibm-granite/granite-4.1-3b",
+      "revision": "c0650403e44e78ec0262dab1c90914c65b196c4e",
+      "config_sha256": "9a0e589b69e7d3ad9fb9fb2c844aa7d7156e052cb7ea4211de7de48ab7c8525c",
+      "availability": "upstream-public",
+      "redistribution": "not-mirrored-use-upstream",
+      "license": {"identifier": "Apache-2.0", "source": "upstream-model-card"},
+      "source_url": "https://huggingface.co/ibm-granite/granite-4.1-3b/tree/c0650403e44e78ec0262dab1c90914c65b196c4e",
+      "download_url": null,
+      "files": [
+        {
+          "name": "model-00001-of-00002.safetensors",
+          "bytes": 4991538344,
+          "size_status": "verified-upstream-revision-api",
+          "sha256": "895bf5f2d7c8b06ca902499567d3c3d9ed30061e4c5ad94bf8216286ca67e2fd",
+          "download_url": "https://huggingface.co/ibm-granite/granite-4.1-3b/resolve/c0650403e44e78ec0262dab1c90914c65b196c4e/model-00001-of-00002.safetensors"
+        },
+        {
+          "name": "model-00002-of-00002.safetensors",
+          "bytes": 1814176448,
+          "size_status": "verified-upstream-revision-api",
+          "sha256": "de8c9efdaa6f669d595bda8b949213cba92ea69689fd2a27fbceed3d1ebeb2f7",
+          "download_url": "https://huggingface.co/ibm-granite/granite-4.1-3b/resolve/c0650403e44e78ec0262dab1c90914c65b196c4e/model-00002-of-00002.safetensors"
+        }
+      ]
+    },
+    {
+      "asset_id": "nli-deberta-v3-base",
+      "kind": "upstream-model",
+      "role": "selector-backbone",
+      "model_id": "cross-encoder/nli-deberta-v3-base",
+      "revision": "6c749ce3425cd33b46d187e45b92bbf96ee12ec7",
+      "config_sha256": "897e756eb59d3183adb505952e7910e7cbc7750a43f3b3747a96b688d2b02a47",
+      "availability": "upstream-public",
+      "redistribution": "not-mirrored-use-upstream",
+      "license": {"identifier": "Apache-2.0", "source": "upstream-model-card"},
+      "source_url": "https://huggingface.co/cross-encoder/nli-deberta-v3-base/tree/6c749ce3425cd33b46d187e45b92bbf96ee12ec7",
+      "download_url": null,
+      "files": [
+        {
+          "name": "model.safetensors",
+          "bytes": 737726552,
+          "size_status": "verified-upstream-revision-api",
+          "sha256": "d8148c6d49e0a7925134294c56326c71fe0ab1dc390e37355e00c7efbb488afa",
+          "download_url": "https://huggingface.co/cross-encoder/nli-deberta-v3-base/resolve/6c749ce3425cd33b46d187e45b92bbf96ee12ec7/model.safetensors"
+        }
+      ]
+    },
+    {
+      "asset_id": "provence-reranker",
+      "kind": "upstream-model",
+      "role": "pruning-baseline",
+      "model_id": "naver/provence-reranker-debertav3-v1",
+      "revision": "ef49e233e3c6e50efc476c68f1390f8a63add4d4",
+      "config_sha256": "f2174e79a32cf0cc91b826440db15c8c285130a1905939f0a82e88230b787280",
+      "availability": "upstream-public-restricted-license",
+      "redistribution": "link-only-restricted",
+      "license": {
+        "identifier": "CC-BY-NC-ND-4.0-with-upstream-additional-terms",
+        "source": "upstream-license-file",
+        "note": "Upstream metadata and license text conflict; this project applies the strictest boundary and does not mirror the model."
+      },
+      "source_url": "https://huggingface.co/naver/provence-reranker-debertav3-v1/tree/ef49e233e3c6e50efc476c68f1390f8a63add4d4",
+      "download_url": null,
+      "files": [
+        {
+          "name": "model.safetensors",
+          "bytes": 1740308732,
+          "size_status": "verified-upstream-revision-api",
+          "sha256": "227b473f30fa66d9163c678264082a023f39f632f493bed560964e016ab39bf2",
+          "download_url": "https://huggingface.co/naver/provence-reranker-debertav3-v1/resolve/ef49e233e3c6e50efc476c68f1390f8a63add4d4/model.safetensors"
+        }
+      ]
+    },
+    {
+      "asset_id": "true-nli-t5-xxl",
+      "kind": "upstream-model",
+      "role": "runtime-verifier",
+      "model_id": "google/t5_xxl_true_nli_mixture",
+      "revision": "aa6cfe1dd4257853bfdd772992045f41bfc14988",
+      "config_sha256": "69f089550c668f52d585adb6b482e771d8819a10c8c4ce2ca83f44c96178c6e9",
+      "availability": "upstream-public",
+      "redistribution": "not-mirrored-use-upstream",
+      "license": {"identifier": "Apache-2.0", "source": "upstream-model-card"},
+      "source_url": "https://huggingface.co/google/t5_xxl_true_nli_mixture/tree/aa6cfe1dd4257853bfdd772992045f41bfc14988",
+      "download_url": null,
+      "files": [
+        {"name": "pytorch_model-00001-of-00005.bin", "bytes": 9862531053, "size_status": "verified-upstream-revision-api", "sha256": "dd1fccd740a717f82578a8fec4912772d36e0d3951ff6c57c0ea1ce76a018bb1", "download_url": "https://huggingface.co/google/t5_xxl_true_nli_mixture/resolve/aa6cfe1dd4257853bfdd772992045f41bfc14988/pytorch_model-00001-of-00005.bin"},
+        {"name": "pytorch_model-00002-of-00005.bin", "bytes": 9996758376, "size_status": "verified-upstream-revision-api", "sha256": "b6d133eade2bafc61c0ca5cc323044ae6d008b38096e97928506f0a49613905e", "download_url": "https://huggingface.co/google/t5_xxl_true_nli_mixture/resolve/aa6cfe1dd4257853bfdd772992045f41bfc14988/pytorch_model-00002-of-00005.bin"},
+        {"name": "pytorch_model-00003-of-00005.bin", "bytes": 9932269377, "size_status": "verified-upstream-revision-api", "sha256": "1705a1c6a4f5913cc681b48aa3f3e388bceb5a037cc966b6319d011be76641be", "download_url": "https://huggingface.co/google/t5_xxl_true_nli_mixture/resolve/aa6cfe1dd4257853bfdd772992045f41bfc14988/pytorch_model-00003-of-00005.bin"},
+        {"name": "pytorch_model-00004-of-00005.bin", "bytes": 9932264073, "size_status": "verified-upstream-revision-api", "sha256": "f68e2b1d98819f84b505355cd3e362b974356f98b28e4ce57c01047b590aece7", "download_url": "https://huggingface.co/google/t5_xxl_true_nli_mixture/resolve/aa6cfe1dd4257853bfdd772992045f41bfc14988/pytorch_model-00004-of-00005.bin"},
+        {"name": "pytorch_model-00005-of-00005.bin", "bytes": 5768834477, "size_status": "verified-upstream-revision-api", "sha256": "1f21dc75d2ad64c139b11310ae4b784659f464c59a24752e0515f6ecf3f7ddd3", "download_url": "https://huggingface.co/google/t5_xxl_true_nli_mixture/resolve/aa6cfe1dd4257853bfdd772992045f41bfc14988/pytorch_model-00005-of-00005.bin"}
+      ]
+    },
+    {
+      "asset_id": "minicheck-flan-t5-large",
+      "kind": "upstream-model",
+      "role": "evaluation-scorer-only",
+      "model_id": "lytang/MiniCheck-Flan-T5-Large",
+      "revision": "96eafd01cee2d16cf81aaa2fb226b14f422a37b3",
+      "config_sha256": "d8e91aa8739d845d2572fa8db9cb6523d06208c14fedb8f7623f49283a305653",
+      "availability": "upstream-public",
+      "redistribution": "not-mirrored-use-upstream",
+      "license": {"identifier": "MIT", "source": "upstream-model-card"},
+      "source_url": "https://huggingface.co/lytang/MiniCheck-Flan-T5-Large/tree/96eafd01cee2d16cf81aaa2fb226b14f422a37b3",
+      "download_url": null,
+      "files": [
+        {
+          "name": "pytorch_model.bin",
+          "bytes": 3132786242,
+          "size_status": "verified-upstream-revision-api",
+          "sha256": "41291881e13c6235ed47149cec903bee9493e45d9d7325587a9fa2e266c526c0",
+          "download_url": "https://huggingface.co/lytang/MiniCheck-Flan-T5-Large/resolve/96eafd01cee2d16cf81aaa2fb226b14f422a37b3/pytorch_model.bin"
+        }
+      ]
+    },
+    {
+      "asset_id": "selector-seed13",
+      "kind": "derived-checkpoint",
+      "role": "final-selector",
+      "version": "lean-v3-seed13",
+      "base_asset": "nli-deberta-v3-base",
+      "availability": "restricted-not-published",
+      "redistribution": "pending-team-and-supervisor-authorization",
+      "license": {"identifier": "NOT-ASSIGNED", "source": "project-release-decision-pending"},
+      "source_url": null,
+      "download_url": null,
+      "files": [
+        {"name": "model.safetensors", "bytes": 737731768, "size_status": "verified", "sha256": "86622bd9ab6391c9eb560133b01b0cf3744c3706638ff8b0bd38925b84bf72bf", "download_url": null}
+      ]
+    },
+    {
+      "asset_id": "grc-adapter-seed13",
+      "kind": "derived-adapter",
+      "role": "final-generator-adapter",
+      "version": "gr-c-v1-seed13",
+      "base_asset": "granite-4.1-3b",
+      "availability": "restricted-not-published",
+      "redistribution": "pending-team-and-supervisor-authorization",
+      "license": {"identifier": "NOT-ASSIGNED", "source": "project-release-decision-pending"},
+      "source_url": null,
+      "download_url": null,
+      "files": [
+        {"name": "adapter_model.safetensors", "bytes": 62332992, "size_status": "verified-shared-preserved-copy", "sha256": "492d336c7acc32785becded707220dbdf1a8acf9a895630147fc4e8cd28d0707", "download_url": null},
+        {"name": "adapter_config.json", "bytes": 1274, "size_status": "verified-shared-preserved-copy", "sha256": "1918333d819e6007d3faf17d3497c4f4665f7c0d3cb032f510986cfdb9837942", "download_url": null}
+      ]
+    },
+    {
+      "asset_id": "grc-adapter-seed42",
+      "kind": "derived-adapter",
+      "role": "generator-seed-replication",
+      "version": "gr-c-v1-seed42",
+      "base_asset": "granite-4.1-3b",
+      "availability": "restricted-not-published",
+      "redistribution": "pending-team-and-supervisor-authorization",
+      "license": {"identifier": "NOT-ASSIGNED", "source": "project-release-decision-pending"},
+      "source_url": null,
+      "download_url": null,
+      "files": [
+        {"name": "adapter_model.safetensors", "bytes": 62332992, "size_status": "verified-shared-preserved-copy", "sha256": "96d8087e1dbed831ad795fb7a037677eeb7e2d6986a91df61a897b9c1b6d383c", "download_url": null},
+        {"name": "adapter_config.json", "bytes": 1274, "size_status": "verified-shared-preserved-copy", "sha256": "df6c8e4c39f3d7567849a4a32355aea4bb9176c784d089832fe14a8697a2d8f8", "download_url": null}
+      ]
+    },
+    {
+      "asset_id": "grc-adapter-seed73",
+      "kind": "derived-adapter",
+      "role": "generator-seed-replication",
+      "version": "gr-c-v1-seed73",
+      "base_asset": "granite-4.1-3b",
+      "availability": "restricted-not-published",
+      "redistribution": "pending-team-and-supervisor-authorization",
+      "license": {"identifier": "NOT-ASSIGNED", "source": "project-release-decision-pending"},
+      "source_url": null,
+      "download_url": null,
+      "files": [
+        {"name": "adapter_model.safetensors", "bytes": 62332992, "size_status": "verified-shared-preserved-copy", "sha256": "d5f90954f3ac2829a213ab7c3b04e6d26b89990c42e95306bc74743d1ac2431c", "download_url": null},
+        {"name": "adapter_config.json", "bytes": 1274, "size_status": "verified-shared-preserved-copy", "sha256": "f1659959d9ffe7348c370e9f01a497066710793c9754e9d06c5d8963aaf45dd1", "download_url": null}
+      ]
+    },
+    {
+      "asset_id": "hotpotqa-distractor-source",
+      "kind": "upstream-dataset",
+      "role": "experiment04-source",
+      "version": "validation-distractor-frozen-2026-08-21",
+      "revision": "1908d6afbbead072334abe2965f91bd2709910ab",
+      "availability": "upstream-public",
+      "redistribution": "not-mirrored-use-upstream",
+      "license": {"identifier": "CC-BY-SA-4.0", "source": "official-dataset-site"},
+      "source_url": "https://hotpotqa.github.io/",
+      "download_url": null,
+      "files": [
+        {"name": "hotpot_dev_distractor.parquet", "bytes": 27452575, "size_status": "verified-frozen-source", "sha256": "c20b638ca82b21d04fe12e14ff417ad05153d4d215a65de54497fca4e972f7c6", "download_url": "https://huggingface.co/datasets/hotpotqa/hotpot_qa/resolve/1908d6afbbead072334abe2965f91bd2709910ab/distractor/validation-00000-of-00001.parquet"}
+      ]
+    },
+    {
+      "asset_id": "musique-full-source",
+      "kind": "upstream-dataset",
+      "role": "experiment04-source",
+      "version": "full-v1.0-dev-frozen-2026-08-21",
+      "revision": "22873a405dd809893b22ada0b499299fb612d2df",
+      "availability": "upstream-public",
+      "redistribution": "not-mirrored-use-upstream",
+      "license": {"identifier": "CC-BY-4.0", "source": "official-repository"},
+      "source_url": "https://github.com/StonyBrookNLP/musique",
+      "download_url": null,
+      "files": [
+        {"name": "musique_full_v1.0_dev.jsonl", "bytes": 59422562, "size_status": "verified-frozen-source", "sha256": "8cab31d56a3a1c4ef491b205a8dab3f1ac9c66e472098c6cf1de4e20294f7a4a", "download_url": "https://huggingface.co/datasets/bdsaglam/musique/resolve/22873a405dd809893b22ada0b499299fb612d2df/musique_full_v1.0_dev.jsonl"}
+      ]
+    },
+    {
+      "asset_id": "rgb-noise-source",
+      "kind": "upstream-dataset",
+      "role": "experiment04-source",
+      "version": "english-noise-frozen-2026-08-21",
+      "revision": "65ec39e40e7dc9abb50e9bf1b4f32be3f6f16615",
+      "availability": "upstream-public-noncommercial",
+      "redistribution": "link-only-noncommercial",
+      "license": {"identifier": "CC-BY-NC-SA-4.0", "source": "official-repository"},
+      "source_url": "https://github.com/chen700564/RGB",
+      "download_url": null,
+      "files": [
+        {"name": "en.json", "bytes": 10808210, "size_status": "verified-frozen-source", "sha256": "872fc551cfb609895326bb9d76754855164d5cc715fe22694daeded8962f5285", "download_url": "https://raw.githubusercontent.com/chen700564/RGB/65ec39e40e7dc9abb50e9bf1b4f32be3f6f16615/data/en.json"}
+      ]
+    },
+    {
+      "asset_id": "kilt-nq-source",
+      "kind": "upstream-dataset",
+      "role": "experiment05-source",
+      "version": "kilt-nq-train-dev-frozen-sample",
+      "availability": "upstream-public-mixed-terms",
+      "redistribution": "not-redistributed-mixed-terms",
+      "license": {"identifier": "MIXED-UPSTREAM-TERMS", "source": "KILT-plus-NQ-plus-Wikipedia"},
+      "source_url": "https://github.com/facebookresearch/KILT",
+      "download_url": null,
+      "files": []
+    },
+    {
+      "asset_id": "kilt-triviaqa-source",
+      "kind": "upstream-dataset",
+      "role": "experiment05-source",
+      "version": "kilt-triviaqa-train-dev-frozen-sample",
+      "availability": "upstream-public-mixed-terms",
+      "redistribution": "not-redistributed-mixed-terms",
+      "license": {"identifier": "MIXED-UPSTREAM-TERMS", "source": "KILT-plus-TriviaQA-plus-Wikipedia"},
+      "source_url": "https://github.com/facebookresearch/KILT",
+      "download_url": null,
+      "files": []
+    },
+    {
+      "asset_id": "alce-asqa-source",
+      "kind": "upstream-dataset",
+      "role": "experiment05-source",
+      "version": "asqa-eval-gtr-top100-frozen-sample",
+      "availability": "upstream-public-mixed-terms",
+      "redistribution": "not-redistributed-mixed-terms",
+      "license": {"identifier": "MIXED-UPSTREAM-TERMS", "source": "ALCE-plus-ASQA-plus-Wikipedia"},
+      "source_url": "https://github.com/princeton-nlp/ALCE",
+      "download_url": null,
+      "files": []
+    },
+    {
+      "asset_id": "experiment04-raw-bundles",
+      "kind": "derived-evaluation-bundle",
+      "role": "full-recomputation-only",
+      "version": "experiment04-final-2026-08-21",
+      "availability": "restricted-not-published",
+      "redistribution": "not-reviewed-for-public-release",
+      "license": {"identifier": "MIXED-DATASET-TERMS", "source": "derived-from-three-upstream-datasets"},
+      "source_url": null,
+      "download_url": null,
+      "files": []
+    },
+    {
+      "asset_id": "experiment05-raw-bundles",
+      "kind": "derived-evaluation-bundle",
+      "role": "full-recomputation-only",
+      "version": "experiment05-final-2026-08-24",
+      "availability": "restricted-not-published",
+      "redistribution": "not-reviewed-for-public-release",
+      "license": {"identifier": "MIXED-DATASET-TERMS", "source": "derived-from-KILT-ALCE-and-Wikipedia"},
+      "source_url": null,
+      "download_url": null,
+      "files": [],
+      "counts": {"generation_outputs": 12000, "query_scores": 12000, "claim_traces": 12000}
+    }
+  ]
+}

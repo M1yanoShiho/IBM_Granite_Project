@@ -159,15 +159,30 @@
 
 ### G5：发布外部模型与数据资产清单
 
-- **状态：** in_progress
+- **状态：** complete
 - G4 验收门已满足；用户已授权顺序接替执行。
 - 权限边界：尚无团队/导师对衍生权重和 raw bundle 公开上传的明确确认，因此 G5 可先完成只读许可证/哈希/大小/可用性审计，不会上传受限资产或把团队访问写成公众访问。
-- 下一步：盘点 final model manifest、Generator provenance、archive/HPC 记录中的大小和 SHA-256；核对第三方模型/数据许可证与可公开链接。
+- 本地模型文件扫描为 0；无法从当前工作区重新读取 HPC 权重，因此使用冻结 archive manifest、已验证的用户记录和公开上游 model card 三方交叉核对。
+- 已区分 Selector 基础模型 snapshot（737,726,552 bytes）与训练后 seed-13 checkpoint（737,731,768 bytes），避免资产清单混淆两者。
+- 已提取 G330 三 seed 的实际 weights/config SHA、Granite revision、LoRA recipe 和训练版本；冻结 manifest 未包含 adapter 字节数，不能用参数量伪造大小。
+- 已用上游固定 revision API 复核 7 个基础模型的许可证、精确 weights bytes 和 SHA；全部 frozen hash 对齐。Provence 授权文本互相矛盾，采用“不镜像、仅链接、非商业/无衍生再分发”的保守边界。
+- 已核对 Exp04/Exp05 数据边界；所有 raw bundles/indexes/generations 继续外置，公开仓库只提供上游来源、冻结哈希和聚合结果。
+- 已只读登录 BluePebble 复核资产：旧 `/scratch` checkpoint 是计算节点临时资产，但独立保留副本仍在共享项目存储。三个 GR-C adapter weights 均为 62,332,992 bytes、configs 均为 1,274 bytes，四类 derived assets 的现场 SHA 全部与 frozen manifest 一致。
+- 资产清单/CLI TDD：首次 collection 按预期因 `evidence_rag.cli.artifacts` 不存在而失败；实现 manifest、原子下载、fail-closed 校验与文档后 6 tests 通过。取得保留副本精确大小后，测试先按预期拒绝旧 `null` 值，再更新正式清单。
+- 清单更新后 6 tests、focused ruff、单模块 strict mypy、JSON parse 与 19 项 CLI list 全部通过；27 个唯一上游 source/download URL 逐一 HEAD 验证均返回 HTTP 200。
+- 增加 final seed13 runtime identity 与资产 manifest 一致性契约后，focused suite 为 7 passed；Exp04 三个源 URL 也已从移动的 main/master 改为 frozen revision，更新后的全部链接仍返回 HTTP 200。
+- G5 最终验收：真实 HotpotQA 27,452,575-byte 下载与 SHA 校验 PASS；全量 1646 passed、20 skipped；全范围 ruff、154-source strict mypy、editable install、安装后 CLI、`pip check` 和 whitespace 全部通过。
+- 未经团队/导师明确授权，四个 derived weights 继续保持 `restricted-not-published`；这是清楚记录的发布边界，不冒充公众可复现。
 
-### G6–G8
+### G6：完成公开文档与项目元数据
+
+- **状态：** in_progress
+- G5 验收门已满足；开始审计 README、文档导航、LICENSE/CITATION/CHANGELOG、作者贡献和 model cards。
+
+### G7–G8
 
 - **状态：** pending
-- 在 G5 验收通过后按 `task_plan.md` 顺序接替执行。
+- 在 G6 验收通过后按 `task_plan.md` 顺序接替执行。
 
 ## 测试结果
 
@@ -218,6 +233,11 @@
 | G4 final pytest | 精简后的正式树 | 0 failed | 1639 passed、20 skipped | PASS |
 | G4 final static checks | `src tests scripts experiments` | ruff/mypy/shell/whitespace 全部通过 | ruff PASS；strict mypy 153 files；两个 Slurm `bash -n` PASS | PASS |
 | G4 install/CLI | editable install + public commands | 安装后命令可发现 | Selector 和两个 table builders help；`pip check` PASS | PASS |
+| G5 artifact manifest | final models/datasets/bundles | 版本、bytes、SHA、license、availability 完整 | 19 assets；四个 derived assets 和七个 base models 均完整登记 | PASS |
+| G5 live derived assets | 共享存储保留副本 | bytes/SHA 与 frozen manifests 一致 | Selector 737,731,768 bytes；三 adapters 各 62,332,992 bytes；全部 SHA 一致 | PASS |
+| G5 external links | 27 个唯一 source/download URL | 无 HPC 账号可访问 | 全部 HTTP 200；restricted assets 明确无 URL | PASS |
+| G5 real download | pinned HotpotQA parquet | 原子下载后 bytes/SHA 一致 | 27,452,575 bytes，SHA `c20b638c…f7c6`，PASS | PASS |
+| G5 full regression | release tree | 0 failed | 1646 passed、20 skipped；ruff/mypy/pip check/CLI 均 PASS | PASS |
 
 ## 错误日志
 
@@ -256,16 +276,22 @@
 | 2026-08-25 | G4 精简后首次全范围 ruff 在 G310/G400/G410 报 9 个旧风格问题 | 1 | 仅做 import 排序、移除未使用 import、命名未使用变量，并把 lambda 赋值改为等价局部函数；随后运行对应回归与全量静态检查。 |
 | 2026-08-25 | G410 有两个相邻 `for seed, path` 循环，首次 lint 修正误把实际读取文件的第一个变量改成 `_path`，focused test 报 `UnboundLocalError` | 1 | 测试在提交前捕获；恢复第一个 `path`，只改第二个未使用变量并重跑全部相关测试。 |
 | 2026-08-25 | 为显示 pytest 总数而使用 `-o addopts=''`，意外移除了项目必需的 `--import-mode=importlib`，8 个同名 test module collection 冲突 | 1 | 不是代码回归；改用 `-o addopts='--import-mode=importlib' -q` 保留导入模式并显示单次 summary。 |
+| 2026-08-25 | G5 在整个 archive 上用宽泛数值正则搜索 adapter 大小时命中大体积逐题 JSON，输出被截断且不能作为资产证据 | 1 | 放弃该输出；后续只枚举冻结 manifest/audit 文件，并用 `jq` 按字段路径提取大小、哈希和模型身份。 |
+| 2026-08-25 | G5 首次数据盘点假设存在 `configs/experiments/experiment05/` 和 `scripts/experiment05_data.py`，两个路径已在 G4 收敛后不存在 | 1 | 不猜路径；改为枚举正式 `scripts/experiment05_*` 入口并从 `experiment05_goal1.py` 与公开 audit 提取数据边界。 |
+| 2026-08-25 | G5 按 archive 旧 `/scratch` 路径查询四个权重时全部不存在；该位置属于计算节点临时空间，不是登录节点共享目录 | 1 | 未修改远端文件；转而检查共享项目目录与本地恢复源，并把私有 adapter 的大小标为必须由保留副本重新 `stat`，不猜测。 |
+| 2026-08-25 | G5 远端全工作区 `du` 与宽层级查找超过 30 秒，只返回登录目录与缺失 scratch 信息 | 1 | 停止扫描大目录；改用已知共享项目根的精确存在性/文件名查询，确认其中没有正式权重。 |
+| 2026-08-25 | G5 首次 URL 审计命令包含临时文件 `rm -f` 清理，被安全策略拒绝且未执行 | 1 | 改用 shell process substitution，不创建临时文件；27 个 URL 全部完成 HTTP 200 验证。 |
+| 2026-08-25 | G5 正式配置一致性检查沿用旧计划名，引用了不存在的 `three_module_seed13.json` 和 `final_three_module.toml` | 1 | 先枚举当前 `configs/`，改用 G3 已定稿的 `final_seed13.json` 与 `final_seed13.toml`；七项 runtime identity 比对全部通过。 |
 
 ## 五问重启检查
 
 | 问题 | 答案 |
 |---|---|
-| 我在哪里？ | P0/P1/G1–G4 已完成；G5 正在审计外部资产。 |
-| 我要去哪里？ | 完成 G5 资产清单与权限边界，然后依次完成 G6–G8。 |
+| 我在哪里？ | P0/P1/G1–G5 已完成；G6 正在收敛公开文档与项目元数据。 |
+| 我要去哪里？ | 完成 G6 公开文档，然后依次完成 G7–G8。 |
 | 目标是什么？ | 同仓库内形成可提交毕设的干净可用正式 main，同时保留完整研究历史。 |
 | 我学到了什么？ | 见 `findings.md`。 |
-| 我做了什么？ | 已冻结历史、建立干净 release，交付三模块 runtime/API，并把复现包收敛到最终训练、评测和公开结果入口。 |
+| 我做了什么？ | 已冻结历史、建立干净 release，交付三模块 runtime/API 与复现包，并完成模型/数据资产的可下载、可校验和权限边界清单。 |
 
 ---
 *每个 Goal 完成后或遇到错误时更新此文件。*

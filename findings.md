@@ -152,6 +152,19 @@
 - GR-C seed-42/73 adapters 需在 G5 重新核对大小与发布权限。
 - base model snapshots、数据集缓存、indexes 和 raw generation bundles 不适合进入 Git。
 - 公开发布前需要确认第三方模型/数据许可证及衍生权重再分发权限。
+- G5 本地工作区扫描未发现任何 `model.safetensors` 或 `adapter_model.safetensors` 实体；正式权重仍只在 HPC/外部存储，不能从本地文件重新测量大小。
+- Archive 的 Selector base snapshot 记录的是 `cross-encoder/nli-deberta-v3-base` 基础模型文件（737,726,552 bytes，SHA-256 `d8148c6d49e0a7925134294c56326c71fe0ab1dc390e37355e00c7efbb488afa`），不能把它误写成训练后的 seed-13 Selector checkpoint（737,731,768 bytes，SHA-256 `86622bd9ab6391c9eb560133b01b0cf3744c3706638ff8b0bd38925b84bf72bf`）。
+- Archive 中可定位 G330 三个逐 seed training manifest、三 seed aggregate manifest 和 Experiment 04 `goal2_model_config_manifest.json`；后续应只从这些冻结记录提取公开 provenance，避免把原 HPC 路径复制进 release。
+- G330 三个正式 GR-C adapters 共享 Granite 4.1 3B revision `c0650403e44e78ec0262dab1c90914c65b196c4e`、15,564,800 个可训练参数、同一 LoRA r=8/alpha=16/七类 target modules 和 PEFT 0.20.0；逐 seed frozen manifests 记录实际权重/config SHA，但没有记录文件字节数。
+- 训练脚本以 bfloat16 加载基础模型并调用 PEFT `save_pretrained(..., safe_serialization=True)`；三个 adapter 的张量结构相同，但不能仅凭参数数目猜测实际 safetensors 文件大小。正式清单需把大小来源写明为实际 HPC `stat`，或在未取回文件时明确标为待核验。
+- Experiment 04 的三份原始来源已由冻结 Goal 1 manifest 固定：HotpotQA distractor validation 27,452,575 bytes / SHA `c20b638c…f7c6`，MuSiQue full dev 59,422,562 bytes / SHA `8cab31d5…7a4a`，RGB English noise 10,808,210 bytes / SHA `872fc551…5285`。Git 只保留 400/400/300 条的 ordered-ID manifest 和聚合结果，不应再分发 runtime/scorer raw bundles。
+- Experiment 05 正式数据范围是 KILT-NQ、KILT-TriviaQA 和 ALCE-ASQA；其 raw runroot、KILT/DPR corpus snapshots、indexes、12,000 generations/query scores 与 claim traces 均已外置，Git 仅保留冻结的 table/bootstrap/claim/audit aggregates。
+- Hugging Face 官方 revision API 与 frozen manifest 的全部基础模型 SHA 对齐，并补齐精确权重大小：Granite embedding 298,041,696 bytes；Granite reranker 598,436,708；Granite 4.1 3B 两 shard 共 6,805,714,792；NLI DeBERTa 737,726,552；Provence 1,740,308,732；TRUE 五 shard 共 45,492,657,356；MiniCheck 3,132,786,242。
+- 上游模型许可证边界：IBM Granite、NLI DeBERTa 与 TRUE model card 标为 Apache-2.0；MiniCheck 标为 MIT。Provence 的 Hub metadata 标为 CC-BY-NC-ND-4.0，而 README/license 文件内部又混用 CC-BY-NC、CC-BY-NC-SA 与额外限制，正式发布必须采用最严格边界：仅提供上游固定 revision 链接，不镜像权重、不声明商业可用。
+- 数据许可证边界：HotpotQA 为 CC-BY-SA-4.0，MuSiQue 为 CC-BY-4.0，RGB 明确为 CC-BY-NC-SA-4.0 non-commercial；KILT 与 ALCE 仓库代码为 MIT，但聚合数据还继承 Wikipedia/NQ/TriviaQA/ASQA 等来源条款，不能把仓库代码许可证当成数据再分发许可。
+- BluePebble 登录节点只读检查确认旧 `/scratch` 权重位置是计算节点临时空间，但正式 checkpoint 的独立保留副本仍在共享项目存储。三个 GR-C adapter 权重均为 62,332,992 bytes、config 均为 1,274 bytes；现场 SHA-256 与 G330 frozen manifests 全部一致。Selector 保留副本也再次核验为 737,731,768 bytes 且 hash 一致。
+- 三个 Exp04 上游源已进一步固定到不可变 revision：HotpotQA mirror `1908d6af…10ab`、MuSiQue mirror `22873a40…d2df`、RGB repo `65ec39e4…6615`；这些 revision 的远端 bytes/SHA 与冻结 Goal 1 manifest 完全一致。
+- 共享保留副本的权限不完全一致：seed13 adapter 与 Selector 为 owner/group-readable，seed42/73 仅 owner-readable。这个内部团队访问状态不等于公共发布；G5 不在未确认授权时扩大权限或上传权重。
 
 ## 技术决策
 
