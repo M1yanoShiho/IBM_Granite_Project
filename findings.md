@@ -62,6 +62,20 @@
 - G2 最终验收：release tag ancestry、远端 immutable archive refs、896 个移出/迁移路径恢复、frozen source/config diff、artifact/path scan、5.68 MB 体积门和 clean worktree 全部通过。
 - 92 个旧 sweep/adaptive Selector 配置被识别为后续 archive 候选；其中 15 个仍由 legacy launchers/Selector tests 直接引用。它们连同相关源码/测试应在 G3/G4 依赖闭包中成组移出，避免 G2 只删配置却留下失效入口。
 
+## G3 runtime 审计
+
+- `composition.py` 已能装配 Hybrid Retriever、trained `nli-risk-controlled` Selector 和 `grounded-grc` Generator，并对 Selector checkpoint、GR-C adapter、Granite/TRUE config 执行 SHA-256 校验；这部分应作为冻结算法核心保留。
+- 当前 `configs/experiments/systemf_three_module_smoke_seed13.toml` 仍是 development smoke：dataset 指向 `tests/fixtures`，output 指向 `runs/`，不适合作为唯一正式 runtime config。
+- 当前 `evidence-rag-smoke` 使用 BM25 + TopK + Extractive baseline，只验证最小三接口，不能证明 final trained Selector 与 grounded GR-C 的组合边界。G3 需要用实际 final class/factory 加可注入离线 doubles 的 CPU smoke。
+- `configs/models/three_module_seed13.json` 已冻结 Retriever/Selector/Generator seed-13 revisions 与 checksum，但文件名和 schema 仍需与唯一正式 runtime config 对齐；all-seed 研究 manifest 属 G4/G5，不应让默认 runtime 混用 seed42/73。
+- 仓库没有 `src/evidence_rag/api/` 或 serve CLI；`docs/three-module-runtime-handoff.md` 明确将 HTTP adapter 留作未来任务。根据已确认目标结构和前端协作需求，G3 应提供 `/health`、`/v1/query`、冻结 schema、mock response 和模型单次加载服务边界。
+- 2026-08-25 可用的 FastAPI/Uvicorn 版本为 0.141.1/0.52.4；Starlette 1.6 的 `TestClient` 已明确要求 `httpx2`，旧 `httpx` fallback 会发弃用警告。因此 API test extra 固定到 `httpx2>=2.12,<2.13`。
+- G3 前端接口采用延迟且单次加载：`GET /health` 不触碰模型，第一次 `POST /v1/query` 才装载正式 pipeline，后续请求复用同一实例。公开响应明确区分 Retriever candidates、Selector 保留证据和 Generator citations，前端因此不需要模型权重、HPC 账号或服务器文件权限。
+- CPU 三模块运行生成的完整响应验证了公开 contract：10 个 Retriever candidates 中 poison 位于 rank 1，Selector 保留 9 个且排除 poison，Generator 最终只引用被保留的 clean evidence。公开 mock 使用同一 schema 的精简三候选版本，测试会验证计数和 citation subset 不变量。
+- 开发依赖锁首次复装没有 broken requirements，但上游已撤回原锁中的 `build==1.5.1`；包索引当前稳定最新版为 1.5.0，因此正式 lock 回退到 `build==1.5.0`，不改变项目的 `build>=1.2,<2` 约束。
+- 最终模型一致性复核发现一个 G3 缺口：Selector checkpoint 本身会校验 SHA-256，且 model ID/revision 已冻结，但 NLI base snapshot 的 `config.json` 哈希只存在 model manifest，正式 TOML/factory 尚未验证。Retriever、Granite Generator 和 TRUE verifier 已有同类 config hash gate；Selector 也应补齐同一防漂移边界。
+- G3 末轮全树路径扫描仍命中一批 legacy Slurm/研究脚本中的通用 `/user/work/$USER`；它们不是 final runtime/API 依赖，但属于 G4 复现入口收敛的明确清理对象。G3 新增/修改的 runtime、API、config、examples 和 handoff 范围无个人账号或绝对 HPC 路径。
+
 ### G1 mypy 根因分析
 
 - `experiment05_data.py` 的 pyarrow 是函数内可选依赖；库已安装但不提供 `py.typed`，错误来自第三方类型元数据而不是本项目数据逻辑。

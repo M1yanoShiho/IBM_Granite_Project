@@ -11,7 +11,7 @@
 
 ## 当前阶段
 
-G1 已完成并冻结远端 archive branch/tag；G2 已完成干净 release 边界；G3 正在冻结最终三模块 runtime。
+G1 已冻结远端 archive；G2 已完成 release 边界；G3 已冻结最终 runtime/API；G4 正在整理研究复现包。
 
 ## 固定决策与边界
 
@@ -59,8 +59,8 @@ G1 已完成并冻结远端 archive branch/tag；G2 已完成干净 release 边�
 | P1 | 正式仓库结构预览与确认 | 目标目录树、逐文件职责、用户视角和边界说明 | complete |
 | G1 | 冻结完整研究历史 | 完整提交、归档分支、归档标签、归档索引 | complete |
 | G2 | 建立干净 release 文件树 | `release/dissertation-v1` 和受控保留树 | complete |
-| G3 | 冻结可运行的最终三模块系统 | 最终运行入口、配置、API 边界、核心测试 | in_progress |
-| G4 | 整理研究复现包 | 训练、基线、消融、评分和表格复现入口 | pending |
+| G3 | 冻结可运行的最终三模块系统 | 最终运行入口、配置、API 边界、核心测试 | complete |
+| G4 | 整理研究复现包 | 训练、基线、消融、评分和表格复现入口 | in_progress |
 | G5 | 发布外部模型与数据资产清单 | 公开链接/DOI、许可证、版本和 SHA-256 | pending |
 | G6 | 完成公开文档与项目元数据 | README、架构、复现、结果、限制、引用 | pending |
 | G7 | 独立验证正式候选版本 | clean clone、CI、CPU/HPC smoke、审计报告 | pending |
@@ -309,13 +309,13 @@ G1 已完成并冻结远端 archive branch/tag；G2 已完成干净 release 边�
 
 ### 验收门
 
-- [ ] README 之外存在可执行的 smoke 命令。
-- [ ] CPU smoke 不访问 HPC、网络或真实权重。
-- [ ] 真实 config 缺少环境变量时快速、明确失败。
-- [ ] 模型 revision 和 SHA-256 与冻结 manifest 一致。
-- [ ] Generator 不能引用 Selector 未选择的证据。
-- [ ] final runtime 测试、架构测试、lint 和 mypy 通过。
-- [ ] 前端边界已有明确决定和可验证产物。
+- [x] README 之外存在可执行的 smoke 命令。
+- [x] CPU smoke 不访问 HPC、网络或真实权重。
+- [x] 真实 config 缺少环境变量时快速、明确失败。
+- [x] 模型 revision 和 SHA-256 与冻结 manifest 一致。
+- [x] Generator 不能引用 Selector 未选择的证据。
+- [x] final runtime 测试、架构测试、lint 和 mypy 通过。
+- [x] 前端边界已有明确决定和可验证产物。
 
 ### 禁止事项
 
@@ -324,7 +324,7 @@ G1 已完成并冻结远端 archive branch/tag；G2 已完成干净 release 边�
 - 不把基线描述成最终 trained Selector。
 - 不改变冻结 checkpoint 或最终实验配置。
 
-**状态：** in_progress
+**状态：** complete
 
 ## G4：整理研究复现包
 
@@ -381,7 +381,7 @@ G1 已完成并冻结远端 archive branch/tag；G2 已完成干净 release 边�
 - 不将 `FINAL PASS` 改写为科学 superiority 成立。
 - 不使用 held-out 结果重新选择模型、seed 或阈值。
 
-**状态：** pending
+**状态：** in_progress
 
 ## G5：发布外部模型与数据资产清单
 

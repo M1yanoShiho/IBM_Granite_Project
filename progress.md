@@ -105,21 +105,47 @@
 
 ### G3：冻结可运行的最终三模块系统
 
-- **状态：** in_progress
+- **状态：** complete
 - 开始条件已满足：G2 complete；用户已授权顺序接替执行。
 - 下一步：重新审计最终 composition/config/model manifest、CPU smoke、真实权重失败边界与前端 API 交付面。
+- 初步审计完成：composition 已包含 final class/factory 与模型哈希校验，但 development config、baseline-only smoke 和缺失 HTTP API 尚未达到 G3 产物要求。
+- 已决定沿用计划中的前端边界：本仓库提供最小后端 HTTP API、冻结 response schema 和 mock；前端不加载 checkpoint、不共享 HPC 账号。
+- G3 config TDD：新增 dataset/output `${ENV}` 展开与缺失变量测试，首次按预期 2 failed；实现集中环境变量展开后 2 tests 和 ruff 通过。正式 config 因此可用环境变量声明外部 dataset/output，而不是写个人路径。
+- G3 runtime-config TDD：新 canonical final/smoke 路径测试首次按预期 2 failed（文件尚不存在）；迁移配置后组合测试又暴露两个旧常量仍指向原路径，已拆分为 CPU smoke config 与 final config 常量。
+- G3 API TDD 首次按预期在 collection 阶段失败：`evidence_rag.api` 尚不存在。同时最新 Starlette 报告旧 `httpx` TestClient fallback 已弃用，开发依赖已改为其明确要求的 `httpx2 2.12`。
+- 已复核 API RED 测试的冻结契约：health 必须保持 lazy，连续查询只允许加载一次 pipeline；response 必须同时交付 candidates、selected evidence、citations 和固定三模块 diagnostics。下一步按该测试实现 API package 与 serve CLI。
+- API package、versioned schema、lazy service、FastAPI app 与 serve CLI 已实现；首轮 API/runtime focused pytest 45 项全部通过。strict mypy 随后发现真实 loader 把 `chunker_config` 误当作 `CorpusBuilder.build` 参数，现按已有 `build_chunker` factory 修正并增加 loader 回归测试。
+- 修正后 focused pytest 46 项、ruff 和 strict mypy（152 source files）全部通过；API、TestClient 与其传递依赖的精确版本已写入开发 lock，供 clean CI/clone 复现。
+- 已用 CPU 三模块执行生成前端响应，并据此新增 versioned mock、标准库调用示例和前端接口文档；`.env.example` 已改指 canonical final config，不再要求共享个人 HPC 目录。
+- 空环境变量边界测试先按预期失败（未抛异常）；环境展开与模型预检现统一把缺失或纯空白变量视为未配置。CPU smoke 测试同时封锁 socket 连接，防止离线 smoke 意外联网。
+- requirements lock 复装、`pip check`、公开 CPU smoke 命令、JSON 解析和 serve CLI help 均通过；安装过程发现历史锁定的 `build 1.5.1` 已被上游撤回，已改锁当前未撤回的 1.5.0，待复装确认。
+- `build 1.5.0` 已复装且无 broken requirements；随后全量 pytest 退出码 0。G3 最终模型审计发现 Selector base `config.json` hash 尚未进入 runtime gate，下一步先加失败测试再补校验。
+- Selector base hash 测试先按预期因 `model_config_sha256` 未注册而失败；factory 现要求并验证 snapshot `config.json`，formal TOML 与 model manifest 的 hash 已对齐。
+- 首次 Selector focused 回归有 1 个旧 missing-env fixture 未提供新增必需 hash，因此提前失败在参数完整性检查；fixture 已补通用 hash，占位仍不会越过缺失 checkpoint 环境变量边界。
+- 修正后 Selector/runtime focused tests、ruff 和 strict mypy 通过。进一步扩展 manifest consistency 与 generic 503 隐私测试后，G3 API/runtime/architecture focused 共 66 项通过；全 `src/tests` ruff 和 152-source strict mypy 均通过。
+- G3 末轮全量 pytest：1878 passed、20 skipped；secret/weight/large-file scan 无命中且没有 >1 MiB 文件。全树路径扫描仍显示 legacy Slurm 脚本的 `/user/work/$USER`，已分类为 G4 复现脚本收敛输入，不属于 final runtime surface。
+- G3 final surface 审计：恰好 1 个 `final_*.toml` 和 1 个 `final_*.json`；新增/修改 runtime/API/docs/examples 无个人路径；公开 smoke trace 再次证明 citations 是 selected evidence 子集且 poison 在 Selector 后消失。人工复核 API schema/service/app/serve 未发现新的阻塞问题。
+- G3 runtime 首次精确暂存未发生：`git add` 对已重命名且工作树中不存在的两个旧路径报 pathspec 不匹配。后续只对已审计的 `configs/experiments`、`configs/models` 使用 index update，再显式加入新路径和其余文件。
+- G3 commits：`9a79129`（portable seed-13 runtime/config）、`34b3dff`（frontend HTTP API）、`dbd023c`（frontend contract/mock）。
+- 提交后再次验证：1878 passed、20 skipped；全 `src/tests` ruff、152-source strict mypy、CPU smoke JSON、`pip check` 和 whitespace 全部通过。G3 验收门全部满足。
 
-### G4–G8
+### G4：整理研究复现包
+
+- **状态：** in_progress
+- 开始条件已满足：G3 complete；用户已授权顺序接替执行。
+- 已知输入：legacy Slurm 路径、92 个旧 Selector sweep 配置和历史阶段脚本需要按最终论文主张/结果依赖闭包分类，而不能直接批量保留。
+- 下一步：重读 G4 计划，盘点 Selector/Generator/Experiment 04/05 的最终命令、配置、源码、测试和聚合结果映射。
+
+### G5–G8
 
 - **状态：** pending
-- 按 `task_plan.md` 顺序和验收门执行。
+- 在 G4 验收通过后按 `task_plan.md` 顺序接替执行。
 
 ## 测试结果
 
 | 测试 | 输入 | 预期结果 | 实际结果 | 状态 |
 |---|---|---|---|---|
 | 规划文件存在性 | `task_plan.md`, `findings.md`, `progress.md` | 三个文件均存在 | 三个文件和 cleanup inventory 均存在，链接有效 | PASS |
-| 计划结构检查 | Goal P0/G1–G8 | 每个 Goal 有目的、条件、动作、产物、验收门和禁止事项 | P0、G1–G8 六类结构字段全部通过机器检查 | PASS |
 | Markdown whitespace | 四个规划/清单文件 | 无格式错误 | 四个文件 whitespace 检查通过 | PASS |
 | 安全边界 | Git status/diff | 仅新增/修改规划文件 | 仅四份规划/清单文件为本任务新增或修改 | PASS |
 | P1 文件存在性 | 目标结构稿和四份规划文件 | 文件存在且非空 | 目标结构稿 717 行；五份规划/结构文件均存在 | PASS |
@@ -151,6 +177,13 @@
 | G2 portable launchers | 两个保留的 Exp04 Slurm 文件 | shell 语法、阶段顺序、环境变量边界正确 | `bash -n` 和 4 个 focused tests 通过 | PASS |
 | G2 personal path scan | release tracked tree（规划/迁移记录除外） | 无账号和个人绝对路径 | 无匹配 | PASS |
 | G2 post-boundary pytest | 当前 release tree | 0 failed | 全量退出码 0 | PASS |
+| G3 focused runtime/API | final runtime、API、architecture、config | 0 failed | 66 项通过 | PASS |
+| G3 full pytest | 提交后的 release tree | 0 failed | 1878 passed、20 skipped | PASS |
+| G3 ruff | `src`、`tests`、公开 Python example | 0 errors | All checks passed | PASS |
+| G3 strict mypy | `src/evidence_rag` + typecheck contract | 0 errors | 152 source files 无错误 | PASS |
+| G3 CPU smoke | final classes + offline doubles + socket denial | 无网络/权重/GPU且 trace 合法 | poison 被删除；citations 是 selected subset | PASS |
+| G3 model manifest | final TOML 与 model JSON | IDs/revisions/hashes 一致 | Retriever/Selector/Generator/TRUE 全部对齐 | PASS |
+| G3 dependency lock | `requirements-dev.lock` | 可复装且无 broken requirements | build 1.5.0/API 依赖复装；`pip check` 通过 | PASS |
 
 ## 错误日志
 
@@ -172,16 +205,26 @@
 | 2026-08-25 | 第二批路径扫描命中新加入的 launcher 测试，因为测试本身写入了旧账号字面量 | 1 | 删除账号字面量；保留对 `/user/work/` 绝对路径和三个必需环境变量的通用断言，再重跑扫描与测试。 |
 | 2026-08-25 | 第一批 docs/results 外置后全量 pytest 有 16 个测试读取已归档的旧路径而失败 | 1 | 分类为最终结果契约与纯历史 artifact 契约；前者改指 canonical `results/experiment04/`，后者连同其 archive-only 前置材料一并从 release 测试面移出。 |
 | 2026-08-25 | 第二批提交前 `git diff --cached --check` 发现 4 个删减后的测试文件末尾多余空行 | 1 | 提交被安全中止；用精确补丁移除四个 EOF 空行并重复格式检查。 |
+| 2026-08-25 | G3 引用扫描把 ripgrep 的排除参数误写成 Git pathspec，输出两个 “No such file” | 1 | 不复用该写法；后续 `rg` 使用标准 `-g '!pattern'`，Git 内容扫描再使用 `:(exclude)` pathspec。 |
+| 2026-08-25 | G3 环境预检补丁因函数返回签名上下文过宽，首次插入 `build_baseline_from_corpus` 而非正式 config factory | 1 | RED 测试仍先调用 Retriever 并暴露错误；将预检精确移到 `build_pipeline_from_config` 的函数体首行。 |
+| 2026-08-25 | CPU smoke 首轮替换补丁对同一路径同时使用 Delete/Add，编辑工具拒绝执行 | 1 | 文件未改变；改用单一 Update File 补丁原地替换实现。 |
+| 2026-08-25 | CPU smoke 功能测试通过后 strict mypy 发现离线 NLI double 返回普通 `str`，不满足三标签 Literal protocol | 1 | 将 double 的签名和返回值收窄为正式 `NLIModel` protocol；不改 smoke 行为。 |
+| 2026-08-25 | G3 契约复核命令引用了不存在的单文件路径 `src/evidence_rag/pipeline.py` | 1 | 项目使用 `pipeline/` package；停止猜测路径，后续先列出 package 文件再读取准确的 `service.py` 与 contracts。 |
+| 2026-08-25 | G3 API 功能测试通过，但 strict mypy 发现真实 loader 向 `CorpusBuilder.build` 传入不存在的 `chunker_config` 关键字 | 1 | 改为使用现有 `build_chunker` 创建实例并传给 `CorpusBuilder` 构造器；新增不加载外部模型的真实 loader 回归测试。 |
+| 2026-08-25 | G3 文档补丁在同一次 `apply_patch` 中对 handoff 文件同时 Delete/Add，被编辑器拒绝 | 1 | 文件未改变；拆分为原地 Update 与独立新增文件，不再对同一路径使用同批 Delete/Add。 |
+| 2026-08-25 | requirements lock 安装提示 `build==1.5.1` 是上游 yanked release | 1 | 查询包索引确认当前稳定最新版为 1.5.0；将 lock 改为 `build==1.5.0` 并重新安装验证。 |
+| 2026-08-25 | Selector base hash gate 加入后，一个 missing-checkpoint 测试先因缺少新增 `model_config_sha256` 而失败 | 1 | 为旧 fixture 补必需 hash 占位，使测试继续验证原本的 checkpoint 环境变量失败顺序。 |
+| 2026-08-25 | G3 runtime 暂存命令把已不存在的 rename 源路径作为普通 `git add` pathspec，Git 拒绝且未创建提交 | 1 | 只在两个已审计 config 目录运行 tracked index update，再显式 `git add` 新目标和 runtime allowlist。 |
 
 ## 五问重启检查
 
 | 问题 | 答案 |
 |---|---|
-| 我在哪里？ | P0/P1/G1 已完成；G2 正在建立干净 release 文件树。 |
-| 我要去哪里？ | 完成 G2 release 文件边界，然后依次完成 G3–G8。 |
+| 我在哪里？ | P0/P1/G1–G3 已完成；G4 正在整理研究复现包。 |
+| 我要去哪里？ | 完成 G4 复现入口与映射，然后依次完成 G5–G8。 |
 | 目标是什么？ | 同仓库内形成可提交毕设的干净可用正式 main，同时保留完整研究历史。 |
 | 我学到了什么？ | 见 `findings.md`。 |
-| 我做了什么？ | 已将整理清单转换成 Goal 计划，并完成正式 main 的结构与逐文件职责预览。 |
+| 我做了什么？ | 已冻结历史、建立干净 release，并交付可运行三模块 runtime、CPU smoke 与前端 API。 |
 
 ---
 *每个 Goal 完成后或遇到错误时更新此文件。*
