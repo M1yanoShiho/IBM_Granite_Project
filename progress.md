@@ -88,6 +88,7 @@
 - **状态：** in_progress
 - 开始条件已满足：G1 complete，archive branch/tag 已在远端验证。
 - 下一步：建立隔离 worktree，从 archive commit 创建 `release/dissertation-v1`，形成受控保留树和归档映射。
+- worktree 预检确认当前是普通 checkout，项目原先没有 `.worktrees/` 且未忽略该目录；按隔离执行规则在开发分支增加 `/.worktrees/` 防护。
 
 ### G3–G8
 
