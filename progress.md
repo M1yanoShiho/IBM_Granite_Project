@@ -223,6 +223,8 @@
 - GitHub CI run `32807749477` 已完成 success：锁定依赖安装、pytest、ruff、mypy、build 和 CPU smoke 各步骤均通过。
 - Exp04 六个与 Exp05 四个公开重建产物和冻结文件 10/10 byte-identical；远端 archive branch 与 peeled archive tag 仍共同指向 `ea4d617…14bb`，release branch 指向 `044978f`。
 - 已生成 `RELEASE_VALIDATION_REPORT.md`，记录 candidate、fresh clone、CI、树体积、安全扫描、表格一致性、两项已修复问题及 HPC pending 边界。G7 七项本地/远端验收通过，只剩 authorized HPC real-model smoke。
+- 验证报告提交 `0f123ed` 的 GitHub CI 也 success，但 runner 明确警告 checkout/setup actions 的 Node 20 runtime 已弃用。官方 release API 显示 2026-07 当前版本为 checkout v7.0.1 与 setup-python v7.0.0，二者 action metadata 均使用 Node 24；workflow 最小升级到 major v7，待新 CI 复验。
+- 本机网络服务只读检查确认 `UoB VPN` 为 Disconnected；再次连接配置好的 `bp` alias 返回 `Network is unreachable`。HPC 唯一阻塞现已精确定位到需要用户手动完成的 VPN 登录/MFA，而不是代码、SSH alias 或模型哈希。
 
 ### G8：接入 main 并发布毕设版本
 
@@ -354,6 +356,7 @@
 | 2026-08-25 | G7 HPC 首次连接使用不存在的本地 alias `bluepebble` | 1 | 只读列出 SSH hosts，确认实际 alias 为 `bp`，不再猜别名。 |
 | 2026-08-25 | G7 使用 `bp` 连接首个 BluePebble 登录节点超时 | 1 | 不把超时写成 smoke 通过；检查备用登录节点和当前网络/VPN可达性。 |
 | 2026-08-25 | G7 猜测的第二个 BluePebble 登录主机名无法解析 | 1 | 停止猜测未配置端点；保留唯一已配置 alias，等待校园网/VPN恢复后重试。 |
+| 2026-08-25 | G7 CI 成功但旧 action major 产生 Node 20 deprecation warning | 1 | 用官方 release/API 复核当前 v7 与 Node 24 metadata；升级 checkout/setup major 并重新跑 CI。 |
 
 ## 五问重启检查
 

@@ -80,13 +80,16 @@ evidence/answer gates, artifact identities, and document-link contracts.
    Experiment 05 tests require NumPy and PyArrow. The development lock, CI install metadata, and
    public setup/reproduction commands now include the `data-prep` extra. A new clean environment
    and GitHub Actions both passed after this correction.
+3. A successful CI run warned that the older checkout/setup actions used the retired Node 20
+   runtime. Their official current v7 releases use Node 24, so the workflow was upgraded and must
+   pass again without that deprecation warning.
 
 ## Pending authorized HPC smoke
 
 The release contains no trained checkpoint, model cache, dataset manifest, or index. Real-model
 validation must therefore run on an authorized backend host. During this validation session the
-configured cluster login endpoint timed out, and the guessed alternate endpoint did not resolve.
-No HPC pass is claimed.
+configured University VPN service was disconnected, so the cluster login endpoint was network
+unreachable; an unconfigured guessed alternate endpoint did not resolve. No HPC pass is claimed.
 
 When cluster connectivity is available, the validator must:
 
