@@ -131,15 +131,43 @@
 
 ### G4：整理研究复现包
 
-- **状态：** in_progress
+- **状态：** complete
 - 开始条件已满足：G3 complete；用户已授权顺序接替执行。
 - 已知输入：legacy Slurm 路径、92 个旧 Selector sweep 配置和历史阶段脚本需要按最终论文主张/结果依赖闭包分类，而不能直接批量保留。
 - 下一步：重读 G4 计划，盘点 Selector/Generator/Experiment 04/05 的最终命令、配置、源码、测试和聚合结果映射。
+- 已完成第一轮树盘点：正式结果端已收敛到 5 份研究报告与 Exp04/05 共 20 个聚合结果文件；代码端仍有约 150 个顶层 scripts 和约百个旧 sweep configs。下一步从冻结报告/审计反向追踪最终命令与依赖，而不是按文件名猜测保留。
+- 已对照目标公开树与最终脚本 docstring，初步冻结四个复现入口及 Exp04/05 阶段链；下一步生成实际 import/file-reference 依赖图，并确认 Generator G300/G310/G400/G410 与 Selector lean v3 的训练输入链边界。
+- Selector 审计确认 final lean v3 已有包内 CLI/config/focused tests；Generator 资格链仍直接导入 B100/G230/joint legacy helpers。下一步用源码 import graph 得到各根入口的最小递归闭包，再决定迁移还是抽取 helper。
+- 递归 import graph 已完成：Generator roots 的最小 closure 为 8 个 scripts；Exp04 Goal5 closure 为 Goal3/4/5 三文件，Goal1 另依赖 heldout_data。已确认当前 Exp04 defaults 指向已归档 full-flow 目录，G4 必须用明确 external input contract 替代这些隐式默认。
+- 小型结果结构审计完成：Exp04 final JSON 和 Exp05 table/claim/bootstrap JSON 足以作为 table-only rebuild 输入，但现有正式 compilers 只支持 raw runroot。下一步以 committed outputs 为 golden tests，先 RED 再实现公开 table rebuild。
+- 发现 Exp05 `final_tables.md` 还混入独立 Selector stress-test/贡献表并引用 archive-only 路径；先从 archive 恢复 Selector 两项最终聚合证据，再设计可追踪的公开表格 rebuild，避免把人工表当成新的数据源。
+- 已从 immutable archive 定位 R005AB Lean v3 `L003_FINAL_REPORT.json`，确认它同时记录 evidence PASS 与 answer/overall FAIL。下一步基于该单一 source hash 生成两份公开聚合 JSON，并加一致性测试阻止选择性报告。
+- 权威 L003 JSON 已用 Python 流式计算 SHA-256 为 `b031b6f2…2495c`；macOS `shasum` 再次因无效 locale 崩溃，该轮输出已明确作废。
+- Public table-rebuild 测试已先建立并按预期在 collection 阶段失败：`evidence_rag.evaluation.public_tables` 尚不存在。已确认 Exp04 schema/metric order 与 Exp05 frozen dataset/metric order，下一步实现最小纯渲染模块。
+- 首次写入纯渲染模块后，pytest 在导入阶段发现 6 处 LaTeX 行尾反斜杠字符串未闭合；模块尚未执行、冻结结果未改变。现只修复字符串转义并重跑黄金文件测试。
+- 修复转义后，公开表与 Selector 结果共 4 个 focused tests 通过；重建产物与冻结文件逐字节一致，ruff、strict mypy 与 whitespace 检查通过。下一步建立四个读者可见的 `experiments/` 入口并收敛脚本依赖闭包。
+- 公开入口 TDD 首轮按预期 3 failed（Selector console command 与两个 table builder 尚不存在）；实现薄包装后 7 tests 和 ruff 通过。strict mypy 随后识别两个同名 `build_tables.py` 尚无 package 边界，现增加最小 `__init__.py` 后复验。
+- 增加 package 边界后，7 个公开入口/重建/Selector 结果测试、ruff、strict mypy 全部通过。开始根据冻结报告和 audit 编写论文主张到证据的逐项映射。
+- 四个实验 README、Generator 三 seed provenance 和根级复现映射已建立。文档契约首轮发现 Exp04/05 两个 aggregate 名称未写完整目录前缀，已补成可直接定位的 canonical paths 后复验。
+- G4 allowlist 外置批次完成：265 个候选全部先通过 archive recovery；release 现只保留 29 个 Python research scripts、2 个 Exp04 Slurm 和 18 个配置。删除后 0 个失效 script imports，37 个 focused tests 通过。下一步运行全量 pytest/ruff/mypy 并处理真实回归。
+- 精简后全量 pytest 首轮退出码 0。全范围 ruff 随后暴露 3 个保留 Generator 资格脚本的 9 个历史 lint 项；5 个由 formatter 机械修正，余下 3 个 lambda 和 1 个未使用循环变量做等价改写后复验。
+- Generator focused 回归捕获 G410 两个相邻循环的机械改名落在了实际读取路径的第一个循环；未提交。现恢复第一个 `path`，仅把第二个真正未使用变量改为 `_path` 后重跑。
+- 修正后 7 个 Generator 资格回归、全 `src/tests/scripts/experiments` ruff、153-source strict mypy、两个 Slurm 语法和 whitespace 全部通过。为取得 pytest 数量而清空 `addopts` 的一次复验同时误删了必需的 `--import-mode=importlib`，导致同名测试 collection 冲突；该调用无效，恢复正常 pytest 配置复验。
+- 正常 importlib 模式的精简后全量回归为 1639 passed、20 skipped。删除引用扫描只剩两个无运行依赖的测试文字命中（历史 preflight 注释、函数名中的 `topk_baseline`），已改成不冒充文件引用的表述；个人/HPC 路径扫描为 0。
+- G4 commits：`e398bd4`（公开复现入口、结果映射和 Selector 双门结果）、`b5e5fe6`（外置 265 个旧阶段文件并收敛 lint 面）。
+- G4 提交后最终验证：1639 passed、20 skipped；全范围 ruff、153-source strict mypy、Slurm 语法、公开 JSON、安装后 Selector CLI、`pip check` 和个人路径扫描全部通过；265 个删除项全部可从 archive tag 恢复。
 
-### G5–G8
+### G5：发布外部模型与数据资产清单
+
+- **状态：** in_progress
+- G4 验收门已满足；用户已授权顺序接替执行。
+- 权限边界：尚无团队/导师对衍生权重和 raw bundle 公开上传的明确确认，因此 G5 可先完成只读许可证/哈希/大小/可用性审计，不会上传受限资产或把团队访问写成公众访问。
+- 下一步：盘点 final model manifest、Generator provenance、archive/HPC 记录中的大小和 SHA-256；核对第三方模型/数据许可证与可公开链接。
+
+### G6–G8
 
 - **状态：** pending
-- 在 G4 验收通过后按 `task_plan.md` 顺序接替执行。
+- 在 G5 验收通过后按 `task_plan.md` 顺序接替执行。
 
 ## 测试结果
 
@@ -184,6 +212,12 @@
 | G3 CPU smoke | final classes + offline doubles + socket denial | 无网络/权重/GPU且 trace 合法 | poison 被删除；citations 是 selected subset | PASS |
 | G3 model manifest | final TOML 与 model JSON | IDs/revisions/hashes 一致 | Retriever/Selector/Generator/TRUE 全部对齐 | PASS |
 | G3 dependency lock | `requirements-dev.lock` | 可复装且无 broken requirements | build 1.5.0/API 依赖复装；`pip check` 通过 | PASS |
+| G4 public table rebuild | Exp04/Exp05 small aggregates | 表格与冻结产物逐字一致 | Exp04 6 files、Exp05 3 tables + report 全部一致 | PASS |
+| G4 scientific result boundary | Selector/Exp04/Exp05 public results | 正负结果与 claim labels 同时保留 | evidence PASS + answer FAIL；Exp04 superiority/Exp05 Claim A/B 未支持 | PASS |
+| G4 archive recovery | cleanup commit 265 deletions | 所有路径可从 archive tag 读取 | archive missing 0 | PASS |
+| G4 final pytest | 精简后的正式树 | 0 failed | 1639 passed、20 skipped | PASS |
+| G4 final static checks | `src tests scripts experiments` | ruff/mypy/shell/whitespace 全部通过 | ruff PASS；strict mypy 153 files；两个 Slurm `bash -n` PASS | PASS |
+| G4 install/CLI | editable install + public commands | 安装后命令可发现 | Selector 和两个 table builders help；`pip check` PASS | PASS |
 
 ## 错误日志
 
@@ -215,16 +249,23 @@
 | 2026-08-25 | requirements lock 安装提示 `build==1.5.1` 是上游 yanked release | 1 | 查询包索引确认当前稳定最新版为 1.5.0；将 lock 改为 `build==1.5.0` 并重新安装验证。 |
 | 2026-08-25 | Selector base hash gate 加入后，一个 missing-checkpoint 测试先因缺少新增 `model_config_sha256` 而失败 | 1 | 为旧 fixture 补必需 hash 占位，使测试继续验证原本的 checkpoint 环境变量失败顺序。 |
 | 2026-08-25 | G3 runtime 暂存命令把已不存在的 rename 源路径作为普通 `git add` pathspec，Git 拒绝且未创建提交 | 1 | 只在两个已审计 config 目录运行 tracked index update，再显式 `git add` 新目标和 runtime allowlist。 |
+| 2026-08-25 | G4 计算 archive Selector JSON SHA-256 时再次调用了已知受 locale 影响的 macOS `shasum`，进程 panic | 1 | 不采信该输出；改用 Python `hashlib.sha256` 对 Git blob stream 计算并得到完整 digest。后续不再使用 `shasum`。 |
+| 2026-08-25 | G4 公开表重建模块首次写入时，LaTeX 行尾反斜杠在 6 个字符串中转义不足，pytest collection 报 `SyntaxError` | 1 | 模块未执行且结果未改变；把行尾改为合法的双反斜杠字符串并重新运行黄金文件测试。 |
+| 2026-08-25 | G4 两个公开 table builder 同名且目录无 Python package 标记，strict mypy 报 duplicate module | 1 | 为 `experiments/` 和两个子目录增加最小 `__init__.py`，保持脚本入口不变并重新类型检查。 |
+| 2026-08-25 | G4 结果摘要只读命令误用系统 `python`，当前 shell 没有该别名 | 1 | 未发生写入；后续统一使用 release worktree 的 `.venv/bin/python`。 |
+| 2026-08-25 | G4 精简后首次全范围 ruff 在 G310/G400/G410 报 9 个旧风格问题 | 1 | 仅做 import 排序、移除未使用 import、命名未使用变量，并把 lambda 赋值改为等价局部函数；随后运行对应回归与全量静态检查。 |
+| 2026-08-25 | G410 有两个相邻 `for seed, path` 循环，首次 lint 修正误把实际读取文件的第一个变量改成 `_path`，focused test 报 `UnboundLocalError` | 1 | 测试在提交前捕获；恢复第一个 `path`，只改第二个未使用变量并重跑全部相关测试。 |
+| 2026-08-25 | 为显示 pytest 总数而使用 `-o addopts=''`，意外移除了项目必需的 `--import-mode=importlib`，8 个同名 test module collection 冲突 | 1 | 不是代码回归；改用 `-o addopts='--import-mode=importlib' -q` 保留导入模式并显示单次 summary。 |
 
 ## 五问重启检查
 
 | 问题 | 答案 |
 |---|---|
-| 我在哪里？ | P0/P1/G1–G3 已完成；G4 正在整理研究复现包。 |
-| 我要去哪里？ | 完成 G4 复现入口与映射，然后依次完成 G5–G8。 |
+| 我在哪里？ | P0/P1/G1–G4 已完成；G5 正在审计外部资产。 |
+| 我要去哪里？ | 完成 G5 资产清单与权限边界，然后依次完成 G6–G8。 |
 | 目标是什么？ | 同仓库内形成可提交毕设的干净可用正式 main，同时保留完整研究历史。 |
 | 我学到了什么？ | 见 `findings.md`。 |
-| 我做了什么？ | 已冻结历史、建立干净 release，并交付可运行三模块 runtime、CPU smoke 与前端 API。 |
+| 我做了什么？ | 已冻结历史、建立干净 release，交付三模块 runtime/API，并把复现包收敛到最终训练、评测和公开结果入口。 |
 
 ---
 *每个 Goal 完成后或遇到错误时更新此文件。*

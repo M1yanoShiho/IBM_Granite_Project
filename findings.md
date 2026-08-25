@@ -76,6 +76,49 @@
 - 最终模型一致性复核发现一个 G3 缺口：Selector checkpoint 本身会校验 SHA-256，且 model ID/revision 已冻结，但 NLI base snapshot 的 `config.json` 哈希只存在 model manifest，正式 TOML/factory 尚未验证。Retriever、Granite Generator 和 TRUE verifier 已有同类 config hash gate；Selector 也应补齐同一防漂移边界。
 - G3 末轮全树路径扫描仍命中一批 legacy Slurm/研究脚本中的通用 `/user/work/$USER`；它们不是 final runtime/API 依赖，但属于 G4 复现入口收敛的明确清理对象。G3 新增/修改的 runtime、API、config、examples 和 handoff 范围无个人账号或绝对 HPC 路径。
 
+## G4 复现包审计
+
+- G4 启动时 release 仍有约 150 个顶层研究/诊断/Slurm 脚本；其中大量 `full_flow_*`、G3/G5 旧诊断和通用集群 launcher 是开发过程阶段，不应作为正式公开入口并列展示。
+- `configs/experiments/` 仍包含约百个 chunk/retriever sweep 配置，正式论文主方法实际只需 Experiment 04 的 10 个冻结系统配置；Selector 正式训练配置是 `configs/selector/lean_v3.toml`，其余 adaptive/beam 配置需要按测试依赖成组审计。
+- 当前可公开的小型研究证据已经集中为 5 份 `docs/research/` 报告、Experiment 04 的 8 个 final 聚合文件和 Experiment 05 的 12 个 final 聚合/audit 文件；这些是复现映射的结果端，不应被历史 raw bundle 路径替代。
+- 目标结构已确认采用 `experiments/selector`、`experiments/generator`、`experiments/experiment04`、`experiments/experiment05` 四个读者入口；现有已测试脚本可迁移/薄封装到这些入口，算法实现继续复用 `src/evidence_rag`，不为目录美观重写冻结逻辑。
+- Exp04 的冻结链是 Goal 1 sealed/scorer validation → Goal 2 ten-arm development wiring → Goal 3 七臂/三 seed formal execution → Goal 4 三项模块消融 → Goal 5 compile/audit；正式公开入口需要表达这条链及可单独运行的 table rebuild，而不是让读者理解内部 Goal 编号。
+- Exp05 的冻结链分为 data inventory/index/retrieval、prepare arms、generate、score、compile/bootstrap/claim labels、independent audit；需要保留负面 Claim A/B 结论和 3 datasets × 10 arms 的冻结边界。
+- Selector 最终训练实现已经在包内 `src/evidence_rag/cli/run_selector_lean.py`，并由 `configs/selector/lean_v3.toml` 冻结模型、数据角色、训练日程、阈值选择、统计与 Generator blind gate；正式入口应复用它而不是保留旧 adaptive/beam launchers。
+- Generator G300/G310/G400/G410 并非四个完全独立脚本：G400 直接依赖旧 B100、G230、G310 和 joint helpers，G410 又依赖 G310/G400。清理前必须递归计算实际 helper 闭包，并区分“方法依赖”与只为历史 Goal 命名/manifest schema 服务的耦合。
+- 递归 import closure 显示 Generator 四入口合计只需 8 个现有 script modules：G300、G310、G400、G410、`alce_metrics`、B100、G230、`full_flow_joint`；因此无需保留整个 Full-flow 脚本史。G400/G410 的 seed42/73 输入来自已验证的 G330 external run dirs，G320/G330 在当前树中没有独立脚本。
+- Exp04 Goal 3 脚本本身构造正式四基线和三 seed Ours；Goal 4 复用 Goal 3 prepared/Full seed13 并生成三个 ablation；Goal 5 compile 同时依赖 Goal 3/4 helpers。Goal 2 real-model baseline smoke 可作为模型装载预检，但不产生最终表中数值。
+- 多个 Exp04 脚本仍把已归档的 `docs/full-flow/...` 目录写成默认 experiment root。正式复现入口必须要求 CLI/environment 指向外部 raw bundle，不能让缺失的 archive-only 默认路径看起来可直接运行。
+- Exp04 `final_results.json` 已内含 Table 1/2 canonical rows、paired bootstrap、claim decisions 和生成文件 SHA；公开 `table1/2.json` 只是带 schema 的同一 rows wrapper。因此可以从这个 35KB 小型聚合输入精确重建 JSON/CSV/LaTeX/Markdown，而不需要 11,000 条 raw generations。
+- Exp05 `table1.json`、`table2.json`、`bootstrap.json` 和 `claim_labels.json` 已是小型聚合输入；现有 compile CLI 仍强制读取完整 runroot/Goal1 bundle。G4 需要增加只读 table-rebuild 入口，并用 byte-for-byte 测试证明没有 post-hoc 改写 scorer 或 claim labels。
+- `docs/research/experiment05.md` 是冻结 compiler 的原始 FINAL_REPORT，可由 table1/table2/claim labels 精确重建；`results/experiment05/final_tables.md` 是后来面向论文的三表排版，额外嵌入 module contribution 与 Selector stress-test 数值，且尾部仍引用已归档相对路径。G4 应先恢复正式 Selector 聚合 JSON，再让论文表从这些公开输入生成。
+- 当前正式树缺少目标结构要求的 `results/selector/misleading_evidence_summary.json` 和 `blind_answer_gate.json`，虽然论文版 Experiment 05 表已经引用相应数值。需要从 immutable archive 中定位冻结 source artifacts、验证哈希/结论后以小型聚合形式恢复。
+- Immutable archive 中的权威 Selector source 是 R005AB Lean v3 `L003_FINAL_REPORT.json`：evidence gate 为 PASS（seed13/42 harmful reduction 12.9518%/13.1024%，required recall/chain loss 均 0），answer gate 为 FAIL（macro answer delta −0.1353 pp，95% CI −0.5618 至 +0.2770 pp），overall 决策是 KEEP TOPK10。公开结果必须同时保留这两部分，不能只摘正向 evidence gate。
+- Archive 里另有 2026-08-10 的 Beam Selector 最终报告，但它是被 Lean v3 后续实验取代的旧路线；正式研究结论可以在限制文档中提及，不应让它与 R005AB final artifacts 并列为当前复现输入。
+- R005AB Lean v3 权威 JSON 的 archive byte SHA-256 为 `b031b6f29051fed94a76220ac829ebe2acffe086e253dec9f3b24c090252495c`；两份公开 Selector 聚合文件将共同登记这个 source hash 和 archive path，便于恢复完整逐项 inference。
+- 纯渲染模块现已证明：Exp04 的 6 个公开表文件可只由 `final_results.json` 逐字节重建；Exp05 的 CSV、LaTeX 和冻结最终报告可只由公开 `table1.json`、`table2.json`、`claim_labels.json` 重建。正式 release 不需要保留逐题 outputs 或 raw runroot 才能验证论文表格。
+- Selector 两份公开摘要由同一个 archive source SHA-256 约束，并同时固定 evidence gate `PASS` 与 answer/overall gate `FAIL`；任何公开说明都不能只写前者或把该模型描述成最终答案指标已有提升。
+- `run_selector_lean.py` 已有稳定的 `main(argv)` 与 `fit`、`calibrate`、`final-evaluate` 三个子命令，可直接注册为安装后的公开命令，无需复制训练逻辑。
+- Generator G300/G310/G400/G410 同样已有 argparse 入口；正式 `experiments/generator/` 只需解释阶段关系、外部输入与冻结选择，底层仍引用这 8 个已测试模块，避免第二份实现。
+- `configs/experiments/` 现有约百个文件几乎全是早期 retriever/chunk sweeps，而 Exp04/05 正式链由各自 sealed manifest/runtime bundle 驱动；这些 sweep configs 不应继续与唯一 runtime config 和最终研究配置并列展示。
+- Exp04 冻结 audit 明确登记 11,000 次新生成、1,100 行复用、21 个 paired-bootstrap cells 和所有源/生成哈希；小型 release 只保留 aggregate，但 `research-archive-2026-08-25` 仍可恢复逐题输入用于完全重算。
+- Exp05 冻结 audit 明确登记 3 数据集 × 10 arms × 400 = 12,000 generation outputs / query scores、0 scorer errors、10,000 bootstrap resamples（seed 13）以及两个 `NOT SUPPORTED` claim labels；技术 `FINAL PASS` 不能被写成科学 superiority 通过。
+- Exp04 的科学结论同样是负向/混合：Ours 的 RAR 未超过基线，Top-10 和 Dense 替换不改变冻结样本 RAR，Direct Generator 在 HotpotQA/MuSiQue 优于 GR-C seed13；公开映射必须保留这些结论，而不仅列系统表格。
+- Archive 含 G320 recipe freeze 与 G330 三 seed aggregate manifest；三份逐 seed training manifests 各约 128 KB，主要体积来自选中 case ID 清单，并含原 HPC 运行路径。正式树应发布一个无个人路径的派生 provenance summary（保留 source archive path/SHA、recipe、数据哈希、三 seed adapter 哈希），完整原 manifest 继续由 archive ref 恢复。
+- G330 aggregate 固定 adapter weights SHA：seed13 `492d336c…0707`、seed42 `96d8087e…383c`、seed73 `d5f90954…2431`；seed13 与 G3 final runtime manifest 完全一致。
+- 实际 AST 闭包把 119 个顶层 Python scripts 收敛到 29 个：Generator 8 个、Exp04 7 个、Exp05 14 个（其中 Exp05 import/freeze helpers 又引用 `g3_baseline_comparison` 与 `verifier_triage`）。其余 90 个是早期诊断/阶段脚本，可连同仅测试这些脚本的历史测试从 release tree 移出。
+- 旧脚本引用扫描未发现正式 runtime 或新 `experiments/` 入口依赖这 90 个候选；命中项都是对应的历史 tests/docs contracts。删除批次需要同步移出这些测试，随后做全树 basename/reference scan 与全量 pytest。
+- 除规划/清单外，剩余个人/HPC 路径集中在 36 个 legacy Slurm/utility 文件、`build_sealed600.py`、两个 Exp04 Slurm 测试和本次明确断言无路径的 provenance 测试。G4 应移出 legacy launchers，并把保留的两个 Exp04 launchers 改成 workspace/env contract；`build_sealed600.py` 需先查 final Selector 数据链依赖。
+- 两个保留的 Exp04 Slurm 已改为 `EVIDENCE_RAG_ROOT`/`EVIDENCE_RAG_VENV`/`MODEL_CACHE_DIR` 环境契约，本体没有个人路径；路径扫描命中它们是 tests 内的通用禁止字面量。其余约 30 个非 Python launcher 都属于旧实验路线，可从 release 外置。
+- `build_sealed600.py` 是旧 M0 sealed-600 构建器；Lean v3 配置明确把 sealed600 列为 `unused_unread_roles`，最终 Selector 训练不读取它。源码仍被旧 materializer/relations 测试覆盖，可保留实现但把 docstring 的 `/user/work/$USER` 示例改成通用路径，不把它描述为最终训练链。
+- 最终配置闭包为：10 个 Exp04 system configs、`reference_baseline.toml`（仍由 package evaluation test 使用）、`heldout-sample.json`（Exp04 Goal1）、ingestion/runtime/model configs 与唯一 `selector/lean_v3.toml`。其余约百个 retriever/chunk sweep 和 3 个旧 Selector configs 仅由旧 launcher/tests 引用，可从 release 外置。
+- 对 90 个待移出脚本的反向文本命中中，`src/evidence_rag/cli/gate0b.py` 与 `relations/training.py` 只在注释中提到早期测量脚本，没有运行时 import；`test_selector_risk.py` 的命中也只是测试名中的 `topk_baseline`。这些 package/test 文件不应因字符串命中误删。
+- 正式 Generator helper `full_flow_b100`、`full_flow_g230`、`full_flow_joint` 仍有直接 focused tests，应保留这些测试；旧 Full-flow tests 只在 AST 确认导入已移出脚本时才随脚本外置。
+- AST 精确识别出 51 个 tests 直接导入 90 个旧 scripts；另有两个 tests 只服务已淘汰的 adaptive Selector configs。其余文本命中（如 gate0b 测试中的历史注释、Selector risk 测试名）不构成依赖并继续保留。
+- 删除批次将由 allowlist 反向生成：保留 29 个 Python research scripts、两个 Exp04 Slurm、最终配置闭包和未导入旧脚本的 tests；每个候选先用 archive tag 做 `git cat-file` 恢复检查，再通过删除后引用扫描验证闭包。
+- 265 个外置候选（119 scripts/launchers、95 configs、51 tests）全部可从 `research-archive-2026-08-25` 读取。应用后正式树恰好剩 29 个 Python research scripts、2 个 Exp04 Slurm、18 个配置和 164 个 Python tests。
+- 删除后 AST 扫描发现 0 个失效的旧 script imports；Generator/Exp04/Exp05/公开表/Selector focused suite 共 37 项通过。剩余路径扫描命中仅是测试中的禁止字符串本身，已改用拼接断言以便全树审计真正零命中。
+
 ### G1 mypy 根因分析
 
 - `experiment05_data.py` 的 pyarrow 是函数内可选依赖；库已安装但不提供 `py.typed`，错误来自第三方类型元数据而不是本项目数据逻辑。

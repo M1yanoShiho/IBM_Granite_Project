@@ -11,7 +11,7 @@
 
 ## 当前阶段
 
-G1 已冻结远端 archive；G2 已完成 release 边界；G3 已冻结最终 runtime/API；G4 正在整理研究复现包。
+G1 已冻结远端 archive；G2 已完成 release 边界；G3 已冻结最终 runtime/API；G4 已完成研究复现包；G5 正在审计外部资产。
 
 ## 固定决策与边界
 
@@ -60,8 +60,8 @@ G1 已冻结远端 archive；G2 已完成 release 边界；G3 已冻结最终 ru
 | G1 | 冻结完整研究历史 | 完整提交、归档分支、归档标签、归档索引 | complete |
 | G2 | 建立干净 release 文件树 | `release/dissertation-v1` 和受控保留树 | complete |
 | G3 | 冻结可运行的最终三模块系统 | 最终运行入口、配置、API 边界、核心测试 | complete |
-| G4 | 整理研究复现包 | 训练、基线、消融、评分和表格复现入口 | in_progress |
-| G5 | 发布外部模型与数据资产清单 | 公开链接/DOI、许可证、版本和 SHA-256 | pending |
+| G4 | 整理研究复现包 | 训练、基线、消融、评分和表格复现入口 | complete |
+| G5 | 发布外部模型与数据资产清单 | 公开链接/DOI、许可证、版本和 SHA-256 | in_progress |
 | G6 | 完成公开文档与项目元数据 | README、架构、复现、结果、限制、引用 | pending |
 | G7 | 独立验证正式候选版本 | clean clone、CI、CPU/HPC smoke、审计报告 | pending |
 | G8 | 接入 main 并发布毕设版本 | `main`、release tag、GitHub Release、交付记录 | pending |
@@ -367,12 +367,12 @@ G1 已冻结远端 archive；G2 已完成 release 边界；G3 已冻结最终 ru
 
 ### 验收门
 
-- [ ] 每个论文主要数值都能映射到代码、配置、输入和结果。
-- [ ] 最终表格能从小型聚合输入或外部归档输入重建。
-- [ ] scorer 与 claim label 逻辑没有 post-hoc 改写。
-- [ ] 被移出的旧脚本没有被保留命令或测试引用。
-- [ ] 训练数据准备链要么可公开重建，要么有不可变外部 artifact 和限制说明。
-- [ ] Experiment 04/05 focused tests、lint 和类型检查通过。
+- [x] 每个论文主要数值都能映射到代码、配置、输入和结果。
+- [x] 最终表格能从小型聚合输入或外部归档输入重建。
+- [x] scorer 与 claim label 逻辑没有 post-hoc 改写。
+- [x] 被移出的旧脚本没有被保留命令或测试引用。
+- [x] 训练数据准备链要么可公开重建，要么有不可变外部 artifact 和限制说明。
+- [x] Experiment 04/05 focused tests、lint 和类型检查通过。
 
 ### 禁止事项
 
@@ -381,7 +381,7 @@ G1 已冻结远端 archive；G2 已完成 release 边界；G3 已冻结最终 ru
 - 不将 `FINAL PASS` 改写为科学 superiority 成立。
 - 不使用 held-out 结果重新选择模型、seed 或阈值。
 
-**状态：** in_progress
+**状态：** complete
 
 ## G5：发布外部模型与数据资产清单
 
@@ -429,7 +429,7 @@ G1 已冻结远端 archive；G2 已完成 release 边界；G3 已冻结最终 ru
 - 不公开密钥、HPC 主机信息、个人路径或受限数据。
 - 不把“团队可访问”写成“公众可复现”。
 
-**状态：** pending
+**状态：** in_progress
 
 ## G6：完成公开文档与项目元数据
 
