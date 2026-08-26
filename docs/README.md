@@ -4,7 +4,7 @@ This is the public documentation index for the final Evidence RAG research relea
 should begin with setup and architecture; reviewers should continue to reproduction, results, and
 limitations.
 
-## 🚀 Use the system
+## Use the system
 
 | Document | Purpose |
 |---|---|
@@ -13,7 +13,7 @@ limitations.
 | [Front-end integration](frontend-integration.md) | Use the versioned HTTP request/response contract or model-free mock fixture. |
 | [Runtime handoff](three-module-runtime-handoff.md) | Operate the frozen seed-13 backend and its environment contract. |
 
-## 🧪 Review the research
+## Review the research
 
 | Document | Purpose |
 |---|---|
@@ -28,7 +28,7 @@ The root [reproducibility map](../REPRODUCIBILITY_MAP.md) is the claim-to-artifa
 compact results are under [`results/`](../results/), while complete development-time records remain
 recoverable from the immutable `research-archive-2026-08-25` Git reference.
 
-## 🤝 Maintain the release
+## Maintain the release
 
 - [Contributing](../CONTRIBUTING.md) defines testing and research-integrity requirements.
 - [Authors](../AUTHORS.md) explains contributor identities and authorship boundaries.

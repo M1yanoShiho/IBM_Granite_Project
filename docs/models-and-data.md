@@ -5,7 +5,7 @@ indexes, or per-query generation bundles. [`ARTIFACT_MANIFEST.json`](../ARTIFACT
 the machine-readable authority for frozen revisions, byte sizes, SHA-256 digests, licenses, source
 links, and availability.
 
-## 📦 Public upstream models
+## Public upstream models
 
 The Retriever base models, Generator base model, Selector backbone, TRUE verifier, and MiniCheck
 scorer remain on their official repositories at immutable revisions. The manifest registers every
@@ -22,7 +22,7 @@ Provence is link-only. Its upstream metadata, model card, and bundled license fi
 Creative Commons labels and additional terms. This project does not mirror it, grant commercial
 rights, or resolve those conflicts for users.[^provence]
 
-## 🔒 Restricted derived models
+## Restricted derived models
 
 The final derived assets are frozen but not public downloads:
 
@@ -40,7 +40,7 @@ is provided and no permission expansion is implied.
 This boundary means the CPU smoke and API contract are publicly runnable, while real-model
 execution requires an authorized copy of the trained Selector and Generator adapter.
 
-## 🔍 Inspect, download, and verify
+## Inspect, download, and verify
 
 List every registered asset:
 
@@ -68,7 +68,7 @@ The downloader writes a temporary file beside the destination, validates bytes a
 only then publishes the final filename. It refuses to overwrite an existing file. The same command
 is available as `python scripts/verify_artifacts.py ...` from a repository clone.
 
-## 📚 Dataset boundary
+## Dataset boundary
 
 Experiment 04 uses fixed ordered subsets of HotpotQA distractor validation, MuSiQue Full dev, and
 RGB English noise. HotpotQA is CC-BY-SA-4.0, MuSiQue is CC-BY-4.0, and RGB is non-commercial
@@ -83,7 +83,7 @@ The checked-in [`results/`](../results/) directory contains only compact aggrega
 regenerate the dissertation tables. Full raw recomputation requires the restricted bundles in the
 manifest and the immutable research archive reference.
 
-## 🌐 Front-end use
+## Front-end use
 
 A front end calls the versioned HTTP API described in
 [front-end integration](frontend-integration.md). It must not download checkpoints into browser

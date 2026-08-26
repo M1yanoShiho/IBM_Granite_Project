@@ -4,7 +4,7 @@ The final evidence is mixed. The trained Selector showed a conditional evidence-
 misleading-evidence stress test, but neither the dedicated answer gate nor the broader system
 experiments established a general final-answer improvement.
 
-## 🧠 Selector gates
+## Selector gates
 
 | Gate | Frozen outcome | Interpretation |
 |---|---|---|
@@ -18,7 +18,7 @@ gates come from the same frozen archive artifact and SHA-256:
 - [`misleading_evidence_summary.json`](../results/selector/misleading_evidence_summary.json)
 - [`blind_answer_gate.json`](../results/selector/blind_answer_gate.json)
 
-## 🧪 Experiment 04
+## Experiment 04
 
 Experiment 04 compared four baselines with the three-seed final system on HotpotQA,
 MuSiQue-answerable, and RGB-noise, then evaluated Retriever, Selector, and Generator ablations.
@@ -36,7 +36,7 @@ completed. It is not a performance claim. See the
 [ablation results](research/experiment04-ablation-results.md), and
 [`final_results.json`](../results/experiment04/final_results.json).
 
-## 📊 Experiment 05
+## Experiment 05
 
 Experiment 05 evaluated ordinary RAG data from KILT-NQ, KILT-TriviaQA, and ALCE-ASQA across ten
 arms. The frozen audit records 12,000 generation outputs, 12,000 query scores, zero scorer errors,
@@ -53,7 +53,7 @@ SUPPORTED` labels in [`claim_labels.json`](../results/experiment05/claim_labels.
 [findings](research/experiment05-findings.md) and
 [`final_audit.json`](../results/experiment05/final_audit.json) for the frozen record.
 
-## 📋 How to cite the findings
+## How to cite the findings
 
 Report module-level and whole-system evidence separately. A faithful summary is:
 

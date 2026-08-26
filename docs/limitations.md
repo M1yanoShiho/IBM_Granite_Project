@@ -3,7 +3,7 @@
 This release is research software with restricted real-model assets and mixed experimental
 findings. The public CPU smoke proves interfaces and invariants, not model effectiveness.
 
-## 📊 Scientific limitations
+## Scientific limitations
 
 - The Selector's positive result is limited to an evidence-level misleading-evidence stress test.
   The separate blind answer gate failed and retained the `KEEP_TOPK10` decision.
@@ -17,7 +17,7 @@ findings. The public CPU smoke proves interfaces and invariants, not model effec
 - Dataset coverage is limited to the frozen benchmarks and sample sizes. Results should not be
   generalized to other domains, languages, time periods, or retrieval corpora without evaluation.
 
-## 🔒 Asset and reproducibility limitations
+## Asset and reproducibility limitations
 
 The trained Selector checkpoint and three GR-C adapters are registered by exact size and SHA-256,
 but redistribution authorization has not been recorded. They are therefore marked
@@ -29,7 +29,7 @@ scores. The immutable archive preserves provenance and hashes, while the public 
 only compact aggregates. See [models and data](models-and-data.md) and
 [reproduction](reproduction.md).
 
-## ⚖️ Third-party licensing limitations
+## Third-party licensing limitations
 
 Upstream models and datasets have different terms. In particular:
 
@@ -42,14 +42,14 @@ Upstream models and datasets have different terms. In particular:
 The project license covers only material for which the project can grant rights. It does not
 relicense third-party models, datasets, or restricted derived assets.
 
-## 🖥️ Resource limitations
+## Resource limitations
 
 The final runtime depends on multiple upstream snapshots, including a 3B Generator and a large
 TRUE verifier. Storage and accelerator requirements are materially larger than the Git checkout.
 CPU real-model inference may be impractical; actual throughput and memory depend on operator
 hardware, model precision, sequence lengths, and index size.
 
-## 🌐 Deployment limitations
+## Deployment limitations
 
 The provided API is a research integration boundary. It does not include authentication, rate
 limiting, multi-tenant isolation, persistent session storage, or production observability. Backend

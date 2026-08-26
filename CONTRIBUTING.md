@@ -3,7 +3,7 @@
 Contributions are welcome when they preserve the module contracts, research provenance, and honest
 reporting boundaries of the release.
 
-## 🚀 Development setup
+## Development setup
 
 ```bash
 python3.11 -m venv .venv
@@ -16,7 +16,7 @@ Create a focused branch from `main`, keep unrelated changes separate, and includ
 changed behavior. Open an issue before changing a frozen experiment definition, public schema, or
 artifact identity.
 
-## 🧪 Required checks
+## Required checks
 
 ```bash
 pytest
@@ -29,7 +29,7 @@ python -m pip check
 Documentation changes must keep relative links valid, use portable paths, and update model cards or
 limitations when behavior or access boundaries change.
 
-## 🔒 Research integrity
+## Research integrity
 
 - Do not alter frozen scorer definitions, statistical gates, claim labels, or aggregate results to
   make a result appear stronger.
@@ -39,7 +39,7 @@ limitations when behavior or access boundaries change.
 - Add new results only when code and inputs are traceable and the appropriate tests pass.
 - Preserve the immutable research archive; do not force-push or rewrite its history.
 
-## 📦 Data and model artifacts
+## Data and model artifacts
 
 Do not commit model weights, raw datasets, indexes, caches, secrets, private paths, per-query
 outputs, or full job logs. Register an external asset in
@@ -49,14 +49,14 @@ license, availability, and redistribution boundary.
 Never assume that access to a shared file grants permission to publish it. Redistribution of
 derived weights or mixed-license datasets requires explicit authorization.
 
-## 🏗️ Module boundaries
+## Module boundaries
 
 Retriever, Selector, and Generator implementations depend only on shared contracts, not on each
 other's concrete classes. The Pipeline resolves selected evidence IDs and enforces citation
 membership. Changes that cross these boundaries require an architecture test and coordinated API
 review.
 
-## 📝 Pull requests
+## Pull requests
 
 A pull request should state:
 

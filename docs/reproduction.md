@@ -3,7 +3,7 @@
 The release supports three reproducibility levels. Public table verification is fully contained in
 Git; full raw recomputation and real-model training require separately authorized assets.
 
-## 📋 Reproducibility levels
+## Reproducibility levels
 
 | Level | Publicly runnable | Inputs |
 |---|---|---|
@@ -14,7 +14,7 @@ Git; full raw recomputation and real-model training require separately authorize
 The root [reproducibility map](../REPRODUCIBILITY_MAP.md) connects every paper-facing claim to its
 implementation, frozen configuration, result, and immutable archive source.
 
-## 🧪 Verify the runtime contract
+## Verify the runtime contract
 
 ```bash
 python -m pip install -e '.[dev,api,data-prep]'
@@ -25,7 +25,7 @@ pytest -q tests/runtime tests/api tests/pipeline tests/contracts
 This level proves module composition, evidence identity, API schemas, offline behavior, and
 fail-closed configuration. It does not claim that CPU doubles reproduce model quality.
 
-## 🔧 Run the reference baseline workflow
+## Run the reference baseline workflow
 
 The small reference fixture persists frozen artifacts for every module and runs a live Pipeline.
 It is an interface/provenance baseline using BM25, Top-K, and an extractive Generator;
@@ -52,7 +52,7 @@ runs/reference-baseline/index/corpus_snapshot.json
 Later stages fail if these files or their provenance do not match, rather than rebuilding an
 unregistered index silently.
 
-## 📊 Rebuild dissertation tables
+## Rebuild dissertation tables
 
 ```bash
 python experiments/experiment04/build_tables.py --output-dir build/experiment04
@@ -67,7 +67,7 @@ rebuilds six checked-in table files. Experiment 05 reads only its audited table 
 files and rebuilds both CSVs, the LaTeX output, and the final report. Golden tests compare bytes and
 claim labels; the builders cannot rescore queries or rewrite registered decisions.
 
-## 🧠 Reproduce Selector training and evaluation
+## Reproduce Selector training and evaluation
 
 The final training CLI and recipe remain public:
 
@@ -80,7 +80,7 @@ NLI backbone, risk threshold selection, bootstrap settings, and the separate bli
 The complete datasets and trained checkpoints are external. The two public Selector result files
 share one immutable source SHA so the evidence PASS cannot be separated from the answer FAIL.
 
-## ⚙️ Reproduce Generator and full experiments
+## Reproduce Generator and full experiments
 
 The public Generator entry-point map and frozen three-seed provenance are under
 [`experiments/generator/`](../experiments/generator/). Experiment 04 and Experiment 05 document
@@ -93,7 +93,7 @@ Raw recomputation requires the external bundles registered in
 [`ARTIFACT_MANIFEST.json`](../ARTIFACT_MANIFEST.json). The manifest distinguishes immutable public
 sources from restricted derived assets and mixed-license data. Verify every local asset before use.
 
-## 🔒 Archive and integrity boundary
+## Archive and integrity boundary
 
 The immutable `research-archive-2026-08-25` Git reference retains development-time manifests,
 per-query records, and superseded stages that are intentionally absent from the release tree.

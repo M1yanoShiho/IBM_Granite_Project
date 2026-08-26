@@ -4,7 +4,7 @@ The final Generator uses IBM Granite 4.1 3B with a grounding-and-citation repair
 It drafts an answer from selected evidence, applies frozen verification/annotation logic, and
 returns cited evidence IDs.
 
-## 📋 Model details
+## Model details
 
 | Field | Frozen value |
 |---|---|
@@ -23,7 +23,7 @@ shared recipe are in
 [`frozen_provenance.json`](../../experiments/generator/frozen_provenance.json); seed 13 is the final
 runtime identity.
 
-## ⚙️ Training recipe
+## Training recipe
 
 The frozen recipe uses one epoch, learning rate `5e-5`, query-group equalization, and LoRA with
 rank 8, alpha 16, dropout 0.05, and seven attention/MLP target-module classes. It records 9,207
@@ -33,7 +33,7 @@ The adapter applies only to the draft generation call. Claim splitting uses the 
 adapters disabled, and the verifier is frozen rather than trained. Decision-development and
 held-out roles were not read during training according to the frozen provenance record.
 
-## 🎯 Intended use
+## Intended use
 
 - Generate answers and citations from evidence already selected by the Pipeline.
 - Support reproducible GR-C training, three-seed evaluation, and module ablations.
@@ -42,7 +42,7 @@ held-out roles were not read during training according to the frozen provenance 
 It is not intended to retrieve evidence, override Selector decisions, provide guaranteed factual
 answers, or support unaudited high-stakes decisions.
 
-## 📊 Evaluation
+## Evaluation
 
 Experiment 04 completed its registered protocol, but the final system did not establish Ours-RAR
 superiority. The Direct Generator ablation was significantly higher than GR-C seed 13 on HotpotQA
@@ -52,7 +52,7 @@ Experiment 05 registered Claims A and B were both `NOT SUPPORTED`, and module ef
 dataset-dependent. These findings make the frozen Generator an important limitation rather than a
 universally improved component. See [results](../results.md).
 
-## ⚠️ Limitations
+## Limitations
 
 - A 3B base model plus the TRUE T5-XXL verifier has substantial storage and accelerator cost.
 - Verification and citations reduce neither all hallucinations nor source-level misinformation.
@@ -60,7 +60,7 @@ universally improved component. See [results](../results.md).
 - The public aggregate release cannot reproduce real generation without authorized model and data
   assets.
 
-## ⚖️ Access and license
+## Access and license
 
 The Granite base and TRUE verifier are registered as Apache-2.0 at their frozen upstream revisions.
 The project-trained GR-C adapters are not published because redistribution authorization has not

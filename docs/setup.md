@@ -3,7 +3,7 @@
 This guide covers the public offline smoke, development installation, and authorized real-model
 runtime. Python 3.11 is required by the frozen package metadata.
 
-## 🚀 Install and verify
+## Install and verify
 
 ```bash
 git clone https://github.com/M1yanoShiho/IBM_Granite_Project.git
@@ -20,7 +20,7 @@ the final module classes with deterministic CPU doubles. It must run without a n
 model cache, GPU, or private data. A successful JSON trace shows that the misleading fixture was
 not selected and that the answer cited only retained evidence.
 
-## 🧪 Run development checks
+## Run development checks
 
 The `data-prep` extra above supplies NumPy and PyArrow for the complete Experiment 05 test
 collection. CI uses the exact transitive versions in `requirements-dev.lock`.
@@ -36,7 +36,7 @@ python -m pip check
 The complete release validation also performs clean-clone, documentation-link, personal-path,
 secret, artifact, and HPC smoke checks. Those results are published with the release candidate.
 
-## 📦 Prepare real model assets
+## Prepare real model assets
 
 Real execution requires public upstream snapshots plus authorized copies of the trained Selector
 and GR-C adapter. The derived weights are not public downloads. Inspect the manifest first:
@@ -52,7 +52,7 @@ For upstream files that have a download URL, `evidence-rag-artifacts download` w
 and validates both bytes and SHA-256. Multi-file models are downloaded one registered shard at a
 time. Read [models and data](models-and-data.md) before acquiring any third-party asset.
 
-## ⚙️ Configure the real runtime
+## Configure the real runtime
 
 Copy the template to an ignored local file and set paths available to the backend process:
 
@@ -84,7 +84,7 @@ evidence-rag-serve --host 127.0.0.1 --port 8000
 For a browser frontend on another local port, repeat `--allow-origin` for every explicit origin.
 Avoid wildcard CORS in an authenticated deployment.
 
-## ✅ Check the service
+## Check the service
 
 ```bash
 curl http://127.0.0.1:8000/health
@@ -95,7 +95,7 @@ python examples/api_request.py
 pipeline; missing or mismatched assets produce a generic `503` response. See
 [front-end integration](frontend-integration.md) for the frozen schema.
 
-## 🖥️ Cluster use
+## Cluster use
 
 Install the repository in a project environment on the cluster, keep large assets in storage
 authorized for the backend operator, and expose only the HTTP endpoint required by the frontend.

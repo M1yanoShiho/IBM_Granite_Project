@@ -3,7 +3,7 @@
 All release-facing changes to Evidence RAG are recorded here. Development-stage history remains
 available through the repository's archive branch and immutable research tag.
 
-## 🏷️ 1.0.0-dissertation — 2026-08-25
+## 1.0.0-dissertation — 2026-08-25
 
 ### Added
 

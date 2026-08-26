@@ -33,6 +33,13 @@ LINK_CHECK_DOCS = (
     *sorted((ROOT / "results").glob("**/*.md")),
 )
 
+DOCUMENTATION_DOCS = (
+    *sorted(ROOT.glob("*.md")),
+    *sorted((ROOT / "docs").rglob("*.md")),
+    *sorted((ROOT / "experiments").rglob("README.md")),
+    *sorted((ROOT / "results").rglob("*.md")),
+)
+
 LINK_PATTERN = re.compile(r"(?<!!)\[[^\]]+\]\(([^)]+)\)")
 
 
@@ -86,7 +93,12 @@ def test_readme_mermaid_is_accessible_and_theme_neutral() -> None:
     assert "classDef" in text
     assert "%%{init" not in text
     assert "\nstyle " not in text
-    assert not _contains_emoji(text)
+
+
+def test_documentation_is_emoji_free() -> None:
+    offenders = [path.relative_to(ROOT) for path in DOCUMENTATION_DOCS if _contains_emoji(_text(path))]
+
+    assert not offenders, f"documentation contains emoji: {offenders}"
 
 
 def test_results_and_limitations_preserve_frozen_claim_boundaries() -> None:
@@ -144,46 +156,12 @@ def test_public_document_relative_links_resolve() -> None:
     assert not missing, "missing relative links:\n" + "\n".join(missing)
 
 
-def test_public_markdown_has_one_h1_and_scannable_h2_headings() -> None:
-    approved_h2_prefixes = (
-        "⚙️",
-        "🏗️",
-        "📁",
-        "📋",
-        "📊",
-        "📚",
-        "📦",
-        "📥",
-        "📤",
-        "📝",
-        "🧠",
-        "🧪",
-        "🏷️",
-        "🖥️",
-        "🔄",
-        "🔗",
-        "🔧",
-        "🔍",
-        "🔒",
-        "💾",
-        "🌐",
-        "🎯",
-        "✅",
-        "⚠️",
-        "⚖️",
-        "🤝",
-        "👥",
-        "✏️",
-        "🚀",
-    )
+def test_public_markdown_has_one_h1_and_nonempty_h2_headings() -> None:
     for document in PUBLIC_DOCS:
         headings = _text(document).splitlines()
         assert sum(line.startswith("# ") for line in headings) == 1, document
         for heading in (line.removeprefix("## ") for line in headings if line.startswith("## ")):
-            if document == ROOT / "README.md":
-                assert heading
-                continue
-            assert heading.startswith(approved_h2_prefixes), f"{document}: {heading}"
+            assert heading.strip(), document
 
 
 def test_public_docs_publish_no_personal_or_hpc_paths() -> None:

@@ -3,7 +3,7 @@
 The final Selector is a seed-13 risk-controlled NLI evidence filter. It receives a query and ranked
 candidate evidence, then returns selected evidence IDs, scores, and ranks without rewriting text.
 
-## 📋 Model details
+## Model details
 
 | Field | Frozen value |
 |---|---|
@@ -20,7 +20,7 @@ The canonical identities are duplicated intentionally across
 [`configs/models/final_seed13.json`](../../configs/models/final_seed13.json) and
 [`ARTIFACT_MANIFEST.json`](../../ARTIFACT_MANIFEST.json), with contract tests requiring agreement.
 
-## 🎯 Intended use
+## Intended use
 
 - Filter a small number of high-confidence misleading candidates after Hybrid retrieval.
 - Support research on evidence selection, risk control, module swaps, and end-to-end attribution.
@@ -29,7 +29,7 @@ The canonical identities are duplicated intentionally across
 The model is not a general truth detector, content-safety classifier, legal or medical decision
 tool, or proof that answer quality will improve.
 
-## 🧪 Training and evaluation
+## Training and evaluation
 
 [`configs/selector/lean_v3.toml`](../../configs/selector/lean_v3.toml) freezes the backbone, data
 roles, training schedule, threshold selection, statistics, and separate answer gate. The public CLI
@@ -47,7 +47,7 @@ See [results](../results.md) and the two source-bound public summaries:
 - [`misleading_evidence_summary.json`](../../results/selector/misleading_evidence_summary.json)
 - [`blind_answer_gate.json`](../../results/selector/blind_answer_gate.json)
 
-## ⚠️ Limitations
+## Limitations
 
 - The positive result is conditional on the tested misleading-evidence distribution.
 - The point estimate for the blind answer gate was negative and its interval crossed zero.
@@ -55,7 +55,7 @@ See [results](../results.md) and the two source-bound public summaries:
 - NLI confidence can be miscalibrated under domain, language, corpus, or model shift.
 - The two-deletion cap favors evidence retention but can leave harmful evidence in place.
 
-## ⚖️ Access and license
+## Access and license
 
 The upstream backbone is registered as Apache-2.0 in its model card at the frozen revision. The
 trained project checkpoint is not published because redistribution authorization has not been
