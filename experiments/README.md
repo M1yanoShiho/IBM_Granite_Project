@@ -26,7 +26,7 @@ the external-asset manifest is completed in release Goal 5.
 | Experiment 05 | [`experiment05/README.md`](experiment05/README.md) | `results/experiment05/` |
 
 The cross-reference from dissertation claims to code, inputs, configurations, and results is
-in [`REPRODUCIBILITY_MAP.md`](../REPRODUCIBILITY_MAP.md).
+in [`REPRODUCIBILITY_MAP.md`](../docs/release/REPRODUCIBILITY_MAP.md).
 
 ## Scientific boundary
 

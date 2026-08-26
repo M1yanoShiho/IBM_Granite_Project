@@ -24,9 +24,9 @@ person's confirmation.
 
 ## Citation and authorship policy
 
-[`CITATION.cff`](CITATION.cff) uses the entity name “Evidence RAG project contributors” so the
-software remains citable without inventing an unconfirmed personal author order. The dissertation
-and any paper should use their separately approved author list and affiliations.
+[`CITATION.cff`](../../CITATION.cff) uses the entity name “Evidence RAG project contributors” so
+the software remains citable without inventing an unconfirmed personal author order. The
+dissertation and any paper should use their separately approved author list and affiliations.
 
 For contribution-level attribution, consult the Git history and the immutable
 `research-archive-2026-08-25` reference.

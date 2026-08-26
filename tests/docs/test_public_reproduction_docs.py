@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def test_public_reproduction_reading_paths_exist() -> None:
     expected = (
-        "REPRODUCIBILITY_MAP.md",
+        "docs/release/REPRODUCIBILITY_MAP.md",
         "experiments/README.md",
         "experiments/selector/README.md",
         "experiments/generator/README.md",
@@ -20,7 +20,7 @@ def test_public_reproduction_reading_paths_exist() -> None:
 
 
 def test_reproducibility_map_preserves_negative_results_and_commands() -> None:
-    text = (ROOT / "REPRODUCIBILITY_MAP.md").read_text(encoding="utf-8")
+    text = (ROOT / "docs/release/REPRODUCIBILITY_MAP.md").read_text(encoding="utf-8")
 
     for required in (
         "NOT_SUPPORTED",

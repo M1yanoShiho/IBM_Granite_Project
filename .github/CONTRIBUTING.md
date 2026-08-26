@@ -43,7 +43,7 @@ limitations when behavior or access boundaries change.
 
 Do not commit model weights, raw datasets, indexes, caches, secrets, private paths, per-query
 outputs, or full job logs. Register an external asset in
-[`ARTIFACT_MANIFEST.json`](ARTIFACT_MANIFEST.json) with its source, revision, size, SHA-256,
+[`ARTIFACT_MANIFEST.json`](../ARTIFACT_MANIFEST.json) with its source, revision, size, SHA-256,
 license, availability, and redistribution boundary.
 
 Never assume that access to a shared file grants permission to publish it. Redistribution of

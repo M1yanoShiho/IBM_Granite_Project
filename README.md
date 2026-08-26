@@ -89,8 +89,8 @@ The release reports technical completion separately from scientific support:
 `FINAL PASS` in an audit means that the registered protocol executed successfully; it does not
 mean that a superiority claim passed. Read the [results](docs/results.md) and
 [limitations](docs/limitations.md) before citing performance. The
-[reproducibility map](REPRODUCIBILITY_MAP.md) links every public claim to code, configuration,
-frozen inputs, result files, and the immutable archive reference.
+[reproducibility map](docs/release/REPRODUCIBILITY_MAP.md) links every public claim to code,
+configuration, frozen inputs, result files, and the immutable archive reference.
 
 ## Reproduce the public tables
 
@@ -133,11 +133,11 @@ tree intentionally omits obsolete stages and large raw artifacts.
 - [Reproduction](docs/reproduction.md)
 - [Results](docs/results.md)
 - [Limitations](docs/limitations.md)
-- [Contributing](CONTRIBUTING.md)
+- [Contributing](.github/CONTRIBUTING.md)
 
 ## Citation and license
 
 Use the machine-readable metadata in [CITATION.cff](CITATION.cff) and the contributor policy in
-[AUTHORS.md](AUTHORS.md). Project-authored code is released under the [MIT License](LICENSE).
-Third-party models and datasets retain the separate terms recorded in
+[AUTHORS.md](docs/release/AUTHORS.md). Project-authored code is released under the
+[MIT License](LICENSE). Third-party models and datasets retain the separate terms recorded in
 [models and data](docs/models-and-data.md).

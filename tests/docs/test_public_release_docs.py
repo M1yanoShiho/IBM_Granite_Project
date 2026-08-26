@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 PUBLIC_DOCS = (
     ROOT / "README.md",
-    ROOT / "REPRODUCIBILITY_MAP.md",
+    ROOT / "docs/release/REPRODUCIBILITY_MAP.md",
     ROOT / "docs/README.md",
     ROOT / "docs/architecture.md",
     ROOT / "docs/setup.md",
@@ -21,9 +21,10 @@ PUBLIC_DOCS = (
     ROOT / "docs/three-module-runtime-handoff.md",
     ROOT / "docs/model-cards/selector.md",
     ROOT / "docs/model-cards/generator.md",
-    ROOT / "CHANGELOG.md",
-    ROOT / "CONTRIBUTING.md",
-    ROOT / "AUTHORS.md",
+    ROOT / "docs/release/RELEASE_VALIDATION_REPORT.md",
+    ROOT / "docs/release/CHANGELOG.md",
+    ROOT / ".github/CONTRIBUTING.md",
+    ROOT / "docs/release/AUTHORS.md",
 )
 
 LINK_CHECK_DOCS = (
@@ -35,6 +36,7 @@ LINK_CHECK_DOCS = (
 
 DOCUMENTATION_DOCS = (
     *sorted(ROOT.glob("*.md")),
+    *sorted((ROOT / ".github").rglob("*.md")),
     *sorted((ROOT / "docs").rglob("*.md")),
     *sorted((ROOT / "experiments").rglob("README.md")),
     *sorted((ROOT / "results").rglob("*.md")),
@@ -96,7 +98,9 @@ def test_readme_mermaid_is_accessible_and_theme_neutral() -> None:
 
 
 def test_documentation_is_emoji_free() -> None:
-    offenders = [path.relative_to(ROOT) for path in DOCUMENTATION_DOCS if _contains_emoji(_text(path))]
+    offenders = [
+        path.relative_to(ROOT) for path in DOCUMENTATION_DOCS if _contains_emoji(_text(path))
+    ]
 
     assert not offenders, f"documentation contains emoji: {offenders}"
 

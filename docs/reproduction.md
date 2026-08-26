@@ -11,8 +11,8 @@ Git; full raw recomputation and real-model training require separately authorize
 | Dissertation table rebuild | Yes | Small audited aggregate JSON files under `results/` |
 | Full scoring and training | Conditional | External model weights, raw datasets, indexes, generations, and run bundles |
 
-The root [reproducibility map](../REPRODUCIBILITY_MAP.md) connects every paper-facing claim to its
-implementation, frozen configuration, result, and immutable archive source.
+The release [reproducibility map](release/REPRODUCIBILITY_MAP.md) connects every paper-facing claim
+to its implementation, frozen configuration, result, and immutable archive source.
 
 ## Verify the runtime contract
 

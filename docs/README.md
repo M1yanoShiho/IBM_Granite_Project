@@ -24,15 +24,16 @@ limitations.
 | [Selector model card](model-cards/selector.md) | Review the trained Selector's identity, intended use, evidence gate, and failed answer gate. |
 | [Generator model card](model-cards/generator.md) | Review the GR-C recipe, adapter provenance, access, evaluation, and known weakness. |
 
-The root [reproducibility map](../REPRODUCIBILITY_MAP.md) is the claim-to-artifact authority. The
-compact results are under [`results/`](../results/), while complete development-time records remain
-recoverable from the immutable `research-archive-2026-08-25` Git reference.
+The release [reproducibility map](release/REPRODUCIBILITY_MAP.md) is the claim-to-artifact
+authority. The compact results are under [`results/`](../results/), while complete development-time
+records remain recoverable from the immutable `research-archive-2026-08-25` Git reference.
 
 ## Maintain the release
 
-- [Contributing](../CONTRIBUTING.md) defines testing and research-integrity requirements.
-- [Authors](../AUTHORS.md) explains contributor identities and authorship boundaries.
-- [Changelog](../CHANGELOG.md) records release-facing changes.
+- [Contributing](../.github/CONTRIBUTING.md) defines testing and research-integrity requirements.
+- [Authors](release/AUTHORS.md) explains contributor identities and authorship boundaries.
+- [Changelog](release/CHANGELOG.md) records release-facing changes.
+- [Release validation](release/RELEASE_VALIDATION_REPORT.md) records the final verification gates.
 - [Citation metadata](../CITATION.cff) provides the machine-readable software citation.
 
 Historical cleanup plans are not part of the user documentation. They remain in the research
