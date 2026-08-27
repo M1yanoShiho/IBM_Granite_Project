@@ -46,7 +46,7 @@ TopK 是无模型基线：按 Retriever 排名保留前 10 条证据。NLI Prote
 - 完整实验（真实 NLI、GR-C、TRUE verifier、批量评测）推荐在 HPC/GPU 环境运行，模型和
   数据留在 HPC 存储，只同步代码与允许发布的小型结果。
 - 本地第一次查询包含下载、模型加载和索引构建，会明显较慢；后续查询会复用缓存，但仍受
-  Apple Silicon、内存、文档数量和生成长度影响。页面出现短暂停顿不代表 NLI 正在运行。
+  本地硬件性能、内存、文档数量和生成长度影响。页面出现短暂停顿不代表 NLI 正在运行。
 
 ### 启动
 
@@ -60,7 +60,7 @@ ollama pull ibm/granite4.1:3b
 在另一个终端运行：
 
 ```bash
-cd /Users/fc/IBM_Granite_Project
+cd IBM_Granite_Project
 
 export OLLAMA_HOST=http://127.0.0.1:11434
 export OLLAMA_MODEL=ibm/granite4.1:3b
@@ -147,7 +147,7 @@ ollama pull ibm/granite4.1:3b
 In another terminal:
 
 ```bash
-cd /Users/fc/IBM_Granite_Project
+cd IBM_Granite_Project
 
 export OLLAMA_HOST=http://127.0.0.1:11434
 export OLLAMA_MODEL=ibm/granite4.1:3b
