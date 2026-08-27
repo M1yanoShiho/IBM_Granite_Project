@@ -56,6 +56,70 @@ def test_config_paths_are_relative_to_config_file_not_cwd(tmp_path: Path) -> Non
     assert config.output_directory == (config_path.parent / "artifacts/run-1").resolve()
 
 
+def test_config_expands_explicit_environment_paths(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config_path = write_config(tmp_path / "project" / "config")
+    source = config_path.read_text(encoding="utf-8")
+    config_path.write_text(
+        source.replace('"data/manifest.json"', '"${TEST_DATA_ROOT}/manifest.json"').replace(
+            '"artifacts/run-1"', '"${TEST_OUTPUT_ROOT}"'
+        ),
+        encoding="utf-8",
+    )
+    data_root = tmp_path / "external-data"
+    output_root = tmp_path / "external-output"
+    monkeypatch.setenv("TEST_DATA_ROOT", str(data_root))
+    monkeypatch.setenv("TEST_OUTPUT_ROOT", str(output_root))
+
+    config = load_experiment_config(config_path)
+
+    assert config.dataset_manifest_path == (data_root / "manifest.json").resolve()
+    assert config.output_directory == output_root.resolve()
+
+
+def test_config_reports_all_missing_environment_paths(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config_path = write_config(tmp_path)
+    source = config_path.read_text(encoding="utf-8")
+    config_path.write_text(
+        source.replace('"data/manifest.json"', '"${MISSING_DATA_ROOT}/manifest.json"').replace(
+            '"artifacts/run-1"', '"${MISSING_OUTPUT_ROOT}"'
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.delenv("MISSING_DATA_ROOT", raising=False)
+    monkeypatch.delenv("MISSING_OUTPUT_ROOT", raising=False)
+
+    with pytest.raises(
+        ValueError,
+        match=r"dataset manifest requires environment variable\(s\): MISSING_DATA_ROOT",
+    ):
+        load_experiment_config(config_path)
+
+
+def test_config_treats_an_empty_environment_path_as_missing(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config_path = write_config(tmp_path)
+    source = config_path.read_text(encoding="utf-8")
+    config_path.write_text(
+        source.replace('"data/manifest.json"', '"${EMPTY_DATA_ROOT}/manifest.json"'),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("EMPTY_DATA_ROOT", "")
+
+    with pytest.raises(
+        ValueError,
+        match=r"dataset manifest requires environment variable\(s\): EMPTY_DATA_ROOT",
+    ):
+        load_experiment_config(config_path)
+
+
 def test_unknown_toml_fields_are_rejected(tmp_path: Path) -> None:
     config_path = write_config(tmp_path, "\n[retriever.extra]\nenabled = true\n")
 

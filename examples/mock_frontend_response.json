@@ -1,0 +1,69 @@
+{
+  "schema_version": "1.0",
+  "query_id": "frontend-demo-q1",
+  "session_id": "demo-session",
+  "answer": "IBM acquired Red Hat in 2019.",
+  "candidates": [
+    {
+      "evidence_id": "ev-poison-demo",
+      "document_id": "poison",
+      "text": "Poison evidence gives an unsupported acquisition answer.",
+      "source_uri": "fixture://three-module/poison",
+      "retrieval_score": 0.0325,
+      "retrieval_rank": 1
+    },
+    {
+      "evidence_id": "ev-clean-demo",
+      "document_id": "clean",
+      "text": "IBM acquired Red Hat in 2019.",
+      "source_uri": "fixture://three-module/clean",
+      "retrieval_score": 0.0325,
+      "retrieval_rank": 2
+    },
+    {
+      "evidence_id": "ev-background-demo",
+      "document_id": "background",
+      "text": "Red Hat develops enterprise open-source software.",
+      "source_uri": "fixture://three-module/background",
+      "retrieval_score": 0.0158,
+      "retrieval_rank": 3
+    }
+  ],
+  "selected_evidence": [
+    {
+      "evidence_id": "ev-clean-demo",
+      "document_id": "clean",
+      "text": "IBM acquired Red Hat in 2019.",
+      "source_uri": "fixture://three-module/clean",
+      "retrieval_score": 0.0325,
+      "retrieval_rank": 2
+    },
+    {
+      "evidence_id": "ev-background-demo",
+      "document_id": "background",
+      "text": "Red Hat develops enterprise open-source software.",
+      "source_uri": "fixture://three-module/background",
+      "retrieval_score": 0.0158,
+      "retrieval_rank": 3
+    }
+  ],
+  "citations": [
+    {
+      "evidence_id": "ev-clean-demo",
+      "document_id": "clean",
+      "text": "IBM acquired Red Hat in 2019.",
+      "source_uri": "fixture://three-module/clean",
+      "retrieval_score": 0.0325,
+      "retrieval_rank": 2
+    }
+  ],
+  "diagnostics": {
+    "retriever": "hybrid",
+    "selector": "nli-risk-controlled",
+    "generator": "grounded-grc",
+    "candidate_count": 3,
+    "selected_count": 2,
+    "dropped_count": 1,
+    "citation_count": 1
+  }
+}

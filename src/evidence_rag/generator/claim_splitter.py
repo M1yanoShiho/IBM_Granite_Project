@@ -1,13 +1,20 @@
 import json
 import re
+from dataclasses import dataclass
 
+from evidence_rag.contracts.models import sentence_spans
 from evidence_rag.generator.granite import GraniteLLMClient, TextGenerator
 from evidence_rag.generator.json_parsing import parse_json_object
 from evidence_rag.generator.models import Claim, ClaimSpan
+from evidence_rag.generator.trace import SplitterStatus, SplitterTrace
 
 SPLIT_PROMPT = (
-    "Split the answer into atomic, self-contained factual claims. Resolve pronouns "
-    "without adding information. Return JSON only in this shape: "
+    "Split the answer into atomic, self-contained factual claims that could each "
+    "be checked against source documents. Resolve pronouns without adding "
+    "information. Skip any sentence that only describes the answer itself or where "
+    "its information came from (e.g. 'this is based on...', 'the information is "
+    "sourced from...') rather than asserting a fact about the world. Return JSON "
+    "only in this shape: "
     '{{"claims":[{{"source_text":"exact contiguous text from the answer",'
     '"text":"self-contained claim"}}]}}.\n\nAnswer:\n{answer}'
 )
@@ -22,11 +29,75 @@ _STOPWORDS = frozenset(
     "from has have had also his her their he she they there which who whom but not into than "
     "then when while about over under after before".split()
 )
-_SENTENCE_RE = re.compile(r"[^.!?]*[.!?]+|\S[^.!?]*$")
 _MIN_SENTENCE_OVERLAP = 0.3
 """Minimum share of the claim's content tokens that must appear in an answer
 sentence before we anchor to it; below this the claim is treated as unlocatable
 and skipped (a genuinely off-answer claim, not a paraphrase)."""
+
+# --- over-split suppression -------------------------------------------------
+# The audit found three kinds of claim that are not answers to the question:
+# meta-narrative about the answer itself, fragments whose subject was never
+# resolved, and restatements of another claim. They inflate the unsupported and
+# abstention rates, multiply entity_check comparisons, and lengthen answers --
+# which feeds the citation-dilution problem directly.
+
+_META_NARRATIVE = re.compile(
+    r"\b(?:"
+    r"the (?:answer|information|evidence|passage|document|source|text|context)s?\b"
+    r"|this (?:answer|information|statement)\b"
+    r"|(?:is|was|are|were) (?:sourced|derived|taken) from"
+    r"|comes from the"
+    r"|according to the (?:evidence|passage|document|source|text|context)"
+    r"|mentioned in the (?:answer|evidence|passage|document|text)"
+    r")",
+    re.IGNORECASE,
+)
+
+_UNRESOLVED_SUBJECT = re.compile(
+    r"^(?:it|its|this|that|these|those|they|them|their|he|him|his|she|her)\b",
+    re.IGNORECASE,
+)
+
+def _is_meta_narrative(text: str) -> bool:
+    """Talks about the answer or where it came from, rather than asserting a fact."""
+    return bool(_META_NARRATIVE.search(text))
+
+
+def _has_unresolved_subject(text: str) -> bool:
+    """Opens with a pronoun or demonstrative the splitter failed to resolve.
+
+    A2's own contract is 'atomic, self-contained ... resolve pronouns', so
+    "This film aired on NBC in 1973" is a splitter failure: nothing downstream can
+    tell which film, and the verifier cannot check it against evidence.
+    """
+    return bool(_UNRESOLVED_SUBJECT.match(text.strip()))
+
+
+def _drop_over_split(
+    pending: list[tuple[str, str, str, ClaimSpan]],
+) -> list[tuple[str, str, str, ClaimSpan]]:
+    """Remove non-answers and true duplicates without guessing entailment.
+
+    A longer claim is not automatically a better claim: it may combine the
+    shorter fact with a distinct date, number, or entity. Lexical subsumption
+    therefore cannot safely choose between them. Only claims with the same
+    normalized token sequence are duplicates here; uncertain cases remain
+    visible for faithfulness and evidence verification.
+    """
+    kept = [
+        item
+        for item in pending
+        if not _is_meta_narrative(item[2]) and not _has_unresolved_subject(item[2])
+    ]
+    result: list[tuple[str, str, str, ClaimSpan]] = []
+    seen: set[tuple[str, ...]] = set()
+    for item in kept:
+        key = tuple(re.findall(r"[a-z0-9]+", item[2].casefold()))
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append(item)
+    return result
 
 
 def _content_tokens(text: str) -> set[str]:
@@ -37,20 +108,26 @@ def _content_tokens(text: str) -> set[str]:
     }
 
 
-def _sentence_spans(text: str) -> list[tuple[int, int]]:
-    return [
-        (match.start(), match.end())
-        for match in _SENTENCE_RE.finditer(text)
-        if match.group().strip()
-    ]
+_sentence_spans = sentence_spans
+"""The system's one sentence rule, from ``contracts``.
+
+This module used to carry its own, knowing 10 abbreviations against the
+contract's ~50 -- so ``"Acme Inc. in Ohio"`` was two sentences to the splitter and
+one to the validator. G7 lost an answer to exactly that class of disagreement
+between two other copies of the rule; this was the third copy."""
 
 
 def _locate_span(answer_text: str, source_text: str, claim_text: str, cursor: int) -> ClaimSpan | None:
-    """Find the answer region this claim came from, at or after ``cursor``.
+    """Find the answer region this claim came from.
 
-    1. exact substring (verbatim ``source_text``) -- unchanged fast path;
-    2. otherwise the best token-overlapping answer sentence, if the overlap
-       clears ``_MIN_SENTENCE_OVERLAP``; else ``None`` (claim is skipped).
+    1. exact substring (verbatim ``source_text``) at or after ``cursor``;
+    2. otherwise the best token-overlapping answer sentence anywhere in the
+       answer, if the overlap clears ``_MIN_SENTENCE_OVERLAP``; else ``None``.
+
+    The fallback deliberately permits several atomic claims to share one source
+    sentence. A paraphrased first claim may anchor the whole sentence and advance
+    ``cursor`` past it; treating that cursor as a hard fallback boundary would
+    silently discard every later claim extracted from the same sentence.
     """
     exact = answer_text.find(source_text, cursor)
     if exact >= 0:
@@ -61,8 +138,6 @@ def _locate_span(answer_text: str, source_text: str, claim_text: str, cursor: in
     best_overlap = 0.0
     best_span: tuple[int, int] | None = None
     for start, end in _sentence_spans(answer_text):
-        if end <= cursor:
-            continue
         sentence_tokens = _content_tokens(answer_text[start:end])
         if not sentence_tokens:
             continue
@@ -81,21 +156,119 @@ FAITHFULNESS_PROMPT = (
 )
 
 
+@dataclass
+class _SplitCapture:
+    split_raw_output: str | None = None
+    faithfulness_raw_output: str | None = None
+    raw_claim_count: int = 0
+    located_claim_count: int = 0
+    retained_claim_count: int = 0
+
+
 class ClaimSplitter:
     """Split a draft answer into atomic claims and independently check rewrites."""
 
-    def __init__(self, llm: TextGenerator | None = None) -> None:
+    def __init__(
+        self,
+        llm: TextGenerator | None = None,
+        *,
+        degrade_on_failure: bool = True,
+        trace_enabled: bool = False,
+    ) -> None:
         self.llm = llm or GraniteLLMClient()
+        self.degrade_on_failure = degrade_on_failure
+        self.trace_enabled = trace_enabled
+        self.last_trace: SplitterTrace | None = None
+        """Fall back to sentence-level claims when structured splitting fails.
+
+        **The defect this addresses is not that parsing fails -- it is that a parse
+        failure was FATAL.** The splitter sits upstream of every verification arm,
+        so one malformed response removed the query from all of them while leaving
+        it scored for the baseline. That asymmetry is what made QAMPARI's coverage
+        comparison untestable: failure ran at 18/400 = 4.5% there against ~0.5% on
+        calibration, and the baseline answered 17 of those 18.
+
+        Hardening the parser further chases a moving target -- malformed LLM output
+        has no fixed shape. A floor does not: the query survives, loses atomicity,
+        and stays comparable across arms.
+
+        **On by default**, because for any future run the floor is what should
+        happen. ``False`` restores the strict behaviour the frozen evaluation ran
+        under, which is what the parser-contract tests assert and what
+        `generator-frozen-g9-qampari-2026-08-10` measured. No reported number
+        changes either way: this path only executes where the old code raised.
+        """
 
     def split(self, answer_text: str) -> tuple[Claim, ...]:
+        self.last_trace = None
         if not answer_text.strip():
+            if self.trace_enabled:
+                self.last_trace = SplitterTrace(status="not_run_empty_draft")
             return ()
-        split_data = self._load_json(
-            self.llm.generate(SPLIT_PROMPT.format(answer=answer_text))
+        capture = _SplitCapture()
+        try:
+            claims = self._split_structured(answer_text, capture)
+        except (ValueError, KeyError, TypeError) as exc:
+            status: SplitterStatus = (
+                "degraded_fallback" if self.degrade_on_failure else "failed"
+            )
+            claims = self._degrade_to_sentences(answer_text) if self.degrade_on_failure else ()
+            if self.trace_enabled:
+                self.last_trace = SplitterTrace(
+                    status=status,
+                    split_raw_output=capture.split_raw_output,
+                    faithfulness_raw_output=capture.faithfulness_raw_output,
+                    failure_type=type(exc).__name__,
+                    failure_message=str(exc),
+                    raw_claim_count=capture.raw_claim_count,
+                    located_claim_count=capture.located_claim_count,
+                    retained_claim_count=capture.retained_claim_count,
+                    output_claim_count=len(claims),
+                )
+            if not self.degrade_on_failure:
+                raise
+            return claims
+        if self.trace_enabled:
+            self.last_trace = SplitterTrace(
+                status="structured",
+                split_raw_output=capture.split_raw_output,
+                faithfulness_raw_output=capture.faithfulness_raw_output,
+                raw_claim_count=capture.raw_claim_count,
+                located_claim_count=capture.located_claim_count,
+                retained_claim_count=capture.retained_claim_count,
+                output_claim_count=len(claims),
+            )
+        return claims
+
+    def _degrade_to_sentences(self, answer_text: str) -> tuple[Claim, ...]:
+        """One claim per sentence, marked degraded.
+
+        Atomicity is lost -- a sentence carrying two facts needs both supported to
+        verify -- so this is worse than a successful split, and the flag says so
+        rather than letting a degraded query look like a normal one. It is much
+        better than losing the query, which was the previous behaviour.
+        """
+        return tuple(
+            Claim(
+                claim_id=f"claim-{index}",
+                text=answer_text[start:end],
+                span=ClaimSpan(start=start, end=end),
+                faithful_to_answer=True,  # it IS the answer text, verbatim
+                degraded=True,
+            )
+            for index, (start, end) in enumerate(sentence_spans(answer_text), start=1)
+            if answer_text[start:end].strip()
         )
+
+    def _split_structured(
+        self, answer_text: str, capture: _SplitCapture
+    ) -> tuple[Claim, ...]:
+        capture.split_raw_output = self.llm.generate(SPLIT_PROMPT.format(answer=answer_text))
+        split_data = self._load_json(capture.split_raw_output)
         raw_claims = split_data.get("claims")
         if not isinstance(raw_claims, list):
             raise ValueError("splitter output must contain a claims array")
+        capture.raw_claim_count = len(raw_claims)
         pending: list[tuple[str, str, str, ClaimSpan]] = []
         cursor = 0
         for index, item in enumerate(raw_claims, start=1):
@@ -115,9 +288,18 @@ class ClaimSplitter:
                 # the faithfulness self-check below and the verifier are the layers
                 # that judge whether a located claim is actually right.
                 continue
-            pending.append((claim_id, source_text, claim_text, span))
+            # Faithfulness is defined against what A1 actually wrote, not against
+            # the splitter's own (often paraphrased) ``source_text`` field.
+            located_source = answer_text[span.start : span.end]
+            pending.append((claim_id, located_source, claim_text, span))
             cursor = span.end
+        capture.located_claim_count = len(pending)
 
+        # suppress over-split claims BEFORE the faithfulness call: they are not
+        # answers, so spending a check on them is waste, and letting them through
+        # lengthens the answer and multiplies entity_check comparisons.
+        pending = _drop_over_split(pending)
+        capture.retained_claim_count = len(pending)
         if not pending:
             return ()
 
@@ -128,9 +310,10 @@ class ClaimSplitter:
             ],
             ensure_ascii=False,
         )
-        check_data = self._load_json(
-            self.llm.generate(FAITHFULNESS_PROMPT.format(items=items))
+        capture.faithfulness_raw_output = self.llm.generate(
+            FAITHFULNESS_PROMPT.format(items=items)
         )
+        check_data = self._load_json(capture.faithfulness_raw_output)
         raw_results = check_data.get("results")
         if not isinstance(raw_results, list):
             raise ValueError("faithfulness output must contain a results array")

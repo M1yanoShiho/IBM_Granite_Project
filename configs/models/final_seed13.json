@@ -1,0 +1,35 @@
+{
+  "schema_version": "three-module-model-manifest.v1",
+  "runtime_config": "../runtime/final_seed13.toml",
+  "storage_policy": "metadata_in_git_weights_external",
+  "environment": {
+    "EVIDENCE_RAG_DATASET_MANIFEST": "Path to a public Evidence RAG dataset manifest",
+    "EVIDENCE_RAG_OUTPUT_DIR": "Writable directory for runtime outputs",
+    "EVIDENCE_RAG_MODEL_CACHE": "Hugging Face cache root containing all public base-model snapshots",
+    "EVIDENCE_RAG_SELECTOR_CHECKPOINT": "Path to the trained Selector seed-13 model.safetensors",
+    "EVIDENCE_RAG_GENERATOR_ADAPTER": "Directory containing the GR-C seed-13 adapter files"
+  },
+  "retriever": {
+    "model_id": "ibm-granite/granite-embedding-english-r2",
+    "revision": "47ea694b257b703fee9253d75c2b1f2985180498",
+    "config_sha256": "bc4ad4e8cd50c0069292863117823f665da70bbbdea40fd4ea77d80609ade241"
+  },
+  "selector": {
+    "model_id": "cross-encoder/nli-deberta-v3-base",
+    "revision": "6c749ce3425cd33b46d187e45b92bbf96ee12ec7",
+    "base_config_sha256": "897e756eb59d3183adb505952e7910e7cbc7750a43f3b3747a96b688d2b02a47",
+    "checkpoint_sha256": "86622bd9ab6391c9eb560133b01b0cf3744c3706638ff8b0bd38925b84bf72bf",
+    "safe_threshold": 0.9212157130241394,
+    "max_delete": 2
+  },
+  "generator": {
+    "base_model_id": "ibm-granite/granite-4.1-3b",
+    "base_revision": "c0650403e44e78ec0262dab1c90914c65b196c4e",
+    "base_config_sha256": "9a0e589b69e7d3ad9fb9fb2c844aa7d7156e052cb7ea4211de7de48ab7c8525c",
+    "adapter_weights_sha256": "492d336c7acc32785becded707220dbdf1a8acf9a895630147fc4e8cd28d0707",
+    "adapter_config_sha256": "1918333d819e6007d3faf17d3497c4f4665f7c0d3cb032f510986cfdb9837942",
+    "verifier_model_id": "google/t5_xxl_true_nli_mixture",
+    "verifier_revision": "aa6cfe1dd4257853bfdd772992045f41bfc14988",
+    "verifier_config_sha256": "69f089550c668f52d585adb6b482e771d8819a10c8c4ce2ca83f44c96178c6e9"
+  }
+}

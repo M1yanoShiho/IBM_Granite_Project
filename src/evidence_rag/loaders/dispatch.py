@@ -34,6 +34,13 @@ from evidence_rag.loaders.image_loader import (
     caption_image_paths,
     extract_ocr_text_from_image,
 )
+from evidence_rag.loaders.office_loader import (
+    OFFICE_EXTENSIONS,
+    OFFICE_LOADER_VERSION,
+    OfficeMode,
+    build_office_converter,
+    load_office,
+)
 from evidence_rag.loaders.pdf_loader import (
     PDF_LOADER_VERSION,
     PdfMode,
@@ -80,17 +87,34 @@ def load_directory(
     vision_model_id: str | None = None,
     vision_device: str | None = None,
     pdf_mode: PdfMode = "chunks",
+    office_mode: OfficeMode = "markdown",
+    office_converter: Any | None = None,
     caption_pdf_pictures: bool = False,
     image_ocr: bool = True,
     on_error: OnError = "skip",
     cache_dir: str | Path | None = None,
+    recursive: bool = True,
 ) -> list[Document]:
-    """Load every supported file in ``directory`` into plain-text ``Document``s.
+    """Load every supported file under ``directory`` into plain-text ``Document``s.
 
     ``cache_dir`` (or env ``INGESTION_CACHE_DIR``) enables the file-level parse
     cache; note that when passing a custom ``converter`` its pipeline options
     are not part of the cache fingerprint, so clear the cache after changing
     them. Unsupported extensions are skipped with a debug log.
+
+    ``recursive`` (default) walks sub-directories. A flat scan drops nested files
+    with no signal whatsoever — the corpus just silently comes out smaller than the
+    directory — so recursion is the default and ``recursive=False`` is the opt-out.
+    Because two sub-directories may hold the same file name, ``document_id`` is the
+    path *relative to* ``directory`` (``reports/q1.pdf``) rather than the bare name;
+    for a flat directory the two are identical, so ids are unchanged for corpora
+    that predate this.
+
+    ``on_error`` now governs parsing as well as captioning: with the default
+    ``"skip"`` a file that fails to parse is logged at warning level and left out,
+    instead of aborting the whole ingest partway through; ``"raise"`` restores the
+    fail-fast behaviour. Every skip and failure is counted in a summary log line —
+    silence is what made a short corpus indistinguishable from a complete one.
     """
     root = Path(directory)
     if not root.is_dir():
@@ -109,6 +133,7 @@ def load_directory(
             else []
         )
     )
+    office_fingerprint = "|".join(["office", OFFICE_LOADER_VERSION, f"mode={office_mode}"])
     image_fingerprint = "|".join(
         [
             "image",
@@ -125,13 +150,20 @@ def load_directory(
     pending_images: list[Path] = []
     pdf_jobs: list[_PdfJob] = []
 
-    for path in sorted(root.iterdir()):
-        if not path.is_file():
-            continue
+    unsupported: list[Path] = []
+    parse_failures: list[Path] = []
+
+    for path in _scan(root, recursive=recursive):
         suffix = path.suffix.lower()
         if suffix in TEXT_EXTENSIONS:
             ordered_files.append(path)
-            results[path] = [load_text_file(path)]
+            try:
+                results[path] = [load_text_file(path)]
+            except Exception:
+                if on_error == "raise":
+                    raise
+                logger.warning("Failed to read %s; skipping", path, exc_info=True)
+                parse_failures.append(path)
         elif suffix == ".pdf":
             ordered_files.append(path)
             cached = cache.get(path, pdf_fingerprint) if cache else None
@@ -141,19 +173,45 @@ def load_directory(
             if converter is None:
                 converter = build_converter(generate_picture_images=caption_pdf_pictures)
             resolved_path = path.resolve()
-            docling_document = convert_pdf(resolved_path, converter)
-            job = _PdfJob(
-                path=path,
-                text_documents=documents_from_docling(
-                    docling_document, resolved_path, mode=pdf_mode
-                ),
-                pictures=(
-                    extract_pictures(docling_document, resolved_path)
-                    if caption_pdf_pictures
-                    else []
-                ),
-            )
+            try:
+                docling_document = convert_pdf(resolved_path, converter)
+                job = _PdfJob(
+                    path=path,
+                    text_documents=documents_from_docling(
+                        docling_document, resolved_path, mode=pdf_mode
+                    ),
+                    pictures=(
+                        extract_pictures(docling_document, resolved_path)
+                        if caption_pdf_pictures
+                        else []
+                    ),
+                )
+            except Exception:
+                if on_error == "raise":
+                    raise
+                logger.warning("Failed to parse %s; skipping", path, exc_info=True)
+                parse_failures.append(path)
+                continue
             pdf_jobs.append(job)
+        elif suffix in OFFICE_EXTENSIONS:
+            ordered_files.append(path)
+            cached = cache.get(path, office_fingerprint) if cache else None
+            if cached is not None:
+                results[path] = cached
+                continue
+            if office_converter is None:
+                office_converter = build_office_converter()
+            try:
+                loaded = load_office(path, office_converter, mode=office_mode)
+            except Exception:
+                if on_error == "raise":
+                    raise
+                logger.warning("Failed to parse %s; skipping", path, exc_info=True)
+                parse_failures.append(path)
+                continue
+            results[path] = loaded
+            if cache:
+                cache.put(path, office_fingerprint, loaded)
         elif suffix in IMAGE_EXTENSIONS:
             ordered_files.append(path)
             cached = cache.get(path, image_fingerprint) if cache else None
@@ -162,6 +220,7 @@ def load_directory(
             else:
                 pending_images.append(path)
         else:
+            unsupported.append(path)
             logger.debug("Skipping unsupported file %s", path)
 
     # Phase 2: caption standalone images and PDF pictures in one model batch.
@@ -204,7 +263,99 @@ def load_directory(
         if cache and not job.caption_failed:
             cache.put(job.path, pdf_fingerprint, results[job.path])
 
-    return [document for path in ordered_files for document in results.get(path, [])]
+    caption_failures = sorted(
+        [path for path, failed in caption_errors.items() if failed]
+        + [job.path for job in pdf_jobs if job.caption_failed]
+    )
+    documents = [
+        _restamped(document, name=path.name, document_id=_relative_id(path, root))
+        for path in ordered_files
+        for document in results.get(path, [])
+    ]
+    _log_summary(
+        root,
+        documents=len(documents),
+        ingested=sum(1 for path in ordered_files if results.get(path)),
+        unsupported=unsupported,
+        parse_failures=parse_failures,
+        caption_failures=caption_failures,
+    )
+    return documents
+
+
+def _scan(root: Path, *, recursive: bool) -> list[Path]:
+    """Files under ``root``, ordered by their path relative to it.
+
+    Sorting on the relative path (not the absolute one) keeps ingestion order
+    independent of where the corpus happens to live on disk.
+    """
+    walker = root.rglob("*") if recursive else root.iterdir()
+    return sorted(
+        (path for path in walker if path.is_file()),
+        key=lambda path: path.relative_to(root).as_posix(),
+    )
+
+
+def _relative_id(path: Path, root: Path) -> str:
+    """Collision-free document id: ``path`` relative to the scan root, posix-style.
+
+    A bare file name is not unique once sub-directories are walked — two folders
+    can each hold ``report.pdf`` — and duplicate ``document_id``s break the corpus
+    contract downstream. For a flat directory this returns exactly the file name,
+    so ids are byte-identical to what a pre-recursion scan produced.
+    """
+    return path.relative_to(root).as_posix()
+
+
+def _restamped(document: Document, *, name: str, document_id: str) -> Document:
+    """Re-key ``document`` onto its relative id, preserving any id suffix.
+
+    PDF chunk documents carry ids like ``report.pdf::c1``; only the file-name part
+    is replaced, so the suffix that distinguishes chunks survives. A no-op when the
+    relative id already equals the file name (the flat-directory case).
+    """
+    if document_id == name or not document.document_id.startswith(name):
+        return document
+    return document.model_copy(
+        update={"document_id": document_id + document.document_id[len(name) :]}
+    )
+
+
+def _log_summary(
+    root: Path,
+    *,
+    documents: int,
+    ingested: int,
+    unsupported: list[Path],
+    parse_failures: list[Path],
+    caption_failures: list[Path],
+) -> None:
+    """Report what the scan actually consumed, loudly enough to be noticed.
+
+    A short corpus and a complete one look identical unless the skips are stated,
+    so anything dropped is logged at warning level with the paths named.
+    """
+    logger.info(
+        "Ingested %d file(s) from %s into %d document(s)", ingested, root, documents
+    )
+    for label, paths in (
+        ("failed to parse", parse_failures),
+        ("failed to caption", caption_failures),
+    ):
+        if paths:
+            logger.warning(
+                "%d file(s) %s and were skipped: %s",
+                len(paths),
+                label,
+                ", ".join(str(path) for path in paths[:10])
+                + (" ..." if len(paths) > 10 else ""),
+            )
+    if unsupported:
+        logger.info(
+            "%d file(s) had unsupported extensions and were skipped: %s",
+            len(unsupported),
+            ", ".join(sorted({path.suffix or "<none>" for path in unsupported})),
+        )
 
 
 def load_directory_from_config(
@@ -221,9 +372,11 @@ def load_directory_from_config(
     """
     kwargs: dict[str, Any] = {
         "pdf_mode": config.pdf_mode,
+        "office_mode": config.office_mode,
         "caption_pdf_pictures": config.caption_pdf_pictures,
         "image_ocr": config.image_ocr,
         "on_error": config.on_error,
+        "recursive": config.recursive,
     }
     if config.caption_prompt is not None:
         kwargs["caption_prompt"] = config.caption_prompt

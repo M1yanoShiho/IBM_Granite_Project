@@ -96,3 +96,39 @@ def test_train_loses_a_page_shared_only_with_dev() -> None:
     assert [pair.group for pair in result.train] == ["safe"]
     assert [pair.group for pair in result.dev] == ["dev-only"]
     assert result.removed_train_groups == ("dev-only",)
+
+
+def test_two_spellings_of_one_page_are_one_page() -> None:
+    """The collision measured on bp1 2026-08-08, verbatim.
+
+    VitaminC ships this article as `XXx-COLON- ...` in train and `XXX-COLON- ...` in dev. Raw
+    string comparison sees two pages and removes neither; `page_key` — which every downstream
+    leakage check uses — casefolds, so `assert_decontaminated` sees one and refuses the run.
+    The exporter must partition the way the audit reads, or it cannot remove what the audit
+    will find.
+    """
+    result = decontaminate(
+        train=to_pairs([_row("c1", "e1", "SUPPORTS", "XXx-COLON- Return of Xander Cage")]),
+        dev=to_pairs([_row("c2", "e2", "SUPPORTS", "XXX-COLON- Return of Xander Cage")]),
+        test=(),
+    )
+    assert result.train == ()
+    assert result.removed_train_groups == ("XXx-COLON- Return of Xander Cage",)
+
+
+def test_spelling_variants_are_matched_against_test_too() -> None:
+    """The axis with no downstream guard.
+
+    `assert_decontaminated` only compares train against dev, so a spelling collision with
+    official test would train on the evaluation surface and nothing would report it. Measured
+    zero on the real export, which is a fact about this snapshot of VitaminC and not a property
+    of the code — so it is asserted here instead.
+    """
+    result = decontaminate(
+        train=to_pairs([_row("c1", "e1", "SUPPORTS", "Anna  Karenina")]),
+        dev=to_pairs([_row("c2", "e2", "SUPPORTS", "anna karenina")]),
+        test=to_pairs([_row("c3", "e3", "REFUTES", "Anna Karenina")]),
+    )
+    assert result.train == ()
+    assert result.dev == ()
+    assert result.removed_dev_groups == ("anna karenina",)

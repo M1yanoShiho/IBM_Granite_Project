@@ -31,7 +31,7 @@ from evidence_rag.retriever.indexing import IndexManifest
 
 ROOT = Path(__file__).resolve().parents[2]
 REFERENCE_MANIFEST = ROOT / "tests/fixtures/reference_dataset/manifest.json"
-DOCS_README = ROOT / "docs/README.md"
+REPRODUCTION_DOC = ROOT / "docs/reproduction.md"
 
 
 def write_config(root: Path, *, output_directory: str = "run") -> Path:
@@ -583,7 +583,7 @@ def test_run_all_completes_reference_workflow(tmp_path: Path) -> None:
 
 
 def test_docs_describe_actual_experiment_commands_and_index_files() -> None:
-    documentation = DOCS_README.read_text(encoding="utf-8")
+    documentation = REPRODUCTION_DOC.read_text(encoding="utf-8")
     command_prefix = (
         "python -m evidence_rag.cli.experiment --config configs/experiments/reference_baseline.toml"
     )
@@ -591,5 +591,5 @@ def test_docs_describe_actual_experiment_commands_and_index_files() -> None:
         assert f"{command_prefix} {command}" in documentation
     assert "runs/reference-baseline/index/index_manifest.json" in documentation
     assert "runs/reference-baseline/index/corpus_snapshot.json" in documentation
-    assert "冻结 artifact" in documentation
-    assert "实时 Pipeline" in documentation
+    assert "frozen artifacts" in documentation
+    assert "live Pipeline" in documentation

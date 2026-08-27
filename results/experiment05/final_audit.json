@@ -1,0 +1,48 @@
+{
+  "artifacts": {
+    "FINAL_REPORT.md": "a8fe0cd3ef2a669cbba0463ad929de16dc08c9e61b14572994c5f3512d5a8e38",
+    "appendix_diagnostics.json": "7753b6c29e0ba8e8e6de306701e88e42abf38e84dd597fb41b609d49e5a178ed",
+    "bootstrap.json": "aa5fae0fa6eeb8e12faae9c77271a6fee0930438d6e043627b689c59ec949231",
+    "claim_labels.json": "82468652a13bda445e3d9d97da92f84acf7ca6a003ee9407a2c71736173e3f4d",
+    "table1.csv": "9825310f892d4db9ffe7bf6f6175a6233ddc486db735d882915ddaa1f6732f33",
+    "table1.json": "4abf54bdd6edb07f0d3dc8bbcf7b1b1b04e9dba7712cb69c6074e3ab64009abf",
+    "table2.csv": "5bb4ba2de95d36f5d9a2696cbb418ef0b71d2c5719743fae9282dad668f42780",
+    "table2.json": "5981f59cd37bc1a3f163d96da391dedfff544312dea21722e230e06e6563ccc7",
+    "tables.tex": "1f853694b3cb7a84546212ef9200be250b3303f65c07c286cca477205d0d8427"
+  },
+  "claim_labels": {
+    "claim_a": {
+      "label": "NOT SUPPORTED",
+      "rfc_rr_harm_gates": false,
+      "superiority_by_dataset": {
+        "alce-asqa": false,
+        "kilt-nq": false,
+        "kilt-tqa": false
+      },
+      "ucr_noninferiority_by_dataset": {
+        "alce-asqa": true,
+        "kilt-nq": false,
+        "kilt-tqa": true
+      }
+    },
+    "claim_b": {
+      "cp_cr_harm_gates": true,
+      "label": "NOT SUPPORTED",
+      "superiority_by_dataset": {
+        "alce-asqa": false,
+        "kilt-nq": false,
+        "kilt-tqa": false
+      },
+      "vrfc_noninferiority_by_dataset": {
+        "alce-asqa": true,
+        "kilt-nq": true,
+        "kilt-tqa": true
+      }
+    }
+  },
+  "formal_generation_outputs": 12000,
+  "formal_query_scores": 12000,
+  "schema_version": "experiment05.final_audit.v1",
+  "scorer_errors": 0,
+  "status": "FINAL PASS"
+}

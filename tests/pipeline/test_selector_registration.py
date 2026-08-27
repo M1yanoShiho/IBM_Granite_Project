@@ -1,197 +1,191 @@
+import hashlib
+from pathlib import Path
+
 import pytest
 
+import evidence_rag.composition as composition_module
 from evidence_rag.composition import build_selector
+from evidence_rag.contracts.models import CandidateSet, EvidenceCandidate, Query
 from evidence_rag.infrastructure.config import ModuleConfig
-from evidence_rag.selector.corroboration import CorroborationSelector
-from evidence_rag.selector.gated import GatedCorroborationSelector, GatedCoverageSelector
 from evidence_rag.selector.top_k import TopKSelector
 
 
-class FakeLLM:
-    def generate(self, prompt: str) -> str:
-        return "NONE"
+class _SelectorScores:
+    def __init__(self, protect_scores: list[float], harm_scores: list[float]) -> None:
+        self.protect_scores = protect_scores
+        self.harm_scores = harm_scores
 
 
-def test_top_k_still_builds() -> None:
+class _FrozenSelectorModel:
+    loaded = True
+
+    def eval(self) -> "_FrozenSelectorModel":
+        return self
+
+    def __call__(
+        self,
+        *,
+        question: list[str],
+        candidate_text: list[str],
+    ) -> _SelectorScores:
+        assert self.loaded
+        assert question == ["Which evidence is safe?"] * 10
+        return _SelectorScores(
+            protect_scores=[0.01 if "poison" in text else 0.99 for text in candidate_text],
+            harm_scores=[0.99 if "poison" in text else 0.01 for text in candidate_text],
+        )
+
+
+def _ten_candidates() -> CandidateSet:
+    return CandidateSet(
+        query_id="q-selector",
+        candidates=tuple(
+            EvidenceCandidate(
+                evidence_id=f"ev-{rank}",
+                document_id=f"doc-{rank}",
+                chunk_id=f"chunk-{rank}",
+                text="poison evidence" if rank == 10 else f"safe evidence {rank}",
+                source_uri=f"fixture://doc-{rank}",
+                retrieval_score=float(11 - rank),
+                retrieval_rank=rank,
+            )
+            for rank in range(1, 11)
+        ),
+    )
+
+
+def test_top_k_selector_is_still_registered() -> None:
     assert isinstance(build_selector(ModuleConfig(name="top-k")), TopKSelector)
 
 
-def test_corroboration_builds_with_parameters() -> None:
-    selector = build_selector(
-        ModuleConfig(name="corroboration", parameters={"alpha": 0.4, "top_n": 10}),
-        llm=FakeLLM(),
-    )
-    assert isinstance(selector, CorroborationSelector)
-    assert selector.alpha == 0.4
-    assert selector.top_n == 10
-
-
-def test_gated_corroboration_builds_with_parameters() -> None:
-    selector = build_selector(
-        ModuleConfig(
-            name="gated-corroboration",
-            parameters={"alpha": 0.6, "margin": 3, "support_cap": 2, "top_n": 15},
-        ),
-        llm=FakeLLM(),
-    )
-    assert isinstance(selector, GatedCorroborationSelector)
-    assert selector.margin == 3
-    assert selector.support_cap == 2
-    assert selector.top_n == 15
-
-
-def test_gated_corroboration_defaults_match_spec() -> None:
-    selector = build_selector(ModuleConfig(name="gated-corroboration"), llm=FakeLLM())
-    assert isinstance(selector, GatedCorroborationSelector)
-    assert selector.margin == 2
-    assert selector.support_cap == 1
-
-
-def test_gated_coverage_builds_with_parameters() -> None:
-    selector = build_selector(
-        ModuleConfig(
-            name="gated-coverage-corroboration",
-            parameters={"margin": 3, "support_cap": 2},
-        ),
-        llm=FakeLLM(),
-    )
-    assert isinstance(selector, GatedCoverageSelector)
-    assert selector.margin == 3
-    assert selector.support_cap == 2
-
-
-def test_gated_equivalence_defaults_to_exact() -> None:
-    selector = build_selector(ModuleConfig(name="gated-corroboration"), llm=FakeLLM())
-    assert isinstance(selector, GatedCorroborationSelector)
-    assert selector.equivalence == "exact"
-
-
-def test_gated_equivalence_lenient_builds() -> None:
-    selector = build_selector(
-        ModuleConfig(name="gated-corroboration", parameters={"equivalence": "lenient"}),
-        llm=FakeLLM(),
-    )
-    assert isinstance(selector, GatedCorroborationSelector)
-    assert selector.equivalence == "lenient"
-
-
-def test_gated_equivalence_invalid_rejected() -> None:
-    with pytest.raises(ValueError, match="invalid selector parameter equivalence"):
-        build_selector(
-            ModuleConfig(name="gated-corroboration", parameters={"equivalence": "fuzzy"}),
-            llm=FakeLLM(),
-        )
-
-
-def test_unknown_parameter_rejected() -> None:
-    with pytest.raises(ValueError, match="unknown selector parameter"):
-        build_selector(
-            ModuleConfig(name="gated-corroboration", parameters={"tau": 0.3}),
-            llm=FakeLLM(),
-        )
-
-
-def test_out_of_range_parameters_rejected() -> None:
-    for parameters in ({"alpha": 1.5}, {"margin": 0}, {"support_cap": -1}, {"top_n": 0}):
-        with pytest.raises(ValueError, match="invalid selector parameter"):
-            build_selector(
-                ModuleConfig(name="gated-corroboration", parameters=parameters),
-                llm=FakeLLM(),
-            )
-
-
-def test_non_integer_margin_rejected() -> None:
-    with pytest.raises(ValueError, match="invalid selector parameter"):
-        build_selector(
-            ModuleConfig(name="gated-corroboration", parameters={"margin": 1.5}),
-            llm=FakeLLM(),
-        )
-
-
 def test_top_k_rejects_parameters() -> None:
-    with pytest.raises(ValueError):
-        build_selector(ModuleConfig(name="top-k", parameters={"alpha": 0.5}))
+    with pytest.raises(ValueError, match="does not accept parameters"):
+        build_selector(ModuleConfig(name="top-k", parameters={"top_n": 10}))
 
 
-def test_unknown_selector_rejected() -> None:
-    with pytest.raises(ValueError, match="unknown selector"):
-        build_selector(ModuleConfig(name="mystery"))
-
-
-def test_support_unit_rejects_an_unknown_value() -> None:
-    config = ModuleConfig(name="gated-corroboration", parameters={"support_unit": "page"})
-    with pytest.raises(ValueError, match="support_unit"):
-        build_selector(config, llm=FakeLLM())
-
-
-def test_support_unit_defaults_to_document() -> None:
+def test_nli_risk_selector_scores_live_candidates_and_drops_harmful_evidence() -> None:
     selector = build_selector(
-        ModuleConfig(name="gated-corroboration", parameters={}), llm=FakeLLM()
+        ModuleConfig(
+            name="nli-risk-controlled",
+            parameters={"safe_threshold": 0.9212157130241394, "max_delete": 2},
+        ),
+        model=_FrozenSelectorModel(),
     )
-    assert isinstance(selector, GatedCorroborationSelector)
-    assert selector.parent_by_document is None
+
+    result = selector.select(
+        Query(query_id="q-selector", text="Which evidence is safe?"),
+        _ten_candidates(),
+        max_selected=10,
+    )
+
+    assert tuple(item.evidence_id for item in result.items) == tuple(
+        f"ev-{rank}" for rank in range(1, 10)
+    )
 
 
-def test_support_unit_parent_loads_the_sidecar_from_the_environment(
-    tmp_path, monkeypatch
+def test_nli_risk_selector_loads_the_frozen_checkpoint_from_config(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import json
+    checkpoint = tmp_path / "model.safetensors"
+    checkpoint.write_bytes(b"frozen-selector-checkpoint")
+    checkpoint_sha256 = hashlib.sha256(checkpoint.read_bytes()).hexdigest()
+    model_snapshot = tmp_path / "nli-base"
+    model_snapshot.mkdir()
+    model_config = model_snapshot / "config.json"
+    model_config.write_bytes(b"frozen-selector-base-config")
+    model_config_sha256 = hashlib.sha256(model_config.read_bytes()).hexdigest()
+    model = _FrozenSelectorModel()
+    model.loaded = False
+    monkeypatch.setenv("TEST_SELECTOR_CHECKPOINT", str(checkpoint))
+    monkeypatch.setenv("TEST_SELECTOR_MODEL", str(model_snapshot))
 
-    index = tmp_path / "source_parent.jsonl"
-    index.write_text(
-        json.dumps({"document_id": "d1", "source_parent_id": "page a"}) + "\n", encoding="utf-8"
-    )
-    monkeypatch.setenv("SOURCE_PARENT_INDEX", str(index))
+    def load_model(
+        model_snapshot: str,
+        *,
+        revision: str,
+        identity_model_id: str,
+        local_files_only: bool,
+        device: str,
+    ) -> _FrozenSelectorModel:
+        assert model_snapshot == str(tmp_path / "nli-base")
+        assert revision == "selector-revision"
+        assert identity_model_id == "fixture/nli-base"
+        assert local_files_only is True
+        assert device == "cpu"
+        return model
+
+    def load_checkpoint(loaded_model: _FrozenSelectorModel, path: Path) -> object:
+        assert loaded_model is model
+        assert path == checkpoint
+        loaded_model.loaded = True
+        return object()
+
+    monkeypatch.setattr(composition_module, "load_nli_dual_head_model", load_model)
+    monkeypatch.setattr(composition_module, "load_dual_head_checkpoint", load_checkpoint)
+
     selector = build_selector(
-        ModuleConfig(name="gated-corroboration", parameters={"support_unit": "parent"}),
-        llm=FakeLLM(),
+        ModuleConfig(
+            name="nli-risk-controlled",
+            parameters={
+                "model_snapshot": "${TEST_SELECTOR_MODEL}",
+                "model_id": "fixture/nli-base",
+                "revision": "selector-revision",
+                "model_config_sha256": model_config_sha256,
+                "checkpoint_path": "${TEST_SELECTOR_CHECKPOINT}",
+                "checkpoint_sha256": checkpoint_sha256,
+                "safe_threshold": 0.9212157130241394,
+                "max_delete": 2,
+                "local_files_only": True,
+                "device": "cpu",
+            },
+        )
     )
-    assert isinstance(selector, GatedCorroborationSelector)
-    assert selector.parent_by_document == {"d1": "page a"}
+
+    result = selector.select(
+        Query(query_id="q-selector", text="Which evidence is safe?"),
+        _ten_candidates(),
+        max_selected=10,
+    )
+
+    assert model.loaded is True
+    assert result.items[-1].evidence_id == "ev-9"
 
 
-def test_support_unit_parent_fails_loudly_without_the_sidecar(monkeypatch) -> None:
-    """Silently falling back to the document unit would run a whole experiment on the old
-    vote counting with no metric able to reveal it."""
-    monkeypatch.delenv("SOURCE_PARENT_INDEX", raising=False)
-    with pytest.raises(ValueError, match="SOURCE_PARENT_INDEX"):
+def test_nli_risk_selector_reports_a_missing_runtime_path_variable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("MISSING_SELECTOR_CHECKPOINT", raising=False)
+
+    with pytest.raises(
+        ValueError,
+        match="Selector checkpoint requires environment variable.*MISSING_SELECTOR_CHECKPOINT",
+    ):
         build_selector(
-            ModuleConfig(name="gated-corroboration", parameters={"support_unit": "parent"}),
-            llm=FakeLLM(),
+            ModuleConfig(
+                name="nli-risk-controlled",
+                parameters={
+                    "model_snapshot": "fixture://nli-base",
+                    "model_id": "fixture/nli-base",
+                    "revision": "selector-revision",
+                    "model_config_sha256": "0" * 64,
+                    "checkpoint_path": "${MISSING_SELECTOR_CHECKPOINT}",
+                    "checkpoint_sha256": "0" * 64,
+                },
+            )
         )
 
 
-def test_source_parent_provenance_is_empty_for_the_document_unit() -> None:
-    from evidence_rag.composition import source_parent_provenance
-
-    assert source_parent_provenance(ModuleConfig(name="gated-corroboration")) == {}
-
-
-def test_source_parent_provenance_records_path_and_hash(tmp_path, monkeypatch) -> None:
-    """The sidecar comes from the environment, not the config, so a run against a stale sidecar
-    would otherwise be indistinguishable from one against a regenerated sidecar."""
-    import hashlib
-    import json
-
-    from evidence_rag.composition import source_parent_provenance
-
-    index = tmp_path / "source_parent.jsonl"
-    index.write_bytes(
-        (json.dumps({"document_id": "d1", "source_parent_id": "page a"}) + "\n").encode("utf-8")
-    )
-    monkeypatch.setenv("SOURCE_PARENT_INDEX", str(index))
-    recorded = source_parent_provenance(
-        ModuleConfig(name="gated-corroboration", parameters={"support_unit": "parent"})
-    )
-    assert recorded["source_parent_index"] == str(index)
-    assert recorded["source_parent_sha256"] == hashlib.sha256(index.read_bytes()).hexdigest()
-
-
-def test_source_parent_provenance_fails_loudly_without_the_sidecar(monkeypatch) -> None:
-    from evidence_rag.composition import source_parent_provenance
-
-    monkeypatch.delenv("SOURCE_PARENT_INDEX", raising=False)
-    with pytest.raises(ValueError, match="SOURCE_PARENT_INDEX"):
-        source_parent_provenance(
-            ModuleConfig(name="gated-corroboration", parameters={"support_unit": "parent"})
-        )
+@pytest.mark.parametrize(
+    "retired_name",
+    (
+        "beam-three-class",
+        "corroboration",
+        "gated-corroboration",
+        "gated-coverage-corroboration",
+        "reliability-mis",
+    ),
+)
+def test_retired_selectors_are_not_registered(retired_name: str) -> None:
+    with pytest.raises(ValueError, match="unknown selector"):
+        build_selector(ModuleConfig(name=retired_name))

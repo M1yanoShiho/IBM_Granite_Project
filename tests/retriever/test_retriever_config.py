@@ -1,7 +1,9 @@
+import hashlib
 from pathlib import Path
 
 import pytest
 
+import evidence_rag.composition as composition_module
 from evidence_rag.composition import build_retriever, prepare_retriever_index
 from evidence_rag.contracts.models import Document, Query
 from evidence_rag.infrastructure.config import ModuleConfig
@@ -76,6 +78,51 @@ def test_build_hybrid_convex_from_nested_config() -> None:
     assert isinstance(retriever, ConvexHybridRetriever)
 
 
+def test_granite_dense_loads_and_verifies_a_pinned_local_snapshot(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    snapshot = tmp_path / "granite-embedding"
+    snapshot.mkdir()
+    model_config = snapshot / "config.json"
+    model_config.write_bytes(b"pinned-embedding-config")
+    monkeypatch.setenv("TEST_EMBEDDING_SNAPSHOT", str(snapshot))
+    loaded_model_ids: list[str] = []
+
+    class _PinnedEmbedder:
+        def __init__(
+            self,
+            *,
+            model_id: str,
+            query_prefix: str,
+            document_prefix: str,
+        ) -> None:
+            loaded_model_ids.append(model_id)
+
+        def embed_documents(self, texts: list[str]) -> tuple[tuple[float, ...], ...]:
+            return tuple((1.0, 0.0) for _ in texts)
+
+        def embed_query(self, text: str) -> tuple[float, ...]:
+            return (1.0, 0.0)
+
+    monkeypatch.setattr(composition_module, "GraniteEmbedder", _PinnedEmbedder)
+
+    retriever = build_retriever(
+        config(
+            "granite-dense",
+            embedder_model_id="ibm-granite/granite-embedding-english-r2",
+            model_snapshot="${TEST_EMBEDDING_SNAPSHOT}",
+            revision="embedding-revision",
+            model_config_sha256=hashlib.sha256(model_config.read_bytes()).hexdigest(),
+            local_files_only=True,
+        ),
+        corpus(),
+    )
+
+    assert isinstance(retriever, composition_module.GraniteDenseRetriever)
+    assert loaded_model_ids == [str(snapshot)]
+
+
 def test_unknown_retriever_name_is_rejected() -> None:
     with pytest.raises(ValueError, match="unknown retriever: mystery"):
         build_retriever(config("mystery"), corpus())
@@ -122,6 +169,155 @@ def test_persisted_load_rejects_parameter_drift(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="parameters mismatch"):
         build_retriever(config("bm25", k1=1.2, b=0.75), snapshot, index_directory=tmp_path)
+
+
+def test_decompose_include_original_must_be_boolean() -> None:
+    with pytest.raises(ValueError, match="'include_original' must be a boolean"):
+        build_retriever(
+            config("decompose", base={"name": "bm25"}, include_original="yes"),
+            corpus(),
+        )
+
+
+def test_decompose_default_records_no_include_original_key(tmp_path: Path) -> None:
+    # `parameters` is bound into the index signature, so emitting the key at its
+    # default would invalidate every decompose index written before the option
+    # existed. Absent must keep meaning False.
+    manifest = prepare_retriever_index(
+        config("decompose", base={"name": "strong-bm25"}), corpus(), tmp_path
+    )
+    assert "include_original" not in manifest.parameters
+
+
+def test_decompose_records_include_original_when_enabled(tmp_path: Path) -> None:
+    manifest = prepare_retriever_index(
+        config("decompose", base={"name": "strong-bm25"}, include_original=True),
+        corpus(),
+        tmp_path,
+    )
+    assert manifest.parameters["include_original"] is True
+
+
+def test_decompose_include_original_drift_is_rejected(tmp_path: Path) -> None:
+    snapshot = corpus()
+    prepare_retriever_index(
+        config("decompose", base={"name": "strong-bm25"}, include_original=True),
+        snapshot,
+        tmp_path,
+    )
+
+    # Enabling the extra fusion arm changes retrieval, so an index built with it must
+    # not be silently reused by a run without it. (The mismatch is raised before any
+    # LLM is constructed, so this needs no model.)
+    with pytest.raises(ValueError, match="parameters mismatch"):
+        build_retriever(
+            config("decompose", base={"name": "strong-bm25"}),
+            snapshot,
+            index_directory=tmp_path,
+        )
+
+
+def test_decompose_rejects_unknown_fusion_from_config() -> None:
+    with pytest.raises(ValueError, match="'fusion' must be 'rrf' or 'best-rank'"):
+        build_retriever(
+            config("decompose", base={"name": "bm25"}, fusion="mystery"),
+            corpus(),
+        )
+
+
+def test_decompose_default_fusion_is_absent_from_recorded_parameters(
+    tmp_path: Path,
+) -> None:
+    # Same index-signature reasoning as include_original: "rrf" was the only behaviour
+    # when existing decompose indexes were written, so the default must stay unrecorded.
+    manifest = prepare_retriever_index(
+        config("decompose", base={"name": "strong-bm25"}), corpus(), tmp_path
+    )
+    assert "fusion" not in manifest.parameters
+
+
+def test_decompose_records_best_rank_fusion_when_selected(tmp_path: Path) -> None:
+    manifest = prepare_retriever_index(
+        config("decompose", base={"name": "strong-bm25"}, fusion="best-rank"),
+        corpus(),
+        tmp_path,
+    )
+    assert manifest.parameters["fusion"] == "best-rank"
+
+
+def test_decompose_default_original_weight_is_absent_from_recorded_parameters(
+    tmp_path: Path,
+) -> None:
+    # Same index-signature reasoning as include_original and fusion: parity was the
+    # only behaviour when existing decompose indexes were written.
+    manifest = prepare_retriever_index(
+        config("decompose", base={"name": "strong-bm25"}, include_original=True),
+        corpus(),
+        tmp_path,
+    )
+    assert "original_weight" not in manifest.parameters
+
+
+def test_decompose_records_original_weight_when_set(tmp_path: Path) -> None:
+    manifest = prepare_retriever_index(
+        config(
+            "decompose",
+            base={"name": "strong-bm25"},
+            include_original=True,
+            original_weight=3.0,
+        ),
+        corpus(),
+        tmp_path,
+    )
+    assert manifest.parameters["original_weight"] == 3.0
+
+
+def test_decompose_original_weight_drift_is_rejected(tmp_path: Path) -> None:
+    snapshot = corpus()
+    prepare_retriever_index(
+        config(
+            "decompose",
+            base={"name": "strong-bm25"},
+            include_original=True,
+            original_weight=3.0,
+        ),
+        snapshot,
+        tmp_path,
+    )
+
+    # Two points of a weight sweep must not share one index directory: the weight
+    # changes ranking, so reusing the index would silently mislabel the arm.
+    with pytest.raises(ValueError, match="parameters mismatch"):
+        build_retriever(
+            config(
+                "decompose",
+                base={"name": "strong-bm25"},
+                include_original=True,
+                original_weight=5.0,
+            ),
+            snapshot,
+            index_directory=tmp_path,
+        )
+
+
+def test_decompose_config_rejects_original_weight_without_include_original() -> None:
+    with pytest.raises(ValueError, match="'original_weight' requires 'include_original'"):
+        build_retriever(
+            config("decompose", base={"name": "bm25"}, original_weight=2.0), corpus()
+        )
+
+
+def test_decompose_config_rejects_a_non_positive_original_weight() -> None:
+    with pytest.raises(ValueError, match="'original_weight' must be positive"):
+        build_retriever(
+            config(
+                "decompose",
+                base={"name": "bm25"},
+                include_original=True,
+                original_weight=-1.0,
+            ),
+            corpus(),
+        )
 
 
 def test_manifest_implementation_matches_registry(tmp_path: Path) -> None:

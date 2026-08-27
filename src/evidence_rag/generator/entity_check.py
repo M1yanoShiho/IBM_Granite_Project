@@ -450,6 +450,34 @@ def normalize_name(text: str, aliases: Mapping[str, str] = DEFAULT_ALIASES) -> s
     return aliases.get(normalized, normalized)
 
 
+def _singular_tokens(normalized: str) -> frozenset[str]:
+    """Token set with a light singular/plural fold so ``Kings Mountain`` and
+    ``King's Mountain`` (which normalize to ``kings mountain`` / ``king mountain``)
+    compare equal. Applied symmetrically to claim and evidence, so an
+    over-eager fold cannot create a false *mismatch* -- only a tolerant match."""
+    tokens: set[str] = set()
+    for token in normalized.split():
+        if len(token) > 3 and token.endswith("s") and not token.endswith("ss"):
+            token = token[:-1]
+        tokens.add(token)
+    return frozenset(tokens)
+
+
+def _name_is_consistent(claim_normalized: str, comparable: Iterable[str]) -> bool:
+    """A claim name matches an evidence name when their singular-folded token sets
+    are equal or one contains the other -- so ``Patriots`` matches ``Patriot
+    militia`` and ``King's Mountain`` matches ``Kings Mountain``, while a genuine
+    swap (``Sobers`` vs ``Gooch``, disjoint tokens) still mismatches."""
+    claim_tokens = _singular_tokens(claim_normalized)
+    if not claim_tokens:
+        return False
+    for value in comparable:
+        evidence_tokens = _singular_tokens(value)
+        if evidence_tokens and (claim_tokens <= evidence_tokens or evidence_tokens <= claim_tokens):
+            return True
+    return False
+
+
 def dedupe(entities: Iterable[Entity]) -> tuple[Entity, ...]:
     seen: set[tuple[str, str]] = set()
     unique: list[Entity] = []
@@ -612,6 +640,10 @@ class EntityConsistencyChecker:
     def _is_consistent(entity: Entity, comparable: set[str]) -> bool:
         if entity.normalized in comparable:
             return True
+        if entity.entity_type in NAME_TYPES:
+            # tolerate benign surface variants (possessive/plural, partial vs full
+            # name); a real swap has disjoint tokens and still mismatches
+            return _name_is_consistent(entity.normalized, comparable)
         if entity.entity_type == "number" and ":" not in entity.normalized:
             # An unqualified amount matches a currency-qualified one ("1.2 billion"
             # vs "$1.2 billion"); the reverse stays a mismatch so a swapped

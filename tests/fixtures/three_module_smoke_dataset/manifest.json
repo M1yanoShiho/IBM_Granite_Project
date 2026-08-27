@@ -1,0 +1,9 @@
+{
+  "schema_version": "1.0",
+  "dataset_id": "three-module-wiring-smoke",
+  "dataset_version": "1.0.0",
+  "split": "development-smoke",
+  "documents_file": "documents.jsonl",
+  "queries_file": "queries.jsonl",
+  "gold_cases_file": "gold_cases.jsonl"
+}

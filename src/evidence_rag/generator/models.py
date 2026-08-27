@@ -61,6 +61,14 @@ class Claim(FrozenModel):
     the span is a possible v2 quality improvement, deliberately out of scope
     for the single-pass v1.
     """
+    degraded: bool = False
+    """True when structured splitting failed and this claim is a whole sentence.
+
+    Atomicity is lost for such a claim -- a sentence carrying two facts needs both
+    supported to verify -- so it is a weaker unit than a real split, and this flag
+    keeps that visible instead of letting a degraded query pass for a normal one.
+    Added post-freeze; it defaults False, so the evaluated system is unchanged.
+    """
 
 
 class DraftAnswer(FrozenModel):

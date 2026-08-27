@@ -8,6 +8,7 @@ from evidence_rag.contracts.models import (
     GenerationResult,
     Query,
     QueryChecklist,
+    RetrieverProvenance,
     SelectedEvidenceSet,
     SelectionItem,
     SelectionResult,
@@ -57,13 +58,22 @@ def _gold(query_id: str) -> GoldCase:
     )
 
 
+BM25 = RetrieverProvenance(
+    name="bm25", implementation_version="bm25-v1", parameters_sha256="1" * 64
+)
+
+
 class RetrieverSpy:
-    def __init__(self) -> None:
+    def __init__(self, provenance: RetrieverProvenance | None = None) -> None:
         self.calls: list[tuple[Query, int]] = []
+        self.provenance = provenance
 
     def retrieve(self, query: Query, top_k: int) -> CandidateSet:
         self.calls.append((query, top_k))
-        return _candidate_set(query.query_id)
+        candidates = _candidate_set(query.query_id)
+        if self.provenance is None:
+            return candidates
+        return candidates.model_copy(update={"retriever": self.provenance})
 
 
 class SelectorSpy:
@@ -129,12 +139,60 @@ def test_retriever_runner_uses_only_retriever_protocol_and_query_order() -> None
         (_gold("q-2"), _gold("q-1")),
         dataset_signature="dataset-signature",
         top_k=4,
+        retriever_provenance=BM25,
     )
 
     assert tuple(item.query_id for item in run.candidate_sets) == ("q-1", "q-2")
     assert tuple(query.query_id for query, _ in retriever.calls) == ("q-1", "q-2")
     assert all(top_k == 4 for _, top_k in retriever.calls)
     assert run.report.case_ids == ("q-1", "q-2")
+
+
+def test_every_candidate_set_leaves_the_runner_naming_its_producer() -> None:
+    """The stamp is applied by the loop that calls `retrieve`, so a pool cannot exist without
+    saying what built it. `retriever_provenance` is keyword-ONLY and has no default: an
+    unstamped pool is not something a caller can produce by forgetting an argument."""
+    run = run_retriever_stage(
+        RetrieverSpy(),
+        (_query("q-1"), _query("q-2")),
+        (_gold("q-1"), _gold("q-2")),
+        dataset_signature="dataset-signature",
+        top_k=1,
+        retriever_provenance=BM25,
+    )
+
+    assert [item.retriever for item in run.candidate_sets] == [BM25, BM25]
+
+
+def test_a_retriever_that_stamps_itself_differently_stops_the_run() -> None:
+    """The two statements of the producer are the config the index was built from and whatever
+    the retriever wrote on its own output. If they disagree, one of them is wrong and there is
+    no way to tell which from the artefact afterwards -- which is the entire failure this field
+    exists to prevent, so it raises instead of picking a winner."""
+    other = RetrieverProvenance(
+        name="strong-bm25", implementation_version="strong-bm25-v1", parameters_sha256="2" * 64
+    )
+    with pytest.raises(ValueError, match="disagrees"):
+        run_retriever_stage(
+            RetrieverSpy(provenance=other),
+            (_query("q-1"),),
+            (_gold("q-1"),),
+            dataset_signature="dataset-signature",
+            top_k=1,
+            retriever_provenance=BM25,
+        )
+
+
+def test_a_retriever_that_stamps_itself_identically_is_accepted() -> None:
+    run = run_retriever_stage(
+        RetrieverSpy(provenance=BM25),
+        (_query("q-1"),),
+        (_gold("q-1"),),
+        dataset_signature="dataset-signature",
+        top_k=1,
+        retriever_provenance=BM25,
+    )
+    assert run.candidate_sets[0].retriever == BM25
 
 
 def test_selector_runner_reorders_artifacts_and_resolves_original_evidence() -> None:
@@ -220,6 +278,7 @@ def test_runner_rejects_duplicate_queries_and_mismatched_gold() -> None:
             (_gold("q-1"),),
             dataset_signature="dataset-signature",
             top_k=1,
+            retriever_provenance=BM25,
         )
 
     with pytest.raises(ValueError, match="missing gold case for query ID: q-2"):
@@ -283,6 +342,7 @@ def test_retriever_stage_run_rejects_report_artifact_query_order_mismatch() -> N
         (_gold("q-1"), _gold("q-2")),
         dataset_signature="dataset-signature",
         top_k=1,
+        retriever_provenance=BM25,
     )
 
     with pytest.raises(ValueError, match="candidate set query order must match report"):
@@ -337,6 +397,7 @@ def test_generator_stage_run_rejects_report_artifact_query_order_mismatch() -> N
                 (_gold("q-1"),),
                 dataset_signature="dataset-signature",
                 top_k=1,
+                retriever_provenance=BM25,
             ),
             "retriever stage run requires a retriever report",
         ),
@@ -384,6 +445,7 @@ def test_stage_run_rejects_report_from_another_stage(
         (_gold("q-1"),),
         dataset_signature="dataset-signature",
         top_k=1,
+        retriever_provenance=BM25,
     ).report
     wrong_report = retriever_report if isinstance(run, GeneratorStageRun) else generator_report
 

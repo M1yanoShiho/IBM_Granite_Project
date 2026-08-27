@@ -1,0 +1,30 @@
+{
+  "claim_a": {
+    "label": "NOT SUPPORTED",
+    "rfc_rr_harm_gates": false,
+    "superiority_by_dataset": {
+      "alce-asqa": false,
+      "kilt-nq": false,
+      "kilt-tqa": false
+    },
+    "ucr_noninferiority_by_dataset": {
+      "alce-asqa": true,
+      "kilt-nq": false,
+      "kilt-tqa": true
+    }
+  },
+  "claim_b": {
+    "cp_cr_harm_gates": true,
+    "label": "NOT SUPPORTED",
+    "superiority_by_dataset": {
+      "alce-asqa": false,
+      "kilt-nq": false,
+      "kilt-tqa": false
+    },
+    "vrfc_noninferiority_by_dataset": {
+      "alce-asqa": true,
+      "kilt-nq": true,
+      "kilt-tqa": true
+    }
+  }
+}

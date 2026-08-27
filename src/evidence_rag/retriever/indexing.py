@@ -108,13 +108,16 @@ def write_index(
             parameters=parameters,
         ),
     )
-    (directory / SNAPSHOT_FILENAME).write_text(
-        _canonical_json(corpus) + "\n",
-        encoding="utf-8",
-    )
-    (directory / MANIFEST_FILENAME).write_text(
-        _canonical_json(manifest) + "\n",
-        encoding="utf-8",
+    # write_bytes, not write_text: text mode translates "\n" to os.linesep, so the same index
+    # persisted on Windows and on Linux differs by one byte per file. That is not cosmetic here
+    # -- `ExperimentWorkflow` records the sha256 of these files as `upstream_artifact_hashes`
+    # and rejects a run whose index no longer hashes to what was stored, so a platform-dependent
+    # byte makes a platform-dependent guard. The module docstring's "deterministic" has to mean
+    # deterministic across machines, not just across runs on one. Linux output is unchanged, so
+    # every index already built on the cluster keeps its recorded hash.
+    (directory / SNAPSHOT_FILENAME).write_bytes((_canonical_json(corpus) + "\n").encode("utf-8"))
+    (directory / MANIFEST_FILENAME).write_bytes(
+        (_canonical_json(manifest) + "\n").encode("utf-8")
     )
     return manifest
 

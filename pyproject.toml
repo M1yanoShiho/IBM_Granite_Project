@@ -4,8 +4,12 @@ build-backend = "hatchling.build"
 
 [project]
 name = "evidence-rag"
-version = "0.1.0"
-description = "Clean Retriever-Selector-Generator pipeline"
+version = "1.0.0"
+description = "Evidence-grounded Retriever-Selector-Generator research pipeline"
+readme = "README.md"
+authors = [{ name = "Evidence RAG project contributors" }]
+license = { file = "LICENSE" }
+license-files = ["LICENSE"]
 requires-python = ">=3.11,<3.12"
 dependencies = [
     "accelerate>=1.14.0",
@@ -13,10 +17,35 @@ dependencies = [
     "pydantic>=2.7,<3",
     "python-multipart>=0.0.32",
 ]
+keywords = ["retrieval-augmented generation", "evidence selection", "question answering"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Science/Research",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+   "Topic :: Scientific/Engineering :: Artificial Intelligence",
+ ]
+
+[project.urls]
+Homepage = "https://github.com/M1yanoShiho/IBM_Granite_Project"
+Repository = "https://github.com/M1yanoShiho/IBM_Granite_Project"
+Documentation = "https://github.com/M1yanoShiho/IBM_Granite_Project/tree/main/docs"
+Issues = "https://github.com/M1yanoShiho/IBM_Granite_Project/issues"
 
 [project.optional-dependencies]
+api = [
+  "fastapi>=0.141,<0.142",
+  "uvicorn>=0.52,<0.53",
+]
 benchmark = ["ir-datasets==0.5.11"]
+data-prep = [
+  "pandas>=2,<3",
+  "pyarrow>=16,<24",
+]
 granite = [
+  "nltk>=3.8,<4",
+  "peft>=0.13,<1",
+  "sentencepiece>=0.1.99,<0.3",
   "sentence-transformers>=3,<6",
   "torch>=2,<3",
   "transformers>=4.45,<5",
@@ -37,6 +66,7 @@ ui = ["fastapi>=0.110,<1", "uvicorn[standard]>=0.29,<1"]
 dev = [
   "build>=1.2,<2",
   "mypy>=1.10,<2",
+  "httpx2>=2.12,<2.13",
   # pillow duplicated from 'ingestion' so the real-PIL loader tests run
   # without the heavy docling stack; tests importorskip PIL either way.
   "pillow>=10,<12",
@@ -46,12 +76,15 @@ dev = [
 
 [project.scripts]
 evidence-rag-experiment = "evidence_rag.cli.experiment:main"
+evidence-rag-artifacts = "evidence_rag.cli.artifacts:main"
 evidence-rag-harm-report = "evidence_rag.evaluation.harm_cli:main"
 evidence-rag-ingest = "evidence_rag.cli.ingest:main"
 evidence-rag-load-niah-base = "evidence_rag.materializer.base_cli:main"
 evidence-rag-materialize-benchmark = "evidence_rag.cli.materialize_benchmark:main"
 evidence-rag-materialize-niah = "evidence_rag.materializer.cli:main"
+evidence-rag-selector-train = "evidence_rag.cli.run_selector_lean:main"
 evidence-rag-smoke = "evidence_rag.cli.smoke:main"
+evidence-rag-serve = "evidence_rag.cli.serve:main"
 
 [tool.hatch.build]
 include = ["src/evidence_rag/**"]

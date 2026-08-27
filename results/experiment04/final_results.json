@@ -1,0 +1,532 @@
+{
+  "claim_decisions": {
+    "dense_retriever_rar_contribution": "NO_OBSERVED_DIFFERENCE",
+    "grc_seed13_vs_direct_hotpotqa": "DIRECT_SIGNIFICANTLY_HIGHER",
+    "grc_seed13_vs_direct_musique": "DIRECT_SIGNIFICANTLY_HIGHER",
+    "grc_seed13_vs_direct_rgb": "DIRECT_DIRECTIONAL_ONLY_CI_INCLUDES_ZERO",
+    "nli_selector_rar_contribution": "NO_OBSERVED_DIFFERENCE",
+    "ours_rar_superiority": "NOT_SUPPORTED"
+  },
+  "formal_new_answer_generations": 11000,
+  "generated_sha256": {
+    "FINAL_TABLES.md": "51f26ce7fd8525a9bb218eaf55a7986294f31c2c2786ec05555cbc57dc222106",
+    "TABLE1.tex": "72acf29e27bc5c8b4fd6233185572c52614c851a64ecc2ee7bd047a648d97c03",
+    "TABLE2.tex": "250bac4bb1411289011454478255fe3d3127e9ab757992800eb270f837a619b3",
+    "summary_metrics.csv": "09708f1d10c1cbefccb8bf966d594ea4ada33c3d2cb13894dd73e941dadfb858"
+  },
+  "paired_bootstrap": {
+    "goal3": {
+      "datasets": {
+        "hotpotqa": {
+          "Dense RAG": {
+            "ci95_high": -0.01,
+            "ci95_low": -0.045,
+            "difference": -0.0275,
+            "method": "paired_component_cluster_percentile_bootstrap",
+            "n_components": 400,
+            "n_queries": 400,
+            "resamples": 10000,
+            "seed": 13
+          },
+          "Granite Rerank RAG": {
+            "ci95_high": -0.0175,
+            "ci95_low": -0.0575,
+            "difference": -0.0375,
+            "method": "paired_component_cluster_percentile_bootstrap",
+            "n_components": 400,
+            "n_queries": 400,
+            "resamples": 10000,
+            "seed": 13
+          },
+          "Hybrid RAG": {
+            "ci95_high": -0.015,
+            "ci95_low": -0.0525,
+            "difference": -0.0325,
+            "method": "paired_component_cluster_percentile_bootstrap",
+            "n_components": 400,
+            "n_queries": 400,
+            "resamples": 10000,
+            "seed": 13
+          },
+          "Provence RAG": {
+            "ci95_high": -0.005,
+            "ci95_low": -0.0375,
+            "difference": -0.02,
+            "method": "paired_component_cluster_percentile_bootstrap",
+            "n_components": 400,
+            "n_queries": 400,
+            "resamples": 10000,
+            "seed": 13
+          }
+        },
+        "musique-answerable": {
+          "Dense RAG": {
+            "ci95_high": -0.0025,
+            "ci95_low": -0.02,
+            "difference": -0.01,
+            "method": "paired_component_cluster_percentile_bootstrap",
+            "n_components": 400,
+            "n_queries": 400,
+            "resamples": 10000,
+            "seed": 13
+          },
+          "Granite Rerank RAG": {
+            "ci95_high": -0.0025,
+            "ci95_low": -0.02,
+            "difference": -0.01,
+            "method": "paired_component_cluster_percentile_bootstrap",
+            "n_components": 400,
+            "n_queries": 400,
+            "resamples": 10000,
+            "seed": 13
+          },
+          "Hybrid RAG": {
+            "ci95_high": -0.0025,
+            "ci95_low": -0.02,
+            "difference": -0.01,
+            "method": "paired_component_cluster_percentile_bootstrap",
+            "n_components": 400,
+            "n_queries": 400,
+            "resamples": 10000,
+            "seed": 13
+          },
+          "Provence RAG": {
+            "ci95_high": 0.0,
+            "ci95_low": -0.0075,
+            "difference": -0.0025,
+            "method": "paired_component_cluster_percentile_bootstrap",
+            "n_components": 400,
+            "n_queries": 400,
+            "resamples": 10000,
+            "seed": 13
+          }
+        },
+        "rgb-noise": {
+          "Dense RAG": {
+            "ci95_high": 0.0,
+            "ci95_low": 0.0,
+            "difference": 0.0,
+            "method": "paired_component_cluster_percentile_bootstrap",
+            "n_components": 300,
+            "n_queries": 300,
+            "resamples": 10000,
+            "seed": 13
+          },
+          "Granite Rerank RAG": {
+            "ci95_high": 0.0,
+            "ci95_low": -0.01,
+            "difference": -0.0033333333333333335,
+            "method": "paired_component_cluster_percentile_bootstrap",
+            "n_components": 300,
+            "n_queries": 300,
+            "resamples": 10000,
+            "seed": 13
+          },
+          "Hybrid RAG": {
+            "ci95_high": 0.0,
+            "ci95_low": -0.016666666666666666,
+            "difference": -0.006666666666666667,
+            "method": "paired_component_cluster_percentile_bootstrap",
+            "n_components": 300,
+            "n_queries": 300,
+            "resamples": 10000,
+            "seed": 13
+          },
+          "Provence RAG": {
+            "ci95_high": 0.0,
+            "ci95_low": 0.0,
+            "difference": 0.0,
+            "method": "paired_component_cluster_percentile_bootstrap",
+            "n_components": 300,
+            "n_queries": 300,
+            "resamples": 10000,
+            "seed": 13
+          }
+        }
+      },
+      "resamples": 10000,
+      "schema_version": "experiment04.paired_rar_bootstrap.v1",
+      "seed": 13
+    },
+    "goal4": {
+      "datasets": {
+        "hotpotqa": {
+          "w/ Dense Retriever": {
+            "ci95_high": 0.0,
+            "ci95_low": 0.0,
+            "difference": 0.0,
+            "method": "paired_component_cluster_percentile_bootstrap",
+            "n_components": 400,
+            "n_queries": 400,
+            "resamples": 10000,
+            "seed": 13
+          },
+          "w/ Direct Generator": {
+            "ci95_high": -0.015,
+            "ci95_low": -0.0525,
+            "difference": -0.0325,
+            "method": "paired_component_cluster_percentile_bootstrap",
+            "n_components": 400,
+            "n_queries": 400,
+            "resamples": 10000,
+            "seed": 13
+          },
+          "w/ Top-10": {
+            "ci95_high": 0.0,
+            "ci95_low": 0.0,
+            "difference": 0.0,
+            "method": "paired_component_cluster_percentile_bootstrap",
+            "n_components": 400,
+            "n_queries": 400,
+            "resamples": 10000,
+            "seed": 13
+          }
+        },
+        "musique-answerable": {
+          "w/ Dense Retriever": {
+            "ci95_high": 0.0,
+            "ci95_low": 0.0,
+            "difference": 0.0,
+            "method": "paired_component_cluster_percentile_bootstrap",
+            "n_components": 400,
+            "n_queries": 400,
+            "resamples": 10000,
+            "seed": 13
+          },
+          "w/ Direct Generator": {
+            "ci95_high": -0.0025,
+            "ci95_low": -0.02,
+            "difference": -0.01,
+            "method": "paired_component_cluster_percentile_bootstrap",
+            "n_components": 400,
+            "n_queries": 400,
+            "resamples": 10000,
+            "seed": 13
+          },
+          "w/ Top-10": {
+            "ci95_high": 0.0,
+            "ci95_low": 0.0,
+            "difference": 0.0,
+            "method": "paired_component_cluster_percentile_bootstrap",
+            "n_components": 400,
+            "n_queries": 400,
+            "resamples": 10000,
+            "seed": 13
+          }
+        },
+        "rgb-noise": {
+          "w/ Dense Retriever": {
+            "ci95_high": 0.0,
+            "ci95_low": 0.0,
+            "difference": 0.0,
+            "method": "paired_component_cluster_percentile_bootstrap",
+            "n_components": 300,
+            "n_queries": 300,
+            "resamples": 10000,
+            "seed": 13
+          },
+          "w/ Direct Generator": {
+            "ci95_high": 0.0,
+            "ci95_low": -0.016666666666666666,
+            "difference": -0.006666666666666667,
+            "method": "paired_component_cluster_percentile_bootstrap",
+            "n_components": 300,
+            "n_queries": 300,
+            "resamples": 10000,
+            "seed": 13
+          },
+          "w/ Top-10": {
+            "ci95_high": 0.0,
+            "ci95_low": 0.0,
+            "difference": 0.0,
+            "method": "paired_component_cluster_percentile_bootstrap",
+            "n_components": 300,
+            "n_queries": 300,
+            "resamples": 10000,
+            "seed": 13
+          }
+        }
+      },
+      "direction": "Full_minus_ablation",
+      "resamples": 10000,
+      "schema_version": "experiment04.goal4_paired_rar_bootstrap.v1",
+      "seed": 13
+    }
+  },
+  "schema_version": "experiment04.final_results.v1",
+  "source_sha256": {
+    "TABLE1.md": "ac3bef58cf0706deed915515a7e66ae6dbc92aafafeea4c23ac84bceea99378c",
+    "TABLE2.md": "d43539b422351fc62207aade63824a209bf6d9f63ca1607d556ef1a1597b2ef0",
+    "bootstrap_ci.json": "e27afbbec668e089dc83c7025814dd997b0c8c425ef96c33bf3c11e429099c56",
+    "bootstrap_goal4_ci.json": "11ac09489b171855e86ddbf3ed9e5465be75cecc92224504ca7badcfd10ade79",
+    "goal3_audit.json": "ed08403f2b3607693582964f795591083071b4562a9cce349304528aba0b487d",
+    "goal4_audit.json": "702d8d6754290f756446f45955b8792ab2a9468a330cac98c3d0c48a5d19a2ab",
+    "per_query_goal4_metrics.csv": "3c520c26d710deda9dbe86816319ac2b9a740d4931d156cf6430314efdcb12b0",
+    "per_query_metrics.csv": "ba7eb59b8eb6942852cf88065faed579c6080a1da9010a5c86ab1a8f899d97bf",
+    "table1.json": "6627247caa3109ee3c29b2de284ef3d67ad61dc93f330349ea97031bd07dae0f",
+    "table2.json": "f0e61ec0ade7f058890fb4981a9cc3ceae4cf1fc2ae05b0e0c58d4029517bcca"
+  },
+  "status": "FINAL PASS",
+  "table2_reused_full_rows": 1100,
+  "tables": {
+    "table1": {
+      "hotpotqa": [
+        {
+          "ans": 0.2677070925067632,
+          "cit": 0.4624642857142856,
+          "rar": 0.03,
+          "ret": 1.0,
+          "sel": 1.0,
+          "system": "Dense RAG"
+        },
+        {
+          "ans": 0.2600686957335708,
+          "cit": 0.452063492063492,
+          "rar": 0.035,
+          "ret": 1.0,
+          "sel": 1.0,
+          "system": "Hybrid RAG"
+        },
+        {
+          "ans": 0.2711623442664022,
+          "cit": 0.4694597069597068,
+          "rar": 0.04,
+          "ret": 1.0,
+          "sel": 1.0,
+          "system": "Granite Rerank RAG"
+        },
+        {
+          "ans": 0.24759645059219892,
+          "cit": 0.4761666666666666,
+          "rar": 0.0225,
+          "ret": 1.0,
+          "sel": 0.6168333333333331,
+          "system": "Provence RAG"
+        },
+        {
+          "ans": {
+            "mean": 0.13864985598117993,
+            "sample_sd": 0.003587251505809362
+          },
+          "cit": {
+            "mean": 0.6570337301587301,
+            "sample_sd": 0.046105667545731296
+          },
+          "rar": {
+            "mean": 0.0025,
+            "sample_sd": 0.0
+          },
+          "ret": 1.0,
+          "sel": 0.99875,
+          "system": "Ours"
+        }
+      ],
+      "musique-answerable": [
+        {
+          "ans": 0.15891040782966057,
+          "cit": 0.27884803921568635,
+          "rar": 0.01,
+          "ret": 0.8797916666666669,
+          "sel": 0.8789583333333336,
+          "system": "Dense RAG"
+        },
+        {
+          "ans": 0.1580589130302767,
+          "cit": 0.2782916666666666,
+          "rar": 0.01,
+          "ret": 0.8491666666666668,
+          "sel": 0.8491666666666668,
+          "system": "Hybrid RAG"
+        },
+        {
+          "ans": 0.1728774075092796,
+          "cit": 0.33118650793650795,
+          "rar": 0.01,
+          "ret": 0.8575000000000004,
+          "sel": 0.8575000000000004,
+          "system": "Granite Rerank RAG"
+        },
+        {
+          "ans": 0.14851816895929718,
+          "cit": 0.38205357142857144,
+          "rar": 0.0025,
+          "ret": 0.8491666666666668,
+          "sel": 0.41937500000000044,
+          "system": "Provence RAG"
+        },
+        {
+          "ans": {
+            "mean": 0.05697969994648448,
+            "sample_sd": 0.010818301266864129
+          },
+          "cit": {
+            "mean": 0.3802979196729196,
+            "sample_sd": 0.1269182213853379
+          },
+          "rar": {
+            "mean": 0.0,
+            "sample_sd": 0.0
+          },
+          "ret": 0.8491666666666668,
+          "sel": 0.8491666666666668,
+          "system": "Ours"
+        }
+      ],
+      "rgb-noise": [
+        {
+          "ans": 0.0,
+          "cit": 0.8045841569278105,
+          "rar": 0.0,
+          "ret": 0.4667065332990382,
+          "sel": 0.4624570886708602,
+          "system": "Dense RAG"
+        },
+        {
+          "ans": 0.006666666666666667,
+          "cit": 0.7911049864241353,
+          "rar": 0.006666666666666667,
+          "ret": 0.4785090095313425,
+          "sel": 0.4627403637569404,
+          "system": "Hybrid RAG"
+        },
+        {
+          "ans": 0.0033333333333333335,
+          "cit": 0.8175756083947576,
+          "rar": 0.0033333333333333335,
+          "ret": 0.52579077998668,
+          "sel": 0.49138753807481533,
+          "system": "Granite Rerank RAG"
+        },
+        {
+          "ans": 0.0,
+          "cit": 0.7346475191475198,
+          "rar": 0.0,
+          "ret": 0.4785090095313425,
+          "sel": 0.46489503203873256,
+          "system": "Provence RAG"
+        },
+        {
+          "ans": {
+            "mean": 0.0,
+            "sample_sd": 0.0
+          },
+          "cit": {
+            "mean": 0.906851851851852,
+            "sample_sd": 0.002245251046848575
+          },
+          "rar": {
+            "mean": 0.0,
+            "sample_sd": 0.0
+          },
+          "ret": 0.4785090095313425,
+          "sel": 0.4624839535005302,
+          "system": "Ours"
+        }
+      ]
+    },
+    "table2": {
+      "hotpotqa": [
+        {
+          "ans": 0.1345077033170641,
+          "cit": 0.6317499999999999,
+          "configuration": "Full",
+          "rar": 0.0025,
+          "ret": 1.0,
+          "sel": 0.99875
+        },
+        {
+          "ans": 0.13917140988861088,
+          "cit": 0.6646666666666665,
+          "configuration": "w/ Dense Retriever",
+          "rar": 0.0025,
+          "ret": 1.0,
+          "sel": 0.99875
+        },
+        {
+          "ans": 0.13527693408629488,
+          "cit": 0.6317499999999999,
+          "configuration": "w/ Top-10",
+          "rar": 0.0025,
+          "ret": 1.0,
+          "sel": 1.0
+        },
+        {
+          "ans": 0.2575686957335708,
+          "cit": 0.45289682539682535,
+          "configuration": "w/ Direct Generator",
+          "rar": 0.035,
+          "ret": 1.0,
+          "sel": 0.99875
+        }
+      ],
+      "musique-answerable": [
+        {
+          "ans": 0.0659754673356907,
+          "cit": 0.41527272727272707,
+          "configuration": "Full",
+          "rar": 0.0,
+          "ret": 0.8491666666666668,
+          "sel": 0.8491666666666668
+        },
+        {
+          "ans": 0.07053152710787257,
+          "cit": 0.4134393939393939,
+          "configuration": "w/ Dense Retriever",
+          "rar": 0.0,
+          "ret": 0.8797916666666669,
+          "sel": 0.8789583333333336
+        },
+        {
+          "ans": 0.0659754673356907,
+          "cit": 0.41527272727272707,
+          "configuration": "w/ Top-10",
+          "rar": 0.0,
+          "ret": 0.8491666666666668,
+          "sel": 0.8491666666666668
+        },
+        {
+          "ans": 0.1580589130302767,
+          "cit": 0.2782916666666666,
+          "configuration": "w/ Direct Generator",
+          "rar": 0.01,
+          "ret": 0.8491666666666668,
+          "sel": 0.8491666666666668
+        }
+      ],
+      "rgb-noise": [
+        {
+          "ans": 0.0,
+          "cit": 0.9055555555555557,
+          "configuration": "Full",
+          "rar": 0.0,
+          "ret": 0.4785090095313425,
+          "sel": 0.4624839535005302
+        },
+        {
+          "ans": 0.0,
+          "cit": 0.8947222222222223,
+          "configuration": "w/ Dense Retriever",
+          "rar": 0.0,
+          "ret": 0.4667065332990382,
+          "sel": 0.46220067841445
+        },
+        {
+          "ans": 0.0,
+          "cit": 0.9055555555555557,
+          "configuration": "w/ Top-10",
+          "rar": 0.0,
+          "ret": 0.4785090095313425,
+          "sel": 0.4627403637569404
+        },
+        {
+          "ans": 0.006666666666666667,
+          "cit": 0.7911049864241353,
+          "configuration": "w/ Direct Generator",
+          "rar": 0.006666666666666667,
+          "ret": 0.4785090095313425,
+          "sel": 0.4624839535005302
+        }
+      ]
+    }
+  }
+}

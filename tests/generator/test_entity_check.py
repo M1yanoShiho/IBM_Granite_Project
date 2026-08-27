@@ -116,6 +116,28 @@ def test_missing_date_is_a_mismatch_but_an_unnamed_evidence_is_not() -> None:
     assert checker.check("Acme grew.", "The business grew.").consistent is True
 
 
+def test_benign_name_variants_match_but_swaps_still_fail() -> None:
+    # G3: tolerant name matching -- possessive/plural and partial-vs-full variants
+    # are the same entity, while a genuine swap (disjoint tokens) still mismatches.
+    checker = EntityConsistencyChecker()
+
+    # possessive vs plural surface form: "King's Mountain" ~ "Kings Mountain"
+    assert checker.check(
+        "The battle of King's Mountain was a Patriot victory.",
+        "The Battle of Kings Mountain was a decisive victory for the Patriots.",
+    ).consistent is True
+    # partial vs full: "Patriots" ~ "Patriot militia"
+    assert checker.check(
+        "The Patriots won.",
+        "The Patriot militia won the engagement.",
+    ).consistent is True
+    # a real swap is NOT masked by the tolerance
+    assert checker.check(
+        "Sir Garfield Sobers scored the runs.",
+        "Graham Gooch scored the runs.",
+    ).consistent is False
+
+
 def test_extractor_is_injectable() -> None:
     class StubExtractor:
         def extract(self, text: str) -> tuple[Entity, ...]:

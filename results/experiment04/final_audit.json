@@ -1,0 +1,48 @@
+{
+  "checks": {
+    "common_denominators_and_metric_bounds": "PASS",
+    "full_seed13_exact_metric_row_reuse": "PASS",
+    "goal3_12_paired_bootstrap_cells_exact_reproduction": "PASS",
+    "goal3_7700_rows_and_unique_keys": "PASS",
+    "goal3_pass_manifest_and_hashes": "PASS",
+    "goal4_4400_rows_and_unique_keys": "PASS",
+    "goal4_9_paired_bootstrap_cells_exact_reproduction": "PASS",
+    "goal4_pass_manifest_and_hashes": "PASS",
+    "latex_and_unified_csv_generated": "PASS",
+    "markdown_json_consistency": "PASS",
+    "new_heldout_generation_in_goal5": "NONE",
+    "selective_deletion_or_seed_selection": "NONE",
+    "table1_aggregates_mean_and_sample_sd": "PASS",
+    "table2_aggregates": "PASS"
+  },
+  "counts": {
+    "formal_new_answer_generations": 11000,
+    "goal3_per_query_rows": 7700,
+    "goal4_reused_full_rows": 1100,
+    "goal4_table2_per_query_rows": 4400,
+    "paired_bootstrap_cells": 21,
+    "summary_metric_rows": 135
+  },
+  "generated_sha256": {
+    "FINAL_REPORT.md": "e16d36c57dce186a87c7599aa730f727098f4a83a3a14115cd429609bf5bca21",
+    "FINAL_TABLES.md": "51f26ce7fd8525a9bb218eaf55a7986294f31c2c2786ec05555cbc57dc222106",
+    "TABLE1.tex": "72acf29e27bc5c8b4fd6233185572c52614c851a64ecc2ee7bd047a648d97c03",
+    "TABLE2.tex": "250bac4bb1411289011454478255fe3d3127e9ab757992800eb270f837a619b3",
+    "final_results.json": "6812f648857d54f4de25208b3e9d2a201d7098537303703aebc0ff325bcef23d",
+    "summary_metrics.csv": "09708f1d10c1cbefccb8bf966d594ea4ada33c3d2cb13894dd73e941dadfb858"
+  },
+  "schema_version": "experiment04.final_audit.v1",
+  "source_sha256": {
+    "TABLE1.md": "ac3bef58cf0706deed915515a7e66ae6dbc92aafafeea4c23ac84bceea99378c",
+    "TABLE2.md": "d43539b422351fc62207aade63824a209bf6d9f63ca1607d556ef1a1597b2ef0",
+    "bootstrap_ci.json": "e27afbbec668e089dc83c7025814dd997b0c8c425ef96c33bf3c11e429099c56",
+    "bootstrap_goal4_ci.json": "11ac09489b171855e86ddbf3ed9e5465be75cecc92224504ca7badcfd10ade79",
+    "goal3_audit.json": "ed08403f2b3607693582964f795591083071b4562a9cce349304528aba0b487d",
+    "goal4_audit.json": "702d8d6754290f756446f45955b8792ab2a9468a330cac98c3d0c48a5d19a2ab",
+    "per_query_goal4_metrics.csv": "3c520c26d710deda9dbe86816319ac2b9a740d4931d156cf6430314efdcb12b0",
+    "per_query_metrics.csv": "ba7eb59b8eb6942852cf88065faed579c6080a1da9010a5c86ab1a8f899d97bf",
+    "table1.json": "6627247caa3109ee3c29b2de284ef3d67ad61dc93f330349ea97031bd07dae0f",
+    "table2.json": "f0e61ec0ade7f058890fb4981a9cc3ceae4cf1fc2ae05b0e0c58d4029517bcca"
+  },
+  "status": "FINAL PASS"
+}

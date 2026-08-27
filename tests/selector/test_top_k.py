@@ -37,3 +37,14 @@ def test_empty_candidates_return_empty_selection() -> None:
         max_selected=2,
     )
     assert result.items == ()
+
+
+def test_topk_preserves_frozen_rank_when_scores_disagree() -> None:
+    candidates = CandidateSet(
+        query_id="q-3",
+        candidates=(candidate("rank-one", 0.1, 1), candidate("rank-two", 0.9, 2)),
+    )
+    result = TopKSelector().select(
+        Query(query_id="q-3", text="question"), candidates, max_selected=2
+    )
+    assert [item.evidence_id for item in result.items] == ["rank-one", "rank-two"]

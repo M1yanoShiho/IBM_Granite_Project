@@ -4,6 +4,7 @@ from typing import TypeVar
 from evidence_rag.contracts.models import (
     CandidateSet,
     Query,
+    RetrieverProvenance,
     SelectedEvidenceSet,
 )
 from evidence_rag.contracts.protocols import Generator, Retriever, Selector
@@ -65,7 +66,17 @@ def run_retriever_stage(
     *,
     dataset_signature: str,
     top_k: int,
+    retriever_provenance: RetrieverProvenance,
 ) -> RetrieverStageRun:
+    """Run retrieval and stamp every pool with the identity of what produced it (M0 §4).
+
+    `retriever_provenance` is keyword-only and has NO default. A candidate pool that does not
+    name its producer is indistinguishable from one built by a different retriever, and M0 §4's
+    freeze is the precondition for §3.5's G-FC baseline and §5.2's recall reference meaning
+    anything — so an unstamped pool must not be something a caller can produce by forgetting an
+    argument. The stamp happens in the loop that calls `retrieve`, which is why it is recorded
+    rather than inferred later.
+    """
     ordered_queries = tuple(queries)
     _validate_queries(ordered_queries)
     if top_k < 1:
@@ -83,7 +94,19 @@ def run_retriever_stage(
             raise ValueError("retriever returned the wrong query ID")
         if len(candidates.candidates) > top_k:
             raise ValueError("candidate count exceeds top_k")
-        candidate_sets.append(candidates)
+        if candidates.retriever is not None and candidates.retriever != retriever_provenance:
+            # Two statements of one fact: the index the retriever was loaded from, and whatever
+            # the retriever wrote on its own output. Silently overwriting either would leave an
+            # artefact that names a producer nobody can confirm, which is the failure this
+            # field exists to prevent, so neither wins.
+            raise ValueError(
+                f"retriever stamped {query.query_id} as {candidates.retriever.name!r} "
+                f"({candidates.retriever.implementation_version}), which disagrees with the "
+                f"index it was loaded from ({retriever_provenance.name!r}, "
+                f"{retriever_provenance.implementation_version}). One of the two is wrong and "
+                "the artefact could not say which afterwards (M0 §4)."
+            )
+        candidate_sets.append(candidates.model_copy(update={"retriever": retriever_provenance}))
     candidates_tuple = tuple(candidate_sets)
     return RetrieverStageRun(
         candidate_sets=candidates_tuple,

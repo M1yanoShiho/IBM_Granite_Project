@@ -56,10 +56,39 @@ def test_draft_generator_answers_using_selected_evidence() -> None:
 
     assert answer == "Revenue increased by ten percent."
     assert "What changed?" in llm.prompts[0]
-    assert "Focus: 2024 performance" in llm.prompts[0]
-    assert "Required facts: revenue change" in llm.prompts[0]
-    assert "Constraints: exclude forecasts" in llm.prompts[0]
     assert "[1] (ev-1) Revenue increased by ten percent." in llm.prompts[0]
+    # completeness is retired as a runtime mechanism, so the checklist no longer
+    # steers the draft: comprehensiveness is asked for directly and measured in
+    # evaluation by qa_pairs STR-EM instead.
+    assert "Cover every part of the question" in llm.prompts[0]
+    assert "End every factual sentence with the bracketed number" in llm.prompts[0]
+    assert "Required facts:" not in llm.prompts[0]
+
+
+def test_draft_generator_requests_splitter_friendly_factual_sentences() -> None:
+    llm = FakeLLM("West Germany won the World Cup in 1954 [1].")
+    generator = DraftGenerator(llm=llm)
+    selected = SelectedEvidenceSet(
+        query_id="q-1",
+        evidence=(
+            evidence("ev-1", "West Germany won the World Cup in 1954."),
+        ),
+    )
+
+    generator.generate_answer(
+        Query(query_id="q-1", text="When did West Germany win?"),
+        checklist(),
+        selected,
+    )
+
+    prompt = llm.prompts[0]
+    assert "one independently verifiable factual claim per sentence" in prompt
+    assert "self-contained" in prompt
+    assert "Name the relevant entities, dates, quantities, and conditions" in prompt
+    assert "Avoid unresolved pronouns" in prompt
+    assert "Do not describe the answer, the evidence, or the sources" in prompt
+    assert "Do not include unsupported intermediate reasoning" in prompt
+    assert "End every factual sentence with" in prompt
 
 
 def test_draft_generator_rejects_query_id_mismatch() -> None:

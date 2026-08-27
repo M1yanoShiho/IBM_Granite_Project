@@ -16,7 +16,11 @@ from evidence_rag.generator.models import (
     RequiredFactCoverage,
     VerificationReport,
 )
-from evidence_rag.generator.verified import VerifiedGenerator
+from evidence_rag.generator.verified import (
+    VerifiedGenerator,
+    format_unconfirmed_disclosure,
+    is_unconfirmed_disclosure,
+)
 
 
 def evidence(evidence_id: str, text: str) -> EvidenceCandidate:
@@ -134,7 +138,9 @@ def test_verified_generator_runs_real_a1_a2_and_a3_components_together() -> None
 
     assert result.answer == "Revenue rose 8%."
     assert result.cited_evidence_ids == ("ev-1",)
-    assert "Constraints: exclude forecasts" in llm.prompts[0]
+    # the draft prompt no longer carries the checklist: completeness is retired as
+    # a runtime mechanism and comprehensiveness is asked for directly
+    assert "Cover every part of the question" in llm.prompts[0]
 
 
 def test_verified_generator_keeps_supported_answer_and_adds_found_gap() -> None:
@@ -311,7 +317,7 @@ def test_verified_generator_refuses_when_repair_and_recheck_find_nothing() -> No
     assert result.cited_evidence_ids == ()
 
 
-def test_verified_generator_refuses_partial_answer_when_required_fact_is_missing() -> None:
+def test_verified_generator_answers_partially_and_discloses_the_missing_fact() -> None:
     draft = DraftAnswer(
         query_id="q-1",
         answer_text="Revenue rose 8%.",
@@ -369,8 +375,142 @@ def test_verified_generator_refuses_partial_answer_when_required_fact_is_missing
         ),
     )
 
+    # partial answering: the confirmed claim is kept, the unconfirmable required
+    # fact is disclosed rather than costing the whole answer
+    assert result.answer.startswith("Revenue rose 8%.")
+    assert is_unconfirmed_disclosure(result.answer.split("Revenue rose 8%.")[1].strip())
+    assert "profit change" in result.answer
+    assert result.cited_evidence_ids == ("ev-1",)
+
+
+def test_verified_generator_abstains_when_nothing_at_all_is_confirmable() -> None:
+    """The disclosure never stands alone: it carries no citation, and a non-empty
+    answer without citations would violate GenerationResult."""
+    draft = DraftAnswer(
+        query_id="q-1",
+        answer_text="Revenue rose 8%.",
+        claims=(
+            Claim(
+                claim_id="claim-1",
+                text="Revenue rose 8%.",
+                span=ClaimSpan(start=0, end=16),
+                faithful_to_answer=True,
+            ),
+        ),
+    )
+    generator = VerifiedGenerator(
+        draft_generator=FixedDraftGenerator(draft),
+        verifier=FixedVerifier(
+            VerificationReport(
+                query_id="q-1",
+                claims=(
+                    ClaimVerification(
+                        claim_id="claim-1",
+                        status="unsupported",  # nothing survives repair
+                        supporting_evidence_ids=(),
+                        entity_consistent=True,
+                        contradicted=False,
+                    ),
+                ),
+                fact_coverage=(
+                    RequiredFactCoverage(
+                        required_fact="profit change",
+                        covered=False,
+                        gap_question="How did profit change?",
+                    ),
+                ),
+            )
+        ),
+        evidence_rechecker=FixedRechecker(
+            EvidenceRecheckResult(
+                required_fact="profit change",
+                found=False,
+                answer_fragment="",
+                evidence_ids=(),
+            )
+        ),
+    )
+
+    result = generator.generate(
+        Query(query_id="q-1", text="How did the company perform?"),
+        QueryChecklist(query_id="q-1", focus="performance", required_facts=("profit change",)),
+        SelectedEvidenceSet(query_id="q-1", evidence=(evidence("ev-1", "Revenue rose 8%."),)),
+    )
+
     assert result.answer == ""
     assert result.cited_evidence_ids == ()
+
+
+def test_malformed_recheck_is_downgraded_to_unconfirmed_not_fatal() -> None:
+    """A malformed recheck response cost 5.5% of G3 queries entirely, and those
+    failures skewed toward harder cases. Under partial answering it becomes
+    'this fact stayed unconfirmed' and is reported through the sink."""
+
+    class ExplodingRechecker:
+        def recheck(self, coverage, checklist, selected):  # type: ignore[no-untyped-def]
+            raise ValueError("recheck output must contain a boolean 'found'")
+
+    draft = DraftAnswer(
+        query_id="q-1",
+        answer_text="Revenue rose 8%.",
+        claims=(
+            Claim(
+                claim_id="claim-1",
+                text="Revenue rose 8%.",
+                span=ClaimSpan(start=0, end=16),
+                faithful_to_answer=True,
+            ),
+        ),
+    )
+    seen: list[tuple[str, Exception]] = []
+    generator = VerifiedGenerator(
+        draft_generator=FixedDraftGenerator(draft),
+        verifier=FixedVerifier(
+            VerificationReport(
+                query_id="q-1",
+                claims=(
+                    ClaimVerification(
+                        claim_id="claim-1",
+                        status="supported",
+                        supporting_evidence_ids=("ev-1",),
+                        entity_consistent=True,
+                        contradicted=False,
+                    ),
+                ),
+                fact_coverage=(
+                    RequiredFactCoverage(
+                        required_fact="profit change",
+                        covered=False,
+                        gap_question="How did profit change?",
+                    ),
+                ),
+            )
+        ),
+        evidence_rechecker=ExplodingRechecker(),
+        on_recheck_error=lambda fact, exc: seen.append((fact, exc)),
+    )
+
+    result = generator.generate(
+        Query(query_id="q-1", text="How did the company perform?"),
+        QueryChecklist(query_id="q-1", focus="performance", required_facts=("profit change",)),
+        SelectedEvidenceSet(query_id="q-1", evidence=(evidence("ev-1", "Revenue rose 8%."),)),
+    )
+
+    assert result.answer.startswith("Revenue rose 8%.")
+    assert "profit change" in result.answer  # disclosed, not silently dropped
+    assert result.cited_evidence_ids == ("ev-1",)
+    assert [fact for fact, _ in seen] == ["profit change"]
+
+
+def test_disclosure_helpers_round_trip_and_are_recognisable() -> None:
+    disclosure = format_unconfirmed_disclosure(("profit change", "headcount."))
+
+    assert disclosure == (
+        "Not confirmed from the provided documents: profit change; headcount."
+    )
+    assert is_unconfirmed_disclosure(disclosure)
+    assert not is_unconfirmed_disclosure("Revenue rose 8%.")
+    assert format_unconfirmed_disclosure(()) == ""
 
 
 def test_verified_generator_rejects_recheck_citing_unselected_evidence() -> None:

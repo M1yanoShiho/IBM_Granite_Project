@@ -1,7 +1,14 @@
 import pytest
 
 from evidence_rag.relations.models import RelationLabel
-from evidence_rag.relations.predictor import NLIRelationPredictor, ScoreFn, text_hash
+from evidence_rag.relations.predictor import (
+    NLIRelationPredictor,
+    ScoreFn,
+    fingerprinted_version,
+    require_fingerprinted_version,
+    text_hash,
+    weight_fingerprint,
+)
 
 
 def _scores(mapping: dict[tuple[str, str], dict[str, float]]) -> ScoreFn:
@@ -17,48 +24,70 @@ def _predictor(mapping: dict[tuple[str, str], dict[str, float]]) -> NLIRelationP
 
 def test_argmax_picks_the_highest_scoring_class() -> None:
     prediction = _predictor(
-        {("p", "h"): {"SUPPORTS": 0.7, "REFUTES": 0.2, "UNKNOWN": 0.1}}
+        {("p", "h"): {"SUPPORTS": 0.7, "NOT_SUPPORTED": 0.3}}
     ).predict([("p", "h")])[0]
     assert prediction.label is RelationLabel.SUPPORTS
     assert prediction.confidence == pytest.approx(0.7)
     assert prediction.model_version == "fake-1"
 
 
-def test_refutes_is_selected_when_it_leads() -> None:
+def test_not_supported_is_selected_when_it_leads() -> None:
     prediction = _predictor(
-        {("p", "h"): {"SUPPORTS": 0.1, "REFUTES": 0.8, "UNKNOWN": 0.1}}
+        {("p", "h"): {"SUPPORTS": 0.1, "NOT_SUPPORTED": 0.9}}
     ).predict([("p", "h")])[0]
-    assert prediction.label is RelationLabel.REFUTES
+    assert prediction.label is RelationLabel.NOT_SUPPORTED
 
 
-def test_unknown_is_a_predicted_class_not_a_threshold() -> None:
+def test_not_supported_is_a_predicted_class_not_a_threshold() -> None:
     """A near-uniform distribution still yields the argmax, not an abstention — abstention has
-    to be something the model predicts, or the gate acquires an absolute scale."""
+    to be something the model predicts, or the gate acquires an absolute scale (M0 §9.5a)."""
     prediction = _predictor(
-        {("p", "h"): {"SUPPORTS": 0.34, "REFUTES": 0.33, "UNKNOWN": 0.33}}
+        {("p", "h"): {"SUPPORTS": 0.51, "NOT_SUPPORTED": 0.49}}
     ).predict([("p", "h")])[0]
     assert prediction.label is RelationLabel.SUPPORTS
 
 
-def test_a_tie_resolves_to_unknown_never_to_supports() -> None:
+def test_a_tie_resolves_to_not_supported_never_to_supports() -> None:
     """A SUPPORTS edge is what makes a candidate droppable, so a coin-flip must not create one.
-    The failure direction of this design is silence."""
+    The failure direction of this design is silence (M0 §2.4, unchanged by A1)."""
     prediction = _predictor(
-        {("p", "h"): {"SUPPORTS": 0.5, "REFUTES": 0.0, "UNKNOWN": 0.5}}
+        {("p", "h"): {"SUPPORTS": 0.5, "NOT_SUPPORTED": 0.5}}
     ).predict([("p", "h")])[0]
-    assert prediction.label is RelationLabel.UNKNOWN
+    assert prediction.label is RelationLabel.NOT_SUPPORTED
 
 
-def test_a_supports_refutes_tie_resolves_to_refutes_not_supports() -> None:
-    prediction = _predictor(
-        {("p", "h"): {"SUPPORTS": 0.5, "REFUTES": 0.5, "UNKNOWN": 0.0}}
-    ).predict([("p", "h")])[0]
-    assert prediction.label is RelationLabel.REFUTES
+def test_a_mixed_output_space_is_rejected_rather_than_silently_resolved() -> None:
+    """A scorer offering keys from BOTH spaces must fail loudly.
+
+    After A2 two shapes are legitimate — three-class (M0 §2.1) and natively-binary (§10.6 cost 3)
+    — and they overlap on SUPPORTS. A subset check would let a collapsed three-class head pass as
+    binary; a superset check would make the winner depend on which tuple was tried first. Either
+    way the result is a plausible label rather than an error, so the match is exact.
+    """
+    predictor = _predictor(
+        {("p", "h"): {"SUPPORTS": 0.2, "NOT_SUPPORTED": 0.8, "REFUTES": 0.5, "UNKNOWN": 0.3}}
+    )
+    with pytest.raises(ValueError, match="match no output space exactly"):
+        predictor.predict([("p", "h")])
+
+
+def test_a_collapsed_three_class_head_cannot_be_caught_here_and_is_caught_by_the_tier() -> None:
+    """The regression A2 has to prevent, and an honest statement of where it is caught.
+
+    Collapsing at the checkpoint adapter was A1's behaviour, and it is exactly what made 0B-1
+    unevaluable (§9.11). Such a scorer still produces a WELL-FORMED binary key set, so the
+    predictor cannot tell a collapsed albert from a genuine MiniCheck and must not pretend to —
+    it resolves the binary space as asked. The guard lives one level up, in
+    `gate0b.external_report`, which refuses any arm whose predictions contain NOT_SUPPORTED.
+    """
+    predictor = _predictor({("p", "h"): {"SUPPORTS": 0.2, "NOT_SUPPORTED": 0.8}})
+    (prediction,) = predictor.predict([("p", "h")])
+    assert prediction.label is RelationLabel.NOT_SUPPORTED
 
 
 def test_hashes_are_recorded_for_every_edge() -> None:
     prediction = _predictor(
-        {("p", "h"): {"SUPPORTS": 1.0, "REFUTES": 0.0, "UNKNOWN": 0.0}}
+        {("p", "h"): {"SUPPORTS": 1.0, "NOT_SUPPORTED": 0.0}}
     ).predict([("p", "h")])[0]
     assert len(prediction.premise_hash) == 16
     assert len(prediction.hypothesis_hash) == 16
@@ -67,8 +96,8 @@ def test_hashes_are_recorded_for_every_edge() -> None:
 
 
 def test_missing_class_in_scores_is_an_error_not_a_silent_zero() -> None:
-    predictor = _predictor({("p", "h"): {"SUPPORTS": 1.0, "REFUTES": 0.0}})
-    with pytest.raises(ValueError, match="missing relation class"):
+    predictor = _predictor({("p", "h"): {"SUPPORTS": 1.0}})
+    with pytest.raises(ValueError, match="match no output space exactly"):
         predictor.predict([("p", "h")])
 
 
@@ -79,25 +108,60 @@ def test_empty_input_returns_empty_output() -> None:
 def test_predictions_are_returned_in_input_order() -> None:
     predictor = _predictor(
         {
-            ("p1", "h1"): {"SUPPORTS": 1.0, "REFUTES": 0.0, "UNKNOWN": 0.0},
-            ("p2", "h2"): {"SUPPORTS": 0.0, "REFUTES": 1.0, "UNKNOWN": 0.0},
+            ("p1", "h1"): {"SUPPORTS": 1.0, "NOT_SUPPORTED": 0.0},
+            ("p2", "h2"): {"SUPPORTS": 0.0, "NOT_SUPPORTED": 1.0},
         }
     )
     labels = [p.label for p in predictor.predict([("p1", "h1"), ("p2", "h2")])]
-    assert labels == [RelationLabel.SUPPORTS, RelationLabel.REFUTES]
+    assert labels == [RelationLabel.SUPPORTS, RelationLabel.NOT_SUPPORTED]
 
 
 def test_confidence_comes_from_the_winning_class_not_always_supports() -> None:
     """Every edge records a confidence as part of the frozen provenance, so a confidence taken
     from the wrong class corrupts the audit record silently while the label stays right."""
-    refutes = _predictor(
-        {("p", "h"): {"SUPPORTS": 0.1, "REFUTES": 0.8, "UNKNOWN": 0.1}}
+    not_supported = _predictor(
+        {("p", "h"): {"SUPPORTS": 0.1, "NOT_SUPPORTED": 0.8}}
     ).predict([("p", "h")])[0]
-    assert refutes.label is RelationLabel.REFUTES
-    assert refutes.confidence == pytest.approx(0.8)
+    assert not_supported.label is RelationLabel.NOT_SUPPORTED
+    assert not_supported.confidence == pytest.approx(0.8)
 
-    unknown = _predictor(
-        {("p", "h"): {"SUPPORTS": 0.2, "REFUTES": 0.1, "UNKNOWN": 0.7}}
+    supports = _predictor(
+        {("p", "h"): {"SUPPORTS": 0.7, "NOT_SUPPORTED": 0.2}}
     ).predict([("p", "h")])[0]
-    assert unknown.label is RelationLabel.UNKNOWN
-    assert unknown.confidence == pytest.approx(0.7)
+    assert supports.label is RelationLabel.SUPPORTS
+    assert supports.confidence == pytest.approx(0.7)
+
+
+def test_fingerprint_separates_checkpoints_that_differ_only_in_weight_VALUES() -> None:
+    """The poison case. Two fine-tuning seeds of one architecture share every parameter name,
+    shape and dtype and differ only in the numbers. A `model_version` that does not hash the
+    values lets the edge cache serve seed 13's edges under seed 42's name, which would silently
+    void the three-seed clause (M0 §5.4 / tracker R013-R015) with no metric able to notice."""
+    seed13 = (("encoder.weight|(2, 2)|float32", b"\x01\x02\x03\x04"),)
+    seed42 = (("encoder.weight|(2, 2)|float32", b"\x01\x02\x03\x05"),)
+    assert weight_fingerprint(seed13) != weight_fingerprint(seed42)
+
+
+def test_fingerprint_is_deterministic_and_order_independent() -> None:
+    """Two runs of the same checkpoint must hit the same cache entry, and `state_dict()` order
+    is not contractual."""
+    parts = (("a|(1,)|float32", b"\x00"), ("b|(1,)|float32", b"\x01"))
+    assert weight_fingerprint(parts) == weight_fingerprint(tuple(reversed(parts)))
+
+
+def test_fingerprinted_version_keeps_the_model_id_readable() -> None:
+    assert fingerprinted_version("tals/albert", "0123456789abcdef") == (
+        "tals/albert@0123456789abcdef"
+    )
+
+
+def test_a_hand_written_model_version_is_rejected() -> None:
+    """Defence in depth: the real fix is deriving the version from the weights, but a future
+    caller can still hand-write a label, so anything not carrying a fingerprint is refused."""
+    with pytest.raises(ValueError, match="not fingerprinted"):
+        require_fingerprinted_version("relation-builder-v1")
+
+
+def test_a_fingerprinted_version_is_accepted_and_returned() -> None:
+    version = fingerprinted_version("tals/albert", "0123456789abcdef")
+    assert require_fingerprinted_version(version) == version

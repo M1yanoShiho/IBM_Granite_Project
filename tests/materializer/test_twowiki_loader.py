@@ -64,6 +64,16 @@ def test_materialization_is_deterministic(tmp_path: Path) -> None:
     assert ids_a == ids_b
 
 
+def test_materialization_records_requested_split(tmp_path: Path) -> None:
+    result = materialize_2wiki(
+        _rows(), tmp_path, query_limit=10, seed=7, split="train"
+    )
+    bundle = JsonlDatasetAdapter.load(result.manifest_path)
+    assert bundle.manifest.split == "train"
+    assert bundle.manifest.dataset_version == "train-subsample-10"
+    assert all(document.source_uri.startswith("2wiki://train/") for document in bundle.documents)
+
+
 def test_cli_uses_injected_rows(tmp_path: Path) -> None:
     from evidence_rag.materializer.twowiki_cli import main
 
@@ -72,3 +82,32 @@ def test_cli_uses_injected_rows(tmp_path: Path) -> None:
     assert exit_code == 0
     bundle = JsonlDatasetAdapter.load(out / "manifest.json")
     assert {q.query_id for q in bundle.queries} == {"q1", "q2"}
+
+
+def test_cli_excludes_existing_query_ids(tmp_path: Path) -> None:
+    from evidence_rag.materializer.twowiki_cli import main
+
+    excluded = tmp_path / "excluded.jsonl"
+    excluded.write_text('{"query_id":"q1"}\n', encoding="utf-8")
+    out = tmp_path / "twowiki-heldout"
+    exit_code = main(
+        (
+            "--output",
+            str(out),
+            "--query-limit",
+            "10",
+            "--seed",
+            "1",
+            "--source-split",
+            "dev",
+            "--output-split",
+            "heldout",
+            "--exclude-queries",
+            str(excluded),
+        ),
+        rows=_rows(),
+    )
+    assert exit_code == 0
+    bundle = JsonlDatasetAdapter.load(out / "manifest.json")
+    assert bundle.manifest.split == "heldout"
+    assert {query.query_id for query in bundle.queries} == {"q2"}

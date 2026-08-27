@@ -1,4 +1,13 @@
-"""B4 -- completeness: does the draft answer cover every required fact?
+"""ABLATION-ONLY. Not on the live path.
+
+Part of the retired generate -> verify -> patch design (roles A/B), reached only
+through ``verified.VerifiedGenerator``, which exists solely as the ``verify-only``
+arm -- the published delete-filter baseline the main method is measured against.
+Deleting it would make that comparison irreproducible. The live path is
+``verify_annotate.VerifyAnnotateGenerator``; do not extend this code. See
+``docs/generator/design-review.md``.
+
+B4 -- completeness: does the draft answer cover every required fact?
 
 The other half of the checklist-driven loop (plan section 3, step 4). Where B2
 deletes what is unsupported, this finds what is *missing* and hands A4 a
@@ -12,14 +21,20 @@ from evidence_rag.generator.json_parsing import parse_json_object
 from evidence_rag.generator.models import RequiredFactCoverage
 
 COVERAGE_PROMPT = (
-    "Decide whether the answer already states the required fact.\n"
-    "If it does not, write one specific question that asks for exactly the missing fact.\n"
+    "Decide whether the answer satisfies the requirement below.\n"
+    "If it does not, write one specific question that asks for exactly what is missing.\n"
     "Return JSON only in this shape: "
     '{{"covered": false, "gap_question": "..."}} or {{"covered": true}}.\n\n'
-    "Required fact: {required_fact}\n"
+    "Requirement: {required_fact}\n"
     "Constraints: {constraints}\n\n"
     "Answer:\n{answer}"
 )
+"""Phrased against *requirements* because that is what the checklist now carries.
+
+``GraniteQueryAnalyzer`` emits coverage obligations ("The answer must specify the
+men's international record holder") rather than assertions, so asking whether the
+answer "states this fact" would be asking about the wrong kind of object. The
+placeholder name stays ``required_fact`` so no call site changes."""
 
 
 def fallback_gap_question(required_fact: str) -> str:

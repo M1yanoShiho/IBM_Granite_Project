@@ -95,6 +95,82 @@ def test_claim_splitter_anchors_paraphrased_source_text_to_a_sentence() -> None:
     assert answer[claims[0].span.start : claims[0].span.end] == answer
 
 
+def test_claim_splitter_keeps_abbreviations_and_decimals_in_one_fallback_span() -> None:
+    answer = "Dr. Smith reported growth of 3.14 percent. Revenue remained stable."
+    llm = FakeLLM(
+        [
+            '{"claims":[{"source_text":"Dr Smith reported 3.14% growth.",'
+            '"text":"Dr. Smith reported growth of 3.14 percent."}]}',
+            '{"results":[{"claim_id":"claim-1","faithful":true}]}',
+        ]
+    )
+
+    claims = ClaimSplitter(llm=llm).split(answer)
+
+    assert len(claims) == 1
+    assert answer[claims[0].span.start : claims[0].span.end] == (
+        "Dr. Smith reported growth of 3.14 percent."
+    )
+
+
+def test_claim_splitter_keeps_initialisms_in_one_fallback_span() -> None:
+    answer = "The U.S. team won the tournament. Revenue remained stable."
+    llm = FakeLLM(
+        [
+            '{"claims":[{"source_text":"The US team was victorious.",'
+            '"text":"The U.S. team won the tournament."}]}',
+            '{"results":[{"claim_id":"claim-1","faithful":true}]}',
+        ]
+    )
+
+    claims = ClaimSplitter(llm=llm).split(answer)
+
+    assert len(claims) == 1
+    assert answer[claims[0].span.start : claims[0].span.end] == (
+        "The U.S. team won the tournament."
+    )
+
+
+def test_faithfulness_checks_claim_against_the_located_answer_span() -> None:
+    answer = "Pfizer's revenue increased by eight percent this year."
+    llm = FakeLLM(
+        [
+            '{"claims":[{"source_text":"Revenue rose 8%.",'
+            '"text":"Pfizer revenue rose by 8% this year."}]}',
+            '{"results":[{"claim_id":"claim-1","faithful":true}]}',
+        ]
+    )
+
+    ClaimSplitter(llm=llm).split(answer)
+
+    faithfulness_prompt = llm.prompts[1]
+    assert answer in faithfulness_prompt
+    assert '"source_text": "Revenue rose 8%."' not in faithfulness_prompt
+
+
+def test_claim_splitter_can_anchor_two_paraphrased_claims_to_one_sentence() -> None:
+    answer = "Pfizer raised revenue and launched Product X."
+    llm = FakeLLM(
+        [
+            '{"claims":['
+            '{"source_text":"Revenue grew at Pfizer.","text":"Pfizer raised revenue."},'
+            '{"source_text":"Pfizer introduced Product X.",'
+            '"text":"Pfizer launched Product X."}]}',
+            '{"results":['
+            '{"claim_id":"claim-1","faithful":true},'
+            '{"claim_id":"claim-2","faithful":true}]}',
+        ]
+    )
+
+    claims = ClaimSplitter(llm=llm).split(answer)
+
+    assert [claim.text for claim in claims] == [
+        "Pfizer raised revenue.",
+        "Pfizer launched Product X.",
+    ]
+    assert all(answer[claim.span.start : claim.span.end] == answer for claim in claims)
+
+
 def test_claim_splitter_skips_unlocatable_claim() -> None:
     # a source_text that overlaps no answer sentence is dropped, not fatal, and
     # no faithfulness call is made because nothing was located
@@ -115,7 +191,7 @@ def test_claim_splitter_rejects_malformed_json_output() -> None:
     llm = FakeLLM(["not JSON"])
 
     with pytest.raises(ValueError, match="valid JSON"):
-        ClaimSplitter(llm=llm).split("Revenue rose.")
+        ClaimSplitter(llm=llm, degrade_on_failure=False).split("Revenue rose.")
 
 
 def test_claim_splitter_requires_one_faithfulness_result_per_claim() -> None:
@@ -128,7 +204,7 @@ def test_claim_splitter_requires_one_faithfulness_result_per_claim() -> None:
     )
 
     with pytest.raises(ValueError, match="exactly the split claims"):
-        ClaimSplitter(llm=llm).split("Revenue rose.")
+        ClaimSplitter(llm=llm, degrade_on_failure=False).split("Revenue rose.")
 
 
 def test_claim_splitter_skips_faithfulness_check_when_no_claims_are_found() -> None:
@@ -144,14 +220,98 @@ def test_claim_splitter_rejects_json_without_claims_array() -> None:
     llm = FakeLLM(['{"answer":"Revenue rose."}'])
 
     with pytest.raises(ValueError, match="claims array"):
-        ClaimSplitter(llm=llm).split("Revenue rose.")
+        ClaimSplitter(llm=llm, degrade_on_failure=False).split("Revenue rose.")
 
 
 def test_claim_splitter_rejects_claim_without_required_text_fields() -> None:
     llm = FakeLLM(['{"claims":[{"text":"Revenue rose."}]}'])
 
     with pytest.raises(ValueError, match="source_text and text"):
-        ClaimSplitter(llm=llm).split("Revenue rose.")
+        ClaimSplitter(llm=llm, degrade_on_failure=False).split("Revenue rose.")
+
+
+def test_claim_splitter_drops_meta_narrative_claims() -> None:
+    # "the information is sourced from..." talks about the answer, not the world
+    answer = "The festival ended on November 16. The information is sourced from the 2015 event details."
+    llm = FakeLLM(
+        [
+            '{"claims":['
+            '{"source_text":"The festival ended on November 16.","text":"The festival ended on November 16."},'
+            '{"source_text":"The information is sourced from the 2015 event details.",'
+            '"text":"The information is sourced from the 2015 event details."}]}',
+            '{"results":[{"claim_id":"claim-1","faithful":true}]}',
+        ]
+    )
+
+    claims = ClaimSplitter(llm=llm).split(answer)
+
+    assert [c.text for c in claims] == ["The festival ended on November 16."]
+    # the faithfulness call only ever saw the surviving claim
+    assert "sourced from" not in llm.prompts[1]
+
+
+def test_claim_splitter_drops_claims_with_an_unresolved_subject() -> None:
+    # "This film ..." is not self-contained: nothing downstream knows which film
+    answer = "The movie is titled Sunshine. This film aired on NBC in 1973."
+    llm = FakeLLM(
+        [
+            '{"claims":['
+            '{"source_text":"The movie is titled Sunshine.","text":"The movie is titled Sunshine."},'
+            '{"source_text":"This film aired on NBC in 1973.","text":"This film aired on NBC in 1973."}]}',
+            '{"results":[{"claim_id":"claim-1","faithful":true}]}',
+        ]
+    )
+
+    claims = ClaimSplitter(llm=llm).split(answer)
+
+    assert [c.text for c in claims] == ["The movie is titled Sunshine."]
+
+
+def test_claim_splitter_does_not_prefer_a_compound_claim_over_an_atomic_claim() -> None:
+    """Lexical length is not evidence of better decomposition.
+
+    The longer claim adds a second date and therefore a second fact. A2 must not
+    silently delete the atomic 1954 claim merely because most of its tokens also
+    occur in the compound claim; uncertain non-equivalent claims stay observable
+    for downstream verification.
+    """
+    answer = "West Germany won the World Cup in 1954 and again in 1974."
+    llm = FakeLLM(
+        [
+            '{"claims":['
+            '{"source_text":"West Germany won the World Cup in 1954","text":"West Germany won the World Cup in 1954."},'
+            '{"source_text":"West Germany won the World Cup in 1954 and again in 1974.",'
+            '"text":"West Germany won the World Cup in 1954 and again in 1974."}]}',
+            '{"results":['
+            '{"claim_id":"claim-1","faithful":true},'
+            '{"claim_id":"claim-2","faithful":true}]}',
+        ]
+    )
+
+    claims = ClaimSplitter(llm=llm).split(answer)
+
+    assert [claim.text for claim in claims] == [
+        "West Germany won the World Cup in 1954.",
+        "West Germany won the World Cup in 1954 and again in 1974.",
+    ]
+
+
+def test_claim_splitter_keeps_distinct_claims_about_the_same_subject() -> None:
+    # guard against the redundancy rule being too eager
+    answer = "Sunshine aired on NBC in 1973. Sunshine starred Cliff DeYoung and Cristina Raines."
+    llm = FakeLLM(
+        [
+            '{"claims":['
+            '{"source_text":"Sunshine aired on NBC in 1973.","text":"Sunshine aired on NBC in 1973."},'
+            '{"source_text":"Sunshine starred Cliff DeYoung and Cristina Raines.",'
+            '"text":"Sunshine starred Cliff DeYoung and Cristina Raines."}]}',
+            '{"results":[{"claim_id":"claim-1","faithful":true},{"claim_id":"claim-2","faithful":true}]}',
+        ]
+    )
+
+    claims = ClaimSplitter(llm=llm).split(answer)
+
+    assert len(claims) == 2
 
 
 def test_claim_splitter_rejects_faithfulness_output_without_results_array() -> None:
@@ -164,4 +324,4 @@ def test_claim_splitter_rejects_faithfulness_output_without_results_array() -> N
     )
 
     with pytest.raises(ValueError, match="results array"):
-        ClaimSplitter(llm=llm).split("Revenue rose.")
+        ClaimSplitter(llm=llm, degrade_on_failure=False).split("Revenue rose.")

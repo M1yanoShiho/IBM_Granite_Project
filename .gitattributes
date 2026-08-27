@@ -1,1 +1,5 @@
 tests/fixtures/** -text
+
+# Raw experiment artifacts: the bytes ARE the record, so never rewrite line endings
+# (same reason tests/fixtures is exempt above).
+results/** -text

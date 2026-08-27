@@ -12,7 +12,7 @@ from evidence_rag.composition import (
     build_retriever,
     build_selector,
     prepare_retriever_index,
-    source_parent_provenance,
+    retriever_provenance,
 )
 from evidence_rag.contracts.models import (
     CandidateSet,
@@ -36,7 +36,7 @@ from evidence_rag.infrastructure.config import (
     ModuleConfig,
     load_experiment_config,
 )
-from evidence_rag.infrastructure.corpus import CorpusBuilder, CorpusSnapshot
+from evidence_rag.infrastructure.corpus import CorpusBuilder, CorpusSnapshot, build_chunker
 from evidence_rag.infrastructure.datasets import DatasetBundle, JsonlDatasetAdapter
 from evidence_rag.retriever.indexing import IndexManifest, read_index_manifest
 
@@ -94,7 +94,13 @@ class ExperimentWorkflow:
     def __init__(self, config: ExperimentConfig, *, config_path: Path) -> None:
         self.config = config
         self.dataset: DatasetBundle = JsonlDatasetAdapter.load(config.dataset_manifest_path)
-        self.corpus: CorpusSnapshot = CorpusBuilder().build(
+        self.corpus: CorpusSnapshot = CorpusBuilder(
+            build_chunker(
+                config.chunker.name,
+                chunk_size=config.chunker.chunk_size,
+                overlap=config.chunker.overlap,
+            )
+        ).build(
             self.dataset.documents,
             self.dataset.dataset_signature,
         )
@@ -190,13 +196,19 @@ class ExperimentWorkflow:
             self.corpus,
             index_directory=self._index_directory,
         )
-        self._validate_stored_manifest(index_manifest=read_index_manifest(self._index_directory))
+        index_manifest = read_index_manifest(self._index_directory)
+        self._validate_stored_manifest(index_manifest=index_manifest)
+        # The pool records its own producer. `.metadata.json` already carried the retriever
+        # config, but a sidecar is a separate file: Gate 0A is handed a path to
+        # candidate_sets.jsonl, and a copied or concatenated pool arrives without it. M0 §4's
+        # freeze has to be checkable from the artefact that is actually read.
         run = run_retriever_stage(
             retriever,
             self.dataset.queries,
             self.dataset.gold_cases,
             dataset_signature=self.dataset.dataset_signature,
             top_k=self.config.top_k,
+            retriever_provenance=retriever_provenance(index_manifest),
         )
         self._write_jsonl(
             "candidate_sets.jsonl",
@@ -443,10 +455,6 @@ class ExperimentWorkflow:
         elif stage == "selector":
             module = self.config.selector
             parameters = {"max_selected": self.config.max_selected}
-            # The SAME_SOURCE sidecar is resolved from the environment, not the config, so
-            # its identity has to be recorded here or two runs against different sidecars
-            # would be indistinguishable in the archived provenance.
-            parameters.update(source_parent_provenance(self.config.selector))
         elif stage == "generator":
             module = self.config.generator
             parameters = {}

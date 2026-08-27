@@ -1,0 +1,10 @@
+{"schema_version":"1.0","document_id":"clean","text":"IBM acquired Red Hat in 2019.","source_uri":"fixture://three-module/clean"}
+{"schema_version":"1.0","document_id":"poison","text":"poison evidence says IBM acquired a different company in 2019.","source_uri":"fixture://three-module/poison"}
+{"schema_version":"1.0","document_id":"distractor-1","text":"Unrelated background document number 1.","source_uri":"fixture://three-module/distractor-1"}
+{"schema_version":"1.0","document_id":"distractor-2","text":"Unrelated background document number 2.","source_uri":"fixture://three-module/distractor-2"}
+{"schema_version":"1.0","document_id":"distractor-3","text":"Unrelated background document number 3.","source_uri":"fixture://three-module/distractor-3"}
+{"schema_version":"1.0","document_id":"distractor-4","text":"Unrelated background document number 4.","source_uri":"fixture://three-module/distractor-4"}
+{"schema_version":"1.0","document_id":"distractor-5","text":"Unrelated background document number 5.","source_uri":"fixture://three-module/distractor-5"}
+{"schema_version":"1.0","document_id":"distractor-6","text":"Unrelated background document number 6.","source_uri":"fixture://three-module/distractor-6"}
+{"schema_version":"1.0","document_id":"distractor-7","text":"Unrelated background document number 7.","source_uri":"fixture://three-module/distractor-7"}
+{"schema_version":"1.0","document_id":"distractor-8","text":"Unrelated background document number 8.","source_uri":"fixture://three-module/distractor-8"}
