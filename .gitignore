@@ -42,6 +42,10 @@ venv/
 /web/.next/
 /web/out/
 
+# Local dependency lock files
+/uv.lock
+/web/package-lock.json
+
 /.aris/
 
 # Runtime model artifacts live in HPC/model storage, never in Git.
