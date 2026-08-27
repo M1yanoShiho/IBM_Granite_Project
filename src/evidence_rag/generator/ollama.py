@@ -50,7 +50,7 @@ class OllamaStreamingGenerator:
 
         full_response = ""
         try:
-            async with httpx.AsyncClient(timeout=120) as client:
+            async with httpx.AsyncClient(timeout=120, trust_env=False) as client:
                 async with client.stream(
                     "POST",
                     f"{OLLAMA_HOST}/api/generate",

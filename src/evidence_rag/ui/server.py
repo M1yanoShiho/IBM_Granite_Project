@@ -60,17 +60,17 @@ class HealthResponse(BaseModel):
 
 
 class SettingsState(BaseModel):
-    retriever: str = "bm25"
-    selector: str = "top-k"
-    generator: str = "local"
+    retriever: str = "hybrid-rrf"
+    selector: str = "nli-protect-harm"
+    generator: str = "ollama"
     verifier: str = "off"
 
 
 _current_settings = SettingsState(
-    retriever=os.environ.get("DEFAULT_RETRIEVER", "bm25"),
-    selector=os.environ.get("DEFAULT_SELECTOR", "top-k"),
-    generator="local",
-    verifier=os.environ.get("NLI_BACKEND", "off"),
+    retriever="hybrid-rrf",
+    selector="nli-protect-harm",
+    generator="ollama",
+    verifier="off",
 )
 
 AVAILABLE = {
@@ -85,6 +85,11 @@ AVAILABLE = {
         {"id": "decompose", "label": "Decompose", "desc": "LLM sub-questions → RRF fusion"},
     ],
     "selectors": [
+        {
+            "id": "nli-protect-harm",
+            "label": "NLI Protect–Harm",
+            "desc": "NLI interface; explicit TopK10 fallback in demo mode",
+        },
         {"id": "top-k", "label": "Top-K", "desc": "Trim by retrieval rank"},
         {"id": "corroboration", "label": "Corroboration", "desc": "LLM answer clustering"},
         {"id": "gated-corroboration", "label": "Gated Corrob", "desc": "+ 4-condition gate"},
@@ -104,6 +109,30 @@ AVAILABLE = {
         {"id": "granite-8b", "label": "Granite 8B Judge", "desc": "GPU, recall .900 / FP .240"},
     ],
 }
+
+
+def _demo_nli_fallback_enabled() -> bool:
+    """Return whether the UI may explicitly substitute TopK10 for unavailable NLI."""
+
+    return os.environ.get("EVIDENCE_RAG_DEMO_NLI_FALLBACK", "1").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+def _selector_runtime() -> dict[str, str | bool | None]:
+    configured = _current_settings.selector
+    fallback = configured == "nli-protect-harm" and _demo_nli_fallback_enabled()
+    return {
+        "configured_selector": configured,
+        "effective_selector": "top-k" if fallback else configured,
+        "fallback_active": fallback,
+        "fallback_reason": "NLI checkpoint unavailable; demo uses TopK10"
+        if fallback
+        else None,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -332,7 +361,14 @@ def _get_pipeline() -> EvidenceRAGPipeline:
 
     # --- Select selector ---
     selector_name = _current_settings.selector
-    if selector_name == "corroboration":
+    if selector_name == "nli-protect-harm":
+        if not _demo_nli_fallback_enabled():
+            raise RuntimeError(
+                "NLI Protect–Harm requires its registered checkpoint; "
+                "set EVIDENCE_RAG_DEMO_NLI_FALLBACK=1 only for an explicit TopK10 demo fallback"
+            )
+        selector = TopKSelector()
+    elif selector_name == "corroboration":
         from evidence_rag.selector.corroboration import CorroborationSelector
         selector: Selector = CorroborationSelector(_shared_llm, alpha=0.6)
     elif selector_name in {"gated-corroboration", "gated-coverage"}:
@@ -351,7 +387,6 @@ def _get_pipeline() -> EvidenceRAGPipeline:
             equivalence="lenient",
         )
     else:
-        from evidence_rag.selector.top_k import TopKSelector
         selector = TopKSelector()
 
     # --- Generator — reuse shared LLM, optionally wrapped with verification ---
@@ -426,7 +461,11 @@ async def health() -> HealthResponse:
     try:
         _get_pipeline()
         status = "ready"
-        pipeline = f"bm25 + {_current_settings.selector} + {_current_settings.generator}"
+        runtime = _selector_runtime()
+        selector = str(runtime["configured_selector"])
+        if runtime["fallback_active"]:
+            selector += " (TopK10 fallback)"
+        pipeline = f"{_current_settings.retriever} + {selector} + {_current_settings.generator}"
     except RuntimeError as exc:
         status = f"unavailable: {exc}"
         pipeline = ""
@@ -495,19 +534,11 @@ async def delete_upload(name: str):
 @app.get("/config")
 async def get_config() -> dict:
     """Return available settings + current values."""
-    return {**AVAILABLE, "current": _current_settings.model_dump()}
-
-
-@app.put("/config")
-async def update_config(body: SettingsState):
-    """Update retriever/selector/verifier and rebuild the pipeline."""
-    global _current_settings
-    _current_settings = body
-    # Set NLI backend for VerifiedGenerator
-    if body.verifier != "off":
-        os.environ["NLI_BACKEND"] = body.verifier
-    _invalidate_pipeline()
-    return {"ok": True}
+    return {
+        **AVAILABLE,
+        "current": _current_settings.model_dump(),
+        "selector_runtime": _selector_runtime(),
+    }
 
 
 def _format_prompt(query_text: str, selected) -> str:
