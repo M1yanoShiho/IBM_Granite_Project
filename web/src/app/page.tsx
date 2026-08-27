@@ -39,6 +39,8 @@ export default function Home() {
   const [evidenceCollapsed, setEvidenceCollapsed] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const [viewingHistory, setViewingHistory] = useState(false);
+  const loadingHistoryRef = useRef(false);
 
   interface UploadedFile { name: string }
   const [files, setFiles] = useState<UploadedFile[]>([]);
@@ -77,6 +79,12 @@ export default function Home() {
   const lastSave = useRef("");
   useEffect(() => {
     if (!activeId) return;
+    // Switching conversations clears the live view before loading the saved
+    // messages. Never persist that transient empty state over history.
+    if (
+      loadingHistoryRef.current ||
+      (liveMessages.length === 0 && savedMessages.length > 0)
+    ) return;
     const json = JSON.stringify(liveMessages);
     if (json === lastSave.current) return;
     lastSave.current = json;
@@ -89,18 +97,19 @@ export default function Home() {
         updateTitle(t + (first.content.length > 40 ? "…" : ""));
       }
     }
-  }, [liveMessages, activeId, setMessages, savedTitle, updateTitle]);
+  }, [liveMessages, savedMessages, activeId, setMessages, savedTitle, updateTitle]);
 
   // Load history messages when switching conversations
   useEffect(() => {
-    if (activeId && savedMessages.length > 0) {
-      setMessagesFromHistory(savedMessages);
-      lastSave.current = JSON.stringify(savedMessages);
-    }
+    if (!activeId) return;
+    setMessagesFromHistory(savedMessages);
+    lastSave.current = JSON.stringify(savedMessages);
+    loadingHistoryRef.current = false;
   }, [activeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSwitch = useCallback(
     (id: string) => {
+      loadingHistoryRef.current = true;
       setViewingHistory(true);
       switchTo(id);
       clearChat();
@@ -109,6 +118,7 @@ export default function Home() {
   );
 
   const handleNew = useCallback(() => {
+    loadingHistoryRef.current = true;
     setViewingHistory(false);
     createConversation();
     clearChat();
@@ -118,9 +128,12 @@ export default function Home() {
     (text: string) => {
       if (!activeId) return;
       setViewingHistory(false);
+      // Save the question before the asynchronous SSE request starts so a
+      // backend/model failure cannot leave an answer-only history entry.
+      setMessages([...liveMessages, { role: "user", content: text }]);
       sendRaw(text);
     },
-    [activeId, sendRaw]
+    [activeId, liveMessages, sendRaw, setMessages]
   );
 
   const handleDelete = useCallback(
@@ -131,10 +144,6 @@ export default function Home() {
     [deleteConversation, activeId, clearChat]
   );
 
-  const handleSettingsChange = useCallback(() => {
-    clearChat();
-  }, [clearChat]);
-
   const handleCiteClick = useCallback(
     (evidenceId: string) => {
       if (evidenceCollapsed) setEvidenceCollapsed(false);
@@ -144,8 +153,6 @@ export default function Home() {
   );
 
   const isBusy = !["idle", "done"].includes(phase);
-  // Track whether we're viewing live results or history
-  const [viewingHistory, setViewingHistory] = useState(false);
   const isLive = !viewingHistory && liveMessages.length > 0 && phase !== "idle";
   const displayCandidates = isLive ? candidates : savedEvidence?.candidates ?? null;
   const displaySelection = isLive ? selection : savedEvidence?.selection ?? null;
@@ -166,7 +173,7 @@ export default function Home() {
       />
 
       <main className="flex-1 flex flex-col min-w-0">
-        <Header onSettingsChange={handleSettingsChange} />
+        <Header />
 
         <ChatView
           messages={liveMessages}

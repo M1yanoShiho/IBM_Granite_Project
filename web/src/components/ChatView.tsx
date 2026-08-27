@@ -158,7 +158,7 @@ export function ChatView({
                         },
                       }}
                     >
-                      {msg.content}
+                      {formatAssistantContent(msg.content)}
                     </ReactMarkdown>
                   </div>
                 ) : (
@@ -186,6 +186,15 @@ export function ChatView({
       )}
     </div>
   );
+}
+
+/** Keep answer text and its evidence declaration on separate display lines. */
+function formatAssistantContent(content: string): string {
+  const evidenceLabel = /(?:Evidence|证据)\s*[:：]/i.exec(content);
+  if (!evidenceLabel || evidenceLabel.index === 0) return content;
+  return `${content.slice(0, evidenceLabel.index).trimEnd()}\n\n${content
+    .slice(evidenceLabel.index)
+    .trimStart()}`;
 }
 
 /** Extract plain text from React children for citation matching. */

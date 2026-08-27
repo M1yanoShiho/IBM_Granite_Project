@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { PanelRightClose, PanelRightOpen } from "lucide-react";
 import type { CandidateSet, SelectionResult } from "@/lib/types";
 import { EvidenceCard } from "./EvidenceCard";
@@ -25,6 +25,14 @@ export function EvidencePanel({
   onHighlight,
 }: EvidencePanelProps) {
   const highlightRef = useRef<HTMLDivElement>(null);
+  const [nliFallbackActive, setNliFallbackActive] = useState(false);
+
+  useEffect(() => {
+    fetch("/config")
+      .then((response) => response.ok ? response.json() : null)
+      .then((config) => setNliFallbackActive(Boolean(config?.selector_runtime?.fallback_active)))
+      .catch(() => setNliFallbackActive(false));
+  }, [candidates]);
 
   // Scroll highlighted card into view
   useEffect(() => {
@@ -102,6 +110,7 @@ export function EvidencePanel({
                   isSelected={isSelected}
                   isCited={isCited}
                   highlighted={isHighlighted}
+                  nliFallbackActive={nliFallbackActive}
                   onClick={() =>
                     onHighlight(
                       highlightedId === c.evidence_id ? null : c.evidence_id

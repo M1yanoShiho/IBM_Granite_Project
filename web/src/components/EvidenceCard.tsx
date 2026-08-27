@@ -9,6 +9,7 @@ interface EvidenceCardProps {
   isSelected: boolean;
   isCited: boolean;
   highlighted: boolean;
+  nliFallbackActive: boolean;
   onClick: () => void;
 }
 
@@ -18,6 +19,7 @@ export function EvidenceCard({
   isSelected,
   isCited,
   highlighted,
+  nliFallbackActive,
   onClick,
 }: EvidenceCardProps) {
   return (
@@ -73,6 +75,19 @@ export function EvidenceCard({
               {candidate.retrieval_score.toFixed(4)}
             </span>
           </div>
+
+          {nliFallbackActive && (
+            <div className="mt-2 pt-2 border-t border-zinc-100 dark:border-zinc-800">
+              <div className="flex flex-wrap gap-1 text-[10px] font-mono">
+                <span className="rounded bg-green-50 px-1.5 py-0.5 text-green-700 dark:bg-green-950/40 dark:text-green-300">P N/A</span>
+                <span className="rounded bg-red-50 px-1.5 py-0.5 text-red-700 dark:bg-red-950/40 dark:text-red-300">H N/A</span>
+                <span className="rounded bg-amber-50 px-1.5 py-0.5 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">Risk N/A</span>
+              </div>
+              <p className="mt-1 text-[10px] font-medium text-amber-600 dark:text-amber-400">
+                {isSelected ? "RETAIN" : "DROP"} · TopK fallback (NLI not run)
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </button>
