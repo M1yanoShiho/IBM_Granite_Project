@@ -39,7 +39,7 @@ class TextGenerator(Protocol):
 
 @dataclass(frozen=True)
 class GraniteGenerationConfig:
-    max_new_tokens: int = 256
+    max_new_tokens: int = 128
     temperature: float = 0.0
     top_p: float = 1.0
     max_input_tokens: int | None = None
